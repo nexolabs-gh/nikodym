@@ -32,7 +32,8 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido**; copy público de la gobernanza
+alineado el 2026-09-09 (S5) | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -552,6 +553,28 @@ Corregido: la nota describe el aviso como salvedad —algo que le corresponde a 
 una brecha del motor— y remite el significado exacto de cada código a la referencia «Avisos
 declarados»; test de render con `PROV-3` que exige no atribuir imputación, nacido rojo.
 
+**Documentación pública de D-GOB (S5, 2026-09-09), sin enmienda.** El copy público decía desde 1.0
+«gobernanza (model card + audit-trail) automática» —README, portada y dos guías— y D-GOB-8 la dejó
+apagada de fábrica; remedido sobre `2641e43`: `governance` es `None` por defecto y en los cuatro
+presets, `audit` va encendido sólo en los presets y el lineage es de toda corrida. Y el quickstart
+publicado en siete superficies —`nikodym.run(config)` sobre el preset F1, sin `run_dir`— **falla
+hoy** con `ConfigError` por D-GOB-7/8 (reproducido; `run_dir` no existe en la 1.12.0 publicada, pero
+el sitio se construye desde `main` y ya publicaba esa API en la guía de provisiones, el CHANGELOG y
+la referencia). Corrección: el quickstart pasa `run_dir` y es un solo bloque en README, portada y
+«Empezar»; el copy distingue lo que viene solo (lineage), lo que traen encendido los presets
+(auditoría) y lo que se enciende (la ficha, con propósito); una guía nueva
+([`docs_site/guias/gobernanza.md`](../../docs_site/guias/gobernanza.md)) explica el interruptor,
+el propósito obligatorio, los supuestos y limitaciones en JSON, la periodicidad y lo que pinta
+«Ficha del modelo» en Resultados, sin prometer el capítulo del informe (abierto 3) ni la demo con
+ficha (D-GOB-9). Gates nacidos rojos: `test_docs_quickstart.py` ejecuta el quickstart y el tutorial
+tal como se publican y exige `run_dir=` en todo fragmento con preset; `test_docs_gobernanza.py`
+proscribe el automatismo, ata «apagada de fábrica» y «propósito obligatorio» al código, cita los
+rótulos reales del front y del config, ejecuta el ejemplo por código de la guía y ata el catálogo
+de trabajos de «Empezar» a `list_jobs()`. De paso: la portada afirmaba que el hash del `uv.lock`
+«viaja vacío» y `build_uv_lock_hash()` lo firma; «Empezar» fijaba «serie 1.10.x» a mano; la
+consultora se nombra Nexo Labs en todo el copy (`site_author` y la guía de provisiones decían
+otra cosa). La versión «1.12.0» de portada y referencia se mueve en la release (S6).
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
@@ -744,6 +767,12 @@ reimplementa por motor. El chequeo PIT de IFRS 9 es incondicional y ningún flag
   resumen en [`../../AGENTS.md`](../../AGENTS.md) y no se duplican aquí.
 - El índice [`00-INDICE.md`](00-INDICE.md) sigue siendo un mapa histórico de todo el diseño, no una
   fuente canónica de estados.
+- **Corrección de método (2026-09-09, S5, sin SDD): el sitio de documentación se construye con
+  `mkdocs build --strict` también en CI** (job `Docs` de `ci.yml`), no sólo en `deploy.yml`. Hasta
+  entonces un enlace roto o una página fuera del `nav` pasaba un CI verde y se descubría al
+  desplegar, con el deploy en rojo y `main` ya avanzado. Es el mismo comando en los dos sitios;
+  `deploy.yml` lo conserva porque publica exactamente lo que construye. Control negativo: un ancla
+  rota en una rama temporal puso rojo el job nuevo en CI y verde el resto.
 
 ## Evidencia histórica preservada
 

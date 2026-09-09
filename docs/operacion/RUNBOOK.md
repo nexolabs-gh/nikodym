@@ -352,7 +352,7 @@ Reglas de lectura del resultado:
 | UI/navegación/copy visible | recorrido en navegador por `127.0.0.1`, incluido el estado adversarial |
 | Bundle estático que se distribuye | además del cotejo por SHA-256, el clean-room B2.4: `web` → `pnpm test:e2e` con `NIKODYM_UI_URL` apuntando a un `nikodym-ui` levantado desde el wheel |
 | Distribución/release | wheel/sdist, contenido, instalación limpia y auditoría adversarial de todo el rango de release |
-| Docs | `& $nikodymPython -m mkdocs build --strict` y lectura del sitio generado en la página afectada |
+| Docs | `& $nikodymPython -m mkdocs build --strict` y lectura del sitio generado en la página afectada; después, y **nunca en paralelo** (`site/` está en `PUBLIC_COPY_TREES`), `& $nikodymPython -m pytest tests\unit\test_docs_quickstart.py tests\unit\test_docs_gobernanza.py tests\unit\test_docs_site_cifras.py tests\unit\test_public_copy.py tests\unit\test_readiness_h9r_copy_contract.py`; un bloque de código nuevo entra entre marcadores `<!-- nombre:start/end -->` para que un gate lo ejecute |
 | Driver de readiness | `& $nikodymPython -m mypy --strict scripts\measure_readiness_w1.py` y tests focales del arnés/supervisor |
 
 Regenerar schema/jobs no es recapturar la demo. Los scripts `capture_demo_fixtures*.py` sí lo son y
@@ -1116,12 +1116,13 @@ con shell en Windows, sin variable para elegir binario— y el broker compartido
 entorno. El `codex` del directorio de Node contractual es el shim de npm (0.148.0 el 2026-09-07)
 y no soporta el modelo fijado en `~/.codex/config.toml` (`gpt-6-astra`): el runtime devuelve
 `400 … requires a newer version of Codex`. La app de Codex instala su propio CLI en
-`%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe` (0.153.0 ese día), que sí lo soporta.
+`%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe` (0.153.0 ese día; 0.153.4 el 2026-09-09), que
+sí lo soporta.
 Anteponerlo al PATH **del proceso** antes de lanzar y comprobar con `cmd /c where codex` que el
 `.exe` va primero —es lo que `cmd.exe` ejecuta—; no editar `config.toml` ni instalar nada:
 
 ```powershell
-$env:PATH = 'C:\Users\camil\AppData\Local\OpenAI\Codex\bin\9ba750cce02d5e5c;' + $env:PATH
+$env:PATH = 'C:\Users\camil\AppData\Local\OpenAI\Codex\bin\8e5b6932251c2c1c;' + $env:PATH
 & cmd /c "where codex"
 & codex --version
 node "<companion>" adversarial-review --background --scope branch --base <sha>

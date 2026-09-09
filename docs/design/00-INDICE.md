@@ -5,7 +5,7 @@
 | **Documento** | Índice de Documentos de Diseño (SDD) |
 | **Versión** | 1.7 (protocolo pre-START H9R aprobado sólo para el arnés) |
 | **Fecha** | 2026-08-13 |
-| **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
+| **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.10 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
 > **Lectura actual:** este índice es histórico y no es autoridad de estado ni backlog. Varias
 > entradas preservan el rótulo que tenían al escribirse. Para saber qué quedó aprobado, qué

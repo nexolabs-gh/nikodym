@@ -100,6 +100,21 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- **El quickstart publicado corría con una llamada que ya no arranca.** README, la portada de la
+  documentación, «Empezar», el tutorial y tres guías ejecutaban el ejemplo de fábrica con
+  `nikodym.run(config)`; desde que los ejemplos traen la auditoría encendida, esa llamada se detiene
+  pidiendo `run_dir`. Los ejemplos pasan ahora `run_dir`, un test los ejecuta tal como se publican,
+  y README, portada y «Empezar» llevan el mismo bloque, byte a byte.
+
+- **La documentación prometía una gobernanza «automática».** README, portada y dos guías decían que
+  la model card y el audit-trail eran automáticos, cuando la ficha del modelo sólo se emite al
+  declarar un propósito y la sección llega apagada. El copy dice ahora qué viene solo (el lineage),
+  qué traen encendido los ejemplos de fábrica (la auditoría) y qué se enciende (la ficha), y una
+  guía nueva —«Gobernanza y ficha del modelo»— explica cómo encenderla desde la interfaz y qué
+  muestra Resultados. De paso: la portada afirmaba que el hash del `uv.lock` viajaba vacío en el
+  lineage, y el motor lo firma; «Empezar» fijaba a mano una serie de versión de dos releases atrás;
+  y el catálogo de trabajos de la interfaz se publica completo, con sus rótulos reales.
+
 - **El audit-trail ya no se escribe en el directorio desde el que se lanza la corrida.** Se escribía
   ahí pese a que su documentación decía «dentro del directorio del run», así que dos corridas
   lanzadas desde el mismo sitio **concatenaban sus eventos en el mismo archivo**, que es justo lo

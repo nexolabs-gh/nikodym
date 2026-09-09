@@ -10,6 +10,13 @@
 | **Licencia** | **Apache-2.0** (open-source) |
 | **Estado** | Nikodym `1.10.0` publicado; pipeline F1 estable y dominios CMF/IFRS 9/forward/stress experimentales. Parámetros CMF con validación humana pendiente pre-producción. |
 
+> **Lectura actual (2026-09-09):** este documento conserva el contrato del producto tal como quedó
+> en la foto del 2026-07-31 (`1.10.0`); no es la foto vigente de estado ni una cola de trabajo. Para
+> estado y próximo paso manda el `HANDOFF.md` interno; para decisiones cerradas y correcciones que
+> prevalecen, [`design/DECISIONES-VIGENTES.md`](design/DECISIONES-VIGENTES.md). Donde una frase de
+> aquí contradiga ese registro, prevalece el registro: el caso medido es §9, que describe la model
+> card como automática por corrida cuando D-GOB-8 la dejó apagada de fábrica.
+
 > El nombre **Nikodym** viene de la derivada de **Radon–Nikodym** (cambio de medida), el corazón matemático del riesgo cuantitativo. Es marca compartida con la consultora **Nikodym**.
 
 ---
@@ -286,6 +293,13 @@ Tres pilares: desarrollo sólido · **effective challenge** (validación indepen
 - **Inventario versionado** = MLflow Registry.
 - **Registro auditable de escenarios y overlays** (foco supervisor: evitar *earnings management*).
 - Pensado para validadores y reguladores (**CMF** / IFRS 9 / SR 11-7).
+
+> 🔴 **Corrección medida (2026-09-09, D-GOB-8).** La model card **no** es automática por corrida:
+> `governance` es `None` por defecto y en los cuatro presets, porque `purpose` es un dato que sólo
+> la institución puede fijar y el motor no lo inventa. Se emite cuando esa sección se declara —desde
+> la interfaz, con su interruptor y el propósito (D-GOB-10…16), o por código— y queda en `run_dir`
+> (`model_card.json` y `.md`, D-GOB-6). Lo automático en toda corrida es el lineage; el audit-trail
+> va encendido en los presets (D-GOB-8). El copy público lo dice así desde S5.
 
 ---
 
