@@ -8,9 +8,9 @@ distintas sobre un scorecard:
   PSI y CSI.
 
 Sobre ambos se apoya el tercer pilar, el que convierte a Nikodym en algo defendible frente a un
-validador interno o ante tu regulador: la **gobernanza por construcción** (lineage, model card,
-audit-trail y reproducibilidad bit a bit). Un número de AUC solo vale si se puede reproducir y
-trazar cómo se obtuvo.
+validador interno o ante tu regulador: la **gobernanza** —lineage y reproducibilidad bit a bit en
+toda corrida, audit-trail con la auditoría encendida y ficha del modelo cuando declaras el
+propósito—. Un número de AUC solo vale si se puede reproducir y trazar cómo se obtuvo.
 
 !!! note "Los números de esta guía"
     Todas las cifras concretas provienen de una **corrida de ejemplo** real (dataset sintético de
@@ -164,8 +164,10 @@ gracia del monitoreo es detectar cuándo un `mora_max_12m__points` cruza `0,10` 
 ## 3. Gobernanza: el diferenciador
 
 Aquí está el ángulo que separa a Nikodym de un notebook con `sklearn`. Cada corrida —además de las
-métricas— emite **evidencia auditable por construcción**, sin trabajo extra del analista. Es lo que
-un validador (SR 11-7) o tu regulador pide antes de aceptar un modelo en producción.
+métricas— emite **evidencia auditable**: el lineage siempre; el audit-trail con la auditoría
+encendida, como la traen los ejemplos de fábrica; y la ficha del modelo cuando tu institución
+declara el propósito. Es lo que un validador (SR 11-7) o tu regulador pide antes de aceptar un
+modelo en producción.
 
 ### Reproducibilidad bit a bit
 
@@ -191,11 +193,14 @@ README; es una invariante chequeada.
     calibración, umbrales), el `config_hash` es una huella completa. Dos corridas con el mismo
     hash sobre el mismo `data_hash` y `root_seed` son, por diseño, idénticas bit a bit.
 
-### Model card (SR 11-7)
+### Ficha del modelo (*model card*, SR 11-7)
 
-Cada corrida finalizada produce una **model card** (`nikodym.governance.ModelCard`): la ficha
-auditable del modelo, serializable a **JSON canónico** (para *diff* y control de versiones) y a
-**markdown** (para lectura humana). Reúne en un solo objeto lo que un comité de modelos necesita:
+Una corrida con la sección `governance` declarada produce una **ficha del modelo**
+(`nikodym.governance.ModelCard`): la ficha auditable del modelo, serializable a **JSON canónico**
+(para *diff* y control de versiones) y a **markdown** (para lectura humana). La sección llega
+apagada y exige un propósito, que sólo tu institución puede fijar; cómo se enciende desde la
+interfaz y qué muestra Resultados está en [Gobernanza y ficha del modelo](gobernanza.md). Reúne en
+un solo objeto lo que un comité de modelos necesita:
 
 - **Identidad y lineage**: `run_id`, `config_hash`, `data_hash`, `git_sha`, `root_seed`,
   `schema_version`.
@@ -224,8 +229,8 @@ auditable del modelo, serializable a **JSON canónico** (para *diff* y control d
 ### Por qué esto le habla a un regulador
 
 Un banco no compra un AUC alto: compra un modelo que pueda **defender** ante su regulador y ante su
-propia validación interna. Nikodym entrega, sin esfuerzo adicional del analista, exactamente lo
-que esos procesos exigen: identidad reproducible de cada corrida, propósito y limitaciones
+propia validación interna. Nikodym entrega, a cambio de una declaración de propósito, exactamente
+lo que esos procesos exigen: identidad reproducible de cada corrida, propósito y limitaciones
 documentados, métricas trazables a los datos y al código que las generó, decisiones registradas y
 un calendario de revisión. La gobernanza deja de ser un anexo que alguien redacta a mano después
 del modelo y pasa a ser un subproducto verificable de haberlo corrido.
@@ -251,7 +256,7 @@ preset = standard_preset()
 data_path = materialize(preset["dataset_id"], workdir=workdir)
 cfg = preset["config"]
 cfg["data"]["load"]["source"] = str(data_path)
-study = nikodym.run(NikodymConfig.model_validate(cfg))
+study = nikodym.run(NikodymConfig.model_validate(cfg), run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 
 # Discriminación: AUC / Gini / KS por partición.

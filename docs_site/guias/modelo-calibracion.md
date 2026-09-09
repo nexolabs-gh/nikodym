@@ -34,7 +34,8 @@ cfg_dict = preset["config"]
 cfg_dict["data"]["load"]["source"] = str(data_path)
 config = NikodymConfig.model_validate(cfg_dict)
 
-study = nikodym.run(config)
+# `run_dir` recibe la evidencia de la corrida (el preset trae la auditoría encendida).
+study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 ```
 

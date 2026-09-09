@@ -12,11 +12,16 @@ consume la UI. De ahí la propiedad central: `(datos + config + semilla) → res
 
 ## `run` → `Study`
 
-`nikodym.run(config)` es la superficie pública única de ejecución. Ensambla el *audit sink* y el
-inventario de modelos, corre el pipeline y devuelve un `Study`: el contenedor de la corrida con el
-`RunContext` (estado + lineage) y el `ArtifactStore` *namespaced* por dominio. Los resultados no
-viven en un `dict` plano sino en `study.artifacts.get(<dominio>, <clave>)` — p. ej.
-`("scorecard", "scorecard")` o `("performance", "discriminant_metrics")`.
+`nikodym.run(config, run_dir=...)` es la superficie pública única de ejecución. Ensambla el
+*audit sink* y el inventario de modelos, corre el pipeline y devuelve un `Study`: el contenedor de
+la corrida con el `RunContext` (estado + lineage) y el `ArtifactStore` *namespaced* por dominio.
+Los resultados no viven en un `dict` plano sino en `study.artifacts.get(<dominio>, <clave>)` —
+p. ej. `("scorecard", "scorecard")` o `("performance", "discriminant_metrics")`.
+
+`run_dir` es donde queda la evidencia de la corrida en disco: el audit-trail, el snapshot del
+entorno y, con gobernanza, la ficha del modelo. Sin `run_dir` la corrida no escribe nada; y como
+los cuatro ejemplos de fábrica traen la auditoría encendida, correrlos por código exige decir
+dónde va esa evidencia.
 
 ## El pipeline F1 (scorecard de comportamiento)
 
@@ -39,5 +44,12 @@ se monta encima del motor estándar; hay un caso de referencia implementado en
 ## Reproducibilidad y gobernanza
 
 Cada corrida emite un *lineage bundle* (git SHA + hash lógico de datos + `config_hash` + semilla +
-`uv.lock`) y un *audit-trail*, y produce una *model card* (SR 11-7). Reejecutar el mismo config con
-la misma semilla sobre los mismos datos reproduce el resultado bit a bit.
+hash del `uv.lock`) y, con la sección `audit` encendida —así la traen los cuatro ejemplos de
+fábrica—, un *audit-trail* con las decisiones que tomó el motor. La ficha del modelo (*model card*)
+es la tercera capa y la única que pide algo tuyo: la ficha del modelo sólo existe si declaras la
+sección `governance` con el propósito del modelo, porque ese dato lo fija tu institución y el motor
+no lo inventa. Desde la interfaz se enciende con un interruptor; por código, con `GovernanceConfig`
+y `run_dir`. El detalle está en [Gobernanza y ficha del modelo](guias/gobernanza.md).
+
+Reejecutar el mismo config con la misma semilla sobre los mismos datos reproduce el resultado bit a
+bit.

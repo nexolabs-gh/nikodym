@@ -134,7 +134,7 @@ columna**.
     máximo en tu propio proceso —con la salvedad del recuadro de arriba: ese último paso no queda
     en el rastro de auditoría del informe—.
 
-Si prefieres no hacer ese trabajo, lo hace **Nikodym Advisory** como integración. La librería
+Si prefieres no hacer ese trabajo, lo hace **Nexo Labs** como integración. La librería
 seguirá siendo gratuita y completa: lo que se paga es el aterrizaje, no el motor.
 
 !!! note "¿Y si mi país necesita un motor propio?"

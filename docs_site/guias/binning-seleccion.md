@@ -302,8 +302,9 @@ tabla_sel = study.artifacts.get("selection", "selection_table")    # decisión +
 vif = study.artifacts.get("selection", "vif_table")                # VIF final por variable
 ```
 
-Además, cada etapa deja una sección compacta para la *model card* (`binning_card` y
-`selection_card`), que es lo que consume la gobernanza automática (SR 11-7).
+Además, cada etapa deja una sección compacta para la ficha del modelo (`binning_card` y
+`selection_card`), que es lo que consume la gobernanza cuando la enciendes
+([Gobernanza y ficha del modelo](gobernanza.md)).
 
 ## Ver también
 

@@ -40,9 +40,11 @@ jurisdicción se aterriza encima**, y hay un caso de referencia implementado que
 
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`. Cada corrida
   emite un *lineage bundle* (git SHA, estado del working tree, hash del contenido de los datos,
-  `config_hash`, semilla raíz y versiones de las librerías). El hash del `uv.lock` está pendiente:
-  el campo viaja vacío y el *model card* lo declara como limitación.
-- **Gobernanza por construcción** (SR 11-7): *model card* y *audit-trail* automáticos.
+  `config_hash`, semilla raíz, hash del `uv.lock` con el que se construyó el paquete y versiones
+  de las librerías).
+- **Gobernanza que se enciende, no se inventa**: el lineage viaja en toda corrida y el
+  audit-trail en los ejemplos de fábrica; la ficha del modelo se emite cuando tu institución
+  declara el propósito, porque ese dato no lo puede inventar el motor.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: `import nikodym` no arrastra el stack ML; los backends pesados van tras
   *extras* opcionales con import perezoso.
@@ -78,11 +80,13 @@ abre el navegador. Detalle y opciones en
 
 ## Quickstart
 
-El experimento es un `NikodymConfig` declarativo; `nikodym.run(config)` lo ejecuta de extremo a
-extremo (binning → selección → modelo → scorecard → calibración → desempeño → estabilidad) y
-devuelve un [`Study`](api.md#study) reproducible. El siguiente ejemplo usa el **preset estándar F1**
-sobre un dataset sintético de consumo, así corre sin que rellenes ningún campo:
+El experimento es un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)` lo ejecuta de
+extremo a extremo (binning → selección → modelo → scorecard → calibración → desempeño →
+estabilidad), deja la evidencia de la corrida en `run_dir` y devuelve un
+[`Study`](api.md#study) reproducible. El siguiente ejemplo usa el **preset estándar F1** sobre un
+dataset sintético de consumo, así corre sin que rellenes ningún campo:
 
+<!-- quickstart:start -->
 ```python
 from pathlib import Path
 from tempfile import mkdtemp
@@ -102,15 +106,18 @@ cfg_dict = preset["config"]
 cfg_dict["data"]["load"]["source"] = str(data_path)
 config = NikodymConfig.model_validate(cfg_dict)
 
-# 3. Ejecuta la corrida completa y verifica el estado.
-study = nikodym.run(config)
+# 3. Ejecuta la corrida completa y verifica el estado ANTES de leer resultados. `run_dir` es
+#    donde queda su evidencia: el audit-trail que el preset trae encendido y, si declaras la
+#    sección `governance`, la ficha del modelo.
+study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 
 # 4. Accede a los resultados namespaced por dominio/clave.
-scorecard = study.artifacts.get("scorecard", "scorecard")        # tabla del scorecard
+scorecard = study.artifacts.get("scorecard", "scorecard")             # tabla del scorecard
 metrics = study.artifacts.get("performance", "discriminant_metrics")  # AUC/KS/Gini por partición
 print(metrics)
 ```
+<!-- quickstart:end -->
 
 `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
 `study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso

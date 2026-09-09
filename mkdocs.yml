@@ -3,7 +3,7 @@ site_description: >-
   Librería Python de riesgo de crédito: PD (scorecards, ML, survival), LGD y EAD, validación
   de modelos, provisiones IFRS 9/ECL, forward-looking y stress testing, con informe
   reproducible y su lineage.
-site_author: Nikodym
+site_author: Nexo Labs
 repo_url: https://github.com/nexolabs-gh/nikodym
 repo_name: nexolabs-gh/nikodym
 site_url: https://docs.nikodym.cl/
@@ -61,6 +61,7 @@ nav:
       - Binning y selección: guias/binning-seleccion.md
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md
+      - Gobernanza y ficha del modelo: guias/gobernanza.md
       - Reanudar con artefactos: guias/puerta-artefactos.md
       - Provisiones sin normativa local: guias/provision-sin-norma-local.md
   - Aterrizar una norma local: norma-local.md

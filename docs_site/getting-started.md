@@ -95,23 +95,24 @@ Comprueba que el núcleo importa y reporta versión:
 python -c "import nikodym; print(nikodym.__version__)"
 ```
 
-Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.10.x**). Que este
-comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
+Debe imprimir la versión instalada; la última publicada es la que anuncia la portada de esta
+documentación. Que este comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
 sus imports son perezosos. Para verificar que el extra `scoring` quedó disponible, la prueba real es
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
 `optbinning` de forma explícita, no en silencio.
 
 ## Primer contacto: correr el preset F1
 
-El experimento en Nikodym *es* un `NikodymConfig` declarativo; `nikodym.run(config)` lo ejecuta de
-extremo a extremo y devuelve un `Study` reproducible. El camino más corto para ver el motor
-funcionando es el **preset estándar F1**, que trae un config curado y un dataset sintético de
-consumo, así corre sin que rellenes ningún campo.
+El experimento en Nikodym *es* un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)`
+lo ejecuta de extremo a extremo, deja la evidencia de la corrida en `run_dir` y devuelve un `Study`
+reproducible. El camino más corto para ver el motor funcionando es el **preset estándar F1**, que
+trae un config curado y un dataset sintético de consumo, así corre sin que rellenes ningún campo.
 
 !!! note "Requiere el extra `scoring`"
     El preset F1 ejerce el pipeline de scorecard completo. Instala `pip install 'nikodym[scoring]'`
     antes de ejecutar el ejemplo.
 
+<!-- quickstart:start -->
 ```python
 from pathlib import Path
 from tempfile import mkdtemp
@@ -122,7 +123,7 @@ from nikodym.ui.datasets import materialize
 from nikodym.ui.presets import standard_preset
 
 # 1. Materializa el dataset sintético de consumo (determinista) en un workdir temporal.
-workdir = Path(mkdtemp(prefix="nikodym-primer-contacto-"))
+workdir = Path(mkdtemp(prefix="nikodym-quickstart-"))
 preset = standard_preset()
 data_path = materialize(preset["dataset_id"], workdir=workdir)
 
@@ -131,14 +132,18 @@ cfg_dict = preset["config"]
 cfg_dict["data"]["load"]["source"] = str(data_path)
 config = NikodymConfig.model_validate(cfg_dict)
 
-# 3. Ejecuta la corrida completa y verifica el estado ANTES de leer resultados.
-study = nikodym.run(config)
+# 3. Ejecuta la corrida completa y verifica el estado ANTES de leer resultados. `run_dir` es
+#    donde queda su evidencia: el audit-trail que el preset trae encendido y, si declaras la
+#    sección `governance`, la ficha del modelo.
+study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 
 # 4. Accede a los resultados namespaced por dominio/clave.
+scorecard = study.artifacts.get("scorecard", "scorecard")             # tabla del scorecard
 metrics = study.artifacts.get("performance", "discriminant_metrics")  # AUC/KS/Gini por partición
 print(metrics)
 ```
+<!-- quickstart:end -->
 
 El dataset del preset (`consumo_comportamiento`) es una cartera de consumo sintética de 6.000 filas,
 cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin datos reales.
@@ -169,11 +174,32 @@ nikodym-ui
 ```
 
 `nikodym-ui` sirve la interfaz en `http://127.0.0.1:8000` y abre el navegador. Lo primero que
-pregunta es **a qué viniste**: eliges un trabajo —«Scorecard de comportamiento», «Provisiones
-IFRS 9 / ECL», «Validar un modelo existente»…— o directamente uno de los ejemplos ya configurados.
-A partir de ahí el recorrido son cinco pasos: datos → configuración (opcional) → ejecutar →
-resultados → informe. Si prefieres armarlo tú, el catálogo ofrece esa salida y te deja en el
-formulario completo, sección por sección.
+pregunta es **a qué viniste**: eliges un trabajo del catálogo —o directamente uno de los ejemplos
+ya configurados— y la interfaz te muestra sólo las secciones que ese trabajo usa. A partir de ahí
+el recorrido son cinco pasos: datos → configuración (opcional) → ejecutar → resultados → informe.
+Si prefieres armarlo tú, el catálogo ofrece esa salida y te deja en el formulario completo,
+sección por sección.
+
+Los trabajos del catálogo, en el orden en que aparecen:
+
+<!-- catalogo-trabajos:start -->
+| Trabajo | Qué corre |
+|---|---|
+| **Scorecard de comportamiento (PD)** | El pipeline F1 completo: binning, selección, modelo, scorecard, calibración, desempeño, estabilidad e informe. |
+| **PD lifetime (curvas de supervivencia)** | Curvas de supervivencia sobre datos censurados y su estructura temporal de PD. |
+| **Provisiones CMF** | El caso de referencia de norma local: provisión por el método estándar de la norma chilena, con sus matrices por cartera. |
+| **Provisiones IFRS 9 / ECL** | Pérdida esperada de tres etapas: PD lifetime, LGD, EAD, staging por SICR y descuento a la tasa efectiva. |
+| **Provisión interna / LGD** | Provisión por el método interno sobre grupos homogéneos, a partir de la PD calibrada que traes como tabla. |
+| **PD + LGD en una corrida** | El scorecard completo y la provisión interna en una sola corrida y un solo informe. |
+| **Comparar provisiones (CMF vs. interna)** | La regla del máximo del caso de referencia: método estándar y método interno del banco, comparados por institución. |
+| **Validar un modelo existente** | Tu scorecard y tu PD, medidos y documentados: discriminación, calibración y estabilidad, sin volver a modelar. |
+| **Severidad modelada o calculada** | La LGD modelada con las variables de tu archivo, o calculada descontando lo que ya recuperaste. |
+| **Stress testing** | Escenarios adversos y shocks macro sobre la cartera. Hoy sólo por código: el motor corre desde Python y todavía no tiene pantalla. |
+<!-- catalogo-trabajos:end -->
+
+Todos comparten la sección **Gobernanza**, que llega apagada: encenderla pide el propósito del
+modelo y hace que Resultados muestre la ficha del modelo. Cómo se enciende y qué muestra está en
+[Gobernanza y ficha del modelo](guias/gobernanza.md).
 
 !!! note "`[ui]` trae lo que el formulario puede ejecutar"
     No es sólo el servidor: compone `scoring`, `survival`, `excel`, `docx` y `report`, así que los

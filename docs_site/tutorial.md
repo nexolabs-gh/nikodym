@@ -41,6 +41,7 @@ publicando artefactos bajo su dominio:
 La librería trae datasets sintéticos deterministas para probar el pipeline sin datos propios.
 `list_datasets()` los enumera; `materialize()` escribe el parquet en un *workdir*:
 
+<!-- tutorial-paso-1:start -->
 ```python
 from pathlib import Path
 from tempfile import mkdtemp
@@ -53,6 +54,7 @@ for ds in list_datasets():
 workdir = Path(mkdtemp(prefix="nikodym-tutorial-"))
 data_path = materialize("consumo_comportamiento", workdir=workdir)
 ```
+<!-- tutorial-paso-1:end -->
 
 Usaremos `consumo_comportamiento`: una **cartera de consumo de 6.000 filas** con cinco features de
 comportamiento (`ingreso_mensual`, `deuda_ingreso`, `utilizacion_linea`, `mora_max_12m`,
@@ -72,6 +74,7 @@ En vez de escribir el `NikodymConfig` a mano, el preset F1 curado trae un config
 consistente (esquema, partición por cohorte, binning, selección, modelo, scorecard, calibración,
 desempeño, estabilidad y reporte). Solo hay que apuntarlo al archivo de datos:
 
+<!-- tutorial-paso-2:start -->
 ```python
 from nikodym.core.config import NikodymConfig
 from nikodym.ui.presets import standard_preset
@@ -81,6 +84,7 @@ cfg_dict = preset["config"]
 cfg_dict["data"]["load"]["source"] = str(data_path)   # apunta al parquet materializado
 config = NikodymConfig.model_validate(cfg_dict)
 ```
+<!-- tutorial-paso-2:end -->
 
 Vale la pena saber qué decide este preset, porque son las palancas que editarías en un config propio:
 
@@ -97,14 +101,18 @@ Cifras — fixture `web/src/fixtures/demo/preset-f1.json`.
 
 ## Paso 3 — Correr y verificar el estado
 
-`nikodym.run(config)` ejecuta el pipeline completo y devuelve un `Study` reproducible:
+`nikodym.run(config, run_dir=...)` ejecuta el pipeline completo, deja la evidencia de la corrida en
+`run_dir` —el preset trae la auditoría encendida, así que hay que decir dónde va su audit-trail— y
+devuelve un `Study` reproducible:
 
+<!-- tutorial-paso-3:start -->
 ```python
 import nikodym
 
-study = nikodym.run(config)
+study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 ```
+<!-- tutorial-paso-3:end -->
 
 !!! warning "Chequea el estado siempre"
     `run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
@@ -358,10 +366,13 @@ audit-trail (`report_export_html`), de modo que el reporte es trazable a la corr
 
 !!! info "Gobernanza"
     Cada paso publica además su *card* (`study.artifacts.get("model", "model_card")`,
-    `("performance", "card")`, etc.) y toda la corrida emite su *lineage bundle* (git SHA + hash de datos
-    + `config_hash` + semilla + `uv.lock`). Reejecutar el mismo config con la misma semilla sobre los
-    mismos datos y en el mismo entorno (versiones de librerías / SO) reproduce el resultado —y el
-    reporte— bit a bit.
+    `("performance", "card")`, etc.), toda la corrida emite su *lineage bundle* (git SHA + hash de
+    datos + `config_hash` + semilla + hash del `uv.lock`) y, con la auditoría que el preset trae
+    encendida, su *audit-trail* queda en `run_dir`. La ficha del modelo no está en esta corrida: se
+    emite sólo cuando declaras la sección `governance` con el propósito del modelo — ver
+    [Gobernanza y ficha del modelo](guias/gobernanza.md). Reejecutar el mismo config con la misma
+    semilla sobre los mismos datos y en el mismo entorno (versiones de librerías / SO) reproduce el
+    resultado —y el reporte— bit a bit.
 
 ---
 

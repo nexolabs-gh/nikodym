@@ -8,7 +8,8 @@
 Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**: **PD** (scorecards,
 backends ML, survival), **LGD y EAD**, **validación de modelos**, provisiones **IFRS 9/ECL**,
 forward-looking y stress testing, con **informe reproducible** y su lineage. Todo en un motor
-**reproducible por construcción** y con gobernanza (model card + audit-trail) automática.
+**reproducible por construcción**, con lineage en cada corrida y una gobernanza —audit-trail y
+ficha del modelo (*model card*)— que se enciende con una declaración de propósito.
 Paquete: `nikodym`.
 
 Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa local de cada
@@ -118,11 +119,13 @@ pipeline de producción que promete PDF), pon `report.pdf.fail_if_unavailable = 
 
 ## Quickstart
 
-El experimento es un `NikodymConfig` declarativo; `nikodym.run(config)` lo ejecuta de extremo a
-extremo (binning → selección → modelo → scorecard → calibración → desempeño → estabilidad) y
-devuelve un `Study` reproducible. Este ejemplo usa el **preset estándar F1** sobre un dataset
-sintético de consumo, así corre sin rellenar ningún campo:
+El experimento es un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)` lo ejecuta de
+extremo a extremo (binning → selección → modelo → scorecard → calibración → desempeño →
+estabilidad), deja la evidencia de la corrida en `run_dir` y devuelve un `Study` reproducible.
+Este ejemplo usa el **preset estándar F1** sobre un dataset sintético de consumo, así corre sin
+rellenar ningún campo:
 
+<!-- quickstart:start -->
 ```python
 from pathlib import Path
 from tempfile import mkdtemp
@@ -142,8 +145,10 @@ cfg_dict = preset["config"]
 cfg_dict["data"]["load"]["source"] = str(data_path)
 config = NikodymConfig.model_validate(cfg_dict)
 
-# 3. Ejecuta la corrida completa y verifica el estado.
-study = nikodym.run(config)
+# 3. Ejecuta la corrida completa y verifica el estado ANTES de leer resultados. `run_dir` es
+#    donde queda su evidencia: el audit-trail que el preset trae encendido y, si declaras la
+#    sección `governance`, la ficha del modelo.
+study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 
 # 4. Accede a los resultados namespaced por dominio/clave.
@@ -151,6 +156,7 @@ scorecard = study.artifacts.get("scorecard", "scorecard")             # tabla de
 metrics = study.artifacts.get("performance", "discriminant_metrics")  # AUC/KS/Gini por partición
 print(metrics)
 ```
+<!-- quickstart:end -->
 
 `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
 `study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso
@@ -241,7 +247,9 @@ aquí se dicen igual de claro.
 ## Principios de diseño
 
 - **Reproducibilidad total**: misma entrada → resultado byte-idéntico, con lineage completo.
-- **Gobernanza por construcción** (SR 11-7): *model card* y *audit-trail* automáticos.
+- **Gobernanza que se enciende, no se inventa**: el lineage viaja en toda corrida y el
+  audit-trail en los ejemplos de fábrica; la ficha del modelo se emite cuando tu institución
+  declara el propósito, porque ese dato no lo puede inventar el motor.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: los backends pesados van tras *extras* con import perezoso.
 - **Una norma local nunca se funde con un estándar contable**: son motores separados, nunca uno
