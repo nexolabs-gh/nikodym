@@ -34,6 +34,7 @@
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
 | D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido**; copy público de la gobernanza
 alineado el 2026-09-09 (S5) | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-JUR-9 · D-SC-1…16 · D-PAR-1…9 | **Propuestas** el 2026-09-09 (S6, diseño sin código, a partir de las cuatro decisiones de Cami de ese día); **revisión adversarial ejecutada**: dieciséis pasadas de Codex sobre `40cb5a3..e24db91`, 21 hallazgos verificados y corregidos, la última **approve**; **pendientes del OK de Cami** —las preguntas exactas viven en el §8 de cada enmienda—. Nada de esto autoriza programar | [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md) · [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) · [`_ENMIENDA-PARIDAD-1-1.md`](_ENMIENDA-PARIDAD-1-1.md) |
 
 ## D-RDY — readiness integral
 
@@ -131,6 +132,13 @@ Reglas vigentes:
   por el informe y demostración sin normativa local.
 - B5 —validación humana de la evidencia normativa— sigue siendo trabajo de Cami, no una
   implementación automática del agente.
+- **Propuesta el 2026-09-09, no aprobada (D-JUR-9)**: el caso de referencia sale del **catálogo
+  por defecto** de la interfaz —los dos trabajos con jurisdicción y el preset F3 dejan de
+  ofrecerse; el motor, sus tests, su evidencia y la página se conservan— con el catálogo completo
+  en el cable y la oferta marcada, un opt-in del lanzador y la demo en F1/F4 hasta la recaptura de
+  la release. Diseño medido y revisado en
+  [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md); D-JUR-1…8 no se
+  reabren.
 
 Gates principales:
 [`test_portada_sin_jurisdiccion.py`](../../tests/unit/test_portada_sin_jurisdiccion.py),
@@ -693,7 +701,13 @@ para `clone()` de scikit-learn.
    es la `CardSection` `model.model_card` del anexo C.4 —el card del modelo PD, otra cosa— y el
    `purpose` del usuario no aparece, pese a que existe un capítulo «Limitaciones y supuestos».
    Entrar exige una enmienda propia contra SDD-26 (contrato de capítulos): no se cuela en
-   D-GOB-10…16.
+   D-GOB-10…16. ➡️ **Puesto en alcance por Cami el 2026-09-09** («scorecard completo») y
+   **propuesto** ese día en
+   [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) D-SC-13…16 (capítulo
+   «Ficha del modelo» desde las declaraciones de la institución, sin fabricar una segunda
+   ficha; medido que el `ModelCard` se construye **después** de `report`), pendiente del OK.
+
+
 4. ✅ **`_preparar_run_dir` apartaba el run anterior antes de saber si el reemplazo se construía**
    (`api.py`, D-GOB-6). Movía un destino no vacío a un respaldo lateral y creaba el nuevo **antes**
    de `assemble_run` y de la corrida; un error temprano —pedir inventario sin el extra `tracking`,
@@ -770,7 +784,7 @@ corpus histórico o de conocer un ID de memoria:
 | requisitos y resolución de parámetros | CRP-1…7 en [`_CONTRATO-RESOLUCION-PARAMETROS.md`](_CONTRATO-RESOLUCION-PARAMETROS.md), D-CRP6 en [`_ENMIENDA-CRP6-FLAG.md`](_ENMIENDA-CRP6-FLAG.md) y D-REQ en [`_ENMIENDA-REQUISITOS-DECLARADOS.md`](_ENMIENDA-REQUISITOS-DECLARADOS.md) |
 | decisiones obligatorias/respondidas | D-OBL en [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md) y D-RES en [`_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md`](_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md) |
 | evidencia normativa y segmentación | D-COT en [`_ENMIENDA-COTEJO-NORMATIVO.md`](_ENMIENDA-COTEJO-NORMATIVO.md), D-MAX en [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md) y D-SEG en [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md) |
-| resumen PSI y fronteras de estabilidad | A1/B1 en [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md): peor PSI score/PD con identidad y banda coherentes; `<stable`, `[stable, review)`, `≥review`. **Copy del resumen, decidido por Cami el 2026-09-03**: el rótulo «Peor PSI entre score y PD» se mantiene; los nombres de las tres bandas pasan a copy público en español (las palabras exactas se proponen y aprueban al implementar; hasta entonces `stable`/`review`/`redevelop` siguen en el motor). Cierra la única elección de producto que AGENTS.md citaba como abierta; queda pendiente de implementación |
+| resumen PSI y fronteras de estabilidad | A1/B1 en [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md): peor PSI score/PD con identidad y banda coherentes; `<stable`, `[stable, review)`, `≥review`. **Copy del resumen, decidido por Cami el 2026-09-03**: el rótulo «Peor PSI entre score y PD» se mantiene; los nombres de las tres bandas pasan a copy público en español (las palabras exactas se proponen y aprueban al implementar; hasta entonces `stable`/`review`/`redevelop` siguen en el motor). Cierra la única elección de producto que AGENTS.md citaba como abierta; queda pendiente de implementación. **Palabras propuestas el 2026-09-09** en [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) D-SC-11 («Estable · Revisar · Redesarrollar · No evaluable», una fuente en Python con espejo gateado en el front; medido que hoy conviven dos vocabularios y los slugs en la guía), pendientes del OK |
 | frontera del diagnóstico IV | IV-A1 en [`_ENMIENDA-AUDIT-IV-FRONTERA.md`](_ENMIENDA-AUDIT-IV-FRONTERA.md): banda, selección y evento `iv_sospechoso` incluyen IV=0,50; el evento sólo diagnostica, no elimina |
 
 Regla CRP especialmente fácil de romper: `fail_on_falta_dato` significa en las siete capas “una

@@ -1143,6 +1143,17 @@ plugin antes de relanzar, desde PowerShell en la raíz del repo:
 ``` Lanzar desde PowerShell sin `2>&1` (§2). Un job que quedó «running» con PID
 muerto en `status --all` es cosmético: no bloquea revisiones nuevas.
 
+Dos precisiones medidas el 2026-09-09 (dieciséis lanzamientos seguidos, plugin 1.0.6):
+
+- `bin\` puede tener **más de un directorio** y no todos traen `codex.exe` (ese día convivían
+  `c0252f2c8d5faf9a`, vacío, y `fd4c151a749f3ab4`, con el 0.153.4): elegir el que tenga el
+  ejecutable, no el más reciente por nombre.
+- Con `--background` el companion **igual corre hasta el final en el mismo proceso** y escribe el
+  informe entero por stdout (2–4 min por pasada sobre tres documentos de diseño). No hace falta
+  sondear `status`: capturar la salida a un archivo UTF-8 sin BOM y filtrar las líneas `[codex]`;
+  `status --all --json` y `result <id>` siguen sirviendo para recuperar un informe pasado (el id
+  sale de `latestFinished`).
+
 **Prohibido mientras Claude sea el writer:** `/codex:rescue` y el subagente `codex:codex-rescue`.
 Ese comando **sí** es invocable por el modelo y su subagente añade `--write` por defecto, de modo
 que un descuido crea un segundo writer sobre el mismo checkout.
