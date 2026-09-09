@@ -143,6 +143,18 @@
     flag no interviene (`evaluator.py:418-435` sólo lo consulta para el backtesting sin insumos).
     La frase propuesta —«si una prueba no puede correr por falta de un insumo… apagado, la corrida
     sigue»— se reescribe en §3.7 con el alcance exacto, y la capa 2 gana el contraste.
+18. **`one_sided` sólo gobierna el t-test de severidad y exposición** (undécima revisión
+    adversarial, 2026-09-09, verificada): el evaluador pasa el flag únicamente al t-test
+    (`evaluator.py:513`) y la prueba de la PD fija `one_sided=True` (`backtesting.py:217`). El
+    copy de §3.7 decía «apagado, prueba desvíos en los dos sentidos» sin acotar; corregido, con
+    gate que contrasta una fila de LGD bilateral y una de PD unilateral.
+19. **El backtesting sin IFRS 9 no es un aviso: es una dependencia del DAG** (misma revisión,
+    verificada): `_requires_for` exige `provisioning_ifrs9.detail`/`staging` cuando el backtesting
+    está encendido, con o sin flag (`step.py:319-322`), así que en una corrida esa ruta es
+    «inejecutable», nunca «aviso». La ruta del aviso gobernable es otra: `families` con
+    `backtesting` y `enabled=False` (`config.py:447-469` con el flag encendido levanta con `loc`;
+    apagado, el evaluador registra la marca y sigue, `evaluator.py:418-425`). El gate de la
+    capa 2 se reescribe con esas tres rutas y el caso borde de §5 se corrige.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -455,7 +467,7 @@ sitio).
 | `schema_version` | oculto | — | — |
 | `type` | oculto | — | — |
 | `families` | visible | «Familias de validación que se ejecutan. El backtesting queda fuera por defecto: exige los resultados IFRS 9 y las columnas de resultado realizado.» | Qué familias de pruebas corren: discriminación, calibración, estabilidad y backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las columnas con lo que de verdad ocurrió. |
-| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución, por ejemplo el backtesting pedido sin sus insumos. Apagado, ese aviso queda registrado en el resultado y la corrida sigue. No permite correr sin una columna obligatoria: eso detiene siempre. |
+| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución, por ejemplo si eliges la familia de backtesting sin activarla. Apagado, ese aviso queda registrado en el resultado y la corrida sigue. No permite correr sin una columna o un cálculo obligatorios: eso detiene siempre. |
 | `discrimination.consume_performance` | visible | «Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; con False se calculan aquí con ese mismo motor, nunca con otra fórmula.» | Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, los vuelve a calcular con el mismo motor, nunca con otra fórmula. |
 | `discrimination.partitions` | visible | «Particiones sobre las que se reporta la discriminación del modelo.» | Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera de tiempo. |
 | `calibration.hosmer_lemeshow` | visible | «Activa el estadístico Hosmer-Lemeshow por grupos de PD (chi2 con G-2 gl).» | Comprueba con la prueba de Hosmer-Lemeshow que la PD predicha coincide con la observada, por grupos de PD. |
@@ -479,7 +491,7 @@ sitio).
 | `backtesting.parameters` | visible | «Parámetros IFRS 9 a contrastar realizado-vs-estimado.» | Qué parámetros se contrastan: la PD, la severidad o la exposición. |
 | `backtesting.segment_col` | **oculto (D-SUB)** | «Columna de segmento/cartera para agregar el backtesting.» | — (columna `portfolio` del artefacto IFRS 9, de nombre fijo; §0-14) |
 | `backtesting.alpha` | visible | «Nivel de significancia de los contrastes de backtesting; configurable.» | Nivel de significancia de las pruebas de backtesting. |
-| `backtesting.one_sided` | visible | «El interés supervisor es la subestimación del parámetro (ECB); configurable.» | Prueba sólo si el parámetro se subestimó, que es lo que le importa al supervisor. Apagado, prueba desvíos en los dos sentidos. |
+| `backtesting.one_sided` | visible | «El interés supervisor es la subestimación del parámetro (ECB); configurable.» | Para la severidad y la exposición: prueba sólo si el parámetro se subestimó, que es lo que le importa al supervisor; apagado, prueba desvíos en los dos sentidos. La prueba de la PD es siempre unilateral y este ajuste no la cambia. |
 | `backtesting.realised_pd_col` | visible (columna) | «Columna con el default efectivo realizado del período de desempeño.» | La columna de tu archivo que dice si la operación incumplió de verdad en el período de desempeño. |
 | `backtesting.realised_lgd_col` | visible (columna) | «Columna con la LGD realizada del período de desempeño.» | La columna con la severidad que de verdad se observó. |
 | `backtesting.realised_ead_col` | visible (columna) | «Columna con la EAD realizada a default del período de desempeño.» | La columna con la exposición que de verdad había al incumplir. |
@@ -539,8 +551,10 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 - `validation` con `binomial_by_grade` apagado (presets, esqueleto) → el preflight **no** reclama
   `grade` (D-RAM); ídem las columnas realizadas con backtesting apagado.
 - `validation` con backtesting encendido en un trabajo sin IFRS 9 → D-EXI lo declara en la opción
-  y `check_pipeline` lo deja inejecutable con el motivo (`DATO-INSTITUCIONAL-VAL-4` sólo en el
-  anexo).
+  y `check_pipeline` lo deja inejecutable con el motivo (dependencia del DAG, sin marca).
+- `families` con `backtesting` pero `backtesting.enabled=False` → con `fail_on_falta_dato`
+  encendido, error anclado en `backtesting.enabled`; apagado, aviso declarado
+  (`DATO-INSTITUCIONAL-VAL-4`, sólo en el anexo) y la corrida sigue.
 - `overall_status = fail` en el preset F1 (medido: HL falla en una partición) → el panel lo
   pinta tal cual; no se maquilla ni se esconde. La guía de validación explica qué significa y qué
   hace un validador con ello.
@@ -579,10 +593,17 @@ reclama sólo `realised_default`; con `families=("discrimination",)` y `binomial
 seleccionarlas vuelve a reclamar sus columnas (§0-12); y con backtesting encendido,
 `provisioning_ifrs9.portfolio_col="cartera_cliente"` y **ninguna** columna `portfolio` en el
 archivo, el preflight no reclama `segment_col` y el backtesting corre agrupando por el
-`portfolio` del artefacto (§0-14); **contraste del flag** (§0-17): con `fail_on_falta_dato=False`,
-el backtesting pedido sin IFRS 9 queda como aviso declarado y la corrida termina, mientras que
-`binomial_by_grade=True` sin `grade` sigue deteniéndola con el mismo flag apagado (el copy del
-tooltip se ata a ese par de casos), guía nueva
+`portfolio` del artefacto (§0-14); **contraste del flag** (§0-17, §0-19): con `families` que
+incluye `backtesting`, `backtesting.enabled=False` y `fail_on_falta_dato=False`, la corrida real
+termina y el aviso queda registrado (la marca en el anexo, nunca en el cuerpo); con el flag
+encendido, `ValidationConfigError` anclado en `backtesting.enabled` (D-EXI-5); y
+`binomial_by_grade=True` sin `grade` detiene la corrida con el flag apagado igual (el copy del
+tooltip se ata a ese trío); **`backtesting.enabled=True` en un trabajo sin IFRS 9** no es un
+aviso sino una dependencia del DAG (`_requires_for`, `step.py:319-322`): `check_pipeline` lo
+declara inejecutable y el gate lo fija así; el fallback del evaluador sin artefactos se prueba
+invocando `ValidationEvaluator.validate` directamente; **`one_sided`** (§0-18): con
+`parameters=("pd","lgd")` y el flag apagado, la fila de LGD sale bilateral y la de PD unilateral,
+guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
