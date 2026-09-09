@@ -23,8 +23,9 @@ Y la capa D-GOB-15/16 (S4, 2026-09-08), en la sección final de este archivo:
   card— vive en ``web/src/components/ResultsTab.test.ts``;
 - §6.7 · el **bundle servido** pinta la ficha: cada rótulo de la sección aporta al menos una
   ocurrencia propia por encima de las que ya viajaban en los fixtures empaquetados, y el bundle
-  nombra ``model_card`` (hasta S4, cero veces); los tres fixtures de la demo siguen con
-  ``model_card: null`` y el guard los cubre sin recaptura.
+  nombra ``model_card`` (hasta S4, cero veces); los fixtures de la demo siguen con
+  ``model_card: null`` y el guard los cubre sin recaptura. Eran tres hasta D-JUR-9.7, que sacó del
+  árbol la corrida del caso de referencia; el gate deriva la cifra del glob.
 
 Controles negativos ejecutados al implementar (protocolo del runbook §6): exponer
 ``scenario_log_filename`` pone rojo §6.6; quitar el validador de ``purpose`` pone rojo el motor,
@@ -478,8 +479,12 @@ def test_los_valores_emitidos_tienen_los_tipos_que_el_front_declara(
 
 
 def test_sin_gobernanza_no_hay_ficha_y_la_demo_sigue_sin_ella() -> None:
-    """§5: los tres fixtures traen ``model_card: null``; el guard los cubre y no se recapturan."""
-    assert len(_FIXTURES_DE_LA_DEMO) == 3, [p.name for p in _FIXTURES_DE_LA_DEMO]
+    """§5: los fixtures de la demo traen ``model_card: null``; el guard los cubre sin recapturar.
+
+    Eran tres hasta D-JUR-9.7, que sacó del árbol la corrida del caso de referencia (F3). La cifra
+    se deriva del glob y se ancla por abajo, para que el gate no pueda quedarse midiendo cero.
+    """
+    assert len(_FIXTURES_DE_LA_DEMO) == 2, [p.name for p in _FIXTURES_DE_LA_DEMO]
     for fixture in _FIXTURES_DE_LA_DEMO:
         payload = json.loads(fixture.read_text(encoding="utf-8"))
         assert "model_card" in payload, fixture.name

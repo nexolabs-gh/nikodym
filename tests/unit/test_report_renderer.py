@@ -785,9 +785,20 @@ def _section_fragment(html: str, section_id: str) -> str:
 
 
 def _fixture_results() -> dict[str, Any]:
-    """Carga el fixture de una corrida REAL usado por el preview/demo del front."""
+    """Carga el fixture de una corrida REAL usado por el preview/demo del front.
+
+    Es `results-f1.json`, el scorecard: hasta D-JUR-9.7 era `results.json` (la corrida del caso de
+    referencia), que salió del árbol. Lo que este helper necesita del fixture son las tablas de
+    `performance` y `stability` de una corrida real de scorecard, y F1 las trae — de hecho es el
+    scorecard puro, sin las secciones de provisiones que aquí no se usaban.
+    """
     path = (
-        Path(__file__).resolve().parents[2] / "web" / "src" / "fixtures" / "demo" / "results.json"
+        Path(__file__).resolve().parents[2]
+        / "web"
+        / "src"
+        / "fixtures"
+        / "demo"
+        / "results-f1.json"
     )
     loaded: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return loaded
