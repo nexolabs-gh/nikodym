@@ -221,7 +221,7 @@ modelo y hace que Resultados muestre la ficha del modelo. Cómo se enciende y qu
 | `--port PORT` | Puerto local (1024–65535). Por defecto `8000`. |
 | `--workdir DIR` | Dónde se guardan corridas y datasets. Por defecto `.nikodym_ui` en el directorio actual. |
 | `--no-open` | No abrir el navegador automáticamente. |
-| `--casos-de-referencia` | Ofrecer también los casos de referencia atados a una jurisdicción. Por defecto el catálogo no los ofrece; ver [Aterrizar una norma local](norma-local.md). |
+| `--casos-de-referencia` | Ofrecer también los casos de referencia atados a una jurisdicción. Por defecto el catálogo no los ofrece; ver [Aterrizar una norma local](norma-local.md). **Llegó después de la 1.12.0 publicada**: en esa versión el comando la rechaza y el catálogo ya los ofrece sin ella. |
 
 !!! note "Sólo escucha en loopback, y no es configurable"
     El bind es siempre `127.0.0.1`: **no existe `--host`**. La interfaz no es alcanzable desde la
