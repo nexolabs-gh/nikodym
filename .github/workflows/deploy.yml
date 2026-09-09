@@ -151,4 +151,27 @@ jobs:
           grep -qF "La normativa local se aterriza encima" <<<"$cuerpo" || {
             echo "::error::la demo no publica el subtítulo vigente"; exit 1; }
 
+          # 🔴 D-JUR-9.8: la demo dejó de PUBLICAR la corrida del caso de referencia (F3), y eso se
+          # verifica por la CORRIDA, no por las cadenas del front. Ese front conserva a propósito
+          # el rótulo «Provisiones CMF» (`CONFIG_SECTIONS`, D-JUR-9.5), el id
+          # `f3-provisiones-consumo` (`CURATED`) y el título de la sección en `schema.json`:
+          # exigir su ausencia literal bloquearía todo deploy conforme. Lo que sólo existía en los
+          # fixtures F3 es esta identidad, y sus archivos ya salieron del árbol —de ahí los
+          # literales—. `pnpm check:demo-bundle` corre lo mismo en local, antes de llegar aquí.
+          for retirado in df491df8bb1e48c9a40bbbe474a97938 \
+                          857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d; do
+            if grep -qF "$retirado" <<<"$cuerpo"; then
+              echo "::error::la demo publica la corrida F3, retirada del catálogo por D-JUR-9.7 (${retirado:0:16}…)"
+              exit 1
+            fi
+          done
+          # Y la mitad positiva, sin la cual un bundle vacío pasaría por «limpio»: las dos corridas
+          # que la demo sí publica tienen que estar.
+          for publicado in 4eb39425ffca49b19a38bfba1e91fcf1 \
+                           1d93a67c6e3b4611817063544dca42f5; do
+            grep -qF "$publicado" <<<"$cuerpo" || {
+              echo "::error::la demo no publica la corrida ${publicado:0:16}…: el bundle no sirve ningún ejemplo"
+              exit 1; }
+          done
+
           echo "docs y demo verificados en vivo contra ${version}"
