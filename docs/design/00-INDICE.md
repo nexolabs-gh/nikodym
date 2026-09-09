@@ -893,6 +893,19 @@ No autoriza START ni mueve la puerta global.
 > de `GovernanceConfig` pasan a ser **copy público** y se reescriben (D-GOB-13);
 > `scenario_log_filename` **no se expone** por inerte (D-GOB-14, D-SUB).
 
+> **El caso de referencia sale del catálogo por defecto de la interfaz (2026-09-09; PROPUESTA,
+> pendiente de revisión adversarial y del OK de Cami; nace de la decisión 1 de Cami del
+> 2026-09-09).** [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md),
+> D-JUR-9. Los trabajos «Provisiones CMF» y «Comparar provisiones (CMF vs. interna)» y el preset
+> `f3-provisiones-consumo` dejan de **ofrecerse** por defecto; el motor, sus tests, su evidencia y
+> la página «Aterrizar una norma local» se conservan (D-JUR no se reabre). Medido sobre `40cb5a3`:
+> son 2 de 10 trabajos (los únicos con `jurisdiction_code`), 1 de 4 presets, y la demo siembra F3.
+> Propone **dos catálogos desde una fuente** —el por defecto sin jurisdicción, el completo el de
+> hoy—, un opt-in del lanzador (`nikodym-ui --casos-de-referencia`), resolver por id sin ofrecer
+> (el smoke del wheel sigue corriendo F3), las secciones de referencia dentro del formulario, y la
+> demo en F1/F4 hasta que la recaptura de la release traiga F5. Alternativas B/C/D evaluadas; §8
+> con las cuatro decisiones de Cami.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
