@@ -34,7 +34,8 @@
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
 | D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido**; copy público de la gobernanza
 alineado el 2026-09-09 (S5) | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
-| D-JUR-9 · D-SC-1…16 · D-PAR-1…9 | **Propuestas** el 2026-09-09 (S6, diseño sin código, a partir de las cuatro decisiones de Cami de ese día); **revisión adversarial ejecutada**: dieciséis pasadas de Codex sobre `40cb5a3..e24db91`, 21 hallazgos verificados y corregidos, la última **approve**; **pendientes del OK de Cami** —las preguntas exactas viven en el §8 de cada enmienda—. Nada de esto autoriza programar | [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md) · [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) · [`_ENMIENDA-PARIDAD-1-1.md`](_ENMIENDA-PARIDAD-1-1.md) |
+| D-JUR-9 | **Aprobada por Cami el 2026-09-09** con las cuatro respuestas de su §8 —opción **A** (dos catálogos desde una fuente, `offered` en el cable, opt-in del lanzador); los ocho fixtures F3 **salen del árbol** (OK explícito de supresión de material versionado; el historial los conserva); la demo intermedia **F1/F4 se publica** con el deploy automático de la capa; la opción se llama **`--casos-de-referencia`**—. Propuesta y revisada adversarialmente en S6 (approve); **implementada en S7 (2026-09-09)** | [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md) |
+| D-SC-1…16 · D-PAR-1…9 | **Propuestas** el 2026-09-09 (S6, diseño sin código, a partir de las cuatro decisiones de Cami de ese día); **revisión adversarial ejecutada**: dieciséis pasadas de Codex sobre `40cb5a3..e24db91`, 21 hallazgos verificados y corregidos, la última **approve**; **pendientes del OK de Cami** —las preguntas exactas viven en el §8 de cada enmienda—. Nada de esto autoriza programar | [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) · [`_ENMIENDA-PARIDAD-1-1.md`](_ENMIENDA-PARIDAD-1-1.md) |
 
 ## D-RDY — readiness integral
 
@@ -132,13 +133,23 @@ Reglas vigentes:
   por el informe y demostración sin normativa local.
 - B5 —validación humana de la evidencia normativa— sigue siendo trabajo de Cami, no una
   implementación automática del agente.
-- **Propuesta el 2026-09-09, no aprobada (D-JUR-9)**: el caso de referencia sale del **catálogo
-  por defecto** de la interfaz —los dos trabajos con jurisdicción y el preset F3 dejan de
-  ofrecerse; el motor, sus tests, su evidencia y la página se conservan— con el catálogo completo
-  en el cable y la oferta marcada, un opt-in del lanzador y la demo en F1/F4 hasta la recaptura de
-  la release. Diseño medido y revisado en
+- **D-JUR-9, aprobada por Cami el 2026-09-09 e implementada en S7**: el caso de referencia sale
+  del **catálogo por defecto** de la interfaz —los dos trabajos con jurisdicción
+  (`provisiones_cmf`, `comparar_provisiones`) y el preset `f3-provisiones-consumo` dejan de
+  **ofrecerse**; el motor, sus tests, su evidencia y la página se conservan enteros—. La
+  visibilidad se **deriva** de `jurisdiction_code`, no se declara aparte (D-JUR-9.1):
+  `list_jobs()`/`list_presets()` filtran por defecto y `incluir_referencia=True` devuelve el
+  catálogo completo, que es el que miden los gates de ejecutabilidad, abanico, jurisdicción y
+  gobernanza. **Ofrecer no es resolver** (D-JUR-9.3): `GET /api/jobs` publica los **diez** con un
+  campo derivado `offered`, `get_preset(id)` y `GET /api/config/preset/{id}` siguen resolviendo
+  por id, y el front resuelve un YAML propio sobre el catálogo entero —por eso un config con
+  `provisioning_cmf:` sigue pintándose, pidiendo su PD y corriendo sin opt-in—. El opt-in es del
+  lanzador: `UiConfig.casos_de_referencia` (D-UI-3: no entra al `config_hash`) y
+  `nikodym-ui --casos-de-referencia`. Las cuatro respuestas de Cami: opción **A**; los ocho
+  fixtures F3 **salen del árbol**; la demo intermedia **F1/F4 se publica**; la opción se llama
+  **`--casos-de-referencia`**. Diseño medido y revisado en
   [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md); D-JUR-1…8 no se
-  reabren.
+  reabren y **nada del motor CMF se mueve** (D-JUR-9.9).
 
 Gates principales:
 [`test_portada_sin_jurisdiccion.py`](../../tests/unit/test_portada_sin_jurisdiccion.py),

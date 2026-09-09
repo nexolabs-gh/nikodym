@@ -893,8 +893,9 @@ No autoriza START ni mueve la puerta global.
 > de `GovernanceConfig` pasan a ser **copy público** y se reescriben (D-GOB-13);
 > `scenario_log_filename` **no se expone** por inerte (D-GOB-14, D-SUB).
 
-> **El caso de referencia sale del catálogo por defecto de la interfaz (2026-09-09; PROPUESTA,
-> pendiente de revisión adversarial y del OK de Cami; nace de la decisión 1 de Cami del
+> **El caso de referencia sale del catálogo por defecto de la interfaz (2026-09-09; APROBADA por
+> Cami el 2026-09-09 —opción A, fixtures F3 fuera del árbol, demo F1/F4 publicada,
+> `--casos-de-referencia`— e IMPLEMENTADA en S7; nace de la decisión 1 de Cami del
 > 2026-09-09).** [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md),
 > D-JUR-9. Los trabajos «Provisiones CMF» y «Comparar provisiones (CMF vs. interna)» y el preset
 > `f3-provisiones-consumo` dejan de **ofrecerse** por defecto; el motor, sus tests, su evidencia y

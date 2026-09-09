@@ -1,7 +1,12 @@
 # Enmienda SDD — el caso de referencia sale del catálogo por defecto de la interfaz (D-JUR-9)
 
-> **Estado: PROPUESTA, pendiente de revisión adversarial y del OK de Cami.** Diseño sin código
-> (S6). Nace de la decisión de Cami del 2026-09-09 —«CMF sale del catálogo por defecto de la
+> **Estado: APROBADA por Cami el 2026-09-09**, con las cuatro respuestas del §8 —opción **A**;
+> los ocho fixtures F3 **salen del árbol**; la demo intermedia F1/F4 **se publica** con el deploy
+> automático de la capa; la opción del lanzador se llama **`--casos-de-referencia`**—.
+> **Revisión adversarial ejecutada** en S6: dieciséis pasadas de Codex sobre `40cb5a3..e24db91`
+> más una final sobre `d12f729`, tres hallazgos propios de esta enmienda sostenidos y corregidos,
+> veredicto **approve**. Diseñada sin código en S6 e **implementada en S7** (2026-09-09).
+> Nace de la decisión de Cami del 2026-09-09 —«CMF sale del catálogo por defecto de la
 > interfaz; el motor, sus tests, su evidencia y la página se conservan: D-JUR no se reabre, cambia
 > la visibilidad»— y la convierte en contrato medido.
 >
@@ -375,11 +380,17 @@ el bundle y las firmas, y corre los gates de la fila «Catálogo de trabajos/aba
 
 ## 8. Lo que Cami decide
 
+> **RESPONDIDO por Cami el 2026-09-09.** Las cuatro respuestas van marcadas debajo de su pregunta;
+> las cuatro coinciden con la recomendación. Con ellas la enmienda queda **aprobada** y S7 la
+> implementa. El registro canónico de esta aprobación vive en
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md) §D-JUR.
+
 1. **¿Se aprueba D-JUR-9 con la opción A** —dos catálogos desde una fuente, opt-in
    `nikodym-ui --casos-de-referencia`, secciones de referencia dentro del formulario— **o se
    prefiere la retirada dura (B)?** Recomendación: **A**. Conserva la visibilidad como evidencia
    que D-JUR-7 pide, no toca el front de la landing, mantiene D-JOB-15/D-EJE-5 exactos y no
    introduce una sección que corre sin pintarse.
+   → ✅ **Cami, 2026-09-09: opción A.**
 2. **¿Los ocho fixtures F3 salen también del árbol** (`web/src/fixtures/demo/preset.json`,
    `results.json`, `toyaml.json`, `report.{html,pdf,docx}`, `report-quarto.zip`; ~1,2 MB), **o se
    conservan sin empaquetar?** Recomendación: **salen del árbol** en la capa de implementación
@@ -387,11 +398,16 @@ el bundle y las firmas, y corre los gates de la fila «Catálogo de trabajos/aba
    corrida que el catálogo no ofrece—. Es una supresión de material versionado, así que exige este
    OK explícito (AGENTS.md: «borrar o reemplazar evidencia material»). El capturador F3 queda como
    capturador de referencia, fuera de la matriz de recaptura.
+   → ✅ **Cami, 2026-09-09: salen del árbol.** OK explícito de supresión de material versionado;
+   los ocho archivos quedan recuperables en el historial (`d12f729:web/src/fixtures/demo/…`).
 3. **¿La demo intermedia F1/F4 se publica con el deploy automático de esta capa, o se retiene la
    capa de la demo hasta la recaptura con F5?** Recomendación: **se publica**: desplegar
    artefactos ya versionados no es recaptura (runbook §8), y mantener F3 sembrado en la demo
    pública mientras el catálogo instalable ya no lo ofrece sería la contradicción que `deploy.yml`
    existe para vetar.
+   → ✅ **Cami, 2026-09-09: se publica.** No es recaptura (runbook §8): son artefactos ya
+   versionados.
 4. **Nombre de la opción**: `--casos-de-referencia` (recomendado: es el rótulo del bloque de la
    landing y de la página «Aterrizar una norma local») frente a `--norma-local` o
    `--jurisdiccion`.
+   → ✅ **Cami, 2026-09-09: `--casos-de-referencia`.**
