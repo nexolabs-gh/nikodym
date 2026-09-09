@@ -922,15 +922,17 @@ No autoriza START ni mueve la puerta global.
 > de estabilidad rechaza el eje de cohorte—, así que propone dos reglas aditivas en el motor
 > (cohorte → estabilidad no evaluable; sin fecha, el eje se infiere de la partición por cohorte
 > que el usuario ya declaró, con decisión en el trail); y `validation` con los defaults del motor
-> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Nueve
-> revisiones adversariales del rango el mismo día; once hallazgos sobre esta enmienda, todos
+> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Diez
+> revisiones adversariales del rango el mismo día; doce hallazgos sobre esta enmienda, todos
 > sostenidos y corregidos: golden del HTML vs. frase nueva, CN sin oráculo, decisión con default
 > vs. D-OBL, `consume_stability=False` aborta la corrida, `column_role` sin
 > `columnas_inactivas()` daría avisos falsos, la card de EDA sin eje efectivo ni causa de no
 > evaluabilidad, familias deseleccionadas sin poda desde el padre, tasa media cero como tercera
 > causa, `segment_col` es columna del artefacto IFRS 9 y no del archivo, la columna del eje de
-> EDA no usado también se poda, y la remisión a la ficha emitida es condicional porque sin
-> `run_dir` ni inventario no hay ficha. Cinco capas con gates y controles negativos; el
+> EDA no usado también se poda, la remisión a la ficha emitida es condicional porque sin
+> `run_dir` ni inventario no hay ficha, y el copy de `fail_on_falta_dato` se acota a los avisos
+> declarados gobernables (una columna obligatoria ausente detiene siempre). Cinco capas con
+> gates y controles negativos; el
 > `config_hash` de F1/F5 se mueve sólo en la capa de release, junto con la recaptura única. Once
 > decisiones para Cami en §8.
 

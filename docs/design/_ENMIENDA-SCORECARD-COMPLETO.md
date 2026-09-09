@@ -135,6 +135,14 @@
     genera. La remisión de D-SC-14 a «la ficha emitida al cierre» presuponía que siempre existe;
     pasa a ser una frase condicional sobre el contrato, sin presentar como existente ningún
     archivo.
+17. **El copy de `fail_on_falta_dato` prometía más de lo que el flag hace** (décima revisión
+    adversarial, 2026-09-09, verificada): la regla CRP del registro dice que el flag significa
+    «una marca declarada **gobernable** emitida por la corrida la detiene», y una columna
+    obligatoria ausente no es un aviso: `binomial_by_grade` sin `grade` levanta
+    `ValidationDataError` incondicionalmente (`validation/calibration_tests.py:293-295`) y el
+    flag no interviene (`evaluator.py:418-435` sólo lo consulta para el backtesting sin insumos).
+    La frase propuesta —«si una prueba no puede correr por falta de un insumo… apagado, la corrida
+    sigue»— se reescribe en §3.7 con el alcance exacto, y la capa 2 gana el contraste.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -447,7 +455,7 @@ sitio).
 | `schema_version` | oculto | — | — |
 | `type` | oculto | — | — |
 | `families` | visible | «Familias de validación que se ejecutan. El backtesting queda fuera por defecto: exige los resultados IFRS 9 y las columnas de resultado realizado.» | Qué familias de pruebas corren: discriminación, calibración, estabilidad y backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las columnas con lo que de verdad ocurrió. |
-| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Si una prueba no puede correr por falta de un insumo, la corrida se detiene. Apagado, la brecha queda registrada como aviso declarado y la corrida sigue. |
+| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución, por ejemplo el backtesting pedido sin sus insumos. Apagado, ese aviso queda registrado en el resultado y la corrida sigue. No permite correr sin una columna obligatoria: eso detiene siempre. |
 | `discrimination.consume_performance` | visible | «Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; con False se calculan aquí con ese mismo motor, nunca con otra fórmula.» | Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, los vuelve a calcular con el mismo motor, nunca con otra fórmula. |
 | `discrimination.partitions` | visible | «Particiones sobre las que se reporta la discriminación del modelo.» | Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera de tiempo. |
 | `calibration.hosmer_lemeshow` | visible | «Activa el estadístico Hosmer-Lemeshow por grupos de PD (chi2 con G-2 gl).» | Comprueba con la prueba de Hosmer-Lemeshow que la PD predicha coincide con la observada, por grupos de PD. |
@@ -571,7 +579,10 @@ reclama sólo `realised_default`; con `families=("discrimination",)` y `binomial
 seleccionarlas vuelve a reclamar sus columnas (§0-12); y con backtesting encendido,
 `provisioning_ifrs9.portfolio_col="cartera_cliente"` y **ninguna** columna `portfolio` en el
 archivo, el preflight no reclama `segment_col` y el backtesting corre agrupando por el
-`portfolio` del artefacto (§0-14), guía nueva
+`portfolio` del artefacto (§0-14); **contraste del flag** (§0-17): con `fail_on_falta_dato=False`,
+el backtesting pedido sin IFRS 9 queda como aviso declarado y la corrida termina, mientras que
+`binomial_by_grade=True` sin `grade` sigue deteniéndola con el mismo flag apagado (el copy del
+tooltip se ata a ese par de casos), guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
