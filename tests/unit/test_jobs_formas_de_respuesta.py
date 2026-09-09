@@ -90,8 +90,15 @@ _RELLENO: dict[str, Any] = {
 
 
 def _decisiones() -> dict[str, dict[str, Any]]:
-    """``{path: decisión}`` tal como el catálogo la publica."""
-    return {d["path"]: d for job in list_jobs() for d in job["required_decisions"]}
+    """``{path: decisión}`` tal como el catálogo la publica.
+
+    Catálogo COMPLETO (D-JUR-9.2): la forma de respuesta es del contrato, no de la oferta.
+    """
+    return {
+        d["path"]: d
+        for job in list_jobs(incluir_referencia=True)
+        for d in job["required_decisions"]
+    }
 
 
 def _modelo_del_path(path: str) -> tuple[type[BaseModel], str]:
@@ -372,7 +379,7 @@ def test_ningun_insumo_externo_escribe_en_un_path_de_decision() -> None:
     decisiones = set(_decisiones())
     escritos = {
         ruta
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         for entrada in job["external_artifacts"]
         for columna in entrada["columns"]
         for ruta in columna["config_paths"]
@@ -430,14 +437,14 @@ def test_toda_precarga_sale_de_una_pregunta_ya_hecha_al_usuario() -> None:
     """
     insumos = {
         (tuple(entrada["artifact"]), ruta): entrada
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         for entrada in job["external_artifacts"]
         for columna in entrada["columns"]
         for ruta in columna["config_paths"]
     }
     preguntas = {
         (tuple(entrada["artifact"]), ruta): columna["question"]
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         for entrada in job["external_artifacts"]
         for columna in entrada["columns"]
         for ruta in columna["config_paths"]

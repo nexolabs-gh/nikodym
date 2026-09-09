@@ -35,8 +35,17 @@ _CLAVES_DE_COLUMNA = {"question", "config_paths"}
 
 
 def _entradas() -> list[tuple[str, dict[str, Any]]]:
-    """``(job_id, entrada)`` de todo lo que el catálogo declara como insumo externo."""
-    return [(job["id"], entrada) for job in list_jobs() for entrada in job["external_artifacts"]]
+    """``(job_id, entrada)`` de todo lo que el catálogo declara como insumo externo.
+
+    Catálogo COMPLETO (D-JUR-9.2), y aquí no es opcional: `artefactos_admitidos()` —la allowlist
+    de la puerta por HTTP— se deriva de los DIEZ, así que medir sobre la oferta compararía dos
+    conjuntos de tamaños distintos y acusaría claves admitidas que ningún trabajo declara.
+    """
+    return [
+        (job["id"], entrada)
+        for job in list_jobs(incluir_referencia=True)
+        for entrada in job["external_artifacts"]
+    ]
 
 
 def _publicadas_por(dominio: str) -> set[tuple[str, str]]:
@@ -150,7 +159,9 @@ def test_todo_trabajo_con_insumo_declarado_se_lo_dice_al_usuario() -> None:
     describe un insumo opcional del método que no viaja por la puerta, y eso es correcto.
     """
     mudos = [
-        job["id"] for job in list_jobs() if job["external_artifacts"] and not job["external_input"]
+        job["id"]
+        for job in list_jobs(incluir_referencia=True)
+        if job["external_artifacts"] and not job["external_input"]
     ]
     assert mudos == [], f"trabajos que aceptan un archivo y no lo anuncian: {mudos}"
 
@@ -160,13 +171,13 @@ def test_la_allowlist_solo_toma_de_los_trabajos_disponibles() -> None:
     admitidos = artefactos_admitidos()
     de_no_disponibles = {
         (entrada["artifact"][0], entrada["artifact"][1])
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         if job["status"] == "unavailable"
         for entrada in job["external_artifacts"]
     }
     de_disponibles = {
         (entrada["artifact"][0], entrada["artifact"][1])
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         if job["status"] == "available"
         for entrada in job["external_artifacts"]
     }
@@ -215,7 +226,7 @@ def test_las_dos_claves_de_validar_un_modelo_son_las_que_el_motor_exige() -> Non
     """
     if "performance" not in cargar_configs_de_dominio():
         pytest.skip("el extra de performance no está instalado")
-    por_id = {job["id"]: job for job in list_jobs()}
+    por_id = {job["id"]: job for job in list_jobs(incluir_referencia=True)}
     claves = [tuple(e["artifact"]) for e in por_id["validar_modelo"]["external_artifacts"]]
     assert claves == [("calibration", "calibrated_pd_frame"), ("scorecard", "score")]
     internas = [tuple(e["artifact"]) for e in por_id["provision_interna"]["external_artifacts"]]

@@ -27,7 +27,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-__all__ = ["JOB_IDS", "abanico_de", "artefactos_admitidos", "decisiones_de", "list_jobs"]
+__all__ = [
+    "JOB_IDS",
+    "abanico_de",
+    "artefactos_admitidos",
+    "decisiones_de",
+    "es_de_referencia",
+    "list_jobs",
+    "secciones_de_referencia",
+]
 
 # Estados de un trabajo. `available` se puede iniciar; `unavailable` aparece con su motivo y NO se
 # puede iniciar (D-JOB-6): un trabajo que no corre hoy se DECLARA, no se promete ni se esconde.
@@ -4424,12 +4432,57 @@ def artefactos_admitidos() -> frozenset[tuple[str, str]]:
     )
 
 
-def list_jobs() -> list[dict[str, Any]]:
-    """Cataloga los trabajos disponibles para la landing y el sidebar.
+def es_de_referencia(job: dict[str, Any]) -> bool:
+    """¿Este trabajo es un *caso de referencia*? (D-JUR-9.1).
+
+    La visibilidad se **DERIVA** de `jurisdiction_code` y no se declara aparte: dos atributos que
+    dicen lo mismo divergen en cuanto alguien edita uno (la lección de D-EST-1). Un trabajo atado a
+    la normativa de un país es evidencia de que el método se aterriza (D-JUR-7), no una promesa de
+    la propuesta de valor — así que el catálogo por defecto no lo ofrece y el completo lo conserva
+    entero.
+    """
+    return job.get("jurisdiction_code") is not None
+
+
+def secciones_de_referencia() -> frozenset[str]:
+    """Secciones del formulario que **sólo** muestran trabajos de referencia (D-JUR-9.5).
+
+    Derivada del catálogo completo, no escrita a mano: hoy es exactamente
+    ``{provisioning_cmf, provisioning}``, y el día que un trabajo neutro muestre una de ellas deja
+    de serlo sola. Es lo que deja al gate bidireccional del catálogo distinguir «sección huérfana»
+    —ningún trabajo la muestra, que sigue prohibido— de «sección de referencia», que es legítima y
+    sigue **dentro** del formulario porque el opt-in y el YAML propio necesitan pintarla.
+    """
+    de_referencia: set[str] = set()
+    neutras: set[str] = set()
+    for job in _JOBS:
+        destino = de_referencia if es_de_referencia(job) else neutras
+        destino.update(job["sections"])
+    return frozenset(de_referencia - neutras)
+
+
+def list_jobs(*, incluir_referencia: bool = False) -> list[dict[str, Any]]:
+    """Cataloga los trabajos para la landing y el sidebar.
 
     Devuelve copias JSON-ables: las tuplas del literal viajan como listas y el llamador no puede
     mutar el catálogo del proceso.
+
+    Parameters
+    ----------
+    incluir_referencia : bool, optional
+        ``False`` (default) devuelve el **catálogo por defecto**: lo que la interfaz OFRECE, sin
+        ningún trabajo con jurisdicción (D-JUR-9.2). ``True`` devuelve el **catálogo completo**,
+        que es el de siempre y el que miden los gates de ejecutabilidad (D-EJE-5), abanico,
+        jurisdicción y gobernanza: ninguna pieza se borra de ``_JOBS``, y D-JOB-15 —una sola fuente
+        para landing, sidebar y preflight— sigue exacta.
+
+    Notes
+    -----
+    ⚠️ El default filtra, así que **un llamador que mide una propiedad del catálogo tiene que pedir
+    el completo explícitamente**. Es la única forma de que sacar un caso de referencia de la oferta
+    no degrade en silencio el oráculo de un gate que creía recorrerlo entero.
     """
+    catalogo = _JOBS if incluir_referencia else tuple(j for j in _JOBS if not es_de_referencia(j))
     return [
         {
             **job,
@@ -4446,5 +4499,5 @@ def list_jobs() -> list[dict[str, Any]]:
             "required_decisions": decisiones_de(job["sections"]),
             "methodology_choices": abanico_de(job["sections"]),
         }
-        for job in _JOBS
+        for job in catalogo
     ]

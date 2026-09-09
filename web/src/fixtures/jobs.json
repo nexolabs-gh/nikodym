@@ -1292,6 +1292,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {
@@ -1913,6 +1914,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [
         [
           "survival.input.pd_source",
@@ -2504,6 +2506,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": false,
       "overrides": [],
       "required_decisions": [
         {
@@ -3392,6 +3395,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [
         [
           "survival.input.pd_source",
@@ -4042,6 +4046,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {
@@ -5688,6 +5693,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {
@@ -6666,6 +6672,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": false,
       "overrides": [],
       "required_decisions": [
         {
@@ -7359,6 +7366,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {
@@ -7992,6 +8000,7 @@
         }
       ],
       "missing_sections": [],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {
@@ -8411,6 +8420,7 @@
       "missing_sections": [
         "stress"
       ],
+      "offered": true,
       "overrides": [],
       "required_decisions": [
         {

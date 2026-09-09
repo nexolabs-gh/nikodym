@@ -136,8 +136,12 @@ def test_todo_preset_del_catalogo_esta_curado_en_el_front() -> None:
     # Ancla anti-vacuidad: si el bloque se renombra, este gate no puede pasar mirando a la nada.
     assert "const CURATED" in fuente and 'garantia: "experimental"' in fuente
 
-    ids = [p["id"] for p in list_presets()]
-    assert len(ids) >= 3, f"el catálogo sólo publica {len(ids)} presets"
+    # Registro completo (D-JUR-9.2): la píldora de madurez la pinta `presetDisplay` sobre el
+    # descriptor que reciba, y F3 sigue llegando al front por `GET /api/config/preset/{id}` y con
+    # el opt-in del lanzador. Medirlo sobre la oferta dejaría de exigir su entrada curada justo
+    # cuando el fallback —«estable» salvo que la descripción diga «experimental»— seguiría vivo.
+    ids = [p["id"] for p in list_presets(incluir_referencia=True)]
+    assert len(ids) >= 4, f"el catálogo sólo publica {len(ids)} presets"
     sin_curar = [pid for pid in ids if f'"{pid}"' not in fuente]
     assert not sin_curar, (
         f"presets publicados sin entrada curada en presentation.ts: {sin_curar}. Caerían al "

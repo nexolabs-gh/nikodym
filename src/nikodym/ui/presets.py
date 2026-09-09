@@ -34,6 +34,7 @@ from copy import deepcopy
 from typing import Any
 
 __all__ = [
+    "es_preset_de_referencia",
     "get_preset",
     "ifrs9_preset",
     "list_presets",
@@ -960,17 +961,56 @@ _PRESETS: dict[str, Callable[[], dict[str, Any]]] = {
 }
 
 
-def list_presets() -> list[dict[str, Any]]:
-    """Descriptores SIN ``config`` de todos los presets, para el selector del front (SDD-28)."""
-    return [
-        {
-            "id": p["id"],
-            "name": p["name"],
-            "description": p["description"],
-            "dataset_id": p["dataset_id"],
-        }
-        for p in (build() for build in _PRESETS.values())
-    ]
+# Presets que son *casos de referencia*: encienden una sección que sólo muestran trabajos con
+# jurisdicción, así que ofrecerlos contradiría D-JUR-9 igual que ofrecer su trabajo. La razón se
+# escribe al lado del id porque un id suelto en una lista se vuelve incomprensible en un año, y un
+# gate bidireccional la ata a `jobs.secciones_de_referencia()` en los dos sentidos: un preset que
+# encienda una sección de referencia y NO esté aquí pone rojo, y uno listado que no encienda
+# ninguna, también. No es un segundo atributo de visibilidad (D-JUR-9.1): es la traducción del
+# mismo hecho —qué motor enciende el config— al vocabulario de los presets, que no tienen
+# `jurisdiction_code` propio.
+_PRESETS_DE_REFERENCIA: dict[str, str] = {
+    PROVISIONES_PRESET_ID: (
+        "enciende provisioning_cmf, el motor del caso de referencia (D-JUR-7); su trabajo "
+        "'Provisiones CMF' declara jurisdiction_code='CL'"
+    ),
+}
+
+
+def es_preset_de_referencia(preset_id: str) -> bool:
+    """¿Este preset es un caso de referencia? (D-JUR-9.1)."""
+    return preset_id in _PRESETS_DE_REFERENCIA
+
+
+def list_presets(*, incluir_referencia: bool = False) -> list[dict[str, Any]]:
+    """Descriptores SIN ``config`` de los presets, para el selector del front (SDD-28).
+
+    Parameters
+    ----------
+    incluir_referencia : bool, optional
+        ``False`` (default) devuelve lo que la interfaz OFRECE: sin los presets de referencia
+        (D-JUR-9.2). ``True`` devuelve el registro completo, que es el de siempre.
+
+    Notes
+    -----
+    Filtrar aquí es filtrar la **oferta**, no la resolución: :func:`get_preset` sigue resolviendo
+    cualquier id registrado, porque escribir ``f3-provisiones-consumo`` es pedir exactamente eso
+    (D-JUR-9.3). Es lo que mantiene verde el smoke del wheel en CI sin que la pantalla lo ofrezca.
+    """
+    descriptores: list[dict[str, Any]] = []
+    for preset_id, build in _PRESETS.items():
+        if not incluir_referencia and es_preset_de_referencia(preset_id):
+            continue
+        preset = build()
+        descriptores.append(
+            {
+                "id": preset["id"],
+                "name": preset["name"],
+                "description": preset["description"],
+                "dataset_id": preset["dataset_id"],
+            }
+        )
+    return descriptores
 
 
 def get_preset(preset_id: str) -> dict[str, Any]:

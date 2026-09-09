@@ -56,6 +56,7 @@ from nikodym.ui._static_index import resolve_local_resources
 from nikodym.ui.jobs import _SECCIONES_LATENTES, list_jobs
 from nikodym.ui.presets import get_preset, list_presets
 from nikodym.ui.serializers import serialize_study
+from nikodym.ui.settings import UiConfig
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _SCHEMA_TS = _RAIZ / "web" / "src" / "lib" / "schema.ts"
@@ -159,8 +160,13 @@ def test_governance_es_la_decimoquinta_seccion_del_formulario_y_se_llama_goberna
 
 
 def test_los_diez_trabajos_ofrecen_governance_y_la_declaran_latente() -> None:
-    """Como `report`: en los diez; y a diferencia de `report`, sembrada apagada (§8.1-3)."""
-    trabajos = list_jobs()
+    """Como `report`: en los diez; y a diferencia de `report`, sembrada apagada (§8.1-3).
+
+    Catálogo COMPLETO (D-JUR-9.2): la gobernanza es una promesa del producto entero, y un trabajo
+    que dejó de ofrecerse sigue corriendo desde un config propio. Medirla sobre la oferta dejaría
+    a los dos casos de referencia sin el gate que exige `governance` latente.
+    """
+    trabajos = list_jobs(incluir_referencia=True)
     assert len(trabajos) == 10
     for job in trabajos:
         assert job["sections"][-1] == "governance", (job["id"], job["sections"])
@@ -172,14 +178,18 @@ def test_los_diez_trabajos_ofrecen_governance_y_la_declaran_latente() -> None:
 
 def test_el_endpoint_publica_latent_sections() -> None:
     """El front y el gate de ejecutabilidad consumen la misma clave del contrato REST."""
-    for job in routes.jobs_payload()["jobs"]:
+    for job in routes.jobs_payload(UiConfig())["jobs"]:
         assert job["latent_sections"] == ["governance"], job["id"]
         assert set(job["latent_sections"]) <= set(job["sections"])
 
 
 def test_sigue_apagada_en_los_cuatro_presets() -> None:
-    """D-GOB-8 no se reabre: ningún preset inventa un propósito."""
-    ids = [p["id"] for p in list_presets()]
+    """D-GOB-8 no se reabre: ningún preset inventa un propósito.
+
+    Registro COMPLETO (D-JUR-9.2): F3 sigue existiendo y sigue teniendo que cumplirlo aunque el
+    selector ya no lo ofrezca — `get_preset("f3-provisiones-consumo")` lo sirve igual (D-JUR-9.3).
+    """
+    ids = [p["id"] for p in list_presets(incluir_referencia=True)]
     assert len(ids) == 4, ids
     for preset_id in ids:
         assert get_preset(preset_id)["config"]["governance"] is None, preset_id

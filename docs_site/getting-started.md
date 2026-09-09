@@ -193,11 +193,9 @@ Los trabajos del catálogo, en el orden en que aparecen:
 |---|---|
 | **Scorecard de comportamiento (PD)** | El pipeline F1 completo: binning, selección, modelo, scorecard, calibración, desempeño, estabilidad e informe. |
 | **PD lifetime (curvas de supervivencia)** | Curvas de supervivencia sobre datos censurados y su estructura temporal de PD. |
-| **Provisiones CMF** | El caso de referencia de norma local: provisión por el método estándar de la norma chilena, con sus matrices por cartera. |
 | **Provisiones IFRS 9 / ECL** | Pérdida esperada de tres etapas: PD lifetime, LGD, EAD, staging por SICR y descuento a la tasa efectiva. |
 | **Provisión interna / LGD** | Provisión por el método interno sobre grupos homogéneos, a partir de la PD calibrada que traes como tabla. |
 | **PD + LGD en una corrida** | El scorecard completo y la provisión interna en una sola corrida y un solo informe. |
-| **Comparar provisiones (CMF vs. interna)** | La regla del máximo del caso de referencia: método estándar y método interno del banco, comparados por institución. |
 | **Validar un modelo existente** | Tu scorecard y tu PD, medidos y documentados: discriminación, calibración y estabilidad, sin volver a modelar. |
 | **Severidad modelada o calculada** | La LGD modelada con las variables de tu archivo, o calculada descontando lo que ya recuperaste. |
 | **Stress testing** | Escenarios adversos y shocks macro sobre la cartera. Hoy sólo por código: el motor corre desde Python y todavía no tiene pantalla. |
@@ -209,8 +207,8 @@ modelo y hace que Resultados muestre la ficha del modelo. Cómo se enciende y qu
 
 !!! note "`[ui]` trae lo que el formulario puede ejecutar"
     No es sólo el servidor: compone `scoring`, `survival`, `excel`, `docx` y `report`, así que los
-    cuatro presets de fábrica —F1 scorecard, F3 provisiones CMF, F4 IFRS 9 y F5 provisión interna
-    sobre cartera genérica— corren hasta el informe con esa única instalación. Son unos
+    tres presets de fábrica —F1 scorecard, F4 IFRS 9 y F5 provisión interna sobre cartera
+    genérica— corren hasta el informe con esa única instalación. Son unos
     700 MB en disco. Un extra llamado `ui` que instalara la interfaz pero no el motor que ésta
     dispara prometería algo que no cumple. Quedan fuera el **PDF** (`nikodym[pdf]`), por la licencia
     de WeasyPrint, y el backend de lectura **`polars`** (`nikodym[polars]`), que sólo acelera la
@@ -223,6 +221,7 @@ modelo y hace que Resultados muestre la ficha del modelo. Cómo se enciende y qu
 | `--port PORT` | Puerto local (1024–65535). Por defecto `8000`. |
 | `--workdir DIR` | Dónde se guardan corridas y datasets. Por defecto `.nikodym_ui` en el directorio actual. |
 | `--no-open` | No abrir el navegador automáticamente. |
+| `--casos-de-referencia` | Ofrecer también los casos de referencia atados a una jurisdicción. Por defecto el catálogo no los ofrece; ver [Aterrizar una norma local](norma-local.md). |
 
 !!! note "Sólo escucha en loopback, y no es configurable"
     El bind es siempre `127.0.0.1`: **no existe `--host`**. La interfaz no es alcanzable desde la

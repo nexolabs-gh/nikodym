@@ -241,12 +241,16 @@ def _secciones_del_catalogo() -> frozenset[str]:
     formulario no la ofrece (D-JOB-18)— y sin embargo implementa el protocolo: implementar de más
     es gratis y correcto. Por eso el candado «ninguna exención sobra» se aplica sólo a la lista
     escrita, nunca a este conjunto, que no es una lista donde algo pueda sobrar.
+
+    ⚠️ Catálogo COMPLETO (D-JUR-9.2): lo que una sección exige es propiedad de la sección. Un caso
+    de referencia dejó de ofrecerse, no de correr —por id, por config propio y por el smoke del
+    wheel—, así que sus secciones siguen debiendo el protocolo.
     """
     from nikodym.ui.jobs import list_jobs
 
     return frozenset(
         seccion
-        for job in list_jobs()
+        for job in list_jobs(incluir_referencia=True)
         if job["status"] == "available"
         for seccion in job["sections"]
     )

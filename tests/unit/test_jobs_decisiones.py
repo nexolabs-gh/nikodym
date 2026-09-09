@@ -95,9 +95,13 @@ def _obligatorias_del_formulario() -> dict[str, list[str]]:
 
 
 def _decisiones_declaradas() -> dict[str, dict[str, Any]]:
-    """``{path: decisión}`` de todo lo que el catálogo declara, sin repetir."""
+    """``{path: decisión}`` de todo lo que el catálogo declara, sin repetir.
+
+    Catálogo COMPLETO (D-JUR-9.2): las decisiones obligatorias son una propiedad de las
+    secciones, y las de referencia siguen en el formulario.
+    """
     declaradas: dict[str, dict[str, Any]] = {}
-    for job in list_jobs():
+    for job in list_jobs(incluir_referencia=True):
         for decision in job["required_decisions"]:
             declaradas[decision["path"]] = decision
     return declaradas
@@ -143,7 +147,7 @@ def test_todo_campo_obligatorio_del_formulario_tiene_su_pregunta() -> None:
 def test_un_trabajo_hereda_exactamente_las_decisiones_de_sus_secciones() -> None:
     """El reparto por sección no puede dejar a un trabajo con preguntas de una sección que no ve."""
     obligatorias = _obligatorias_del_formulario()
-    for job in list_jobs():
+    for job in list_jobs(incluir_referencia=True):
         suyas = set(job["sections"])
         for decision in job["required_decisions"]:
             seccion = decision["path"].split(".", 1)[0]
@@ -161,7 +165,7 @@ def test_los_dos_trabajos_con_survival_preguntan_cinco_cosas() -> None:
     porque los diez ofrecen ``governance`` (D-GOB-11). Que sea la última no es casual: el orden es
     el de ``_DECISIONES_POR_SECCION`` y la sección va al final del formulario, como ``report``.
     """
-    por_id = {job["id"]: job for job in list_jobs()}
+    por_id = {job["id"]: job for job in list_jobs(incluir_referencia=True)}
     if "survival" not in cargar_configs_de_dominio():
         pytest.skip("el extra de survival no está instalado")
     for job_id in ("pd_lifetime", "provisiones_ifrs9"):
@@ -220,9 +224,9 @@ def test_una_decision_declara_sus_cuatro_piezas_y_se_lee_como_pregunta() -> None
 
 def test_el_catalogo_devuelve_copias() -> None:
     """Mutar lo que devuelve el catálogo no puede contaminar el proceso."""
-    primero = list_jobs()[0]["required_decisions"]
+    primero = list_jobs(incluir_referencia=True)[0]["required_decisions"]
     primero[0]["question"] = "MUTADO"
-    assert list_jobs()[0]["required_decisions"][0]["question"] != "MUTADO"
+    assert list_jobs(incluir_referencia=True)[0]["required_decisions"][0]["question"] != "MUTADO"
 
 
 def test_decisiones_de_no_repite_ni_depende_del_orden() -> None:

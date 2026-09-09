@@ -157,8 +157,13 @@ def _puntos_del_motor() -> dict[str, list[str]]:
     return encontrados
 
 
+# Catálogo COMPLETO (D-JUR-9.2): el gate bidireccional sección ↔ abanico compara contra
+# `_ABANICO_POR_SECCION`, que sigue declarando bloques para `provisioning_cmf` y `provisioning`.
+# Sobre la oferta esos dos bloques quedarían huérfanos y el gate exigiría borrarlos.
 _SECCIONES_DEL_CATALOGO: frozenset[str] = frozenset(
-    seccion for trabajo in jobs.list_jobs() for seccion in trabajo["sections"]
+    seccion
+    for trabajo in jobs.list_jobs(incluir_referencia=True)
+    for seccion in trabajo["sections"]
 )
 
 #: Campos con más de una opción que **no** son un punto de elección metodológica, con su razón.
@@ -686,7 +691,7 @@ def test_las_etiquetas_de_un_punto_no_se_repiten() -> None:
 
 
 def test_un_trabajo_hereda_exactamente_el_abanico_de_sus_secciones() -> None:
-    for trabajo in jobs.list_jobs():
+    for trabajo in jobs.list_jobs(incluir_referencia=True):
         esperado = [
             eleccion["path"]
             for seccion, elecciones in jobs._ABANICO_POR_SECCION.items()

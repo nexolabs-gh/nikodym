@@ -193,11 +193,15 @@ def catalogo() -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def trabajos() -> list[dict[str, Any]]:
-    return list_jobs()
+    # Catálogo COMPLETO: D-EJE-5 recorre los DIEZ y D-JUR-9.2 no lo relaja. Que un caso de
+    # referencia haya dejado de ofrecerse no lo exime de ser ejecutable — sigue alcanzable por id,
+    # por config propio y por el smoke del wheel, así que un esqueleto suyo que no corra es el
+    # mismo defecto de siempre.
+    return list_jobs(incluir_referencia=True)
 
 
 def _ids() -> list[str]:
-    return [job["id"] for job in list_jobs()]
+    return [job["id"] for job in list_jobs(incluir_referencia=True)]
 
 
 # --------------------------------------------------------------------------------------------

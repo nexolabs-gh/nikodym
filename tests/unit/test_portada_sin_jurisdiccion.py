@@ -591,7 +591,11 @@ def _copy_de_los_trabajos() -> dict[str, list[str]]:
             return [t for hijo in nodo for t in textos(hijo)]
         return []
 
-    return {str(trabajo["id"]): textos(trabajo) for trabajo in list_jobs()}
+    # Catálogo COMPLETO (D-JUR-9.2): este barrido mide el copy del catálogo como texto público, y
+    # los dos trabajos de referencia siguen publicándolo —el opt-in los ofrece, un YAML propio los
+    # resuelve y el sidebar los pinta—. Sobre la oferta, sus ~600 textos dejarían de mirarse y el
+    # gate de abajo acusaría copy huérfano en el fuente que en realidad SÍ llega a la pantalla.
+    return {str(trabajo["id"]): textos(trabajo) for trabajo in list_jobs(incluir_referencia=True)}
 
 
 def _trabajos_con_jurisdiccion() -> frozenset[str]:
@@ -604,7 +608,9 @@ def _trabajos_con_jurisdiccion() -> frozenset[str]:
     trabajo neutro no es gratis — lo saca del listado principal, que es un costo visible.
     """
     return frozenset(
-        str(t["id"]) for t in list_jobs() if t.get("jurisdiction_code") not in (None, "")
+        str(t["id"])
+        for t in list_jobs(incluir_referencia=True)
+        if t.get("jurisdiction_code") not in (None, "")
     )
 
 
@@ -617,7 +623,14 @@ def test_el_barrido_del_catalogo_de_trabajos_no_es_vacuo() -> None:
 
     exentos = _trabajos_con_jurisdiccion()
     assert exentos, (
-        "ningún trabajo declara jurisdicción: el caso de referencia se borró del catálogo"
+        "ningún trabajo declara jurisdicción: el caso de referencia se borró del catálogo. "
+        "D-JUR-9 lo sacó de la OFERTA, no del catálogo: sigue en `_JOBS` y `list_jobs("
+        "incluir_referencia=True)` tiene que seguir devolviéndolo (D-JUR-9.2, D-JUR-9.9)."
+    )
+    # Y el catálogo por defecto NO ofrece ninguno de ellos: es el otro sentido de la misma regla.
+    ofrecidos = {str(t["id"]) for t in list_jobs()}
+    assert not (ofrecidos & exentos), (
+        f"el catálogo por defecto ofrece casos de referencia: {sorted(ofrecidos & exentos)}"
     )
     assert set(por_trabajo) >= exentos, "un trabajo exento no aparece en el barrido"
 
@@ -674,7 +687,8 @@ def test_el_catalogo_publica_todo_el_copy_con_jurisdiccion_del_fuente() -> None:
         if _ofensores(nodo.value):
             huerfanos.append(f"{_JOBS.name}:{nodo.lineno} {nodo.value[:70]!r}")
     assert not huerfanos, (
-        "hay copy con jurisdicción en el fuente del catálogo que `list_jobs()` no publica, así que "
+        "hay copy con jurisdicción en el fuente del catálogo que el catálogo completo no publica, "
+        "así que "
         f"este gate no lo estaría mirando: {huerfanos}"
     )
 

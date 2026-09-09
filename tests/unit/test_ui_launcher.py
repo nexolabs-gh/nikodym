@@ -338,7 +338,7 @@ def test_no_existe_la_opcion_host() -> None:
         accion.option_strings[0] for accion in launcher._parser()._actions if accion.option_strings
     }
     assert "--host" not in opciones
-    assert {"--port", "--workdir", "--no-open"} <= opciones
+    assert {"--port", "--workdir", "--no-open", "--casos-de-referencia"} <= opciones
 
 
 def test_puerto_ocupado_falla_sin_abrir_navegador(
@@ -401,6 +401,33 @@ def test_el_launcher_anuncia_la_url(
     assert codigo == 0
     assert servido == [1]
     assert f"http://127.0.0.1:{puerto}/" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("con_opcion", [False, True], ids=["sin_opcion", "con_opcion"])
+def test_la_opcion_de_casos_de_referencia_llega_a_uiconfig(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, con_opcion: bool
+) -> None:
+    """D-JUR-9.4: la opción del lanzador es lo único que enciende el ajuste.
+
+    No basta con que el parser la acepte: lo que decide qué ofrece la landing es
+    ``UiConfig.casos_de_referencia``, así que el gate mira el objeto que recibe ``_servir`` — que
+    es el mismo que ``create_app`` guarda en ``app.state.settings`` y el que leen ``jobs_payload``
+    y ``presets_index_payload``. Sin este test, dejar la opción declarada y no cablearla pasaría
+    verde.
+    """
+    capturados: list[UiConfig] = []
+    monkeypatch.setattr(
+        launcher, "_servir", lambda runtime, settings, reservado, abrir: capturados.append(settings)
+    )
+    monkeypatch.setattr(launcher, "_reservar_socket", lambda port: None)
+
+    argv = ["--port", "8126", "--no-open", "--workdir", str(tmp_path / "wd")]
+    if con_opcion:
+        argv.append("--casos-de-referencia")
+    assert launcher.main(argv) == 0
+
+    assert len(capturados) == 1
+    assert capturados[0].casos_de_referencia is con_opcion
 
 
 def test_el_workdir_se_crea(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

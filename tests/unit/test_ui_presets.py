@@ -475,11 +475,15 @@ def test_provisiones_preset_columnas_regulatorias_existen_en_el_dataset() -> Non
 
 
 def test_list_presets_cataloga_ambos_sin_config() -> None:
-    """``list_presets`` devuelve los descriptores (sin ``config``) de F1, F3, F4 y F5, en orden."""
+    """``list_presets`` devuelve los descriptores (sin ``config``) de F1, F4 y F5, en orden.
+
+    F3 dejó de OFRECERSE (D-JUR-9.2): enciende ``provisioning_cmf``, el motor del caso de
+    referencia, y ofrecerlo contradiría sacar su trabajo del catálogo. Sigue registrado y sigue
+    resolviéndose por id — lo comprueba el test de abajo, y el smoke del wheel de CI.
+    """
     catalogo = list_presets()
     assert [p["id"] for p in catalogo] == [
         STANDARD_PRESET_ID,
-        PROVISIONES_PRESET_ID,
         F4_IFRS9_PRESET_ID,
         # D-JUR-8: el mismo motor de provisiones sin una sola línea de norma local.
         F5_INTERNA_PRESET_ID,
@@ -487,6 +491,44 @@ def test_list_presets_cataloga_ambos_sin_config() -> None:
     for descriptor in catalogo:
         assert set(descriptor) == {"id", "name", "description", "dataset_id"}
         assert "config" not in descriptor
+
+
+def test_list_presets_con_referencia_devuelve_el_registro_entero() -> None:
+    """El catálogo completo sigue siendo el de siempre, en su orden (D-JUR-9.2)."""
+    assert [p["id"] for p in list_presets(incluir_referencia=True)] == [
+        STANDARD_PRESET_ID,
+        PROVISIONES_PRESET_ID,
+        F4_IFRS9_PRESET_ID,
+        F5_INTERNA_PRESET_ID,
+    ]
+
+
+def test_los_presets_de_referencia_son_los_que_encienden_una_seccion_de_referencia() -> None:
+    """Gate bidireccional de ``_PRESETS_DE_REFERENCIA`` (D-JUR-9.1).
+
+    La lista de presets no ofrecidos no es un segundo atributo de visibilidad: es la traducción de
+    «qué motor enciende este config» al vocabulario de los presets, que no tienen
+    ``jurisdiction_code`` propio. Por eso se ata en los DOS sentidos a las secciones que sólo
+    muestran trabajos con jurisdicción — vaciar la lista pone rojo (F3 enciende
+    ``provisioning_cmf``) y añadir F5 también (no enciende ninguna).
+    """
+    from nikodym.ui.jobs import secciones_de_referencia
+    from nikodym.ui.presets import es_preset_de_referencia
+
+    de_referencia = secciones_de_referencia()
+    assert de_referencia, "sin secciones de referencia este gate no comprobaría nada"
+
+    for descriptor in list_presets(incluir_referencia=True):
+        pid = descriptor["id"]
+        encendidas = {
+            clave
+            for clave, valor in get_preset(pid)["config"].items()
+            if valor is not None and clave in de_referencia
+        }
+        assert es_preset_de_referencia(pid) == bool(encendidas), (
+            f"{pid}: enciende {sorted(encendidas)} y `_PRESETS_DE_REFERENCIA` dice "
+            f"{es_preset_de_referencia(pid)}. La lista y el config tienen que coincidir."
+        )
 
 
 def test_get_preset_por_id_y_desconocido() -> None:
@@ -517,11 +559,14 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
     assert indice.status_code == 200
     assert [p["id"] for p in indice.json()["presets"]] == [
         STANDARD_PRESET_ID,
-        PROVISIONES_PRESET_ID,
         F4_IFRS9_PRESET_ID,
         # D-JUR-8: el mismo motor de provisiones sin una sola línea de norma local.
         F5_INTERNA_PRESET_ID,
     ]
+
+    # Ofrecer no es resolver (D-JUR-9.3): el índice ya no lista F3 y su id sigue devolviendo 200
+    # con el mismo `config_hash`. Es lo que mantiene verde el smoke del wheel de CI, que pide
+    # `f3` por esta misma ruta.
 
     detalle = client.get(f"/api/config/preset/{PROVISIONES_PRESET_ID}")
     assert detalle.status_code == 200
@@ -531,6 +576,32 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
     assert config_hash(NikodymConfig.model_validate(cuerpo["config"])) == _EXPECTED_F3_CONFIG_HASH
 
     assert client.get("/api/config/preset/preset-inexistente").status_code == 404
+
+
+def test_el_opt_in_del_lanzador_vuelve_a_listar_el_preset_de_referencia() -> None:
+    """Con ``nikodym-ui --casos-de-referencia``, ``/api/config/presets`` lista los cuatro.
+
+    D-JUR-9.4: el opt-in es del lanzador y viaja en ``UiConfig``, así que la ruta lo lee de
+    ``app.state.settings`` y no de un parámetro de la petición.
+    """
+    import pytest
+
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+
+    from _ui_client import ui_client
+
+    from nikodym.ui.settings import UiConfig
+
+    client = ui_client(UiConfig.model_validate({"casos_de_referencia": True}))
+    indice = client.get("/api/config/presets")
+    assert indice.status_code == 200
+    assert [p["id"] for p in indice.json()["presets"]] == [
+        STANDARD_PRESET_ID,
+        PROVISIONES_PRESET_ID,
+        F4_IFRS9_PRESET_ID,
+        F5_INTERNA_PRESET_ID,
+    ]
 
 
 def test_config_hash_ignora_la_ruta_del_dataset() -> None:

@@ -23,9 +23,15 @@ _FIXTURES_DEMO = _RAIZ / "web" / "src" / "fixtures" / "demo"
 
 
 def _configs_de_preset() -> dict[str, dict]:
-    """Los cuatro presets publicados, por id."""
+    """Los cuatro presets REGISTRADOS, por id.
+
+    Registro completo y no la oferta (D-JUR-9.2): F3 dejó de listarse en el selector, no de
+    existir. Sigue resolviéndose por id, sigue siendo el preset del caso de referencia y sigue
+    teniendo que cumplir D-GOB-8 —``audit`` encendido, ``governance`` y ``tracking`` en ``None``—
+    y no mover su ``config_hash``.
+    """
     salida: dict[str, dict] = {}
-    for entrada in list_presets():
+    for entrada in list_presets(incluir_referencia=True):
         pid = entrada["id"] if isinstance(entrada, dict) else entrada
         descriptor = get_preset(pid)
         salida[pid] = descriptor.get("config", descriptor)

@@ -20,13 +20,19 @@ import json
 from pathlib import Path
 
 from nikodym.ui.routes import jobs_payload
+from nikodym.ui.settings import UiConfig
 
 _FIXTURE = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "jobs.json"
 
 
 def main() -> None:
     """Escribe el fixture con el catálogo de trabajos actual."""
-    payload = jobs_payload()
+    # `UiConfig()` a secas —es decir, `casos_de_referencia=False`— porque este fixture es el
+    # respaldo offline y lo que empaqueta la demo estática, y ahí NO existe el opt-in: no hay
+    # lanzador que reciba `--casos-de-referencia` (D-JUR-9.4). Trae los diez trabajos con la oferta
+    # marcada, así que un YAML propio de referencia sigue resolviendo su trabajo también sin
+    # backend; lo que no ocurre es que la landing lo ofrezca.
+    payload = jobs_payload(UiConfig())
     if not payload["jobs"]:
         raise SystemExit("❌ el catálogo vino vacío: el fixture dejaría la landing sin entrada")
     # `newline="\n"`: en Windows `write_text` escribiría CRLF y `.gitattributes` exige LF para los

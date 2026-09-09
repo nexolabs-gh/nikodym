@@ -160,8 +160,10 @@ def test_el_orden_de_ejecucion_y_el_mapa_de_dominios_enumeran_lo_mismo() -> None
 
 
 def _configs_de_preset() -> dict[str, dict]:
+    # Registro completo (D-JUR-9.2): «ningún preset» son los cuatro registrados, no los tres que
+    # el selector ofrece. F3 sigue resolviéndose por id y su identidad tampoco puede moverse.
     salida: dict[str, dict] = {}
-    for entrada in list_presets():
+    for entrada in list_presets(incluir_referencia=True):
         pid = entrada["id"] if isinstance(entrada, dict) else entrada
         descriptor = get_preset(pid)
         salida[pid] = descriptor.get("config", descriptor)

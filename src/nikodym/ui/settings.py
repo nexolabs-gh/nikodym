@@ -33,3 +33,11 @@ class UiConfig(NikodymBaseConfig):
     allow_live_execution: bool = Field(
         True, title="Permitir ejecución en vivo (False en demo; R0 en red)"
     )
+    # D-JUR-9.4: el opt-in es de LA HERRAMIENTA, no del experimento. Con él la landing vuelve a
+    # ofrecer los trabajos con jurisdicción y el selector lista su preset; sin él siguen siendo
+    # alcanzables por id y por config (D-JUR-9.3), que es lo que conserva el caso de referencia
+    # como evidencia sin ponerlo en la propuesta de valor. Es un ajuste de UiConfig y no una
+    # variable de entorno porque el precedente del repo es la opción declarada del comando.
+    casos_de_referencia: bool = Field(
+        False, title="Ofrecer los casos de referencia con jurisdicción"
+    )

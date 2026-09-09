@@ -5,9 +5,11 @@ Uso típico::
     pip install "nikodym[ui]"
     nikodym-ui                 # 127.0.0.1:8000, abre el navegador y usa .nikodym_ui/
 
-Acepta ``--port``, ``--workdir`` y ``--no-open``. **No ofrece ``--host``**: el bind es fijo a
-loopback y exponer la ejecución en vivo a la red es una decisión diferida (D-UI-R0). Tampoco hay una
-variable de entorno equivalente — una puerta trasera no declarada es peor que una opción declarada.
+Acepta ``--port``, ``--workdir``, ``--no-open`` y ``--casos-de-referencia``. **No ofrece
+``--host``**: el bind es fijo a loopback y exponer la ejecución en vivo a la red es una decisión
+diferida (D-UI-R0). Tampoco hay una variable de entorno equivalente — una puerta trasera no
+declarada es peor que una opción declarada, y por eso el opt-in de los casos de referencia
+(D-JUR-9.4) también es una opción del comando y no un ``NIKODYM_UI_*`` del entorno.
 
 ``python -m nikodym.ui`` y el console script recorren exactamente el mismo camino.
 """
@@ -72,6 +74,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--no-open", action="store_true", help="no abrir el navegador automáticamente"
+    )
+    parser.add_argument(
+        "--casos-de-referencia",
+        action="store_true",
+        help=(
+            "ofrecer también los casos de referencia atados a una jurisdicción "
+            "(normativa local implementada como evidencia; por defecto no se ofrecen)"
+        ),
     )
     return parser
 
@@ -139,8 +149,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     workdir = Path(args.workdir).expanduser()
     # `model_validate` y no `UiConfig(workdir=...)`: el __init__ tipado de Pydantic exige todos los
-    # campos y aquí sólo se sobreescribe uno; el resto son los defaults del modelo.
-    settings = UiConfig.model_validate({"workdir": str(workdir)})
+    # campos y aquí sólo se sobreescriben dos; el resto son los defaults del modelo.
+    settings = UiConfig.model_validate(
+        {"workdir": str(workdir), "casos_de_referencia": args.casos_de_referencia}
+    )
 
     reservado: socket.socket | None = None
     try:

@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, Request, Response
     from fastapi.responses import HTMLResponse
 
+    from nikodym.ui.settings import UiConfig
+
 # Media type OOXML de Word: sin él, el navegador baja el .docx como binario opaco y Word protesta.
 _DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -319,8 +321,12 @@ def _preflight_insumos(
     # campo de un trabajo que no es el actual vive en una sección APAGADA, y ahí `_valor_en`
     # devuelve `None`. El config activo filtra solo, sin que esta capa tenga que saber por qué
     # trabajo entró el usuario.
+    # Catálogo COMPLETO y no el por defecto: esto es un índice por artefacto, no una oferta
+    # (D-JUR-9.2). Un YAML propio de referencia trae su insumo aunque la landing no ofrezca su
+    # trabajo, y sin sus entradas el preflight se quedaría sin los avisos de columnas de esa
+    # corrida — que sí arranca (D-JUR-9.3).
     columnas_por_clave: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for job in jobs.list_jobs():
+    for job in jobs.list_jobs(incluir_referencia=True):
         for declarada in job["external_artifacts"]:
             clave = (declarada["artifact"][0], declarada["artifact"][1])
             columnas_por_clave.setdefault(clave, []).append(declarada)
@@ -695,25 +701,43 @@ def preset_payload(preset_id: str | None = None) -> dict[str, Any]:
     }
 
 
-def jobs_payload() -> dict[str, Any]:
+def jobs_payload(cfg: UiConfig) -> dict[str, Any]:
     """Compone la respuesta de ``GET /api/jobs``: el catálogo de trabajos (D-JOB-1/3/15).
 
     Aditivo: ningún endpoint existente cambia de forma y el ``config_hash`` no se mueve (D-JOB-9).
     Lo consumen la landing (qué se puede hacer), el sidebar (qué secciones existen esta sesión) y,
     más adelante, la puerta de artefactos por HTTP (D-JOB-7) — de ahí que la fuente viva en el
     backend y no en el front.
+
+    🔴 **Publica el catálogo COMPLETO con la oferta marcada, no el catálogo por defecto**
+    (D-JUR-9.2). La diferencia no es de estilo: el front resuelve el trabajo de un YAML importado
+    con ``jobForConfig`` sobre *el catálogo recibido*, y sus insumos externos con
+    ``requiredExternalArtifacts``, que devuelve ``[]`` sin trabajo. Recortar el cable habría dejado
+    un config propio con ``provisioning_cmf:`` sin trabajo que lo case, sin la tarjeta que pide su
+    PD y con el método interno exigiéndola igual — es decir, corriendo sin pintarse (D-JOB-18).
+    Por eso viajan los diez y cada uno dice si se OFRECE; ofrecer y resolver son cosas distintas
+    (D-JUR-9.3).
     """
-    return {"jobs": jobs.list_jobs()}
+    return {
+        "jobs": [
+            {**job, "offered": not jobs.es_de_referencia(job) or cfg.casos_de_referencia}
+            for job in jobs.list_jobs(incluir_referencia=True)
+        ]
+    }
 
 
-def presets_index_payload() -> dict[str, Any]:
+def presets_index_payload(cfg: UiConfig) -> dict[str, Any]:
     """Compone la respuesta de ``GET /api/config/presets``: catálogo de presets SIN ``config``.
 
     El front lo usa para poblar el selector de presets; cada entrada trae lo justo para listar
     (``id``, ``name``, ``description``, ``dataset_id``) y el detalle se pide luego por
     ``GET /api/config/preset/{id}``.
+
+    A diferencia de ``/api/jobs`` este sí FILTRA (D-JUR-9.3): un preset no se resuelve desde un
+    YAML, se elige — así que listarlo es ofrecerlo y no hay nada que el front tenga que resolver
+    con los que no ofrece. El id explícito sigue sirviéndose por ``GET /api/config/preset/{id}``.
     """
-    return {"presets": presets.list_presets()}
+    return {"presets": presets.list_presets(incluir_referencia=cfg.casos_de_referencia)}
 
 
 def _entradas_externas(external_artifacts: Any) -> list[dict[str, Any]]:
@@ -1177,14 +1201,14 @@ def build_router() -> APIRouter:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.get("/jobs")
-    async def jobs_endpoint() -> dict[str, Any]:
+    async def jobs_endpoint(request: Request) -> dict[str, Any]:
         """Cataloga los trabajos: qué se puede hacer y qué secciones muestra cada uno."""
-        return jobs_payload()
+        return jobs_payload(request.app.state.settings)
 
     @router.get("/config/presets")
-    async def config_presets_index_endpoint() -> dict[str, Any]:
+    async def config_presets_index_endpoint(request: Request) -> dict[str, Any]:
         """Cataloga los presets disponibles (sin ``config``) para el selector del front."""
-        return presets_index_payload()
+        return presets_index_payload(request.app.state.settings)
 
     @router.get("/config/preset")
     async def config_preset_endpoint() -> dict[str, Any]:

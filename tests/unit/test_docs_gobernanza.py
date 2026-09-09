@@ -156,7 +156,8 @@ def test_lo_que_la_documentacion_afirma_lo_hace_el_codigo() -> None:
     with pytest.raises(ValueError, match="en blanco"):
         GovernanceConfig(purpose="   ")
 
-    ids = [p["id"] for p in list_presets()]
+    # Registro completo (D-JUR-9.2): F3 ya no se ofrece y sigue teniendo que cumplir D-GOB-8.
+    ids = [p["id"] for p in list_presets(incluir_referencia=True)]
     assert len(ids) == 4, ids
     for preset_id in ids:
         config = get_preset(preset_id)["config"]
@@ -254,9 +255,19 @@ def test_el_catalogo_de_trabajos_publicado_es_el_de_la_interfaz() -> None:
     ]
     publicados = [re.match(r"\| \*\*(.+?)\*\* \|", fila).group(1) for fila in filas]  # type: ignore[union-attr]
 
+    # Catálogo POR DEFECTO (D-JUR-9.2): «Empezar» describe lo que la interfaz ofrece al instalar,
+    # y desde D-JUR-9 eso ya no incluye los dos trabajos con jurisdicción. Quien quiera verlos
+    # tiene `--casos-de-referencia`, que la tabla de opciones de esta misma página documenta, y la
+    # página «Aterrizar una norma local». Atarlo al catálogo completo publicaría dos filas que un
+    # `pip install` no alcanza sin la opción.
     catalogo = list_jobs()
-    assert len(catalogo) >= 10
+    assert len(catalogo) >= 8
     assert publicados == [job["label"] for job in catalogo]
+    con_jurisdiccion = [job["label"] for job in catalogo if job["jurisdiction_code"] is not None]
+    assert not con_jurisdiccion, (
+        f"«Empezar» publica trabajos con jurisdicción: {con_jurisdiccion}. El catálogo por defecto "
+        "no los ofrece (D-JUR-9)."
+    )
     for fila, job in zip(filas, catalogo, strict=True):
         if job["status"] == "unavailable":
             assert "por código" in fila, (
