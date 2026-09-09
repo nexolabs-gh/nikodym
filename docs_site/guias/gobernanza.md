@@ -22,7 +22,7 @@ modifica.
 
 ## Encenderla desde la interfaz
 
-La sección **Gobernanza** está en los diez trabajos del catálogo, siempre como última sección del
+La sección **Gobernanza** está en todos los trabajos del catálogo, siempre como última sección del
 grupo «Configuración» del panel lateral.
 
 1. Entra a **Gobernanza**. Arriba de la sección está su interruptor, con el estado

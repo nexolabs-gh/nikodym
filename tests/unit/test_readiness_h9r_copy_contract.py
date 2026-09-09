@@ -88,7 +88,10 @@ def test_censo_publico_cubre_superficies_y_excluye_diseno_interno() -> None:
         "mkdocs.yml",
         "web/index.html",
         "web/package.json",
-        "web/src/fixtures/demo/report-quarto.zip",
+        # Ancla de que el censo entra a los fixtures de la demo y ve también un binario. Era
+        # `report-quarto.zip` (la corrida F3) hasta D-JUR-9.7, que la sacó del árbol; el ZIP de F1
+        # sirve exactamente igual y no depende de una corrida retirada.
+        "web/src/fixtures/demo/report-quarto-f1.zip",
     } <= relative
     assert any(path.startswith("docs_site/") for path in relative)
     assert any(path.startswith("web/src/") for path in relative)

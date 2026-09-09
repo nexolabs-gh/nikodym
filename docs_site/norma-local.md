@@ -68,6 +68,38 @@ otro. Ninguna exige modificar el núcleo.
     útil —por ejemplo, para reportar a una matriz extranjera— pero no es una exigencia del
     supervisor, y el motor no la rotula como tal.
 
+## Cómo verlo
+
+El caso de referencia **no está en el catálogo por defecto de la interfaz**. La primera pantalla
+describe lo que el motor hace para cualquiera; una norma concreta ahí se lee como «esto es para ese
+país», y la jurisdicción pertenece a la evidencia, no a la propuesta de valor. Nada de esto lo
+retira del paquete: el motor, sus pruebas, sus matrices y esta página siguen enteros, y hay tres
+caminos para llegar.
+
+**Desde la interfaz.** Levántala pidiendo explícitamente los casos de referencia:
+
+```bash
+nikodym-ui --casos-de-referencia
+```
+
+La primera pantalla añade el bloque **«Normativa local · casos de referencia»** con «Provisiones
+CMF» y «Comparar provisiones (CMF vs. interna)», y el selector de ejemplos lista también
+`f3-provisiones-consumo`. Sin la opción, ninguno de los tres aparece.
+
+**Desde tu propio YAML: no necesitas la opción.** Si cargas por «Cargar un YAML existente» un
+config con un bloque `provisioning_cmf:`, la interfaz selecciona el trabajo que le corresponde,
+muestra sus secciones, te pide en Datos la PD calibrada que el método interno necesita y la corrida
+arranca. El catálogo no te lo ofrece; no te lo esconde.
+
+**Desde código**, el id del ejemplo sigue resolviendo siempre —pedirlo por su nombre es pedirlo
+explícitamente—:
+
+```python
+from nikodym.ui.presets import get_preset
+
+preset = get_preset("f3-provisiones-consumo")
+```
+
 ## El caso está congelado
 
 El motor chileno **no se mantiene al día con cada circular**, y decirlo es parte del entregable: un

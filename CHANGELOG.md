@@ -75,6 +75,26 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Cambiado
 
+- **El caso de referencia de norma local ya no se ofrece en el catálogo por defecto de la
+  interfaz.** La primera pantalla describe lo que el motor hace para cualquiera, así que los dos
+  trabajos atados a una jurisdicción —«Provisiones CMF» y «Comparar provisiones (CMF vs.
+  interna)»— y su ejemplo de fábrica dejan de aparecer en la landing y en el selector. **No se
+  retiró nada del paquete**: el motor, sus pruebas, sus matrices, su evidencia y la página
+  «Aterrizar una norma local» siguen enteros, y hay tres caminos para llegar.
+
+  - `nikodym-ui --casos-de-referencia` los vuelve a ofrecer: la landing recupera el bloque
+    «Normativa local · casos de referencia» y el selector lista su ejemplo.
+  - **Un config propio con un bloque `provisioning_cmf:` sigue funcionando sin la opción.** Al
+    cargarlo, la interfaz selecciona el trabajo que le corresponde, muestra sus secciones, pide en
+    Datos la PD calibrada que el método interno necesita y la corrida arranca. El catálogo no te lo
+    ofrece; no te lo esconde.
+  - Por código, `get_preset("f3-provisiones-consumo")` y `GET /api/config/preset/{id}` siguen
+    resolviendo: pedir el ejemplo por su nombre es pedirlo explícitamente.
+
+  `GET /api/jobs` es **aditivo**: sigue publicando los diez trabajos y añade por trabajo un campo
+  `offered` que dice si esta sesión los ofrece. Un cliente que no lo mire se comporta como antes.
+  La demo pública pasa a mostrar los ejemplos de scorecard e IFRS 9.
+
 - **Un propósito en blanco ya no construye la gobernanza.** `governance.purpose` se guarda sin
   espacios alrededor y exige al menos un carácter: un texto vacío, de solo espacios o de solo saltos
   de línea se rechaza señalando el campo. Es la validación que hace verdadera la promesa de que la

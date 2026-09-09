@@ -708,6 +708,14 @@ Esfuerzo relativo: S < M < L < XL.
 > y hay una página pública que las presenta como caso trabajado. **La deuda es exigible ahora**, no
 > futura. Ver B5.
 
+> **Lectura actual (2026-09-09, D-JUR-9).** F3 salió del **catálogo por defecto de la interfaz** y
+> de la demo publicada: sus dos trabajos y su preset dejaron de ofrecerse, y la demo pasa a F1/F4.
+> El estado técnico de esta fase **no cambia** —implementada, experimental, con su DoD de
+> validación humana igual de incumplido— y nada del motor se movió (D-JUR-9.9). Sigue alcanzable
+> con `nikodym-ui --casos-de-referencia`, por id (`get_preset("f3-provisiones-consumo")`) y desde
+> un config propio. Ver
+> [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](design/_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md).
+
 ## F4 — IFRS 9 / ECL
 **Objetivo.** ECL de 3 etapas como motor independiente; la orquestación configurable vive en una
 capa separada y sólo representa la regla B-1 al comparar estándar CMF con método interno.

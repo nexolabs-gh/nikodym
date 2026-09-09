@@ -324,6 +324,12 @@ Estado resumido a `1.10.0`:
 | Pipeline scorecard F1 | **Estable** bajo SemVer 1.x |
 | ML, CMF, método interno, IFRS 9, forward, survival, Markov, stress y validación | **Implementados; experimentales** |
 | UI React/FastAPI e informes HTML/PDF/Word | **Disponibles**; demo F1/F3/F4 publicada |
+
+> **Lectura actual (2026-09-09, D-JUR-9).** La demo publicada pasa a **F1/F4**: el caso de
+> referencia salió del catálogo por defecto de la interfaz y de la demo, y F5 entra con la
+> recaptura de la release. El motor CMF, sus pruebas, su evidencia y su página siguen enteros, y
+> el caso sigue alcanzable con `nikodym-ui --casos-de-referencia`, por id y desde un config
+> propio. La fila de arriba conserva el estado que la versión que nombra publicaba.
 | Parámetros CMF | Implementados con tests; **validación humana pre-producción pendiente** |
 | Originación/reject inference y plataforma institucional multiusuario | Futuro; requieren priorización y SDD |
 
