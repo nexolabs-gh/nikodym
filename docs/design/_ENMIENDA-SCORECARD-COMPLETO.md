@@ -72,6 +72,23 @@
    contenedores); el barrido del gate de copy del formulario, sobre el schema completo, cuenta
    **33 rutas** (30 visibles + 3 filas de lista) y para `eda` **17**. Aquí se usan los dos: la
    tabla de copy va por campo (32 / 17) y los goldens del formulario por ruta.
+8. **La primera redacción de D-SC-3 pedía el eje de EDA como decisión obligatoria (D-OBL), y no
+   cabe en ese contrato** (segunda revisión adversarial, 2026-09-09, verificada):
+   `test_toda_decision_declarada_es_de_verdad_obligatoria` rechaza toda decisión sobre un campo
+   que tenga default (`tests/unit/test_jobs_decisiones.py:114-121`) y `axis` lo tiene
+   (`"period"`); y el formulario escribe la plantilla de una forma **entera** en `decision.path`
+   (`ConfigTab.tsx:1076-1080`), así que una plantilla con eje y columna no cabe en el escalar
+   `axis`. La decisión se sustituye por una **inferencia declarada en el motor** (D-SC-3
+   reescrita) y D-EXI para la elección explícita; la alternativa —enmendar D-OBL con una clase de
+   decisión condicional— queda en §8-10.
+9. **`consume_stability=False` aborta la corrida hoy** (misma revisión, verificada):
+   `ValidationStep.execute` pasa `calibrated_pd`, `performance_metrics` y `stability_metrics`
+   (`validation/step.py:111-118`) pero **nunca** `stability_frame`, y `_run_stability` con el reúso
+   apagado cae al fallback que exige ese frame (`evaluator.py:395-406`) → `ValidationDataError`.
+   El recálculo de discriminación sí está cableado (`step.py:297-300` construye el frame analítico
+   cuando `consume_performance=False`; `:227-231` registra `source="recomputed"`). Consecuencia en
+   D-SC-7: `consume_stability` se oculta (D-SUB) hasta que el paso cablee el frame; la tabla §3.7
+   lo dice.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -151,18 +168,26 @@ config válido hoy cambia de resultado; un config que hoy revienta pasa a produc
 perfiles y calidad con la señal temporal declarada no evaluable. La tasa por cohorte **sí** es
 útil: es la vista de añada que ESPECIFICACIONES §5.2 pide.
 
-**D-SC-3 · El eje de la tasa de incumplimiento es una decisión obligatoria del usuario
-(D-OBL), no un default.** `_DECISIONES_POR_SECCION["eda"]` gana `eda.default_rate.axis` con dos
-formas: «Por la fecha de observación» (pide `date_col`; precarga: las columnas `datetime` del
-schema declarado) y «Por cohorte o añada» (pide `cohort_col`; precarga: `data.partition.strategy.cohort_col`
-cuando la partición es por cohorte). Pregunta y ayuda en §3.6. Sin esta decisión, un trabajo que
-siembre `eda` nacería inejecutable sobre cualquier dataset sin fecha —el defecto de clase que
-D-EJE cerró—. `date_col` y `cohort_col` llevan `column_role` para que el preflight (D-INV/D-PRE)
-diga «esa columna no está en tu archivo» antes de correr.
+**D-SC-3 · El eje de la tasa de incumplimiento se INFIERE de lo que el usuario ya declaró; la
+elección explícita declara lo que exige (D-EXI).** ⚠️ Reescrita tras la segunda revisión
+adversarial (§0-8). Regla nueva en SDD-27 §7.2/§8, del mismo tipo que la inferencia de
+`date_col` que ya existe («la única columna datetime, o `window.observation_date_col`»): con
+`axis="period"` y `date_col=None`, si el frame no tiene ninguna columna `datetime` **y**
+`data.partition.strategy` es una partición por cohorte, el eje pasa a esa cohorte
+(`cohort_col = data.partition.strategy.cohort_col`) y el paso registra la decisión
+`regla="eje_eda_inferido", valor=<cohort_col>, accion="usar_cohorte"`. No se inventa un eje: se usa
+el que el usuario declaró para particionar. Sin fecha y sin cohorte declarada, `EdaError` como
+hoy, con `loc` (D-VIS). Es aditivo para un dominio estable: sólo cambia configs que hoy revientan.
+Con esta regla y D-SC-2, el esqueleto de los dos trabajos corre con los defaults de `eda` sobre
+`consumo_comportamiento` (partición por `cohorte`), sin ninguna decisión nueva y sin tocar D-OBL.
+En el formulario, `axis` sigue siendo un campo con default; sus dos opciones declaran lo que
+exigen (D-EXI-2, cuarto estado del abanico): «Por la fecha de observación» exige `date_col`, de
+tipo fecha en el esquema; «Por cohorte» exige `cohort_col`. `date_col` y `cohort_col` llevan
+`column_role` para que el preflight diga «esa columna no está en tu archivo» antes de correr.
 
 **D-SC-4 · `eda` entra a «Scorecard de comportamiento (PD)» y a «PD + LGD en una corrida»**, en
 segunda posición de `sections`, **sembrada encendida** (no latente: no tiene ningún dato
-institucional sin default; la decisión de eje se contesta con la precarga). No entra a «Validar un
+institucional sin default y, con D-SC-3, corre con sus defaults). No entra a «Validar un
 modelo existente» —no modela; describir la población es útil pero es alcance aparte— ni a los
 trabajos de provisiones. Consecuencia automática: `required_sections` del esqueleto gana `eda`
 (D-OBL-11) y el informe del trabajo emite «Población y calidad de datos» con sus tablas y figuras.
@@ -202,13 +227,15 @@ existe en el formulario. «Validar un modelo existente» **no** la recibe en est
 medir en la capa 2 si `check_pipeline` resuelve la familia `calibration` sobre la PD que ese
 trabajo trae por la puerta de artefactos (§8-4).
 
-**D-SC-7 · Copy público de los 32 campos y superficie de cada uno (tabla §3.7).** Seis campos no
+**D-SC-7 · Copy público de los 32 campos y superficie de cada uno (tabla §3.7).** Siete campos no
 se exponen: `schema_version` y `type` (ya `hidden`); **`hl_grouping`** (D-SUB: su segundo valor
 `fixed_bands` lo rechaza el validador `_check_calibration`, «no soportado»: una opción de dos con
 una sola usable es una subsección inerte); **`target_column`, `pd_column`, `partition_column`**
 (D-SUB: nombran columnas del artefacto interno `calibrated_pd_frame` que el propio motor produce
-—`target`, `pd_calibrated`, `partition`—; ningún otro valor corre desde el formulario). Quedan
-**26 visibles**. `grade_col`, `segment_col` y las tres `realised_*_col` nombran columnas del
+—`target`, `pd_calibrated`, `partition`—; ningún otro valor corre desde el formulario); y
+**`consume_stability`** (D-SUB, medido en §0-9: apagarlo aborta la corrida porque el paso no
+cablea el frame del fallback; se expone cuando ese cableado exista, con su gate de
+`source="recomputed"`). Quedan **25 visibles**. `grade_col`, `segment_col` y las tres `realised_*_col` nombran columnas del
 archivo del usuario: llevan `column_role` y D-EXI (`grade_col` exige `binomial_by_grade`; las
 cuatro de backtesting exigen `backtesting.enabled`). Los códigos `FALTA-DATO-VAL-*`,
 `DATO-INSTITUCIONAL-VAL-4`, «ECB», «BCBS», «chi2», «G−2 gl», «NaN» salen del copy.
@@ -313,7 +340,7 @@ ficha» y dice qué incluye y qué remite.
 |---|---|---|
 | `type` | — (`hidden`) | **No se expone.** |
 | `analysis_partition` | «Población base del análisis (default: Desarrollo, donde se ajusta el modelo). Los 'fuera_de_modelo' nunca entran al denominador de default_rate.» | Sobre qué parte de tu archivo se describe la cartera. De fábrica, la partición de desarrollo, que es donde se ajusta el modelo. Las operaciones fuera del modelo se cuentan, pero no entran en la tasa de incumplimiento. |
-| `default_rate.axis` | «'period' discretiza una fecha; 'cohort' usa una columna de añada/vintage.» | Cómo se agrupa la tasa de incumplimiento en el tiempo: por la fecha de observación, en períodos, o por cohorte o añada. **Decisión obligatoria** (D-SC-3): pregunta «¿Cómo quieres ver la tasa de incumplimiento en el tiempo?», ayuda «Por fecha, si tu archivo trae una fecha de observación; por cohorte, si trae la añada de cada operación. Con cohortes la señal de deterioro en el tiempo no se evalúa: no tienen un orden cronológico que el motor pueda inferir.» |
+| `default_rate.axis` | «'period' discretiza una fecha; 'cohort' usa una columna de añada/vintage.» | Cómo se agrupa la tasa de incumplimiento en el tiempo: por la fecha de observación, en períodos, o por cohorte o añada. Si eliges fecha y no indicas cuál, el motor usa la única columna de fecha de tu archivo; si no hay ninguna y particionas por cohorte, usa esa cohorte y lo deja registrado. Con cohortes la señal de deterioro en el tiempo no se evalúa: no tienen un orden cronológico que el motor pueda inferir. *(Opciones con requisito declarado, D-EXI: «Por la fecha de observación» exige una columna de fecha; «Por cohorte o añada» exige la columna de cohorte.)* |
 | `default_rate.date_col` | «Fecha de observación que se agrupa en períodos; la columna debe ser de tipo fecha y la corrida se detiene si no lo es.» | La columna con la fecha de observación de cada operación. Tiene que ser de tipo fecha en tu esquema; si no lo es, la corrida se detiene antes de calcular. |
 | `default_rate.period_freq` | «Mensual/Trimestral/Anual para discretizar date_col.» | Cada cuánto se agrupa la fecha: por mes, por trimestre o por año. |
 | `default_rate.cohort_col` | «Categórica de añada/vintage; misma noción que data.partition.cohort_col.» | La columna con la cohorte o añada de cada operación. Suele ser la misma con la que particionas tus datos. |
@@ -358,7 +385,7 @@ sitio).
 | `calibration.pd_column` | **oculto (D-SUB)** | «Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado.» | — |
 | `calibration.partition_column` | **oculto (D-SUB)** | «Columna que identifica Desarrollo, Holdout y OOT.» | — |
 | `calibration.min_rows_per_group` | visible | «Grupos HL/grados bajo este mínimo se auditan como not_evaluable, no NaN.» | Un grupo o un grado con menos operaciones que esto no se evalúa: queda marcado como no evaluable en vez de dar un número engañoso. |
-| `stability.consume_stability` | visible | «Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se calcula aquí con ese mismo motor, nunca con otra fórmula.» | Reutiliza el PSI que ya calculó la etapa de estabilidad. Apagado, lo vuelve a calcular con el mismo motor. |
+| `stability.consume_stability` | **oculto (D-SUB)** | «Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se calcula aquí con ese mismo motor, nunca con otra fórmula.» | — (apagado aborta la corrida: el paso no pasa el frame que el recálculo exige, §0-9) |
 | `stability.psi_stable_threshold` | visible | «Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo inicia la banda de revisión.» | Por debajo de este PSI la población se considera estable; desde este valor entra en la banda de revisión. |
 | `stability.psi_review_threshold` | visible | «Al alcanzar o superar este valor, el PSI gatilla redesarrollo.» | Desde este PSI la banda es la de redesarrollo. Tiene que ser mayor que el umbral de revisión. |
 | `backtesting.enabled` | visible (D-EXI: exige IFRS 9 activa y las columnas realizadas) | «Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas de resultado realizado, que no todos los modelos del inventario tienen.» | Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La forma exacta de la prueba de severidad y exposición está declarada como brecha del motor: el resultado sale con ese aviso. |
@@ -378,13 +405,16 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 
 - **Motor** (`eda`): `TemporalStabilityAnalyzer.assess` con `axis="cohort"` devuelve
   `StabilityResult(NaN…, flagged=False)` y registra `no_evaluable`. `EdaCardSection` no cambia.
+- **Motor** (`eda`, D-SC-3): inferencia del eje desde `data.partition.strategy.cohort_col` cuando
+  no hay fecha, con decisión auditable `eje_eda_inferido`.
 - **Catálogo**: `sections` de `scorecard_pd` y `pd_y_lgd` ganan `eda` (2.ª) y `validation` (tras
   `stability`); `overrides` de ambos ganan `("validation.calibration.binomial_by_grade", False)`;
-  `_DECISIONES_POR_SECCION["eda"]` con `eda.default_rate.axis` y sus dos formas.
+  `_DECISIONES_POR_SECCION` **no cambia** (ninguna de las dos secciones tiene un campo sin
+  default); el abanico de `eda.default_rate.axis` declara sus dos requisitos (D-EXI).
 - **Formulario**: `CONFIG_SECTIONS` 15 → **17** (`eda` en 2.ª, `validation` tras `stability`).
   Goldens medidos por el barrido del gate sobre el schema completo: formulario **527 → 527 + 17
-  (eda: 16 campos visibles + la fila de la lista `columns[]`) + 29 (validation: 33 rutas − las 4
-  que D-SC-7 oculta) = 573 rutas**, a confirmar al implementar; `$defs` sin cambio; el catálogo
+  (eda: 16 campos visibles + la fila de la lista `columns[]`) + 28 (validation: 33 rutas − las 5
+  que D-SC-7 oculta) = 572 rutas**, a confirmar al implementar; `$defs` sin cambio; el catálogo
   de defaults efectivos crece por las dos secciones.
 - **`serialize_study`**: claves nuevas `eda` y `validation` (`null` cuando el dominio no corrió;
   ausentes nunca). El gate «emite exactamente estas claves» se actualiza.
@@ -403,6 +433,10 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 
 - `eda` por fecha sobre una columna que no es `datetime` → el preflight lo dice (`column_role`);
   si llega al motor, `EdaError` como hoy, con `loc` (D-VIS).
+- `eda` con defaults, sin fecha y con partición por cohorte → eje inferido a la cohorte, decisión
+  `eje_eda_inferido` en el trail; sin fecha y con partición aleatoria o temporal sin cohorte →
+  `EdaError` con `loc` en `eda.default_rate.date_col`, y el preflight lo anticipa cuando el
+  esquema declarado no tiene ninguna columna de fecha.
 - `eda` por cohorte → tasa por cohorte, perfiles y calidad; estabilidad `no_evaluable` declarada;
   el panel y el informe dicen «no evaluable: eje de cohorte».
 - Un solo período → `no_evaluable` como hoy; sin figura de línea de un punto.
@@ -437,7 +471,9 @@ override), `test_copy_del_formulario` (26 visibles, 160 caracteres, sin literale
 códigos), `test_jobs_abanico` (sus `Literal` declarados o exentos con razón), `gen_schema_fixture`
 + `gen_jobs_fixture` + bundle, `test_extra_ui_cubre_el_formulario` (`validation` → extra `scoring`,
 ya dentro de `[ui]`), gate espejo de tipos, `ResultsTab.test.ts` con una corrida real con
-`validation` (estado `fail` real) y con `null`, preflight de `grade_col`, guía nueva
+`validation` (estado `fail` real) y con `null`, **una corrida real con
+`discrimination.consume_performance=False`** que exija filas con `source="recomputed"` (la única
+rama de recálculo cableada, §0-9) y el gate D-SUB sobre `consume_stability` oculto, preflight de `grade_col`, guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
@@ -451,17 +487,19 @@ hoy con los defaults del motor); exponer `hl_grouping` → rojo el gate D-SUB; d
 `FALTA-DATO-VAL` literal en un tooltip → rojo el copy gate; quitar el guard del panel → rojo el
 render con `null`.
 
-**Capa 3 — EDA: regla del motor, decisión de eje, formulario, panel, informe.** D-SC-1…D-SC-5.
-Gates: test del analizador con `axis="cohort"` (decisión `no_evaluable`, sin excepción) **nacido
-rojo** sobre el árbol actual; `test_jobs_ejecutables` con la decisión contestada por la precarga
-(cohorte) sobre el esqueleto de los dos trabajos; corrida real por `/api/run` del trabajo
-scorecard sobre `consumo_comportamiento` con eje de cohorte → `done`, `eda` en el payload,
-`context.eda` en el informe con tablas y figuras y sin figura de un punto; copy gate de los 17;
-guía nueva `docs_site/guias/analisis-exploratorio.md`; ejemplo por código ejecutado por gate
-(marcadores). **CN**: revertir la regla del motor → el test nacido rojo vuelve a rojo y la
-corrida del trabajo falla con `EdaError`; quitar la decisión de eje → esqueleto inejecutable en
-`test_jobs_ejecutables`; perfilar la columna del target en el preset → el gate del preset (capa 5)
-lo acusa.
+**Capa 3 — EDA: dos reglas del motor, formulario, panel, informe.** D-SC-1…D-SC-5. Gates: test
+del analizador con `axis="cohort"` (decisión `no_evaluable`, sin excepción) y test de la
+inferencia del eje (sin fecha + partición por cohorte → `axis` efectivo `cohort`, decisión
+`eje_eda_inferido`; sin fecha ni cohorte → `EdaError` con `loc`), **ambos nacidos rojos** sobre el
+árbol actual; `test_jobs_ejecutables` (DAG) sobre el esqueleto de los dos trabajos; corrida real
+por `/api/run` del esqueleto del trabajo scorecard sobre `consumo_comportamiento` **con los
+defaults de `eda`** → `done`, `eda` en el payload, `context.eda` en el informe con tablas y
+figuras y sin figura de un punto; abanico de `axis` con sus dos requisitos declarados
+(`test_jobs_abanico`); copy gate de los 17; guía nueva `docs_site/guias/analisis-exploratorio.md`;
+ejemplo por código ejecutado por gate (marcadores). **CN**: revertir cada una de las dos reglas
+del motor → su test nacido rojo vuelve a rojo y la corrida real del esqueleto falla con el
+`EdaError` que hoy se mide; quitar el requisito declarado de una opción de `axis` → rojo el gate
+del abanico; perfilar la columna del target en el preset → el gate del preset (capa 5) lo acusa.
 
 **Capa 4 — «Ficha del modelo» en el informe.** D-SC-13…D-SC-16. Gates: golden HTML intacto con
 `governance=None` (control positivo); capítulo presente con `governance` real de una corrida por
@@ -510,8 +548,8 @@ entre el flip y la recaptura es la razón de que las dos cosas vayan en la misma
 6. **¿`eda` declara métricas D-GOB-4** (`overall_default_rate`, `n_periods`,
    `stability_flagged`) para que la ficha del modelo las lleve? Recomendación: sí, en la capa 3,
    son tres escalares con productor; alternativa: mantener «declara no publicar».
-7. **Copy público**: ¿se aprueban las tablas §3.6 (17) y §3.7 (32, con 6 ocultos) y la decisión
-   de eje de §3.6?
+7. **Copy público**: ¿se aprueban las tablas §3.6 (17) y §3.7 (32, con 7 ocultos) y los
+   requisitos declarados de las dos opciones de eje (§3.6)?
 8. **Mejora del motor propuesta, no incluida**: excluir del perfil por defecto de EDA las columnas
    que usan las reglas del target (`bad_flag` sale como «tasa por tramo» 0 %/100 %). Cambia el
    resultado de `columns=None` en un dominio estable ⇒ minor con nota; recomendación: hacerlo en
@@ -523,3 +561,13 @@ entre el flip y la recaptura es la razón de que las dos cosas vayan en la misma
    `GOLDEN_STEP_HTML_SHA256` y el informe de la demo (que se recaptura en la release de todas
    formas). Recomendación: **no** en esta enmienda (el control positivo de la capa 4 es el HTML
    intacto); si Cami la quiere, entra en la capa 5 con el golden movido y su propio test.
+10. **¿Inferencia del eje de EDA (D-SC-3) o una pregunta explícita?** La pregunta explícita
+    exige enmendar D-OBL con una clase de «decisión condicional» —obligatoria sólo cuando el
+    default no resuelve sobre los datos— y cambiar cómo el formulario escribe las plantillas
+    (hoy escribe la forma entera en `decision.path`). Recomendación: **inferencia** (usa lo que el
+    usuario ya declaró, queda en el trail, no toca D-OBL ni la API estable); la pregunta explícita
+    puede venir después, sobre la misma regla, si la práctica muestra que la inferencia sorprende.
+11. **¿Se cablea el recálculo del PSI de `validation`** (`consume_stability=False`, hoy aborta la
+    corrida) en la capa 2, o se deja oculto? Recomendación: **oculto en esta enmienda** y una
+    tarea aparte para el cableado con su gate de `source="recomputed"`; no bloquea nada porque
+    ningún preset ni esqueleto lo apaga.

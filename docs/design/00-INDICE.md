@@ -910,16 +910,20 @@ No autoriza START ni mueve la puerta global.
 > y del OK de Cami; nace de la decisión 4 de Cami del 2026-09-09).**
 > [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md), D-SC-1…D-SC-16. EDA con
 > trabajo, sección, panel y guía; `validation` en el formulario (32 descripciones como copy
-> público, 6 ocultas por D-SUB) y en Resultados; panel de `selection`; una fuente para las cuatro
+> público, 7 ocultas por D-SUB) y en Resultados; panel de `selection`; una fuente para las cuatro
 > bandas del PSI con espejo gateado y el resumen A1 pintado en pantalla con su rótulo; y el
 > capítulo «Ficha del modelo» del informe (abierto 3 de D-GOB), construido desde las declaraciones
 > de la institución y sin fabricar una segunda ficha. ⚠️ **Medir corrigió dos premisas**: `eda`
 > **no puede correr** sobre el dataset del preset F1 con ningún config —sin fecha, y el analizador
-> de estabilidad rechaza el eje de cohorte—, así que propone una regla aditiva en el motor
-> (cohorte → estabilidad no evaluable) y una decisión obligatoria del eje; y `validation` con los
-> defaults del motor exige una columna de grado que un scorecard no trae (override en el catálogo,
-> D-EJE). Cinco capas con gates y controles negativos; el `config_hash` de F1/F5 se mueve sólo en
-> la capa de release, junto con la recaptura única. Ocho decisiones para Cami en §8.
+> de estabilidad rechaza el eje de cohorte—, así que propone dos reglas aditivas en el motor
+> (cohorte → estabilidad no evaluable; sin fecha, el eje se infiere de la partición por cohorte
+> que el usuario ya declaró, con decisión en el trail); y `validation` con los defaults del motor
+> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Dos
+> revisiones adversariales el mismo día (cinco hallazgos, todos sostenidos y corregidos: gate del
+> bundle vs. cadenas del front, golden del HTML vs. frase nueva, CN sin oráculo, decisión con
+> default vs. D-OBL, `consume_stability=False` aborta la corrida). Cinco capas con gates y
+> controles negativos; el `config_hash` de F1/F5 se mueve sólo en la capa de release, junto con
+> la recaptura única. Once decisiones para Cami en §8.
 
 > **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; PROPUESTA, pendiente de revisión
 > adversarial y del OK de Cami; nace de la decisión 2 de Cami del 2026-09-09).**
