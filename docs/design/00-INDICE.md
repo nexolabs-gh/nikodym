@@ -921,6 +921,19 @@ No autoriza START ni mueve la puerta global.
 > D-EJE). Cinco capas con gates y controles negativos; el `config_hash` de F1/F5 se mueve sólo en
 > la capa de release, junto con la recaptura única. Ocho decisiones para Cami en §8.
 
+> **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; PROPUESTA, pendiente de revisión
+> adversarial y del OK de Cami; nace de la decisión 2 de Cami del 2026-09-09).**
+> [`_ENMIENDA-PARIDAD-1-1.md`](_ENMIENDA-PARIDAD-1-1.md), D-PAR-1…D-PAR-9. Objetivo de roadmap
+> —toda sección orquestable del motor es alcanzable desde la interfaz— con criterio de entregado
+> de **seis superficies** (formulario con copy público, trabajo ejecutable, serializer y panel,
+> capítulo, insumo y preset, guía), tres bloques en orden (A scorecard completo → B `ml`/`tuning`/
+> `explain` → C `markov`/`forward`/`stress`) y las condiciones de entrada de cada uno. Medido:
+> 293 rutas de formulario en los ocho dominios (`ui_*` al 100 %), 24 campos requeridos sin default
+> en el bloque C, **ningún dataset** con serie macro ni panel longitudinal, `ml`/`tuning`/`explain`
+> sin una línea en `report/`, y el extra `[ui]` atado por gate a lo que el formulario ofrece. El
+> copy público no cambia antes de entregar cada bloque y se propone atarlo al catálogo. No es el
+> SDD de ningún bloque: cada uno exige su enmienda. Cinco decisiones para Cami en §8.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
