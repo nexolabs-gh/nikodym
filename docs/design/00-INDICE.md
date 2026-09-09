@@ -918,15 +918,16 @@ No autoriza START ni mueve la puerta global.
 > de estabilidad rechaza el eje de cohorte—, así que propone dos reglas aditivas en el motor
 > (cohorte → estabilidad no evaluable; sin fecha, el eje se infiere de la partición por cohorte
 > que el usuario ya declaró, con decisión en el trail); y `validation` con los defaults del motor
-> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Cinco
-> revisiones adversariales el mismo día (diez hallazgos, todos sostenidos y corregidos: gate del
+> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Seis
+> revisiones adversariales el mismo día (once hallazgos, todos sostenidos y corregidos: gate del
 > bundle vs. cadenas del front, golden del HTML vs. frase nueva, CN sin oráculo, decisión con
 > default vs. D-OBL, `consume_stability=False` aborta la corrida, `column_role` sin
 > `columnas_inactivas()` daría avisos falsos, la card de EDA sin eje efectivo ni causa de no
 > evaluabilidad, familias deseleccionadas sin poda desde el padre, tasa media cero como tercera
-> causa, `segment_col` es columna del artefacto IFRS 9 y no del archivo). Cinco capas con gates y
-> controles negativos; el `config_hash` de F1/F5 se mueve sólo en la capa de release, junto con
-> la recaptura única. Once decisiones para Cami en §8.
+> causa, `segment_col` es columna del artefacto IFRS 9 y no del archivo, la columna del eje de
+> EDA no usado también se poda). Cinco capas con gates y controles negativos; el `config_hash` de
+> F1/F5 se mueve sólo en la capa de release, junto con la recaptura única. Once decisiones para
+> Cami en §8.
 
 > **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; PROPUESTA, pendiente de revisión
 > adversarial y del OK de Cami; nace de la decisión 2 de Cami del 2026-09-09).**

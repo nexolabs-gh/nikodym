@@ -122,6 +122,12 @@
     llame de otro modo por `provisioning_ifrs9.portfolio_col`. Un `column_role` de entrada habría
     dado un aviso falso con una cartera renombrada, y renombrar `segment_col` para calmarlo habría
     roto el consumo del artefacto. Pasa a oculto (D-SUB), como `target_column`/`pd_column`.
+15. **`date_col` y `cohort_col` con `column_role` necesitan la misma poda que `validation`**
+    (sexta revisión adversarial, 2026-09-09, verificada por el mismo mecanismo de §0-10): el
+    motor consume sólo la columna del eje activo (`eda/default_rate.py::_resolve_group_frame`),
+    pero el preflight recorrería las dos; un `cohort_col` residual con `axis="period"` —o un
+    `date_col` residual con `axis="cohort"`— daría un desajuste falso. `DefaultRateConfig` no
+    implementa `columnas_inactivas()`; D-SC-3 lo prescribe.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -223,7 +229,12 @@ Con esta regla y D-SC-2, el esqueleto de los dos trabajos corre con los defaults
 En el formulario, `axis` sigue siendo un campo con default; sus dos opciones declaran lo que
 exigen (D-EXI-2, cuarto estado del abanico): «Por la fecha de observación» exige `date_col`, de
 tipo fecha en el esquema; «Por cohorte» exige `cohort_col`. `date_col` y `cohort_col` llevan
-`column_role` para que el preflight diga «esa columna no está en tu archivo» antes de correr.
+`column_role` para que el preflight diga «esa columna no está en tu archivo» antes de correr, **y
+`DefaultRateConfig.columnas_inactivas()` (D-RAM-1, §0-15) declara inactiva la columna del eje que
+no se usa**: `{"cohort_col"}` con `axis="period"` y `{"date_col"}` con `axis="cohort"`, de modo
+que un valor residual de la otra columna no produce un desajuste falso; con la inferencia de
+D-SC-3 (`axis="period"`, `date_col=None`) el preflight no tiene columna que comprobar y el motor
+decide en la corrida, con su decisión en el trail.
 
 **D-SC-4 · `eda` entra a «Scorecard de comportamiento (PD)» y a «PD + LGD en una corrida»**, en
 segunda posición de `sections`, **sembrada encendida** (no latente: no tiene ningún dato
@@ -467,7 +478,8 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 - **Motor** (`eda`, D-SC-2/D-SC-3/D-SC-5): inferencia del eje desde
   `data.partition.strategy.cohort_col` cuando no hay fecha, con decisión auditable
   `eje_eda_inferido`; `StabilityResult.not_evaluable_reason` y `EdaCardSection.{axis,
-  axis_inferred, stability_not_evaluable_reason}`, todos aditivos con default.
+  axis_inferred, stability_not_evaluable_reason}`, todos aditivos con default;
+  `DefaultRateConfig.columnas_inactivas()` (D-RAM-1) para la columna del eje no usado.
 - **Motor** (`validation`, D-SC-7): `columnas_inactivas()` en `ValidationConfig` (familias
   ausentes → su sub-config entero), `CalibrationValidationConfig` y
   `BacktestingValidationConfig` (D-RAM-1/3, D-SUB-1), aditivo: sin `column_role` no cambia nada;
@@ -572,7 +584,10 @@ inferencia del eje (sin fecha + partición por cohorte → `axis` efectivo `coho
 por `/api/run` del esqueleto del trabajo scorecard sobre `consumo_comportamiento` **con los
 defaults de `eda`** → `done`, `eda` en el payload, `context.eda` en el informe con tablas y
 figuras y sin figura de un punto; abanico de `axis` con sus dos requisitos declarados
-(`test_jobs_abanico`); copy gate de los 17; guía nueva `docs_site/guias/analisis-exploratorio.md`;
+(`test_jobs_abanico`); **preflight en los dos sentidos** (`test_column_roles`, §0-15): con
+`axis="period"`, `date_col="fecha"` y un `cohort_col="cohorte_anterior"` residual ausente del
+archivo, `check_dataset` no reclama la cohorte y sí reclama `fecha` si falta; el caso simétrico
+con `axis="cohort"`; y con `date_col=None` no reclama nada del eje; copy gate de los 17; guía nueva `docs_site/guias/analisis-exploratorio.md`;
 ejemplo por código ejecutado por gate (marcadores). **CN**: revertir cada una de las dos reglas
 del motor → su test nacido rojo vuelve a rojo y la corrida real del esqueleto falla con el
 `EdaError` que hoy se mide; quitar el requisito declarado de una opción de `axis` → rojo el gate
