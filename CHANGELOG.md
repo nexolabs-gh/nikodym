@@ -104,7 +104,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   documentación, «Empezar», el tutorial y tres guías ejecutaban el ejemplo de fábrica con
   `nikodym.run(config)`; desde que los ejemplos traen la auditoría encendida, esa llamada se detiene
   pidiendo `run_dir`. Los ejemplos pasan ahora `run_dir`, un test los ejecuta tal como se publican,
-  y README, portada y «Empezar» llevan el mismo bloque, byte a byte.
+  y README, portada y «Empezar» llevan el mismo bloque, byte a byte. Como `run_dir` todavía no
+  está en la versión publicada, cada uno de esos ejemplos avisa cómo correrlo ahí, y la portada
+  dice desde qué código se construye la documentación.
 
 - **La documentación prometía una gobernanza «automática».** README, portada y dos guías decían que
   la model card y el audit-trail eran automáticos, cuando la ficha del modelo sólo se emite al

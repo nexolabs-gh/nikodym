@@ -83,6 +83,12 @@ print(card.total_internal_provision, card.n_groups)
 ```
 <!-- provision-neutra-example:end -->
 
+!!! note "Si instalaste desde PyPI"
+    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
+    —`study = nikodym.run(NikodymConfig.model_validate(config))`— porque sus ejemplos de fábrica no
+    traen la auditoría encendida y no lo necesitan. Esta documentación describe el código del
+    repositorio; lo que aún no está en PyPI lo lista el [changelog](../changelog.md#no-publicado).
+
 Con el conjunto de ejemplo eso imprime la provisión total y `30`, que son los grupos: tres carteras
 por diez bandas de puntaje.
 

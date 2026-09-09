@@ -1122,7 +1122,7 @@ Anteponerlo al PATH **del proceso** antes de lanzar y comprobar con `cmd /c wher
 `.exe` va primero —es lo que `cmd.exe` ejecuta—; no editar `config.toml` ni instalar nada:
 
 ```powershell
-$env:PATH = 'C:\Users\camil\AppData\Local\OpenAI\Codex\bin\8e5b6932251c2c1c;' + $env:PATH
+$env:PATH = 'C:\Users\camil\AppData\Local\OpenAI\Codex\bin\fd4c151a749f3ab4;' + $env:PATH
 & cmd /c "where codex"
 & codex --version
 node "<companion>" adversarial-review --background --scope branch --base <sha>
@@ -1130,8 +1130,17 @@ node "<companion>" status --all --json
 node "<companion>" result <job-id>
 ```
 
-El hash del directorio cambia con cada versión de la app: listar `bin\` y medir `--version`
-antes de citarlo. Lanzar desde PowerShell sin `2>&1` (§2). Un job que quedó «running» con PID
+El hash del directorio cambia con cada versión de la app —y puede rotar **dentro de una sesión**:
+el 2026-09-09 pasó de `8e5b6932251c2c1c` a `fd4c151a749f3ab4` entre el arranque y la revisión—:
+listar `bin\` y medir `--version` justo antes de lanzar. Si un primer lanzamiento salió con el shim
+npm delante, el broker compartido queda vivo con ese binario y los siguientes lo reutilizan aunque
+el PATH ya esté bien (mismo `400 … requires a newer version`); apagarlo con el propio hook del
+plugin antes de relanzar, desde PowerShell en la raíz del repo:
+
+```powershell
+'{"hook_event_name":"SessionEnd","cwd":"C:\\Users\\camil\\OneDrive\\Documents\\Proyectos\\Nikodym RiskLib"}' |
+    node "C:\Users\camil\.claude\plugins\cache\openai-codex\codex\<version>\scripts\session-lifecycle-hook.mjs" SessionEnd
+``` Lanzar desde PowerShell sin `2>&1` (§2). Un job que quedó «running» con PID
 muerto en `status --all` es cosmético: no bloquea revisiones nuevas.
 
 **Prohibido mientras Claude sea el writer:** `/codex:rescue` y el subagente `codex:codex-rescue`.

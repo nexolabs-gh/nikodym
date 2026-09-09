@@ -39,6 +39,12 @@ study = nikodym.run(config, run_dir=workdir / "corrida")
 assert study.run_context.status == "done"
 ```
 
+!!! note "Si instalaste desde PyPI"
+    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
+    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
+    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
+    PyPI lo lista el [changelog](../changelog.md#no-publicado).
+
 Los tres pasos publican sus resultados como artefactos *namespaced* en
 `study.artifacts.get(<dominio>, <clave>)`.
 

@@ -145,6 +145,12 @@ print(metrics)
 ```
 <!-- quickstart:end -->
 
+!!! note "Si instalaste desde PyPI"
+    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
+    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
+    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
+    PyPI lo lista el [changelog](changelog.md#no-publicado).
+
 El dataset del preset (`consumo_comportamiento`) es una cartera de consumo sintética de 6.000 filas,
 cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin datos reales.
 

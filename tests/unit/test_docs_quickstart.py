@@ -136,6 +136,31 @@ def _fragmentos_con_preset() -> list[tuple[str, str]]:
     return encontrados
 
 
+def test_cada_quickstart_con_run_dir_avisa_que_la_version_publicada_no_lo_acepta() -> None:
+    """`run_dir` no existe en la 1.12.0 publicada, y el sitio recomienda instalar desde PyPI.
+
+    🔴 Hallazgo de la revisión adversarial de S5 (2026-09-09): el sitio se construye desde `main`
+    y sus ejemplos describen el árbol, pero quien sigue «pip install nikodym» tiene la versión
+    publicada, donde `nikodym.run(config, run_dir=...)` es un `TypeError`. Hasta que la release lo
+    publique, cada página que corre un preset con `run_dir` lleva la nota que dice cómo correrlo en
+    esa versión. La nota cita la versión publicada y se ata a ``__version__``: el bump de la
+    release la rompe y obliga a retirarla en la misma capa, en vez de dejar una salvedad vieja.
+    """
+    import nikodym
+
+    frase = f"llegó después de la {nikodym.__version__} publicada"
+    paginas = sorted({origen for origen, _ in _fragmentos_con_preset()} | {"docs_site/tutorial.md"})
+    assert len(paginas) >= 6, paginas
+    sin_nota = [
+        origen
+        for origen in paginas
+        if frase not in " ".join((_RAIZ / origen).read_text(encoding="utf-8").split())
+    ]
+    assert sin_nota == [], (
+        f"páginas con un preset y `run_dir` sin la nota para la versión publicada: {sin_nota}"
+    )
+
+
 def test_todo_fragmento_que_corre_un_preset_dice_donde_queda_la_evidencia() -> None:
     """Regla estática para los bloques que no se ejecutan (las guías repiten la receta).
 

@@ -271,6 +271,12 @@ lineage = study.lineage_bundle()
 print(lineage.config_hash, lineage.git_sha, lineage.root_seed)
 ```
 
+!!! note "Si instalaste desde PyPI"
+    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
+    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
+    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
+    PyPI lo lista el [changelog](../changelog.md#no-publicado).
+
 !!! warning "Chequea el estado antes de leer"
     `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve un `Study` **parcial** con
     `study.run_context.status == "failed"` y el error registrado en el audit-trail, no una

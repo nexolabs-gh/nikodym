@@ -158,6 +158,11 @@ print(metrics)
 ```
 <!-- quickstart:end -->
 
+> **Si instalaste desde PyPI:** el argumento `run_dir` llegó después de la 1.12.0 publicada; en esa
+> versión omítelo —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la
+> auditoría encendida y no lo necesitan. Este README describe el código del repositorio; lo que aún
+> no está en PyPI lo lista el `CHANGELOG.md` en «No publicado».
+
 `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
 `study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso
 que falló— queda en `study.run_context.error`, sin configurar nada. El consumidor por código

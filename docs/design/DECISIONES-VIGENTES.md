@@ -575,6 +575,23 @@ de trabajos de «Empezar» a `list_jobs()`. De paso: la portada afirmaba que el 
 consultora se nombra Nexo Labs en todo el copy (`site_author` y la guía de provisiones decían
 otra cosa). La versión «1.12.0» de portada y referencia se mueve en la release (S6).
 
+**Revisión adversarial de S5 (Codex, `needs-attention`, un hallazgo high, sostenido y corregido el
+mismo día).** El quickstart nuevo exige `run_dir`, que no existe en la 1.12.0 publicada —en el tag
+`v1.12.0` `run` sólo acepta `config` y `artifacts`—, y el sitio recomienda instalar desde PyPI:
+quien siga esa instalación obtiene un `TypeError`, y los gates nuevos no lo ven porque ejecutan
+contra el checkout. Verificado (0 ocurrencias de `run_dir` en `api.py` del tag; `audit: None` en sus
+presets, así que allí `nikodym.run(config)` corre). El remedio literal —conservar un quickstart
+para 1.12.0 y otro para el repositorio— se adapta: el sitio ya se construía desde `main` y publicaba
+esa API (guía de provisiones, referencia y CHANGELOG «No publicado»), y Cami fijó que la versión de
+portada se mueve en la release; lo que faltaba era decirlo. Cada página que corre un preset con
+`run_dir` lleva ahora una nota «Si instalaste desde PyPI» —omitir el argumento, porque los ejemplos
+de esa versión no traen la auditoría encendida— y la portada declara que la documentación describe
+el código del repositorio y que el changelog lista lo que aún no está en PyPI. Gate:
+`test_cada_quickstart_con_run_dir_avisa_que_la_version_publicada_no_lo_acepta`, atado a
+`__version__`: el bump de la release lo pone rojo y obliga a retirar la nota en la misma capa.
+**Consecuencia para S6**: la release 1.13.0 retira las seis notas y deja el quickstart sin
+salvedad; mientras no se corte, el sitio va por delante de PyPI y lo dice.
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
