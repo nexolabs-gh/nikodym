@@ -15,6 +15,7 @@ import {
 import {
   FIXTURE_JOBS,
   decisionStatuses,
+  jobForConfig,
   type AnswerForm,
   type ExternalArtifact,
   type Job,
@@ -432,5 +433,42 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
       if (estado.dormant) continue // `governance` sigue apagada en este config
       expect([estado.answered, estado.inProgress]).toEqual([true, false])
     }
+  })
+})
+describe("§6-12 · un YAML propio de referencia resuelve y pide su insumo SIN opt-in (D-JUR-9.3)", () => {
+  /**
+   * El config de comparación tal como lo trae un YAML propio: las secciones del caso de
+   * referencia, con la PD declarada como salida de la calibración. Es el que se cargó en la
+   * interfaz viva para medir esto de punta a punta (corrida `done` con su capítulo de provisiones).
+   */
+  const CONFIG_DE_COMPARACION = {
+    data: {},
+    provisioning_cmf: {},
+    provisioning_internal: { pd_source: "calibration" },
+    provisioning: {},
+    report: {},
+  }
+
+  it("resuelve «Comparar provisiones», que el catálogo NO ofrece, y pide la PD calibrada", () => {
+    // El catálogo recibido son los DIEZ, con los dos de referencia en `offered: false`.
+    const noOfrecidos = jobs.filter((j) => !j.offered).map((j) => j.id)
+    expect(noOfrecidos).toContain("comparar_provisiones")
+
+    const job = jobForConfig(jobs, CONFIG_DE_COMPARACION)
+    expect(job?.id).toBe("comparar_provisiones")
+
+    const pedidos = requiredExternalArtifacts(job, CONFIG_DE_COMPARACION)
+    expect(pedidos.map((e) => e.label)).toEqual(["La PD calibrada de tu modelo, por operación"])
+  })
+
+  it("🔴 CONTROL NEGATIVO: resolver sólo sobre los ofrecidos deja al usuario sin la tarjeta", () => {
+    // Es la primera redacción de D-JUR-9.2, que la séptima revisión adversarial derribó: si el
+    // cable llevara sólo lo ofrecido, `jobForConfig` no casaría con nada, `requiredExternalArtifacts`
+    // devolvería `[]` —la pestaña Datos no pediría la PD— y el método interno la seguiría
+    // exigiendo. El config correría sin pintarse, que es la clase de defecto de D-JOB-18.
+    const soloOfrecidos = jobs.filter((j) => j.offered)
+    const job = jobForConfig(soloOfrecidos, CONFIG_DE_COMPARACION)
+    expect(job).toBeNull()
+    expect(requiredExternalArtifacts(job, CONFIG_DE_COMPARACION)).toEqual([])
   })
 })

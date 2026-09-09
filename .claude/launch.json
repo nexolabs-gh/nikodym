@@ -4,15 +4,43 @@
     {
       "name": "web-demo",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "web", "dev", "--mode", "demo", "--port", "5199"],
+      "runtimeArgs": [
+        "--dir",
+        "web",
+        "dev",
+        "--mode",
+        "demo",
+        "--port",
+        "5199"
+      ],
       "port": 5199
     },
     {
       "name": "ui-instalable",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "nikodym.ui", "--port", "5210", "--no-open"],
+      "runtimeArgs": [
+        "-m",
+        "nikodym.ui",
+        "--port",
+        "5210",
+        "--no-open"
+      ],
       "port": 5210,
       "url": "http://127.0.0.1:5210"
+    },
+    {
+      "name": "ui-casos-de-referencia",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "nikodym.ui",
+        "--port",
+        "5211",
+        "--no-open",
+        "--casos-de-referencia"
+      ],
+      "port": 5211,
+      "url": "http://127.0.0.1:5211"
     }
   ]
 }
