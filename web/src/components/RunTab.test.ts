@@ -29,7 +29,6 @@ import configTabSource from "@/components/ConfigTab.tsx?raw"
 import { applyPreset, type PresetSwitchDeps } from "@/components/RunTab"
 import runTabSource from "@/components/RunTab.tsx?raw"
 import presetF1Fixture from "@/fixtures/demo/preset-f1.json"
-import presetF3Fixture from "@/fixtures/demo/preset.json"
 import presetF4Fixture from "@/fixtures/demo/preset-ifrs9.json"
 import type { PresetResponse, ResultsResponse } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
@@ -222,7 +221,7 @@ describe("applyPreset (el ejemplo selecciona su trabajo · D-JOB-17)", () => {
  * apagada (latente). No es una sección que el ejemplo traiga encendida —los cuatro presets la
  * traen en `null`— y aun así se ve: es el gesto explícito del usuario el que la enciende.
  */
-describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo estática)", () => {
+describe("efecto medido sobre los ejemplos publicados (y sobre la demo estática)", () => {
   const CASOS: {
     nombre: string
     preset: PresetResponse
@@ -236,8 +235,22 @@ describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo est�
       secciones: 10,
     },
     {
-      nombre: "F3 · provisiones (CMF + método interno)",
-      preset: presetF3Fixture as unknown as PresetResponse,
+      // 🔴 El caso «ningún trabajo casa» se conserva con un config SINTÉTICO. Hasta D-JUR-9.7 lo
+      // daba el ejemplo F3, cuya corrida salió de la demo (y sus fixtures del árbol) con el OK de
+      // Cami; perder con él la única prueba de que un ejemplo sin trabajo deja el formulario
+      // COMPLETO habría sido pagar dos veces por el mismo cambio. La mezcla es la misma que hacía
+      // F3 —scorecard + provisiones + comparación— y por eso ningún trabajo la contiene entera.
+      nombre: "ningún trabajo casa · formulario completo",
+      preset: {
+        ...(presetF1Fixture as unknown as PresetResponse),
+        id: "sintetico-sin-trabajo",
+        config: {
+          ...(presetF1Fixture as unknown as PresetResponse).config,
+          provisioning_cmf: {},
+          provisioning_internal: {},
+          provisioning: {},
+        },
+      } as PresetResponse,
       job: null,
       secciones: CONFIG_SECTIONS.length,
     },

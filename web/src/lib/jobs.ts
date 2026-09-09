@@ -162,6 +162,22 @@ export interface Job {
   /** País cuya normativa impone el cálculo; `null` = neutral (D-JOB-8). */
   jurisdiction_code: string | null
   jurisdiction_label: string | null
+  /**
+   * ¿La interfaz OFRECE este trabajo en esta sesión? (D-JUR-9.2).
+   *
+   * El cable trae el catálogo COMPLETO y marca la oferta, en vez de traer sólo lo ofrecido, y la
+   * diferencia es funcional: `jobForConfig` resuelve el trabajo de un YAML importado sobre *el
+   * catálogo recibido* y `requiredExternalArtifacts` devuelve `[]` sin trabajo. Con un catálogo
+   * recortado, un config propio con `provisioning_cmf:` no habría casado con ningún trabajo, la
+   * pestaña Datos no habría pedido su PD calibrada y el método interno la habría seguido
+   * exigiendo: correría sin pintarse (D-JOB-18). Por eso se **ofrece** con la marca y se
+   * **resuelve** con todo.
+   *
+   * Lo deriva el backend de `jurisdiction_code` y del opt-in del lanzador
+   * (`nikodym-ui --casos-de-referencia`); la demo estática no tiene lanzador, así que su
+   * `jobs.json` trae los de referencia en `false`.
+   */
+  offered: boolean
   status: "available" | "unavailable"
   /** Por qué no se puede iniciar, sin jerga (D-JOB-6); `null` si está disponible. */
   unavailable_reason: string | null
@@ -309,6 +325,37 @@ export function particionarPorJurisdiccion(jobs: Job[]): {
     estandar: jobs.filter((job) => !tieneJurisdiccion(job)),
     porJurisdiccion: jobs.filter(tieneJurisdiccion),
   }
+}
+
+/**
+ * Los trabajos que esta sesión OFRECE (D-JUR-9.2). Resolver un config sigue usando la lista entera.
+ *
+ * ⚠️ El predicado es `!== false` y no `=== true`, a propósito. El catálogo llega por HTTP y el
+ * tipo no lo garantiza en runtime: si `offered` faltara —un backend viejo, un fixture sin
+ * regenerar—, `=== true` dejaría la landing SIN NINGÚN trabajo, que es quedarse sin entrada a la
+ * aplicación; `!== false` degrada a lo de antes de D-JUR-9, que es ofrecerlos todos. La dirección
+ * segura del fallo es distinta a cada lado: aquí abre, y en Python el gate del endpoint exige
+ * `offered` derivado exactamente de la jurisdicción, de modo que un backend que dejara de emitirlo
+ * se pone rojo antes de llegar a esta pantalla.
+ */
+export function trabajosOfrecidos(jobs: Job[]): Job[] {
+  return jobs.filter((job) => job.offered !== false)
+}
+
+/**
+ * Lo que pinta la landing: la partición por jurisdicción **sobre los ofrecidos**.
+ *
+ * Es una función y no dos llamadas en el componente porque el orden importa y es exactamente la
+ * regresión que hay que impedir: partir primero y filtrar después —o no filtrar— devuelve el
+ * bloque «Normativa local · casos de referencia» a la primera pantalla con el catálogo por
+ * defecto, que es lo que D-JUR-9 retiró. Con la oferta completa (el opt-in del lanzador) el bloque
+ * reaparece solo, sin tocar el componente.
+ */
+export function catalogoDeLanding(jobs: Job[]): {
+  estandar: Job[]
+  porJurisdiccion: Job[]
+} {
+  return particionarPorJurisdiccion(trabajosOfrecidos(jobs))
 }
 
 /**

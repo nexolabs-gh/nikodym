@@ -1,4 +1,9 @@
-/** Gate del bundle normal: bytes finales, fixtures demo y requests externos. */
+/**
+ * Gate del bundle normal: bytes finales, fixtures demo y requests externos.
+ *
+ * Con `--demo` verifica el OTRO bundle —el de `pnpm build:demo`, que se publica en
+ * `demo.nikodym.cl`— y comprueba qué corridas capturadas sirve (D-JUR-9.8).
+ */
 
 import { createHash } from "node:crypto"
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
@@ -1909,6 +1914,91 @@ export function assertMeasuredProseReachedBundle(files, staticDirectory = STATIC
   }
 }
 
+/**
+ * La corrida capturada que la demo dejó de publicar (D-JUR-9.7/9.8).
+ *
+ * 🔴 **Se escriben los literales a propósito**, y es la única forma posible: sus fixtures salieron
+ * del árbol con el OK de Cami del 2026-09-09, así que no hay archivo del que leerlos. Están en el
+ * historial (`d12f729:web/src/fixtures/demo/results.json`) por si hay que recuperarlos.
+ *
+ * 🔴 **Y se verifica la CORRIDA, no las cadenas del front.** El bundle de la demo se construye del
+ * mismo front que el instalable, y ese front conserva a propósito el rótulo «Provisiones CMF»
+ * (`CONFIG_SECTIONS`, D-JUR-9.5), el id `f3-provisiones-consumo` (`CURATED` en
+ * `presentation.ts`) y el título de la sección en `schema.json`: exigir su ausencia literal
+ * bloquearía todo deploy conforme. Lo que sólo existía en los fixtures F3 es esta identidad.
+ */
+const CORRIDA_RETIRADA = {
+  etiqueta: "F3 · provisiones CMF",
+  run_id: "df491df8bb1e48c9a40bbbe474a97938",
+  config_hash: "857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d",
+}
+
+/** Las corridas que la demo SÍ publica: se LEEN de sus fixtures, nunca se copian aquí. */
+function corridasPublicadas(fixtureDirectory = FIXTURES) {
+  return ["results-f1.json", "results-ifrs9.json"].map((nombre) => {
+    const datos = JSON.parse(readFileSync(path.join(fixtureDirectory, nombre), "utf8"))
+    const run_id = datos.run_id
+    const config_hash = (datos.lineage ?? {}).config_hash
+    if (typeof run_id !== "string" || typeof config_hash !== "string") {
+      throw new Error(`Fixture de demo sin identidad legible: ${nombre}`)
+    }
+    return { etiqueta: nombre, run_id, config_hash }
+  })
+}
+
+/**
+ * Gate LOCAL del bundle de la demo, espejo del que `deploy.yml` corre en vivo (D-JUR-9.8).
+ *
+ * Existe para que dejar un import de la corrida retirada en `demo.ts` se ponga rojo **antes** de
+ * llegar al deploy, y no después de publicarlo. Mide las dos direcciones: la retirada no está, y
+ * las publicadas sí — sin la mitad positiva, un bundle vacío o un cambio que dejara de embeber los
+ * fixtures pasaría por «limpio» sin publicar ninguna demo.
+ */
+export function assertDemoBundleSirveLasCorridasPublicadas(outputs, fixtureDirectory = FIXTURES) {
+  const texto = outputs
+    .filter((file) => /\.(?:js|html|json)$/i.test(file))
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n")
+
+  for (const [campo, valor] of Object.entries(CORRIDA_RETIRADA)) {
+    if (campo === "etiqueta") continue
+    if (texto.includes(valor)) {
+      throw new Error(
+        `El bundle de la demo publica la corrida ${CORRIDA_RETIRADA.etiqueta}, retirada por `
+          + `D-JUR-9.7 (${campo}=${valor.slice(0, 16)}…). Revisa los imports de web/src/lib/demo.ts.`,
+      )
+    }
+  }
+
+  const publicadas = corridasPublicadas(fixtureDirectory)
+  if (publicadas.length === 0) throw new Error("Sin corridas publicadas que verificar")
+  for (const corrida of publicadas) {
+    for (const campo of ["run_id", "config_hash"]) {
+      if (!texto.includes(corrida[campo])) {
+        throw new Error(
+          `El bundle de la demo NO publica ${corrida.etiqueta} (${campo} ausente): el gate `
+            + "estaría midiendo un bundle que no sirve ninguna corrida.",
+        )
+      }
+    }
+  }
+  return publicadas.length
+}
+
+export function mainDemo(demoDirectory = path.join(ROOT, "web", "dist")) {
+  if (!existsSync(path.join(demoDirectory, "index.html"))) {
+    throw new Error(
+      `Falta ${path.relative(ROOT, demoDirectory)}/index.html: corre \`pnpm build:demo\` antes.`,
+    )
+  }
+  const outputs = walk(demoDirectory).filter((file) => statSync(file).isFile())
+  const publicadas = assertDemoBundleSirveLasCorridasPublicadas(outputs)
+  console.log(
+    `Bundle de la demo verificado: ${outputs.length} archivos, ${publicadas} corridas publicadas, `
+      + `sin la corrida ${CORRIDA_RETIRADA.etiqueta}.`,
+  )
+}
+
 export function main() {
   if (!existsSync(path.join(STATIC, "index.html"))) {
     throw new Error("Falta src/nikodym/ui/static/index.html")
@@ -1935,4 +2025,13 @@ export function main() {
   console.log(`Bundle normal verificado: ${outputs.length} archivos, sin fixtures demo.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main()
+// `process.argv[1]` es `undefined` cuando el módulo se IMPORTA sin script de entrada (`node -e`,
+// `node --test`, un import desde otro gate). Sin el guard, `pathToFileURL(undefined)` lanza en el
+// top-level y el módulo deja de ser importable — que es justo lo que hace falta para probar sus
+// funciones exportadas.
+const entrada = process.argv[1] ? pathToFileURL(process.argv[1]).href : null
+if (entrada !== null && import.meta.url === entrada) {
+  // `--demo` verifica el bundle de `pnpm build:demo` (web/dist); sin bandera, el instalable.
+  if (process.argv.includes("--demo")) mainDemo()
+  else main()
+}

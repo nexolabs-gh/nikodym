@@ -14,17 +14,23 @@ import {
 } from "@/lib/demo"
 
 /**
- * Gate del modo demo MULTI-PRESET (SDD-28 / F7): la demo estática empaqueta TRES corridas reales
- * —`f1-estandar-consumo` (scorecard puro), `f3-provisiones-consumo` (default) y `f4-ifrs9-retail`
- * (IFRS 9)— y rastrea el preset elegido para que run/results/yaml/validate devuelvan el set correcto.
- * Verifica que F3 sigue intacto (default), que al elegir F1/F4 todo el set cambia (sin contaminación
- * cruzada de provisiones), y que los tres presets sirven su informe (F1 titulado como validación de
- * scorecard, F4 como informe IFRS 9). Todas las funciones demo son deterministas y no dependen de
- * `DEMO_MODE` (solo `api.ts` ramifica por él): se ejercitan directamente en el entorno node de vitest.
+ * Gate del modo demo MULTI-PRESET (SDD-28 / F7): la demo estática empaqueta DOS corridas reales
+ * —`f1-estandar-consumo` (scorecard puro, el default) y `f4-ifrs9-retail` (IFRS 9)— y rastrea el
+ * preset elegido para que run/results/yaml/validate devuelvan el set correcto. Verifica que F1
+ * siembra el arranque, que al elegir F4 todo el set cambia (sin contaminación cruzada de
+ * provisiones) y que los dos presets sirven su informe (F1 titulado como validación de scorecard,
+ * F4 como informe IFRS 9). Todas las funciones demo son deterministas y no dependen de `DEMO_MODE`
+ * (solo `api.ts` ramifica por él): se ejercitan directamente en el entorno node de vitest.
+ *
+ * ⚠️ La corrida F3 (provisiones CMF) salió de la demo con D-JUR-9.7 y sus fixtures salieron del
+ * árbol con el OK de Cami del 2026-09-09. Su id se conserva aquí como entrada DESCONOCIDA: es el
+ * caso que prueba que un `?preset=f3-provisiones-consumo` viejo —un enlace guardado, un marcador—
+ * cae al default en vez de romper la demo.
  */
 
 const F1_ID = "f1-estandar-consumo"
-const F3_ID = "f3-provisiones-consumo"
+/** Id de la corrida retirada (D-JUR-9.7): ya NO está empaquetada; sirve de id desconocido. */
+const F3_ID_RETIRADO = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
 // Recalculado en 1.4.0: `data.load.source` (la ruta del dataset en disco) dejó de entrar al
 // `config_hash`, que ahora identifica sólo el contenido lógico del config.
@@ -39,14 +45,16 @@ const F4_CONFIG_HASH =
   "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6"
 
 beforeEach(() => {
-  // Cada test arranca con el preset activo en su default (F3): el estado de módulo no se filtra.
+  // Cada test arranca con el preset activo en su default (F1): el estado de módulo no se filtra.
   resetDemoActivePresetForTests()
 })
 
 describe("demoListPresets", () => {
-  it("expone LOS TRES presets en orden estable (F1 scorecard, F3 provisiones, F4 IFRS 9)", async () => {
+  it("expone LOS DOS presets en orden estable (F1 scorecard, F4 IFRS 9)", async () => {
     const { presets } = await demoListPresets()
-    expect(presets.map((p) => p.id)).toEqual([F1_ID, F3_ID, F4_ID])
+    expect(presets.map((p) => p.id)).toEqual([F1_ID, F4_ID])
+    // D-JUR-9.7: el selector de la demo no ofrece la corrida de referencia.
+    expect(presets.map((p) => p.id)).not.toContain(F3_ID_RETIRADO)
     // Cada item trae lo justo para el selector (id/name/description/dataset_id).
     for (const p of presets) {
       expect(p.name.length).toBeGreaterThan(0)
@@ -55,17 +63,18 @@ describe("demoListPresets", () => {
   })
 })
 
-describe("preset por defecto (F3 intacto)", () => {
-  it("demoGetPreset siembra SIEMPRE F3 (la demo de provisiones queda idéntica)", async () => {
+describe("preset por defecto (F1, el scorecard)", () => {
+  it("demoGetPreset siembra SIEMPRE F1 (D-JUR-9.7)", async () => {
     const preset = await demoGetPreset()
-    expect(preset.id ?? preset.dataset_id).toBe(F3_ID)
+    expect(preset.id ?? preset.dataset_id).toBe(F1_ID)
   })
 
-  it("sin elegir preset, results/yaml/validate/run son los de F3 (provisiones CMF/interno)", async () => {
+  it("sin elegir preset, results/yaml/validate/run son los de F1 (scorecard puro)", async () => {
     const results = await demoGetResults()
-    expect(results.provisioning).not.toBeNull()
-    expect(results.provisioning).toBeDefined()
-    // F3 NO trae el bloque IFRS 9.
+    // Scorecard puro: NINGUNA card de provisiones viaja en la corrida que siembra el arranque.
+    expect(results.scorecard ?? null).not.toBeNull()
+    expect(results.provisioning ?? null).toBeNull()
+    expect(results.provisioning_cmf ?? null).toBeNull()
     expect(results.provisioning_ifrs9 ?? null).toBeNull()
 
     const validate = await demoValidateConfig()
@@ -78,7 +87,7 @@ describe("preset por defecto (F3 intacto)", () => {
     expect(run.status).toBe("done")
   })
 
-  it("F3 SÍ genera informe: demoGetReport resuelve el HTML embebido", async () => {
+  it("F1 SÍ genera informe desde el arranque: demoGetReport resuelve el HTML embebido", async () => {
     await expect(demoGetReport()).resolves.toContain("<")
   })
 })
@@ -125,7 +134,7 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
       "macro_scenarios",
       "markov",
     ])
-    // Al elegir IFRS 9, el bloque de provisiones CMF/interno F3 NO viaja.
+    // Al elegir IFRS 9, el bloque de provisiones CMF/interno no viaja.
     expect(results.provisioning ?? null).toBeNull()
   })
 
@@ -161,11 +170,11 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
     )
   })
 
-  it("volver a F3 restaura la demo de provisiones", async () => {
+  it("volver a F1 restaura el scorecard", async () => {
     await demoGetPresetById(F4_ID)
-    await demoGetPresetById(F3_ID)
+    await demoGetPresetById(F1_ID)
     const results = await demoGetResults()
-    expect(results.provisioning).toBeDefined()
+    expect(results.scorecard ?? null).not.toBeNull()
     expect(results.provisioning_ifrs9 ?? null).toBeNull()
     await expect(demoGetReport()).resolves.toContain("<")
   })
@@ -200,21 +209,34 @@ describe("elegir el preset scorecard (F1) rastrea todo el set", () => {
     expect(html).not.toContain("Informe de Provisiones IFRS 9 / ECL")
   })
 
-  it("volver a F3 tras F1 restaura la demo de provisiones", async () => {
+  it("volver a F4 tras F1 restaura la demo IFRS 9", async () => {
     await demoGetPresetById(F1_ID)
-    await demoGetPresetById(F3_ID)
+    await demoGetPresetById(F4_ID)
     const results = await demoGetResults()
-    expect(results.provisioning).toBeDefined()
-    expect(results.provisioning ?? null).not.toBeNull()
-    expect(results.provisioning_ifrs9 ?? null).toBeNull()
+    expect(results.provisioning_ifrs9 ?? null).not.toBeNull()
+    expect(results.scorecard ?? null).toBeNull()
   })
 })
 
 describe("robustez", () => {
-  it("un preset id desconocido cae a F3 sin romper la demo", async () => {
+  it("un preset id desconocido cae a F1 sin romper la demo", async () => {
     const preset = await demoGetPresetById("preset-inexistente")
-    expect(preset.id ?? preset.dataset_id).toBe(F3_ID)
+    expect(preset.id ?? preset.dataset_id).toBe(F1_ID)
     const results = await demoGetResults()
     expect(results.provisioning_ifrs9 ?? null).toBeNull()
+  })
+
+  it("🔴 el id de la corrida RETIRADA cae al default, no rompe un enlace guardado", async () => {
+    // `demo.nikodym.cl/?preset=f3-provisiones-consumo` fue una URL válida hasta D-JUR-9.7, así que
+    // hay marcadores y enlaces compartidos que lo traen. Es la ruta REAL de ese enlace: carga
+    // limpia, sin selección previa. Cae a F1 y el set entero es el de F1.
+    const preset = await demoGetPresetById(F3_ID_RETIRADO)
+    expect(preset.id ?? preset.dataset_id).toBe(F1_ID)
+    const results = await demoGetResults()
+    expect(results.scorecard ?? null).not.toBeNull()
+    expect(results.provisioning ?? null).toBeNull()
+    expect(results.provisioning_ifrs9 ?? null).toBeNull()
+    // Y el informe sigue resolviendo: la demo no queda a medias con un id que ya no existe.
+    await expect(demoGetReport()).resolves.toContain("<")
   })
 })

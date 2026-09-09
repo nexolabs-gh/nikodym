@@ -79,9 +79,16 @@ def verify_demo_family(family: FamilyName, *, fixtures: Path = _FIXTURES) -> Non
         _verify_psi_summary(results, family=family)
 
 
+#: Las familias que la demo PUBLICA hoy. `f3` sigue siendo una familia válida —el capturador de
+#: referencia la produce y `verify_demo_family("f3")` la verifica igual— pero salió de este barrido
+#: con D-JUR-9.7: sus artefactos ya no están en el árbol, y recorrerla aquí dejaría el gate rojo por
+#: archivos ausentes en vez de por prosa incorrecta. Entra `f5` con la recaptura de la release.
+_FAMILIAS_PUBLICADAS: tuple[FamilyName, ...] = ("f1", "ifrs9")
+
+
 def verify_all_demo_families(*, fixtures: Path = _FIXTURES) -> None:
-    """Verifica F1, F3 e IFRS 9 contra el mismo oráculo de artefactos."""
-    for family in ("f1", "f3", "ifrs9"):
+    """Verifica las familias PUBLICADAS contra el mismo oráculo de artefactos."""
+    for family in _FAMILIAS_PUBLICADAS:
         verify_demo_family(family, fixtures=fixtures)
 
 

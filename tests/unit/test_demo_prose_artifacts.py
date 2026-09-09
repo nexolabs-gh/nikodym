@@ -1,4 +1,9 @@
-"""Gate de prosa factual sobre los entregables versionados de las tres demos."""
+"""Gate de prosa factual sobre los entregables versionados de las demos publicadas.
+
+Desde D-JUR-9.7 son dos —F1 e IFRS 9—: los artefactos de la corrida de referencia (F3, provisiones
+CMF) salieron del árbol con el OK de Cami del 2026-09-09. `verify_demo_family("f3")` sigue
+existiendo para el capturador de referencia; lo que cambió es qué familias hay que barrer.
+"""
 
 from pathlib import Path
 from runpy import run_path

@@ -37,12 +37,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # ⚠️ `f3` salió de la matriz con D-JUR-9.7: su corrida ya no se publica en la demo y sus
+      # fixtures salieron del árbol. `scripts/capture_demo_fixtures.py` sigue existiendo como
+      # capturador DE REFERENCIA, ejecutable a mano por quien quiera regenerar ese caso; lo que no
+      # hace es entrar a la recaptura de rutina. `f5` (provisión interna sobre cartera genérica)
+      # entra con la recaptura única de la release, que trae su propio capturador y su propio OK
+      # (D-GOB-9).
       matrix:
         include:
           - familia: f1
             script: scripts/capture_demo_fixtures_f1.py
-          - familia: f3
-            script: scripts/capture_demo_fixtures.py
           - familia: f4
             script: scripts/capture_demo_fixtures_ifrs9.py
     steps:

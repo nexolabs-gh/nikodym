@@ -21,8 +21,10 @@ import {
   jobSwitchForConfig,
   jobSwitchNotice,
   methodologyStatuses,
+  catalogoDeLanding,
   particionarPorJurisdiccion,
   sectionsOfJob,
+  trabajosOfrecidos,
   type Job,
 } from "@/lib/jobs"
 import landingSource from "@/components/LandingLauncher.tsx?raw"
@@ -1078,6 +1080,8 @@ describe("la jurisdicción sale del listado principal, sin perder ningún trabaj
   })
 
   it("separa exactamente los trabajos con jurisdicción, y hoy son los dos de CMF", () => {
+    // Sobre el catálogo ENTERO: la partición sigue siendo la de siempre y sigue separando los dos.
+    // Lo que cambió con D-JUR-9 es quién la llama y con qué lista — ver `catalogoDeLanding`.
     const { estandar, porJurisdiccion } = particionarPorJurisdiccion(JOBS)
     expect(porJurisdiccion.map((j) => j.id)).toEqual(["provisiones_cmf", "comparar_provisiones"])
     // `pd_y_lgd` usa el método interno, que es neutro: NO es un trabajo de jurisdicción.
@@ -1086,6 +1090,46 @@ describe("la jurisdicción sale del listado principal, sin perder ningún trabaj
     // con listas vacías y este test dejaría de medir nada.
     expect(porJurisdiccion.length).toBeGreaterThan(0)
     expect(estandar.length).toBeGreaterThan(5)
+  })
+
+  it("el cable trae los DIEZ y marca la oferta; el fixture empaquetado no ofrece los dos de CMF", () => {
+    // D-JUR-9.2: recortar el cable rompería el YAML propio, así que se marca en vez de filtrar.
+    expect(JOBS).toHaveLength(10)
+    const noOfrecidos = JOBS.filter((j) => !j.offered).map((j) => j.id)
+    expect(noOfrecidos).toEqual(["provisiones_cmf", "comparar_provisiones"])
+    // Y la marca se deriva de la jurisdicción: la demo estática no tiene lanzador ni opt-in.
+    for (const job of JOBS) expect(job.offered).toBe(job.jurisdiction_code === null)
+  })
+
+  it("con el fixture empaquetado la landing NO pinta el bloque de referencia", () => {
+    const { estandar, porJurisdiccion } = catalogoDeLanding(JOBS)
+    // Ni en un bloque ni en el otro: no se «mueven» de sitio, dejan de ofrecerse.
+    expect(porJurisdiccion).toHaveLength(0)
+    expect(estandar.map((j) => j.id)).not.toContain("provisiones_cmf")
+    expect(estandar.map((j) => j.id)).not.toContain("comparar_provisiones")
+    // Anti-vacuidad: los ocho neutros siguen ahí, en el orden del catálogo.
+    expect(estandar).toHaveLength(8)
+    expect(estandar[0].id).toBe("scorecard_pd")
+  })
+
+  it("con el opt-in del lanzador el bloque de referencia vuelve, sin tocar el componente", () => {
+    // Es el mismo catálogo que sirve `nikodym-ui --casos-de-referencia`: los diez ofrecidos.
+    const conOptIn = JOBS.map((j) => ({ ...j, offered: true }))
+    const { estandar, porJurisdiccion } = catalogoDeLanding(conOptIn)
+    expect(porJurisdiccion.map((j) => j.id)).toEqual(["provisiones_cmf", "comparar_provisiones"])
+    expect(estandar).toHaveLength(8)
+  })
+
+  it("🔴 CONTROL NEGATIVO: `offered` ausente ofrece todo, nunca deja la landing vacía", () => {
+    // El catálogo llega por HTTP y el tipo no lo garantiza en runtime. Con `=== true`, un backend
+    // viejo —o un fixture sin regenerar— dejaría la primera pantalla SIN NINGÚN trabajo, que es
+    // quedarse sin entrada a la aplicación. La dirección segura del fallo aquí es abrir.
+    const sinMarca = JOBS.map((j) => {
+      const copia = { ...j } as Record<string, unknown>
+      delete copia.offered
+      return copia as unknown as Job
+    })
+    expect(trabajosOfrecidos(sinMarca)).toHaveLength(JOBS.length)
   })
 
   it("🔴 la landing pinta DOS listas separadas, cada una de su propia partición", () => {
@@ -1098,11 +1142,11 @@ describe("la jurisdicción sale del listado principal, sin perder ningún trabaj
     // 266 caracteres de JSX perfectamente plausible, el final de la función queda fuera de la
     // ventana y la regresión que este test dice impedir pasa en verde — el peor de los gates, el
     // que se cree presente.
-    const inicio = landingSource.indexOf("function JobSelector")
+    const inicio = landingSource.indexOf("export function JobCatalogo")
     expect(inicio).toBeGreaterThan(-1)
-    const resto = landingSource.slice(inicio + "function JobSelector".length)
-    // La siguiente declaración de nivel de módulo, en cualquiera de sus formas: `JobSelector` es
-    // hoy la última `function` suelta del archivo y la que sigue es `export default function`.
+    const resto = landingSource.slice(inicio + "export function JobCatalogo".length)
+    // La siguiente declaración de nivel de módulo, en cualquiera de sus formas: tras `JobCatalogo`
+    // viene `function JobSelector`, la cáscara que le pasa el catálogo.
     const siguiente = resto.search(/\n(?:export\s+)?(?:default\s+)?(?:function|const|class)\s/)
     expect(siguiente).toBeGreaterThan(-1) // sin delimitador, el corte mentiría en silencio
     const bloque = resto.slice(0, siguiente)
@@ -1110,7 +1154,11 @@ describe("la jurisdicción sale del listado principal, sin perder ningún trabaj
     // sólo el principio de la función, que es exactamente el defecto que este test corrige.
     expect(bloque).toContain("porJurisdiccion.length > 0")
 
-    expect(bloque).toContain("particionarPorJurisdiccion(jobs)")
+    // 🔴 `catalogoDeLanding` y NO `particionarPorJurisdiccion`: la diferencia entera de D-JUR-9
+    // es que la partición se aplica sobre los OFRECIDOS. Partir sobre `jobs` devolvería el bloque
+    // de referencia a la primera pantalla con el catálogo por defecto.
+    expect(bloque).toContain("catalogoDeLanding(jobs)")
+    expect(bloque).not.toContain("particionarPorJurisdiccion(jobs)")
 
     // Y el invariante NO es «no digas `jobs.map`»: `[...estandar, ...porJurisdiccion].map(...)`
     // conserva la llamada a la partición, no contiene `jobs.map(` y devuelve la jurisdicción al

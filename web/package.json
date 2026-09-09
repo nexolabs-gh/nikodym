@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:supply-chain": "node --test tests/*.test.mjs",
     "check:bundle": "node ../scripts/check_frontend_bundle.mjs",
+    "check:demo-bundle": "node ../scripts/check_frontend_bundle.mjs --demo",
     "check:licenses": "node ../scripts/check_frontend_licenses.mjs",
     "preview": "vite preview"
   },

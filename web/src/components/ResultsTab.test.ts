@@ -7,8 +7,8 @@
  * pinta el navegador, sin provider. Lo que esto no prueba —layout, foco, el `<details>`
  * abriéndose— se verifica en la UI viva, como declara `jobs.test.ts`.
  *
- * Los tres fixtures de la demo se renderizan enteros (charts incluidos): traen `model_card: null` y
- * el guard por presencia los cubre sin recaptura (D-GOB-9 conserva su OK propio).
+ * Los fixtures de la demo se renderizan enteros (charts incluidos): traen `model_card: null` y el
+ * guard por presencia los cubre sin recaptura (D-GOB-9 conserva su OK propio).
  */
 
 import { createElement } from "react"
@@ -19,7 +19,6 @@ import { ResultsPanel, type ResultsPanelProps } from "@/components/ResultsTab"
 import resultsTabSource from "@/components/ResultsTab.tsx?raw"
 import demoF1 from "@/fixtures/demo/results-f1.json"
 import demoF4 from "@/fixtures/demo/results-ifrs9.json"
-import demoF3 from "@/fixtures/demo/results.json"
 import { MODEL_CARD_F1 } from "@/lib/model-card.fixture"
 import type { ModelCard, ResultsResponse } from "@/lib/results-types"
 
@@ -36,9 +35,9 @@ const ROTULOS_DE_LA_FICHA = [
   "Métricas por dominio",
 ]
 
+// Las corridas que la demo publica hoy (D-JUR-9.7: la de provisiones CMF salió del árbol).
 const DEMOS: [string, ResultsResponse][] = [
   ["results-f1.json", demoF1 as unknown as ResultsResponse],
-  ["results.json", demoF3 as unknown as ResultsResponse],
   ["results-ifrs9.json", demoF4 as unknown as ResultsResponse],
 ]
 

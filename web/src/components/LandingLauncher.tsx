@@ -16,7 +16,7 @@ import {
   TESTS_SUITE,
 } from "@/components/landing-evidence"
 import { DEMO_MODE } from "@/lib/demo-runtime"
-import { loadJobs, particionarPorJurisdiccion, type Job } from "@/lib/jobs"
+import { catalogoDeLanding, loadJobs, type Job } from "@/lib/jobs"
 import { presetDisplay } from "@/lib/presentation"
 import { cn } from "@/lib/utils"
 
@@ -450,26 +450,29 @@ function JobCard({ job, onPick }: { job: Job; onPick: (job: Job) => void }) {
   )
 }
 
-function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
-  const [jobs, setJobs] = useState<Job[]>([])
-
-  useEffect(() => {
-    let alive = true
-    void loadJobs().then((res) => {
-      if (alive) setJobs(res)
-    })
-    return () => {
-      alive = false
-    }
-  }, [])
-
+/**
+ * El catálogo pintado, a partir de la lista que reciba. Exportado para poder RENDERIZARLO en un
+ * test sin DOM (`react-dom/server`, como `ResultsTab.test.ts`): `JobSelector` trae el catálogo en
+ * un `useEffect`, que en render estático no corre, así que un gate sobre él mediría una pantalla
+ * vacía. Lo que hay que poder medir es que la landing pinta el bloque de referencia **sólo** con
+ * los trabajos ofrecidos, y eso vive aquí.
+ */
+export function JobCatalogo({
+  jobs,
+  onPick,
+}: {
+  jobs: Job[]
+  onPick: (job: Job) => void
+}) {
   if (jobs.length === 0) return null
 
-  // Un trabajo atado a una jurisdicción NO va en el listado principal. La partición NO inventa
-  // contrato: `jurisdiction_code` ya declara exactamente esta propiedad (D-JOB-8), y el orden
-  // dentro de cada bloque es el del catálogo, porque `filter` lo preserva. Vive en `lib/` y no
-  // aquí porque su invariante —que ningún trabajo se pierda— hay que poder medirla sin DOM.
-  const { estandar, porJurisdiccion } = particionarPorJurisdiccion(jobs)
+  // Un trabajo atado a una jurisdicción NO va en el listado principal, y desde D-JUR-9 tampoco va
+  // en el de referencia salvo que la sesión lo OFREZCA. La partición NO inventa contrato:
+  // `jurisdiction_code` ya declara exactamente esa propiedad (D-JOB-8) y `offered` la oferta
+  // (D-JUR-9.2); el orden dentro de cada bloque es el del catálogo, porque `filter` lo preserva.
+  // Vive en `lib/` y no aquí porque su invariante —que ningún trabajo OFRECIDO se pierda— hay que
+  // poder medirla sin DOM.
+  const { estandar, porJurisdiccion } = catalogoDeLanding(jobs)
 
   return (
     <div className="space-y-7">
@@ -508,6 +511,22 @@ function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
       ) : null}
     </div>
   )
+}
+
+function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
+  const [jobs, setJobs] = useState<Job[]>([])
+
+  useEffect(() => {
+    let alive = true
+    void loadJobs().then((res) => {
+      if (alive) setJobs(res)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return <JobCatalogo jobs={jobs} onPick={onPick} />
 }
 
 /**

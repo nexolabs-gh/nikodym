@@ -92,8 +92,10 @@ def test_encender_audit_no_mueve_el_config_hash_de_ningun_preset() -> None:
 @pytest.mark.parametrize(
     ("fixture", "preset_id"),
     [
+        # D-JUR-9.7: la corrida F3 salió de la demo y sus fixtures del árbol. La fila NO se deja
+        # con su `pytest.skip` esperando un archivo que ya no va a volver —un skip permanente es un
+        # gate que se cree presente—; `results-f5.json` entra con la recaptura de la release.
         ("results-f1.json", "f1-estandar-consumo"),
-        ("results.json", "f3-provisiones-consumo"),
         ("results-ifrs9.json", "f4-ifrs9-retail"),
     ],
 )
