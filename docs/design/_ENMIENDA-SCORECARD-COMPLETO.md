@@ -115,6 +115,13 @@
     (`eda/stability.py:183-196`); dos períodos suficientes sin ningún incumplimiento llegan ahí
     con `trend_slope` evaluable (cero). El enum de D-SC-2 gana `tasa_media_cero`, condicionado al
     indicador elegido.
+14. **`backtesting.segment_col` no es una columna del archivo del usuario** (quinta revisión
+    adversarial, 2026-09-09, verificada): el evaluador la lee del lado **estimado**
+    (`provisioning_ifrs9.detail`, `validation/evaluator.py:771-800`), y el motor IFRS 9 publica esa
+    columna siempre como `portfolio` (`provisioning/ifrs9/engine.py:516`) aunque la entrada se
+    llame de otro modo por `provisioning_ifrs9.portfolio_col`. Un `column_role` de entrada habría
+    dado un aviso falso con una cartera renombrada, y renombrar `segment_col` para calmarlo habría
+    roto el consumo del artefacto. Pasa a oculto (D-SUB), como `target_column`/`pd_column`.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -267,7 +274,7 @@ existe en el formulario. «Validar un modelo existente» **no** la recibe en est
 medir en la capa 2 si `check_pipeline` resuelve la familia `calibration` sobre la PD que ese
 trabajo trae por la puerta de artefactos (§8-4).
 
-**D-SC-7 · Copy público de los 32 campos y superficie de cada uno (tabla §3.7).** Siete campos no
+**D-SC-7 · Copy público de los 32 campos y superficie de cada uno (tabla §3.7).** Ocho campos no
 se exponen: `schema_version` y `type` (ya `hidden`); **`hl_grouping`** (D-SUB: su segundo valor
 `fixed_bands` lo rechaza el validador `_check_calibration`, «no soportado»: una opción de dos con
 una sola usable es una subsección inerte); **`target_column`, `pd_column`, `partition_column`**
@@ -275,13 +282,16 @@ una sola usable es una subsección inerte); **`target_column`, `pd_column`, `par
 —`target`, `pd_calibrated`, `partition`—; ningún otro valor corre desde el formulario); y
 **`consume_stability`** (D-SUB, medido en §0-9: apagarlo aborta la corrida porque el paso no
 cablea el frame del fallback; se expone cuando ese cableado exista, con su gate de
-`source="recomputed"`). Quedan **25 visibles**. `grade_col`, `segment_col` y las tres `realised_*_col` nombran columnas del
-archivo del usuario: llevan `column_role` y D-EXI (`grade_col` exige `binomial_by_grade`; las
-cuatro de backtesting exigen `backtesting.enabled`), **y su inactividad se declara por D-RAM-1**
-(§0-10): `CalibrationValidationConfig.columnas_inactivas()` devuelve `{"grade_col"}` cuando
-`binomial_by_grade` está apagado; `BacktestingValidationConfig.columnas_inactivas()` devuelve las
-cuatro cuando `enabled` está apagado y, encendido, la columna realizada de cada parámetro que no
-esté en `parameters`; y **`ValidationConfig.columnas_inactivas()` devuelve el nombre de cada
+`source="recomputed"`); y **`backtesting.segment_col`** (D-SUB, §0-14: nombra la columna
+`portfolio` del artefacto `provisioning_ifrs9.detail`, que el motor IFRS 9 publica con ese nombre
+fijo; no es una columna del archivo). Quedan **24 visibles**. `grade_col` y las tres
+`realised_*_col` nombran columnas del archivo del usuario: llevan `column_role` y D-EXI
+(`grade_col` exige `binomial_by_grade`; las tres realizadas exigen `backtesting.enabled`), **y su
+inactividad se declara por D-RAM-1** (§0-10): `CalibrationValidationConfig.columnas_inactivas()`
+devuelve `{"grade_col"}` cuando `binomial_by_grade` está apagado;
+`BacktestingValidationConfig.columnas_inactivas()` devuelve las tres realizadas cuando `enabled`
+está apagado y, encendido, la columna realizada de cada parámetro que no esté en `parameters`; y
+**`ValidationConfig.columnas_inactivas()` devuelve el nombre de cada
 sub-config cuya familia no esté en `families`** (`calibration`, `backtesting`), porque el preflight
 poda el campo y su subárbol cuando el padre lo declara (D-SUB-1, §0-12) y una familia
 deseleccionada puede dejar sus flags encendidos sin que nadie los consuma. Las guardas de los
@@ -439,7 +449,7 @@ sitio).
 | `stability.psi_review_threshold` | visible | «Al alcanzar o superar este valor, el PSI gatilla redesarrollo.» | Desde este PSI la banda es la de redesarrollo. Tiene que ser mayor que el umbral de revisión. |
 | `backtesting.enabled` | visible (D-EXI: exige IFRS 9 activa y las columnas realizadas) | «Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas de resultado realizado, que no todos los modelos del inventario tienen.» | Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La forma exacta de la prueba de severidad y exposición está declarada como brecha del motor: el resultado sale con ese aviso. |
 | `backtesting.parameters` | visible | «Parámetros IFRS 9 a contrastar realizado-vs-estimado.» | Qué parámetros se contrastan: la PD, la severidad o la exposición. |
-| `backtesting.segment_col` | visible (columna) | «Columna de segmento/cartera para agregar el backtesting.» | La columna de tu archivo por la que se agrupa el contraste, por ejemplo la cartera. |
+| `backtesting.segment_col` | **oculto (D-SUB)** | «Columna de segmento/cartera para agregar el backtesting.» | — (columna `portfolio` del artefacto IFRS 9, de nombre fijo; §0-14) |
 | `backtesting.alpha` | visible | «Nivel de significancia de los contrastes de backtesting; configurable.» | Nivel de significancia de las pruebas de backtesting. |
 | `backtesting.one_sided` | visible | «El interés supervisor es la subestimación del parámetro (ECB); configurable.» | Prueba sólo si el parámetro se subestimó, que es lo que le importa al supervisor. Apagado, prueba desvíos en los dos sentidos. |
 | `backtesting.realised_pd_col` | visible (columna) | «Columna con el default efectivo realizado del período de desempeño.» | La columna de tu archivo que dice si la operación incumplió de verdad en el período de desempeño. |
@@ -468,8 +478,8 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
   default); el abanico de `eda.default_rate.axis` declara sus dos requisitos (D-EXI).
 - **Formulario**: `CONFIG_SECTIONS` 15 → **17** (`eda` en 2.ª, `validation` tras `stability`).
   Goldens medidos por el barrido del gate sobre el schema completo: formulario **527 → 527 + 17
-  (eda: 16 campos visibles + la fila de la lista `columns[]`) + 28 (validation: 33 rutas − las 5
-  que D-SC-7 oculta) = 572 rutas**, a confirmar al implementar; `$defs` sin cambio; el catálogo
+  (eda: 16 campos visibles + la fila de la lista `columns[]`) + 27 (validation: 33 rutas − las 6
+  que D-SC-7 oculta) = 571 rutas**, a confirmar al implementar; `$defs` sin cambio; el catálogo
   de defaults efectivos crece por las dos secciones.
 - **`serialize_study`**: claves nuevas `eda` y `validation` (`null` cuando el dominio no corrió;
   ausentes nunca). El gate «emite exactamente estas claves» se actualiza.
@@ -537,7 +547,10 @@ preflight sigue viendo las columnas de `data`); con `binomial_by_grade=True` y s
 archivo, lo reclama con su nombre de negocio; con backtesting encendido y `parameters=("pd",)`,
 reclama sólo `realised_default`; con `families=("discrimination",)` y `binomial_by_grade=True` o
 `backtesting.enabled=True` dejados encendidos, **no** reclama nada de esas familias, y volver a
-seleccionarlas vuelve a reclamar sus columnas (§0-12), guía nueva
+seleccionarlas vuelve a reclamar sus columnas (§0-12); y con backtesting encendido,
+`provisioning_ifrs9.portfolio_col="cartera_cliente"` y **ninguna** columna `portfolio` en el
+archivo, el preflight no reclama `segment_col` y el backtesting corre agrupando por el
+`portfolio` del artefacto (§0-14), guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
