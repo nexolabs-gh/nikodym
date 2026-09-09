@@ -89,6 +89,19 @@
    cuando `consume_performance=False`; `:227-231` registra `source="recomputed"`). Consecuencia en
    D-SC-7: `consume_stability` se oculta (D-SUB) hasta que el paso cablee el frame; la tabla §3.7
    lo dice.
+10. **Un `column_role` sin declarar su inactividad produce avisos falsos** (tercera revisión
+    adversarial, 2026-09-09, verificada): el preflight (`core/dataset_check.py:552-590`) sólo
+    omite una columna cuando el **propio modelo** la declara inactiva por `columnas_inactivas()`
+    (D-RAM-1/3; hoy lo implementan seis modelos de provisiones y **ninguno** de `validation`).
+    Dar `column_role` a `grade_col` y a las columnas realizadas sin ese método haría que el
+    preflight reclamara `grade` y `realised_*` en el preset F1, que las tiene apagadas. D-SC-6/7
+    ganan la declaración de inactividad y su gate (preflight limpio con las ramas apagadas).
+11. **La card de EDA no lleva el eje efectivo ni la causa de la no evaluabilidad** (misma
+    revisión, verificada): `EdaCardSection` publica tasa, períodos, indicador, umbral, valor y
+    conteos, no `axis` (vive en `DefaultRateResult`); con D-SC-3 el eje efectivo puede ser cohorte
+    con `axis="period"` en el config; y `_evaluable_rates` excluye los períodos de baja confianza
+    (`eda/stability.py:150-160`), así que «un solo período» no es la única causa de `NaN`. D-SC-2 y
+    D-SC-5 ganan los campos que faltan y los tres casos se gatean con sus rótulos.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -166,7 +179,11 @@ declara los dos ejes como soportados y §8 ya declara el caso no evaluable; el `
 `_validate_temporal_axis` contradice el primero. Es **aditivo** para un dominio estable: ningún
 config válido hoy cambia de resultado; un config que hoy revienta pasa a producir tasa por cohorte,
 perfiles y calidad con la señal temporal declarada no evaluable. La tasa por cohorte **sí** es
-útil: es la vista de añada que ESPECIFICACIONES §5.2 pide.
+útil: es la vista de añada que ESPECIFICACIONES §5.2 pide. `StabilityResult` gana el campo
+aditivo `not_evaluable_reason: Literal["eje_cohorte", "pocos_periodos_evaluables"] | None = None`
+(§0-11): «pocos períodos evaluables» cubre tanto el período único como varios períodos de los
+que menos de dos superan `min_obs_per_period`; la decisión `no_evaluable` del trail lleva la
+misma causa en `valor`.
 
 **D-SC-3 · El eje de la tasa de incumplimiento se INFIERE de lo que el usuario ya declaró; la
 elección explícita declara lo que exige (D-EXI).** ⚠️ Reescrita tras la segunda revisión
@@ -193,18 +210,24 @@ trabajos de provisiones. Consecuencia automática: `required_sections` del esque
 (D-OBL-11) y el informe del trabajo emite «Población y calidad de datos» con sus tablas y figuras.
 
 **D-SC-5 · Panel «Análisis exploratorio» en Resultados y clave `eda` del serializer.**
-`serialize_study` emite `eda`: la card (`overall_default_rate`, `n_periods`, `stability_flagged`,
-`stability_metric_used`, `stability_threshold`, `stability_value` con `NaN → null`,
+`EdaCardSection` gana tres campos aditivos (§0-11): `axis` (el **efectivo**, leído de
+`DefaultRateResult.axis`), `axis_inferred: bool` (D-SC-3) y `stability_not_evaluable_reason`
+(copiado de `StabilityResult`). `serialize_study` emite `eda`: la card (`overall_default_rate`,
+`n_periods`, `axis`, `axis_inferred`, `stability_flagged`, `stability_metric_used`,
+`stability_threshold`, `stability_value` con `NaN → null`, `stability_not_evaluable_reason`,
 `n_columns_profiled`, `quality_flag_counts`, `n_figures`) más tres tablas agregadas:
-`default_rate.by_period` (una fila por período/cohorte), `quality.by_column` (una fila por
-columna) y `univariate` reducido a **una fila por tramo de las columnas perfiladas** (tramo, n,
-cobertura, tasa), nunca el frame. El panel va **primero** entre los analíticos (es la población
-sobre la que todo lo demás se lee): tasa global y por período/cohorte (línea o barras según el
-eje), la señal de estabilidad con su indicador, umbral y valor —«No evaluable: un solo período» /
-«eje de cohorte»— y la tabla de calidad con sus tres marcas en español («casi constante», «casi
-única», «alta cardinalidad»); los perfiles univariados como desplegable por variable. Guard por
-presencia: sin card no hay bloque. Tipos `EdaResult`, `EdaPeriodRow`, `EdaQualityRow`,
-`EdaProfileRow` en `results-types.ts`, espejo con gate Python ↔ TS.
+`default_rate.by_period` (una fila por período/cohorte, con `low_confidence`), `quality.by_column`
+(una fila por columna) y `univariate` reducido a **una fila por tramo de las columnas perfiladas**
+(tramo, n, cobertura, tasa), nunca el frame. El panel va **primero** entre los analíticos (es la
+población sobre la que todo lo demás se lee): tasa global y por período o cohorte —línea si
+`axis="period"`, barras si `axis="cohort"`, decidido por el eje efectivo y no por el config— con
+la nota «eje tomado de la partición por cohorte» cuando `axis_inferred`; la señal de estabilidad
+con su indicador, umbral y valor, o su causa cuando no se evalúa («No evaluable: eje de cohorte»
+/ «No evaluable: menos de dos períodos con observaciones suficientes»); y la tabla de calidad con
+sus tres marcas en español («casi constante», «casi única», «alta cardinalidad»); los perfiles
+univariados como desplegable por variable. Guard por presencia: sin card no hay bloque. Tipos
+`EdaResult`, `EdaPeriodRow`, `EdaQualityRow`, `EdaProfileRow` en `results-types.ts`, espejo con
+gate Python ↔ TS. La prosa de `context_body` en el informe lee los mismos campos y dice lo mismo.
 
 **Dos hechos medidos que la implementación tiene que resolver y esta enmienda deja fijados:**
 (a) el perfil univariado con `columns=None` incluye la columna que define el target (`bad_flag`,
@@ -237,8 +260,15 @@ una sola usable es una subsección inerte); **`target_column`, `pd_column`, `par
 cablea el frame del fallback; se expone cuando ese cableado exista, con su gate de
 `source="recomputed"`). Quedan **25 visibles**. `grade_col`, `segment_col` y las tres `realised_*_col` nombran columnas del
 archivo del usuario: llevan `column_role` y D-EXI (`grade_col` exige `binomial_by_grade`; las
-cuatro de backtesting exigen `backtesting.enabled`). Los códigos `FALTA-DATO-VAL-*`,
-`DATO-INSTITUCIONAL-VAL-4`, «ECB», «BCBS», «chi2», «G−2 gl», «NaN» salen del copy.
+cuatro de backtesting exigen `backtesting.enabled`), **y su inactividad se declara por D-RAM-1**
+(§0-10): `CalibrationValidationConfig.columnas_inactivas()` devuelve `{"grade_col"}` cuando
+`binomial_by_grade` está apagado; `BacktestingValidationConfig.columnas_inactivas()` devuelve las
+cuatro cuando `enabled` está apagado y, encendido, la columna realizada de cada parámetro que no
+esté en `parameters`; `ValidationConfig.columnas_inactivas()` no hace falta porque una familia
+ausente de `families` deja su sub-config sin consumir y D-RAM-3 exige nombres del propio modelo:
+la familia se apaga por el flag del sub-modelo, que es lo que el evaluador mira. Los códigos
+`FALTA-DATO-VAL-*`, `DATO-INSTITUCIONAL-VAL-4`, «ECB», «BCBS», «chi2», «G−2 gl», «NaN» salen del
+copy.
 
 **D-SC-8 · Los tres `FALTA-DATO` se muestran, no se resuelven aquí.** Medido: `VAL-2` y `VAL-3`
 se gatillan con `binomial_by_grade=True` (`evaluator.py:382-389`) y `VAL-1`/`VAL-3` con el
@@ -405,8 +435,13 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 
 - **Motor** (`eda`): `TemporalStabilityAnalyzer.assess` con `axis="cohort"` devuelve
   `StabilityResult(NaN…, flagged=False)` y registra `no_evaluable`. `EdaCardSection` no cambia.
-- **Motor** (`eda`, D-SC-3): inferencia del eje desde `data.partition.strategy.cohort_col` cuando
-  no hay fecha, con decisión auditable `eje_eda_inferido`.
+- **Motor** (`eda`, D-SC-2/D-SC-3/D-SC-5): inferencia del eje desde
+  `data.partition.strategy.cohort_col` cuando no hay fecha, con decisión auditable
+  `eje_eda_inferido`; `StabilityResult.not_evaluable_reason` y `EdaCardSection.{axis,
+  axis_inferred, stability_not_evaluable_reason}`, todos aditivos con default.
+- **Motor** (`validation`, D-SC-7): `columnas_inactivas()` en `CalibrationValidationConfig` y
+  `BacktestingValidationConfig` (D-RAM-1/3), aditivo: sin `column_role` no cambia nada; con él,
+  el preflight calla exactamente las columnas de las ramas apagadas.
 - **Catálogo**: `sections` de `scorecard_pd` y `pd_y_lgd` ganan `eda` (2.ª) y `validation` (tras
   `stability`); `overrides` de ambos ganan `("validation.calibration.binomial_by_grade", False)`;
   `_DECISIONES_POR_SECCION` **no cambia** (ninguna de las dos secciones tiene un campo sin
@@ -442,6 +477,8 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 - Un solo período → `no_evaluable` como hoy; sin figura de línea de un punto.
 - `validation` con `binomial_by_grade` encendido y sin `grade_col` en el archivo → preflight en
   rojo antes de correr; nunca `ValidationDataError` en pantalla.
+- `validation` con `binomial_by_grade` apagado (presets, esqueleto) → el preflight **no** reclama
+  `grade` (D-RAM); ídem las columnas realizadas con backtesting apagado.
 - `validation` con backtesting encendido en un trabajo sin IFRS 9 → D-EXI lo declara en la opción
   y `check_pipeline` lo deja inejecutable con el motivo (`DATO-INSTITUCIONAL-VAL-4` sólo en el
   anexo).
@@ -473,7 +510,12 @@ códigos), `test_jobs_abanico` (sus `Literal` declarados o exentos con razón), 
 ya dentro de `[ui]`), gate espejo de tipos, `ResultsTab.test.ts` con una corrida real con
 `validation` (estado `fail` real) y con `null`, **una corrida real con
 `discrimination.consume_performance=False`** que exija filas con `source="recomputed"` (la única
-rama de recálculo cableada, §0-9) y el gate D-SUB sobre `consume_stability` oculto, preflight de `grade_col`, guía nueva
+rama de recálculo cableada, §0-9) y el gate D-SUB sobre `consume_stability` oculto, **preflight
+en los dos sentidos** (`test_column_roles`): con el preset F1 y con el esqueleto del trabajo
+—ramas apagadas— `check_dataset` no reclama `grade` ni `realised_*` (control positivo: el
+preflight sigue viendo las columnas de `data`); con `binomial_by_grade=True` y sin `grade` en el
+archivo, lo reclama con su nombre de negocio; con backtesting encendido y `parameters=("pd",)`,
+reclama sólo `realised_default`, guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
@@ -500,6 +542,13 @@ ejemplo por código ejecutado por gate (marcadores). **CN**: revertir cada una d
 del motor → su test nacido rojo vuelve a rojo y la corrida real del esqueleto falla con el
 `EdaError` que hoy se mide; quitar el requisito declarado de una opción de `axis` → rojo el gate
 del abanico; perfilar la columna del target en el preset → el gate del preset (capa 5) lo acusa.
+**Los tres casos de la card, gateados con sus rótulos** (§0-11): cohorte inferida (`axis="cohort"`,
+`axis_inferred=True`, causa `eje_cohorte`, barras y nota en el panel), período único (`axis=
+"period"`, causa `pocos_periodos_evaluables`, sin figura de línea) y varios períodos con menos de
+dos que superen `min_obs_per_period` (misma causa; la tabla por período muestra las filas de
+baja confianza marcadas). **CN**: pintar la línea decidiendo por el `axis` del config y no por el
+efectivo → rojo el render con cohorte inferida; devolver `not_evaluable_reason=None` con `NaN` →
+rojo el test del analizador.
 
 **Capa 4 — «Ficha del modelo» en el informe.** D-SC-13…D-SC-16. Gates: golden HTML intacto con
 `governance=None` (control positivo); capítulo presente con `governance` real de una corrida por
