@@ -77,7 +77,7 @@ Sólo esos dos trabajos declaran jurisdicción: la partición del front devuelve
 | `scripts/frontend_demo_fixture_signatures.json` + `generate_frontend_demo_fixture_signatures.mjs` + `check_frontend_bundle.mjs` | firman y verifican cada fixture del bundle, incluidos los F3 | **Sí**: se regeneran sin los F3 (y con los F5 al recapturar) |
 | `scripts/capture_demo_fixtures.py` (`PRESET_ID = f3…`, `:73`) y `tests/unit/test_capture_demo_fixtures.py` | capturador **canónico** de F3, escribe los nombres sin sufijo | **Sí, de rol**: sale de la matriz de `recapture-demo.yml` (`:43-47`) y queda como capturador de referencia, ejecutable a mano; sus guardas siguen verdes |
 | `scripts/verify_demo_prose_artifacts.py` (`families = f1, f3, ifrs9`) y `scripts/check_demo_report_copy.py` | verifican la prosa de los tres informes de la demo | **Sí**: `f3` sale de `all` (queda invocable por nombre mientras existan sus archivos); entra `f5` con la recaptura |
-| `.github/workflows/deploy.yml:144-153` | verifica en vivo que el bundle **no** contenga «provisiones CMF de Chile» y sí «La normativa local se aterriza encima» | **Sí, aditivo**: además exige que el bundle no contenga `f3-provisiones-consumo` ni el rótulo «Provisiones CMF» (§6-7) |
+| `.github/workflows/deploy.yml:144-153` | verifica en vivo que el bundle **no** contenga «provisiones CMF de Chile» y sí «La normativa local se aterriza encima» | **Sí, aditivo**: además exige que el bundle no contenga el `run_id` ni el `config_hash` de la corrida F3 capturada (D-JUR-9.8); **no** puede exigir la ausencia de «Provisiones CMF» ni del id F3, que el front conserva por D-JUR-9.5 y `CURATED` |
 | `.github/workflows/ci.yml:363-371` (smoke del wheel) | corre `smoke_instalacion_pip.py` con `f3`, `f4` y `f5` por `GET /api/config/preset/{id}` | **No**: el id explícito sigue resolviendo (evidencia de que el wheel corre el caso de referencia) |
 | `.github/workflows/recapture-demo.yml:43-47` | matriz `f1 / f3 / ifrs9` | **Sí**: `f1 / ifrs9 / f5` (F5 exige un `capture_demo_fixtures_f5.py`, hermano de `_f1.py`) |
 | `docs_site/getting-started.md:192-203` (catálogo entre marcadores) | 10 filas, atadas a `list_jobs()` por `test_docs_gobernanza.py:237-267` | **Sí**: 8 filas; el gate obliga |
@@ -205,10 +205,19 @@ F3, F1 e IFRS 9), y capturar exige Linux y un OK propio (runbook §5; D-GOB-9). 
 **única** recaptura que Cami fijó para la 1.13.0. La matriz de `recapture-demo.yml` pasa a
 `f1 / ifrs9 / f5`, con un `capture_demo_fixtures_f5.py` hermano del de F1.
 
-**D-JUR-9.8 · Verificación en vivo negativa.** `deploy.yml` suma dos comprobaciones sobre el bundle
-publicado: que no contenga `f3-provisiones-consumo` ni el rótulo «Provisiones CMF» del catálogo.
-Es el mismo mecanismo que hoy veta «provisiones CMF de Chile» —el titular que estuvo vivo 171
-commits después de retirarse—.
+**D-JUR-9.8 · Verificación en vivo negativa sobre lo que la demo OFRECE, no sobre las cadenas
+del front.** ⚠️ Corregido tras la revisión adversarial del 2026-09-09: el bundle de la demo se
+construye del mismo front, y ese front **conserva a propósito** el rótulo «Provisiones CMF»
+(`CONFIG_SECTIONS`, D-JUR-9.5), el id `f3-provisiones-consumo` (`CURATED`, `presentation.ts:17`)
+y `schema.json` con el título de la sección; exigir su ausencia literal habría bloqueado todo
+deploy conforme. Lo que sí sólo existe en los fixtures F3 es la **corrida capturada**: el `run_id`
+`df491df8bb1e48c9a40bbbe474a97938` y el `config_hash` `857b06ee…` de `results.json`, y los
+fragmentos firmados de `preset.json`/`report.html`. `deploy.yml` exige que el bundle publicado
+**no** contenga ese `run_id` ni ese hash (y sigue exigiendo lo de hoy: sin «provisiones CMF de
+Chile», con el subtítulo vigente). Que la demo no **ofrezca** F3 —selector con dos ejemplos,
+landing sin el bloque de referencia, siembra en F1— se verifica donde se ve: `demo.test.ts` sobre
+`demoListPresets`/`demoGetPreset`, el render estático de la landing con el `jobs.json` empaquetado
+(0 trabajos con jurisdicción) y el recorrido en navegador sobre `demo.nikodym.cl` tras el deploy.
 
 **D-JUR-9.9 · Nada del motor se mueve.** Cero archivos borrados en `provisioning/cmf`, sus tests,
 sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
@@ -281,9 +290,12 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
    (test del parser). **CN**: ignorar el ajuste en `jobs_payload` pone rojo.
 7. **Bundle y demo**: `jobs.json` regenerado con 8 y comparado contra `GET /api/jobs` real (el
    gate `test_el_fixture_del_front_no_se_queda_viejo_en_silencio` ya existe); `demo.test.ts`: lista
-   `[F1, F4]`, siembra F1, F3 desconocido cae a F1; el bundle construido con `build:demo` no
-   contiene `f3-provisiones-consumo` ni «Provisiones CMF» (gate local, espejo del de `deploy.yml`).
-   **CN**: dejar F3 en `PRESET_ORDER` pone rojo el gate local antes de llegar al deploy.
+   `[F1, F4]`, siembra F1, F3 desconocido cae a F1; `check_frontend_bundle.mjs` exige que el
+   bundle construido con `build:demo` **no** contenga el `run_id` ni el `config_hash` de la
+   corrida F3 (las ventanas firmadas de sus fixtures salen del manifiesto) y que sí contenga los
+   de F1 y F4 (gate local, espejo del de `deploy.yml`, D-JUR-9.8). **CN**: dejar el import de
+   `results.json` (F3) en `demo.ts` pone rojo el gate local antes de llegar al deploy; dejar F3 en
+   `PRESET_ORDER` pone rojo `demo.test.ts`.
 8. **La partición del front sigue probada** con un fixture propio que incluye un trabajo con
    jurisdicción, y un assert nuevo: el `jobs.json` empaquetado trae **cero**. **CN**: reintroducir
    `jurisdiction_code: "CL"` en el fixture empaquetado → rojo.
@@ -294,8 +306,10 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
 10. **Recorrido en navegador** (runbook §5, «UI/navegación»): `nikodym-ui` sin opción → landing sin
     el bloque de referencia y selector de ejemplos con tres; con `--casos-de-referencia` → bloque y
     cuatro; cargar un YAML con `provisioning_cmf:` sin opción → formulario completo con la sección.
-11. **Verificación en vivo** tras el deploy: `deploy.yml` con las dos negativas nuevas, más
-    `curl` desde la sesión sobre `demo.nikodym.cl` y `docs.nikodym.cl/getting-started/`.
+11. **Verificación en vivo** tras el deploy: `deploy.yml` con las dos negativas nuevas (`run_id` y
+    hash de la corrida F3 ausentes del bundle), más `curl` desde la sesión sobre `demo.nikodym.cl`
+    y `docs.nikodym.cl/getting-started/`, y el recorrido en navegador sobre la demo publicada:
+    selector con dos ejemplos y sin bloque de referencia.
 
 Todo cierre regenera `gen_jobs_fixture` (no `gen_schema_fixture`: el schema no cambia), reconstruye
 el bundle y las firmas, y corre los gates de la fila «Catálogo de trabajos/abanico» del runbook §5.

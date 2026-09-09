@@ -273,10 +273,13 @@ las palabras del informe («score» / «PD calibrada», `_PSI_METRIC_LABELS`).
 entre «Introducción» y «Contexto del modelo y de la cartera».** Contrato SDD-26 §5: entra como
 2-bis del modelo documental, `ChapterSpec(id="model_card", title="Ficha del modelo",
 kind="prose", requires_governance=True)`, un predicado nuevo del mismo tipo que
-`requires_domain`/`requires_result`. Sin `governance` **no hay capítulo** —ni vacío ni fabricado,
-igual que el panel de S4— y «Limitaciones y supuestos» gana una frase factual: «La institución no
-declaró propósito, supuestos ni limitaciones en esta corrida». Con `governance`, ese capítulo
-remite a la ficha en vez de repetirla.
+`requires_domain`/`requires_result`. Sin `governance` **no hay capítulo ni cambia una sola
+línea del informe** —ni vacío ni fabricado, igual que el panel de S4—: el HTML sin gobernanza es
+byte a byte el de hoy (D-SC-16). Con `governance`, «Limitaciones y supuestos» gana una frase de
+remisión a la ficha en vez de repetir sus supuestos y limitaciones. ⚠️ Corregido tras la revisión
+adversarial del 2026-09-09: la redacción anterior añadía además una frase «la institución no
+declaró…» al informe **sin** gobernanza, lo que contradecía D-SC-16 (movía el golden del HTML y el
+informe de la demo); la frase se retira y queda como alternativa en §8-9.
 
 **D-SC-14 · El capítulo se construye desde lo que existe cuando corre `report`: las
 declaraciones de la institución.** `ReportInputBundle` gana el campo aditivo `governance:
@@ -299,9 +302,10 @@ se traducen con el vocabulario de D-GOB-13 y de la ficha en Resultados (S4). El 
 extiende a los tags y a los slugs del capítulo nuevo.
 
 **D-SC-16 · Determinismo y goldens.** Con `governance=None` el HTML es **byte a byte** el de hoy
-(`GOLDEN_STEP_HTML_SHA256` no se mueve; es el control positivo de la capa). Con `governance` el
-capítulo entra al manifiesto de secciones y a los goldens nuevos; la guía de gobernanza deja de
-decir «el informe no incluye la ficha» y dice qué incluye y qué remite.
+(`GOLDEN_STEP_HTML_SHA256` no se mueve; es el control positivo de la capa; por eso D-SC-13 no
+añade nada al informe sin gobernanza). Con `governance` el capítulo entra al manifiesto de
+secciones y a los goldens nuevos; la guía de gobernanza deja de decir «el informe no incluye la
+ficha» y dice qué incluye y qué remite.
 
 ### 3.6 Copy público de EDA (17 campos; lo que Cami aprueba)
 
@@ -434,8 +438,16 @@ códigos), `test_jobs_abanico` (sus `Literal` declarados o exentos con razón), 
 + `gen_jobs_fixture` + bundle, `test_extra_ui_cubre_el_formulario` (`validation` → extra `scoring`,
 ya dentro de `[ui]`), gate espejo de tipos, `ResultsTab.test.ts` con una corrida real con
 `validation` (estado `fail` real) y con `null`, preflight de `grade_col`, guía nueva
-`docs_site/guias/validacion-formal.md`, «Empezar». **CN**: quitar el override del catálogo →
-`test_jobs_ejecutables` en rojo por `grade`; exponer `hl_grouping` → rojo el gate D-SUB; dejar un
+`docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
+del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
+corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
+(es el gate «cada trabajo disponible llega a `done`» que D-JOB §6 dejó pendiente, acotado a este
+trabajo). ⚠️ Corregido tras la revisión adversarial del 2026-09-09: `test_jobs_ejecutables` sólo
+llama a `check_pipeline`, que resuelve el DAG y **no lee datos**, y `_requires_for` de
+`validation` no cambia con `binomial_by_grade`; ese gate se queda como comprobación del DAG y el
+control negativo del override vive en la corrida real. **CN**: quitar el override del catálogo →
+la corrida real del esqueleto falla en `validation` con «requiere la columna 'grade'» (medido
+hoy con los defaults del motor); exponer `hl_grouping` → rojo el gate D-SUB; dejar un
 `FALTA-DATO-VAL` literal en un tooltip → rojo el copy gate; quitar el guard del panel → rojo el
 render con `null`.
 
@@ -454,11 +466,11 @@ lo acusa.
 **Capa 4 — «Ficha del modelo» en el informe.** D-SC-13…D-SC-16. Gates: golden HTML intacto con
 `governance=None` (control positivo); capítulo presente con `governance` real de una corrida por
 formulario (`b9633af1…`-like), en HTML, PDF (job CI), DOCX y QMD; `test_report_codigos_internos`
-ampliado a tags y slugs; el manifiesto lista `model_card`; «Limitaciones y supuestos» con la frase
-factual sin gobernanza y con la remisión con ella; guía de gobernanza actualizada. **CN**: pintar
-el capítulo con `governance=None` → rojo el golden; imprimir `nikodym.cartera` crudo → rojo el gate
-de códigos; poner una fecha de emisión en el capítulo → rojo el test que exige la remisión sin
-fechas.
+ampliado a tags y slugs; el manifiesto lista `model_card`; «Limitaciones y supuestos» intacto sin
+gobernanza y con la remisión con ella; guía de gobernanza actualizada. **CN**: pintar el capítulo
+o cualquier frase nueva con `governance=None` → rojo el golden; imprimir `nikodym.cartera` crudo →
+rojo el gate de códigos; poner una fecha de emisión en el capítulo → rojo el test que exige la
+remisión sin fechas.
 
 **Capa 5 — Release (sesión propia, con el OK de release y de D-GOB-9).** Presets F1/F5 encienden
 `eda`; re-anclaje de los cinco goldens de hash con la decisión escrita en el registro; CHANGELOG
@@ -505,3 +517,9 @@ entre el flip y la recaptura es la razón de que las dos cosas vayan en la misma
    resultado de `columns=None` en un dominio estable ⇒ minor con nota; recomendación: hacerlo en
    la capa 3 si Cami lo aprueba, si no, el preset lo evita por `columns` explícitas y la guía lo
    advierte.
+9. **¿El informe sin gobernanza dice que no se declaró propósito?** Añadir la frase «La
+   institución no declaró propósito, supuestos ni limitaciones en esta corrida» a «Limitaciones y
+   supuestos» es honesto, pero cambia el HTML de **todo** informe sin gobernanza: mueve
+   `GOLDEN_STEP_HTML_SHA256` y el informe de la demo (que se recaptura en la release de todas
+   formas). Recomendación: **no** en esta enmienda (el control positivo de la capa 4 es el HTML
+   intacto); si Cami la quiere, entra en la capa 5 con el golden movido y su propio test.
