@@ -904,7 +904,11 @@ No autoriza START ni mueve la puerta global.
 > hoy—, un opt-in del lanzador (`nikodym-ui --casos-de-referencia`), resolver por id sin ofrecer
 > (el smoke del wheel sigue corriendo F3), las secciones de referencia dentro del formulario, y la
 > demo en F1/F4 hasta que la recaptura de la release traiga F5. Alternativas B/C/D evaluadas; §8
-> con las cuatro decisiones de Cami.
+> con las cuatro decisiones de Cami. Dos hallazgos de revisión adversarial, sostenidos y
+> corregidos: la verificación en vivo no puede exigir la ausencia de cadenas que el front conserva
+> (pasa a exigir la ausencia de la corrida F3 capturada), y el cable lleva los diez trabajos con
+> la oferta marcada (`offered`) para que un YAML propio de referencia resuelva su trabajo y pida
+> su PD sin opt-in.
 
 > **El scorecard completo en la interfaz (2026-09-09; PROPUESTA, pendiente de revisión adversarial
 > y del OK de Cami; nace de la decisión 4 de Cami del 2026-09-09).**

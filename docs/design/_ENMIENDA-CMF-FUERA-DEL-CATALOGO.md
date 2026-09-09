@@ -42,6 +42,17 @@
   referencia*, alcanzable por id y por código, no ofrecido.
 - **ESPECIFICACIONES §11** dice «demo F1/F3/F4 publicada». Pasa a «demo F1/F4 (y F5 tras la
   recaptura de la release)», con nota «Lectura actual» y sin reescribir la historia.
+- **La primera redacción de D-JUR-9.2/9.3/9.4 publicaba por `GET /api/jobs` sólo el catálogo por
+  defecto, y eso rompía el YAML propio** (séptima revisión adversarial, 2026-09-09, verificada):
+  el front resuelve el trabajo de un YAML importado con `jobForConfig(jobs, config)` —el trabajo
+  más pequeño **del catálogo recibido** que contenga sus secciones (`web/src/lib/jobs.ts:727`)—
+  y los insumos externos con `requiredExternalArtifacts(job, config)`, que devuelve `[]` sin
+  trabajo (`external-artifacts.ts:60-68`). Un YAML de comparación (`provisioning_cmf` +
+  `provisioning_internal` con `pd_source="calibration"` + `provisioning`) no habría casado con
+  ningún trabajo recibido, la pestaña Datos no habría pedido la PD y el método interno habría
+  seguido exigiéndola (`InternalProvisioningStep`): la «compatibilidad del YAML propio» que
+  D-JUR-9.4 prometía era falsa. Corregido: **el cable lleva el catálogo completo con la oferta
+  marcada** (`offered`), y el front ofrece con la marca y resuelve con todo.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -64,12 +75,13 @@ Sólo esos dos trabajos declaran jurisdicción: la partición del front devuelve
 
 | Consumidor | Qué hace hoy | ¿Cambia? |
 |---|---|---|
-| `ui/routes.py:706` `jobs_payload` → `GET /api/jobs` (`:1179`) | publica `list_jobs()` entero: 10 trabajos | **Sí**: publica el catálogo por defecto (8) salvo opt-in |
+| `ui/routes.py:706` `jobs_payload` → `GET /api/jobs` (`:1179`) | publica `list_jobs()` entero: 10 trabajos | **Sí, aditivo**: publica los 10 con `offered` (8 en `true`; 10 con el opt-in) |
 | `ui/routes.py:716` `presets_index_payload` → `GET /api/config/presets` (`:1184`) | publica `list_presets()`: F1, F3, F4, F5 | **Sí**: F1, F4, F5 salvo opt-in |
 | `ui/routes.py:686` `preset_payload` → `GET /api/config/preset/{id}` (`:1194`) | resuelve cualquier id registrado con `get_preset` | **No**: un id explícito es una petición explícita (§3, D-JUR-9.3) |
 | `ui/routes.py:323` (avisos de columnas de insumos externos) | recorre `list_jobs()` para indexar `external_artifacts` por clave | **Sí, hacia el catálogo completo**: es un índice por artefacto, no una oferta |
-| `scripts/gen_jobs_fixture.py` → `web/src/fixtures/jobs.json` | vuelca `jobs_payload()` (10 trabajos, `jurisdiction_code` en `:2159` y `:5924`) | **Sí**: el fixture pasa a 8 (es el respaldo offline del catálogo por defecto) |
-| `web/src/lib/jobs.ts:303` `particionarPorJurisdiccion` + `LandingLauncher.tsx:484-507` | pinta el bloque de referencia sólo si `porJurisdiccion.length > 0` | **No**: con el catálogo por defecto el bloque desaparece solo; con opt-in reaparece tal cual |
+| `scripts/gen_jobs_fixture.py` → `web/src/fixtures/jobs.json` | vuelca `jobs_payload()` (10 trabajos, `jurisdiction_code` en `:2159` y `:5924`) | **Sí**: los 10 con `offered` (2 en `false`); es el respaldo offline y lo que empaqueta la demo |
+| `web/src/lib/jobs.ts:303` `particionarPorJurisdiccion` + `LandingLauncher.tsx:484-507` | pinta el bloque de referencia sólo si `porJurisdiccion.length > 0` | **Sí, mínimo**: la partición se aplica sobre `jobs.filter(offered)`; con el catálogo por defecto el bloque desaparece solo y con opt-in reaparece tal cual |
+| `web/src/lib/jobs.ts:727` `jobForConfig` y `external-artifacts.ts:60-68` `requiredExternalArtifacts` | resuelven el trabajo y los insumos de un YAML sobre **el catálogo recibido** | **No**: reciben los 10 (D-JUR-9.2); es lo que conserva la puerta de insumos para un YAML propio de referencia |
 | `web/src/lib/schema.ts:88` `CONFIG_SECTIONS` (15) | incluye `provisioning_cmf` («Provisiones CMF», `:139-143`) y `provisioning` («Comparación de provisiones», `:157-161`) | **No** con la opción recomendada (§3.2); **sí** (15 → 13) con la alternativa B |
 | `web/src/lib/demo.ts` | `PRESET_ORDER = [F1, F3, F4]` (`:152`); `activePresetId = F3_ID` (`:158`); `demoGetPreset` siembra F3 (`:171-173`); importa los 8 fixtures F3 sin sufijo (`:39-41`, `:48-57`) | **Sí**: `PRESET_ORDER = [F1, F4]` (F5 al recapturar), siembra F1, sin imports F3 |
 | `web/src/lib/presentation.ts:37-75` `CURATED` | copy curado de F1, F3, F4 y F5 | **No**: la entrada F3 sirve cuando el opt-in lista el preset; sin él es inerte y no daña |
@@ -158,26 +170,36 @@ provisioning_cmf, el motor del caso de referencia (D-JUR-7)"}`) y un gate la ata
 sentidos a las secciones con jurisdicción del catálogo de trabajos: un preset que encienda
 `provisioning_cmf` y no esté en la lista pone rojo, y uno listado que no la encienda también.
 
-**D-JUR-9.2 · Dos catálogos, una fuente.** `list_jobs(*, incluir_referencia: bool = False)` y
-`list_presets(*, incluir_referencia: bool = False)`. El **catálogo por defecto** excluye la
-referencia; el **catálogo completo** es el de hoy. Ninguna pieza se borra de `_JOBS` ni de
-`_PRESETS`: D-JOB-15 (una sola fuente para landing, sidebar y preflight) y D-EJE-5 (el gate de
-ejecutabilidad recorre **los diez**) siguen exactos.
+**D-JUR-9.2 · Dos catálogos en Python, un catálogo en el cable con la oferta marcada.**
+`list_jobs(*, incluir_referencia: bool = False)` y `list_presets(*, incluir_referencia: bool =
+False)` para quien pregunta «¿qué se ofrece?» (el catálogo de «Empezar», los gates de copy); el
+**catálogo completo** es el de hoy y lo usan los gates de ejecutabilidad, abanico y jurisdicción.
+Ninguna pieza se borra de `_JOBS` ni de `_PRESETS`: D-JOB-15 (una sola fuente para landing,
+sidebar y preflight) y D-EJE-5 (el gate de ejecutabilidad recorre **los diez**) siguen exactos.
+⚠️ Corregido tras la séptima revisión (§0): `jobs_payload` —`GET /api/jobs` y el fixture
+`jobs.json`— publica **los diez** con un campo aditivo por trabajo, `offered: bool`, derivado:
+`jurisdiction_code is None or cfg.casos_de_referencia`. El front **ofrece** los `offered`
+(landing, selector de trabajos) y **resuelve** con todos: `jobForConfig` y
+`requiredExternalArtifacts` reciben el catálogo entero, para que un YAML propio de referencia
+case con su trabajo, pida su PD por la puerta de artefactos y corra.
 
-**D-JUR-9.3 · Ofrecer no es lo mismo que resolver.** Las dos rutas que *ofrecen* —`GET /api/jobs`
-y `GET /api/config/presets`— publican el catálogo por defecto. Las rutas que *resuelven por id*
-—`GET /api/config/preset/{id}` y `get_preset(id)` por código— siguen resolviendo la referencia:
-quien escribe `f3-provisiones-consumo` está pidiendo exactamente eso. Es lo que mantiene verde el
+**D-JUR-9.3 · Ofrecer no es lo mismo que resolver.** Ofrecer es la marca `offered` de
+`/api/jobs` y la lista de `GET /api/config/presets` (que sigue filtrando: un preset no se resuelve
+desde un YAML, se elige). Resolver es por id o por config: `GET /api/config/preset/{id}` y
+`get_preset(id)` siguen resolviendo la referencia —quien escribe `f3-provisiones-consumo` está
+pidiendo exactamente eso—, y `jobForConfig` resuelve sobre los diez. Es lo que mantiene verde el
 smoke del wheel en CI (`ci.yml:368`) sin que la pantalla lo ofrezca, y lo que deja al usuario
 llegar por código como documenta «Aterrizar una norma local».
 
 **D-JUR-9.4 · El opt-in es del lanzador, explícito y de la herramienta, no del experimento.**
 `UiConfig.casos_de_referencia: bool = False` (D-UI-3: no entra al `config_hash`) y la opción
-`nikodym-ui --casos-de-referencia`. Con ella, `/api/jobs` y `/api/config/presets` publican el
-catálogo completo y la landing vuelve a pintar el bloque «Normativa local · casos de referencia»
-**sin cambiar una línea del front**. Sin ella, el usuario que trae su propio YAML con
-`provisioning_cmf:` sigue viéndolo entero y corriéndolo (D-JOB-17: el config es suyo; el catálogo
-no lo ofrece, no se lo esconde). La demo estática no tiene backend: para ella no existe el opt-in.
+`nikodym-ui --casos-de-referencia`. Con ella, los dos trabajos de referencia salen `offered` y
+`/api/config/presets` lista F3: la landing vuelve a pintar el bloque «Normativa local · casos de
+referencia» **sin cambiar el componente** (la partición por jurisdicción se aplica sobre los
+ofrecidos). Sin ella, el usuario que trae su propio YAML con `provisioning_cmf:` sigue viéndolo
+entero, con su trabajo resuelto, su insumo pedido y su corrida (D-JOB-17: el config es suyo; el
+catálogo no lo ofrece, no se lo esconde). La demo estática no tiene backend: para ella no existe
+el opt-in y `jobs.json` lleva los dos de referencia con `offered: false`.
 
 **D-JUR-9.5 · `provisioning_cmf` y `provisioning` se quedan en `CONFIG_SECTIONS` y expandidas en
 el schema.** Responde la pregunta abierta en el HANDOFF («¿sección expandida sin trabajo, como hoy
@@ -236,18 +258,23 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
 
 ## 4. Contratos de datos (I/O)
 
-- `list_jobs(*, incluir_referencia=False) -> list[dict]`: mismo shape por trabajo que hoy (no se
-  añade ni quita ninguna clave); el filtro es `job["jurisdiction_code"] is None`.
+- `list_jobs(*, incluir_referencia=False) -> list[dict]`: mismo shape por trabajo que hoy más el
+  campo aditivo `offered: bool`; el filtro por defecto es `job["jurisdiction_code"] is None`.
 - `list_presets(*, incluir_referencia=False) -> list[dict]`: mismo shape; el filtro es
   `id not in _PRESETS_DE_REFERENCIA`. `get_preset(id)` no cambia.
-- `jobs_payload(cfg: UiConfig)` y `presets_index_payload(cfg: UiConfig)`: reciben el ajuste; hoy no
-  reciben nada. Las rutas ya tienen acceso a la `UiConfig` con la que se creó la app.
+- `jobs_payload(cfg: UiConfig)` publica `list_jobs(incluir_referencia=True)` con `offered` derivado
+  del ajuste; `presets_index_payload(cfg: UiConfig)` publica `list_presets(incluir_referencia=
+  cfg.casos_de_referencia)`. Hoy no reciben nada; las rutas ya tienen acceso a la `UiConfig` con la
+  que se creó la app.
+- Front: `Job.offered: boolean` en `jobs.ts`; `JobSelector` ofrece `jobs.filter(offered)`;
+  `jobForConfig`, `requiredExternalArtifacts` y `sectionsOfJob` reciben la lista entera.
 - `UiConfig.casos_de_referencia: bool = False` (título «Ofrecer los casos de referencia con
   jurisdicción»). Es un ajuste de la herramienta: no aparece en el schema del experimento ni en el
   formulario.
-- `GET /api/jobs` y `GET /api/config/presets`: **aditivo hacia el cliente**: menos elementos, misma
-  forma. Un front viejo no se rompe.
-- `web/src/fixtures/jobs.json`: 10 → 8 trabajos; `schema.json`: sin cambio (`$defs` 104).
+- `GET /api/jobs`: **aditivo hacia el cliente**: los mismos 10 con un campo más; un front viejo
+  los ofrece todos, como hoy. `GET /api/config/presets`: menos elementos, misma forma.
+- `web/src/fixtures/jobs.json`: 10 trabajos con `offered` (8 `true`); `schema.json`: sin cambio
+  (`$defs` 104).
 - Demo: `PRESET_ORDER`, `activePresetId`, `demoGetPreset` y los imports de fixtures.
 
 ## 5. Casos borde y errores
@@ -268,9 +295,11 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
 
 ## 6. Tests y controles negativos preespecificados
 
-1. **El catálogo por defecto no publica jurisdicción**: `list_jobs()` y `GET /api/jobs` traen 8
-   trabajos, todos con `jurisdiction_code None`; `list_presets()` y `GET /api/config/presets`
-   traen F1, F4, F5 en ese orden. **CN**: cambiar el default del parámetro a `True` pone rojo.
+1. **El catálogo por defecto no ofrece jurisdicción**: `list_jobs()` trae 8 trabajos, todos con
+   `jurisdiction_code None`; `GET /api/jobs` trae los 10 y exactamente esos 8 con `offered: true`
+   (los dos de referencia en `false`); `list_presets()` y `GET /api/config/presets` traen F1, F4,
+   F5 en ese orden. **CN**: cambiar el default del parámetro a `True` pone rojo; marcar `offered`
+   un trabajo con jurisdicción sin el opt-in pone rojo.
 2. **El catálogo completo sigue entero**: `list_jobs(incluir_referencia=True)` trae los 10 en el
    orden de hoy y `list_presets(incluir_referencia=True)` los 4. **CN**: borrar `provisiones_cmf`
    de `_JOBS` pone rojo (y además enrojece `test_portada…:604-606`, que exige un caso de
@@ -288,17 +317,29 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
 6. **El opt-in funciona de punta a punta**: `create_app(UiConfig(casos_de_referencia=True))` →
    `/api/jobs` con 10 y `/api/config/presets` con 4; `nikodym-ui --casos-de-referencia` lo cablea
    (test del parser). **CN**: ignorar el ajuste en `jobs_payload` pone rojo.
-7. **Bundle y demo**: `jobs.json` regenerado con 8 y comparado contra `GET /api/jobs` real (el
-   gate `test_el_fixture_del_front_no_se_queda_viejo_en_silencio` ya existe); `demo.test.ts`: lista
+7. **Bundle y demo**: `jobs.json` regenerado (10, con 2 `offered: false`) y comparado contra
+   `GET /api/jobs` real (el gate `test_el_fixture_del_front_no_se_queda_viejo_en_silencio` ya
+   existe); `demo.test.ts`: lista
    `[F1, F4]`, siembra F1, F3 desconocido cae a F1; `check_frontend_bundle.mjs` exige que el
    bundle construido con `build:demo` **no** contenga el `run_id` ni el `config_hash` de la
    corrida F3 (las ventanas firmadas de sus fixtures salen del manifiesto) y que sí contenga los
    de F1 y F4 (gate local, espejo del de `deploy.yml`, D-JUR-9.8). **CN**: dejar el import de
    `results.json` (F3) en `demo.ts` pone rojo el gate local antes de llegar al deploy; dejar F3 en
    `PRESET_ORDER` pone rojo `demo.test.ts`.
-8. **La partición del front sigue probada** con un fixture propio que incluye un trabajo con
-   jurisdicción, y un assert nuevo: el `jobs.json` empaquetado trae **cero**. **CN**: reintroducir
-   `jurisdiction_code: "CL"` en el fixture empaquetado → rojo.
+8. **La partición del front sigue probada** sobre los ofrecidos, con el `jobs.json` empaquetado
+   (los dos de referencia con `offered: false` no entran a ningún bloque de la landing) y con un
+   fixture propio con el opt-in (entran al bloque de referencia). **CN**: partir sobre `jobs`
+   en vez de `jobs.filter(offered)` → la landing pinta el bloque con el fixture empaquetado →
+   rojo.
+12. **El YAML propio de referencia sigue corriendo sin opt-in** (§0): cargar por «Cargar un YAML
+    existente» un config de comparación (`provisioning_cmf` + `provisioning_internal` con
+    `pd_source="calibration"` + `provisioning`) sobre `provisiones_consumo` resuelve
+    `comparar_provisiones` (no ofrecido), la pestaña Datos pide «La PD calibrada de tu modelo, por
+    operación», y con la tabla adjunta la corrida llega a `done` por `/api/run` con el capítulo de
+    provisiones en el informe (el arnés de `test_ui_puerta_artefactos.py` ya tiene la PD de
+    ejemplo). **CN**: resolver `jobForConfig` sólo sobre los ofrecidos → la tarjeta de insumo no
+    aparece y el gate de vitest sobre `requiredExternalArtifacts` con ese YAML devuelve `[]` →
+    rojo; en Python, `check_pipeline` sin el artefacto → inejecutable → rojo.
 9. **Docs**: `test_docs_gobernanza` (catálogo de «Empezar» == 8 filas), nota `[ui]` sin «cuatro
    presets», `norma-local.md` con la sección «Cómo verlo» que cita el comando literal
    `nikodym-ui --casos-de-referencia` y el id del preset; `mkdocs build --strict` solo y después
