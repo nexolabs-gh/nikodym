@@ -589,7 +589,13 @@ de esa versión no traen la auditoría encendida— y la portada declara que la 
 el código del repositorio y que el changelog lista lo que aún no está en PyPI. Gate:
 `test_cada_quickstart_con_run_dir_avisa_que_la_version_publicada_no_lo_acepta`, atado a
 `__version__`: el bump de la release lo pone rojo y obliga a retirar la nota en la misma capa.
-**Consecuencia para S6**: la release 1.13.0 retira las seis notas y deja el quickstart sin
+El gate destapó dos páginas más con preset y `run_dir` (las guías de provisiones y de gobernanza),
+que llevan su nota. **La segunda revisión (sobre la corrección) devolvió un medium, también
+sostenido**: la alternativa de la guía de desempeño decía `nikodym.run(config)` y ese ejemplo
+construye el config como `cfg` dentro de la llamada, así que quien la siguiera en la versión
+publicada obtenía `NameError`; corregido, y el gate exige ahora que la alternativa sea la llamada
+del propio ejemplo sin `run_dir`, comparada de forma literal (nació rojo en esa guía).
+**Consecuencia para S6**: la release 1.13.0 retira las ocho notas y deja el quickstart sin
 salvedad; mientras no se corte, el sitio va por delante de PyPI y lo dice.
 
 ### Defecto preexistente que D-GOB-8 destapó

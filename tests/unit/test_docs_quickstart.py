@@ -161,6 +161,45 @@ def test_cada_quickstart_con_run_dir_avisa_que_la_version_publicada_no_lo_acepta
     )
 
 
+#: La guía de gobernanza no ofrece alternativa: todo lo que describe llegó después de la versión
+#: publicada, y su nota lo dice así en vez de fingir una llamada que allí no produce la ficha.
+_SIN_ALTERNATIVA = {"docs_site/guias/gobernanza.md"}
+
+
+def _llamada_sin_run_dir(fragmento: str) -> str:
+    """La llamada `study = nikodym.run(...)` del fragmento sin `run_dir`, normalizada."""
+    inicio = fragmento.index("study = nikodym.run(")
+    fin = fragmento.index(")\n", inicio) + 1
+    # `run_dir=` puede valer una expresión con paréntesis (`Path("x") / "y"`): se recorta desde el
+    # argumento hasta el cierre de la llamada, y se normaliza el espacio y la coma final.
+    llamada = re.sub(r",\s*run_dir=.*?(?=,?\s*\)\s*$)", "", fragmento[inicio:fin], flags=re.S)
+    llamada = re.sub(r"\s+", " ", llamada).replace("( ", "(").replace(" )", ")").replace(",)", ")")
+    return llamada
+
+
+def test_la_alternativa_para_la_version_publicada_usa_las_variables_del_ejemplo() -> None:
+    """La nota no puede proponer una llamada con nombres que el ejemplo no define.
+
+    🔴 Segundo hallazgo de la revisión adversarial de S5: la guía de desempeño construía el config
+    como `cfg` dentro de la llamada, y su nota decía `nikodym.run(config)`: quien la siguiera en la
+    versión publicada obtenía `NameError`. La alternativa tiene que ser la misma llamada del
+    ejemplo sin `run_dir`, y se compara con ella de forma literal.
+    """
+    for origen, fragmento in _fragmentos_con_preset():
+        if origen in _SIN_ALTERNATIVA:
+            continue
+        esperada = _llamada_sin_run_dir(fragmento)
+        assert "run_dir" not in esperada, (origen, esperada)
+        texto = " ".join((_RAIZ / origen).read_text(encoding="utf-8").split())
+        assert f"—`{esperada}`—" in texto, (
+            f"{origen}: la nota para la versión publicada no propone «{esperada}», que es la "
+            "llamada del propio ejemplo sin `run_dir`"
+        )
+    tutorial = (_DOCS / "tutorial.md").read_text(encoding="utf-8")
+    esperada = _llamada_sin_run_dir(_bloque(tutorial, "tutorial-paso-3", "tutorial.md"))
+    assert f"—`{esperada}`—" in " ".join(tutorial.split()), esperada
+
+
 def test_todo_fragmento_que_corre_un_preset_dice_donde_queda_la_evidencia() -> None:
     """Regla estática para los bloques que no se ejecutan (las guías repiten la receta).
 
