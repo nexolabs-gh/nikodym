@@ -170,6 +170,15 @@
     operaciones con 10 grupos y mínimo 30 recibe veredicto con grupos de 10. El copy de §3.7
     decía «un grupo o un grado…»; acotado al comportamiento real, con gate. Cambiar la
     metodología sería otra decisión (§8-12).
+22. **«Eso detiene siempre» era falso para las columnas realizadas del backtesting**
+    (decimocuarta revisión adversarial, 2026-09-09, verificada): con el backtesting activo, IFRS 9
+    presente, el flag apagado y una columna realizada ausente, `_backtesting_blocker` devuelve la
+    marca `DATO-INSTITUCIONAL` y `_resolve_backtesting` registra el aviso, omite la prueba y sigue
+    (`evaluator.py:418-425`, `:438-462`;
+    `test_validate_backtesting_columnas_realizadas_ausentes_marca_input_institucional`); y el
+    preflight de la interfaz avisa sin bloquear (`RunTab.tsx:189-193`). Sólo la columna de grado
+    detiene incondicionalmente (§0-17). El copy de §3.7 distingue los dos casos y el gate de la
+    capa 2 los contrasta con los dos valores del flag.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -489,7 +498,7 @@ sitio).
 | `schema_version` | oculto | — | — |
 | `type` | oculto | — | — |
 | `families` | visible | «Familias de validación que se ejecutan. El backtesting queda fuera por defecto: exige los resultados IFRS 9 y las columnas de resultado realizado.» | Qué familias de pruebas corren: discriminación, calibración, estabilidad y backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las columnas con lo que de verdad ocurrió. |
-| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución, por ejemplo si eliges la familia de backtesting sin activarla. Apagado, ese aviso queda registrado en el resultado y la corrida sigue. No permite correr sin una columna o un cálculo obligatorios: eso detiene siempre. |
+| `fail_on_falta_dato` | visible | «Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.» | Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución: la familia de backtesting elegida sin activarla, o el backtesting activo sin las columnas de resultado realizado en tu archivo. Apagado, el aviso queda registrado, esa prueba se omite y la corrida sigue. No afecta a la columna de grado de rating: si falta, la corrida se detiene siempre. |
 | `discrimination.consume_performance` | visible | «Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; con False se calculan aquí con ese mismo motor, nunca con otra fórmula.» | Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, los vuelve a calcular con el mismo motor, nunca con otra fórmula. |
 | `discrimination.partitions` | visible | «Particiones sobre las que se reporta la discriminación del modelo.» | Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera de tiempo. |
 | `calibration.hosmer_lemeshow` | visible | «Activa el estadístico Hosmer-Lemeshow por grupos de PD (chi2 con G-2 gl).» | Comprueba con la prueba de Hosmer-Lemeshow que la PD predicha coincide con la observada, por grupos de PD. |
@@ -577,6 +586,10 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
 - `families` con `backtesting` pero `backtesting.enabled=False` → con `fail_on_falta_dato`
   encendido, error anclado en `backtesting.enabled`; apagado, aviso declarado
   (`DATO-INSTITUCIONAL-VAL-4`, sólo en el anexo) y la corrida sigue.
+- Backtesting activo con IFRS 9 y una columna realizada ausente del archivo → el preflight lo
+  avisa sin bloquear; con el flag encendido la corrida se detiene en `validation`; apagado, el
+  aviso declarado queda registrado, la prueba se omite (cero filas de backtesting) y la corrida
+  sigue; el panel muestra el aviso con su marca y «backtesting: sin pruebas».
 - `overall_status = fail` en el preset F1 (medido: HL falla en una partición) → el panel lo
   pinta tal cual; no se maquilla ni se esconde. La guía de validación explica qué significa y qué
   hace un validador con ello.
@@ -622,9 +635,11 @@ archivo, el preflight no reclama `segment_col` y el backtesting corre agrupando 
 `portfolio` del artefacto (§0-14); **contraste del flag** (§0-17, §0-19): con `families` que
 incluye `backtesting`, `backtesting.enabled=False` y `fail_on_falta_dato=False`, la corrida real
 termina y el aviso queda registrado (la marca en el anexo, nunca en el cuerpo); con el flag
-encendido, `ValidationConfigError` anclado en `backtesting.enabled` (D-EXI-5); y
-`binomial_by_grade=True` sin `grade` detiene la corrida con el flag apagado igual (el copy del
-tooltip se ata a ese trío); **`backtesting.enabled=True` en un trabajo sin IFRS 9** no es un
+encendido, `ValidationConfigError` anclado en `backtesting.enabled` (D-EXI-5); con el backtesting
+activo, IFRS 9 presente y `realised_lgd` ausente, el flag apagado registra el aviso, omite la
+prueba y la corrida termina, y el flag encendido la detiene (§0-22); y `binomial_by_grade=True`
+sin `grade` detiene la corrida con el flag apagado igual (el copy del tooltip se ata a ese
+cuarteto); **`backtesting.enabled=True` en un trabajo sin IFRS 9** no es un
 aviso sino una dependencia del DAG (`_requires_for`, `step.py:319-322`): `check_pipeline` lo
 declara inejecutable y el gate lo fija así; el fallback del evaluador sin artefactos se prueba
 invocando `ValidationEvaluator.validate` directamente; **`one_sided`** (§0-18): con
