@@ -34,7 +34,7 @@ jobs:
     name: Publicar docs y demo
     runs-on: ubuntu-latest
     # 🔴 La condición es lo que impide publicar basura: sólo corre si el run de CI que lo disparó
-    # terminó en `success`, o sea con los 16 jobs verdes. `workflow_run` se dispara igual cuando el
+    # terminó en `success`, o sea con todos sus jobs verdes. `workflow_run` se dispara igual cuando el
     # CI falla, así que sin este `if` un commit rojo se publicaría.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -136,7 +136,7 @@ jobs:
             exit 1
           fi
           for pagina in norma-local avisos-declarados guias/puerta-artefactos \
-                        guias/provision-sin-norma-local; do
+                        guias/provision-sin-norma-local guias/gobernanza; do
             code="$(curl -s -o /dev/null -w '%{http_code}' "https://docs.nikodym.cl/${pagina}/")"
             test "$code" = "200" || { echo "::error::${pagina} devuelve ${code}"; exit 1; }
           done

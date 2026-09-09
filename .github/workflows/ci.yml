@@ -47,6 +47,33 @@ jobs:
       - name: Copy público de los informes distribuidos
         run: uv run --no-sync python scripts/check_demo_report_copy.py
 
+  # El sitio de documentación se construye en modo estricto ANTES de llegar al deploy. Hasta S5
+  # (2026-09-09) `mkdocs build --strict` sólo corría en `deploy.yml`: un enlace roto, un ancla que
+  # ya no existe o una página fuera del `nav` pasaban un CI verde y se descubrían al publicar —con
+  # `main` ya avanzado y el deploy en rojo—. Es el mismo comando que ejecuta el deploy; aquí falla
+  # en el push que lo introduce.
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Instalar dependencias de documentación
+        run: uv sync --locked --python 3.12 --group docs
+
+      - name: Construir el sitio de documentación en modo estricto
+        run: uv run --no-sync mkdocs build --strict
+
   test:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
