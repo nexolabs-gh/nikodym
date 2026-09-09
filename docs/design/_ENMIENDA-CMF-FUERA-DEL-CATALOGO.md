@@ -118,7 +118,7 @@ Sólo esos dos trabajos declaran jurisdicción: la partición del front devuelve
 | `tests/unit/test_docs_provision_neutra.py:119` `test_todo_preset_del_catalogo_esta_curado_en_el_front` | todo `list_presets()` está en `CURATED` | se mide sobre el catálogo completo (F3 sigue curado) |
 | `tests/unit/test_presets_gobernanza.py:86-92` (los tres fixtures de la demo conservan su `config_hash`) | parametriza `results.json` ↔ F3 | pierde la fila F3 y gana `results-f5.json` cuando exista |
 | `tests/unit/test_ui_presets.py:246` `_EXPECTED_F3_CONFIG_HASH`, `test_jobs_abanico.py:747-751`, `test_columna_cartera_ambigua.py:131-136`, `test_validate_contrato_200.py:53-56,136`, `test_requisitos_por_contexto.py:47-51`, `test_columna_en_rama_inactiva.py:483`, `test_report_builder.py:968`, `test_ui_routes.py:950-1000`, `test_ui_serializers.py:660` | usan `provisiones_preset()`/`get_preset("f3…")` como oráculo de motor, hash o contrato | **no cambian**: `get_preset` por id sigue resolviendo (D-JUR-9.3) |
-| `web/src/lib/jobs.test.ts:1082` («hoy son los dos de CMF») y `demo.test.ts:47-61` (F3 default) | fijan el estado actual | se reescriben: la partición se prueba con un fixture propio con jurisdicción; el `jobs.json` empaquetado debe traer **cero**; la demo siembra F1 |
+| `web/src/lib/jobs.test.ts:1082` («hoy son los dos de CMF») y `demo.test.ts:47-61` (F3 default) | fijan el estado actual | se reescriben: el `jobs.json` empaquetado trae los diez y **exactamente dos con `offered: false`**, y la partición sobre los ofrecidos deja **cero** en el bloque de referencia; con el opt-in (fixture propio) los dos entran al bloque; la demo siembra F1 |
 | `web/src/lib/presentation.test.ts:43-74` | copy curado de F3 | no cambia |
 | `tests/unit/test_effective_defaults.py:782-798` `ANCLAS_POR_SECCION` (15 anclas) | una ancla por sección del formulario | no cambia con la opción recomendada; con la alternativa B pierde dos |
 
@@ -281,10 +281,14 @@ sus datos, la cobertura regulatoria, `norma-local.md` ni el glosario. El dataset
 
 - **`GET /api/config/preset/f3-provisiones-consumo` sin opt-in** → 200 (D-JUR-9.3). Un id
   inexistente sigue en 404, como hoy.
-- **YAML con `provisioning_cmf:` cargado sin opt-in** → sesión sin trabajo y formulario completo
-  (D-JOB-17), sección visible y ejecutable. No hay aviso especial: el config es del usuario.
-- **YAML con `provisioning_cmf:` cargado con opt-in** → «Cargar un YAML selecciona el trabajo que
-  le corresponde» (D-JOB-17): se selecciona «Provisiones CMF» o «Comparar…», como hoy.
+- **YAML con `provisioning_cmf:` cargado sin opt-in** → «Cargar un YAML selecciona el trabajo que
+  le corresponde» (D-JOB-17) sobre el catálogo completo: se selecciona «Provisiones CMF» o
+  «Comparar…» aunque no esté ofrecido, el sidebar muestra sus secciones, la pestaña Datos pide
+  sus insumos y la corrida arranca (§6-12). Lo único que no ocurre es que la landing lo ofrezca.
+- **YAML con `provisioning_cmf:` cargado con opt-in** → exactamente lo mismo; el trabajo además
+  aparece ofrecido en la landing.
+- **YAML que no casa con ningún trabajo de los diez** → sesión sin trabajo y formulario completo
+  (D-JOB-17), como hoy.
 - **Demo con `?preset=f3` o un id desconocido** → cae al preset por defecto (F1), como hoy cae a
   F3 (`demo.ts:214-216`).
 - **Un trabajo nuevo con `jurisdiction_code`** → nace fuera del catálogo por defecto y dentro del
