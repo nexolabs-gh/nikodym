@@ -128,6 +128,13 @@
     pero el preflight recorrería las dos; un `cohort_col` residual con `axis="period"` —o un
     `date_col` residual con `axis="cohort"`— daría un desajuste falso. `DefaultRateConfig` no
     implementa `columnas_inactivas()`; D-SC-3 lo prescribe.
+16. **La ficha no se emite en toda corrida con gobernanza declarada** (novena revisión
+    adversarial, 2026-09-09, verificada): `api.py:278-289` construye el `ModelCard` sólo si hay
+    `run_dir` o si `publish_to_inventory` está encendido y la corrida termina bien; con
+    `governance` declarada, sin `run_dir` y sin publicación **no hay ficha**, y el informe sí se
+    genera. La remisión de D-SC-14 a «la ficha emitida al cierre» presuponía que siempre existe;
+    pasa a ser una frase condicional sobre el contrato, sin presentar como existente ningún
+    archivo.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -385,12 +392,14 @@ GovernanceDeclaration | None = None` (DTO frozen con `model_name`, `purpose`, `a
 que el builder llena desde `study.config.governance`. El capítulo publica: propósito; supuestos y
 limitaciones declarados, como listas verbatim; la identidad de inventario (nombre, cartera, motor,
 fase, estado de la revisión independiente, responsable) con los rótulos del copy aprobado de
-D-GOB-13; la periodicidad de revisión en meses; y una remisión explícita: «las métricas, las
-decisiones registradas y las fechas de emisión y de próxima revisión se fijan en la ficha
-emitida al cierre de la corrida (`model_card.json` y `.md` en el directorio de la corrida)». **No
-duplica métricas ni decisiones** —ya están en los capítulos de resultados y en la ficha— y **no
-fija fechas**: la fecha de emisión la fija `ModelCardBuilder` después de `report`, y publicar otra
-en el informe crearía dos verdades (la lección de S2a: un solo card por corrida).
+D-GOB-13; la periodicidad de revisión en meses; y una remisión **condicional** (§0-16): «las
+métricas, las decisiones registradas y las fechas de emisión y de próxima revisión no forman parte
+de este informe: quedan en la ficha del modelo, que el motor emite al cierre de la corrida cuando
+se le pide un directorio de corrida o la publicación al inventario». La frase describe el
+contrato (D-GOB-6/9), no afirma que un archivo exista, y no nombra rutas. **No duplica métricas ni
+decisiones** —ya están en los capítulos de resultados— y **no fija fechas**: la fecha de emisión
+la fija `ModelCardBuilder` después de `report`, y publicar otra en el informe crearía dos verdades
+(la lección de S2a: un solo card por corrida).
 
 **D-SC-15 · Cero códigos internos en la prosa del capítulo.** Los tags `nikodym.*`, «SR 11-7»,
 «effective challenge» y los `Literal` de `motor`/`fase`/`estado_validacion` no se imprimen crudos:
@@ -607,10 +616,12 @@ finito» se prueba en los dos sentidos).
 `governance=None` (control positivo); capítulo presente con `governance` real de una corrida por
 formulario (`b9633af1…`-like), en HTML, PDF (job CI), DOCX y QMD; `test_report_codigos_internos`
 ampliado a tags y slugs; el manifiesto lista `model_card`; «Limitaciones y supuestos» intacto sin
-gobernanza y con la remisión con ella; guía de gobernanza actualizada. **CN**: pintar el capítulo
-o cualquier frase nueva con `governance=None` → rojo el golden; imprimir `nikodym.cartera` crudo →
-rojo el gate de códigos; poner una fecha de emisión en el capítulo → rojo el test que exige la
-remisión sin fechas.
+gobernanza y con la remisión con ella; **corrida con `governance` declarada, sin `run_dir`, con
+`publish_to_inventory=False` y `audit=None`** → el capítulo existe y su remisión no nombra ningún
+archivo ni fecha como existentes (§0-16); guía de gobernanza actualizada. **CN**: pintar el
+capítulo o cualquier frase nueva con `governance=None` → rojo el golden; imprimir
+`nikodym.cartera` crudo → rojo el gate de códigos; poner una fecha de emisión o una ruta
+`model_card.json` en el capítulo → rojo el test de la remisión.
 
 **Capa 5 — Release (sesión propia, con el OK de release y de D-GOB-9).** Presets F1/F5 encienden
 `eda`; re-anclaje de los cinco goldens de hash con la decisión escrita en el registro; CHANGELOG

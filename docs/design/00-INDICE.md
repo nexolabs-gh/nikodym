@@ -904,11 +904,11 @@ No autoriza START ni mueve la puerta global.
 > hoy—, un opt-in del lanzador (`nikodym-ui --casos-de-referencia`), resolver por id sin ofrecer
 > (el smoke del wheel sigue corriendo F3), las secciones de referencia dentro del formulario, y la
 > demo en F1/F4 hasta que la recaptura de la release traiga F5. Alternativas B/C/D evaluadas; §8
-> con las cuatro decisiones de Cami. Dos hallazgos de revisión adversarial, sostenidos y
+> con las cuatro decisiones de Cami. Tres hallazgos de revisión adversarial, sostenidos y
 > corregidos: la verificación en vivo no puede exigir la ausencia de cadenas que el front conserva
-> (pasa a exigir la ausencia de la corrida F3 capturada), y el cable lleva los diez trabajos con
+> (pasa a exigir la ausencia de la corrida F3 capturada); el cable lleva los diez trabajos con
 > la oferta marcada (`offered`) para que un YAML propio de referencia resuelva su trabajo y pida
-> su PD sin opt-in.
+> su PD sin opt-in; y dos frases de la redacción anterior que contradecían eso, reconciliadas.
 
 > **El scorecard completo en la interfaz (2026-09-09; PROPUESTA, pendiente de revisión adversarial
 > y del OK de Cami; nace de la decisión 4 de Cami del 2026-09-09).**
@@ -922,16 +922,17 @@ No autoriza START ni mueve la puerta global.
 > de estabilidad rechaza el eje de cohorte—, así que propone dos reglas aditivas en el motor
 > (cohorte → estabilidad no evaluable; sin fecha, el eje se infiere de la partición por cohorte
 > que el usuario ya declaró, con decisión en el trail); y `validation` con los defaults del motor
-> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Seis
-> revisiones adversariales el mismo día (once hallazgos, todos sostenidos y corregidos: gate del
-> bundle vs. cadenas del front, golden del HTML vs. frase nueva, CN sin oráculo, decisión con
-> default vs. D-OBL, `consume_stability=False` aborta la corrida, `column_role` sin
+> exige una columna de grado que un scorecard no trae (override en el catálogo, D-EJE). Nueve
+> revisiones adversariales del rango el mismo día; once hallazgos sobre esta enmienda, todos
+> sostenidos y corregidos: golden del HTML vs. frase nueva, CN sin oráculo, decisión con default
+> vs. D-OBL, `consume_stability=False` aborta la corrida, `column_role` sin
 > `columnas_inactivas()` daría avisos falsos, la card de EDA sin eje efectivo ni causa de no
 > evaluabilidad, familias deseleccionadas sin poda desde el padre, tasa media cero como tercera
 > causa, `segment_col` es columna del artefacto IFRS 9 y no del archivo, la columna del eje de
-> EDA no usado también se poda). Cinco capas con gates y controles negativos; el `config_hash` de
-> F1/F5 se mueve sólo en la capa de release, junto con la recaptura única. Once decisiones para
-> Cami en §8.
+> EDA no usado también se poda, y la remisión a la ficha emitida es condicional porque sin
+> `run_dir` ni inventario no hay ficha. Cinco capas con gates y controles negativos; el
+> `config_hash` de F1/F5 se mueve sólo en la capa de release, junto con la recaptura única. Once
+> decisiones para Cami en §8.
 
 > **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; PROPUESTA, pendiente de revisión
 > adversarial y del OK de Cami; nace de la decisión 2 de Cami del 2026-09-09).**
