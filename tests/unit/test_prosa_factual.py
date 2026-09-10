@@ -210,7 +210,15 @@ def test_resumen_psi_publica_magnitud_identidad_banda_y_fronteras_coherentes() -
             else "psi_review_threshold"
         ]
         assert "bajo" in (stable_field.description or "").lower()
-        assert "alcanzar o superar" in (review_field.description or "").lower()
+        # La frontera es INCLUSIVA y las tres caras públicas tienen que decirlo. Se admiten las dos
+        # formas que el repo usa hoy: «al alcanzar o superar» (selección y estabilidad) y «desde
+        # este PSI» (validación, copy aprobado en §3.7 de la enmienda del scorecard completo). Las
+        # dos son ciertas; unificarlas en una sola frase es una decisión de copy, no de gate.
+        descripcion = (review_field.description or "").lower()
+        assert "alcanzar o superar" in descripcion or "desde este" in descripcion, (
+            f"{config_class.__name__}.{review_field.title!r} no declara que la frontera sea "
+            f"inclusiva: {descripcion!r}"
+        )
 
 
 def test_resumen_psi_score_y_card_legacy_no_inventan_identidad() -> None:

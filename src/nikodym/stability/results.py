@@ -92,9 +92,24 @@ PSI_METRIC_LABELS: dict[str, str] = {
     "pd_psi": "PD calibrada",
 }
 
+#: Qué mide cada fila de ``stability_metrics``, para cuando la tabla se publica ENTERA.
+#:
+#: ⚠️ No duplica a :data:`PSI_METRIC_LABELS`, y la diferencia importa: aquél responde «¿cuál de las
+#: dos magnitudes ganó el peor PSI?» y sus palabras se leen dentro de una frase —«el peor PSI entre
+#: score y PD · PD calibrada»—; éste responde «¿qué mide esta fila?» y se lee como el valor de una
+#: columna, sobre las **cuatro** métricas que el frame puede traer (el resumen A1 sólo compara dos).
+#: Fundirlos daría un rótulo que miente en una de las dos superficies.
+STABILITY_METRIC_LABELS: dict[str, str] = {
+    "score_psi": "PSI del score",
+    "pd_psi": "PSI de la PD",
+    "csi": "CSI",
+    "temporal_score": "PSI temporal",
+}
+
 __all__ = [
     "BAND_LABELS",
     "PSI_METRIC_LABELS",
+    "STABILITY_METRIC_LABELS",
     "CsiRecord",
     "CsiSource",
     "PsiRecord",

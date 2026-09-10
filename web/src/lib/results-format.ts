@@ -22,6 +22,10 @@ import type {
   StabilityBand,
   StabilityMetricRow,
   StabilityResponse,
+  ValidationCalibrationRow,
+  ValidationFamily,
+  ValidationNotEvaluableGrade,
+  ValidationResult,
 } from "@/lib/results-types"
 
 /** Placeholder uniforme para valores ausentes/no finitos en toda la pestaña. */
@@ -1888,4 +1892,163 @@ export function selectionDecisionRows(
       forced: FORCED_LABELS[d.forced ?? ""] ?? null,
       detail: d.detail,
     }))
+}
+
+// --- validación formal (D-SC-9) ---------------------------------------------
+//
+// Mismo contrato que los espejos de arriba: cada mapa replica una fuente única de
+// `nikodym.validation.results` y el gate de Python los compara en los dos sentidos. Ninguna de
+// estas funciones calcula nada: el veredicto, el conteo de pruebas y la cobertura por grado son
+// los que publicó el motor, y aquí sólo se ordenan y se traducen.
+
+/** Espejo de `nikodym.validation.results.VALIDATION_STATUS_LABELS` (D-SC-9). */
+export const VALIDATION_STATUS_LABELS: Record<string, string> = {
+  pass: "Pasa",
+  warn: "Revisar",
+  fail: "Falla",
+} as const
+
+/** Estado técnico en palabras; fallback al slug (no oculta nada). */
+export function validationStatusLabel(status: string): string {
+  return VALIDATION_STATUS_LABELS[status] ?? status
+}
+
+/** Espejo de `nikodym.validation.results.VALIDATION_FAMILY_LABELS`. */
+export const VALIDATION_FAMILY_LABELS: Record<string, string> = {
+  discrimination: "Discriminación",
+  calibration: "Calibración",
+  stability: "Estabilidad",
+  backtesting: "Backtesting",
+} as const
+
+/** Espejo de `nikodym.validation.results.VALIDATION_DECISION_LABELS`. */
+export const VALIDATION_DECISION_LABELS: Record<string, string> = {
+  pass: "Pasa",
+  fail: "Falla",
+  not_evaluable: "Sin veredicto",
+} as const
+
+/** Espejo de `nikodym.validation.results.CALIBRATION_TEST_LABELS`. */
+export const CALIBRATION_TEST_LABELS: Record<string, string> = {
+  hosmer_lemeshow: "Hosmer-Lemeshow",
+  brier: "Puntaje de Brier",
+} as const
+
+/** Espejo de `nikodym.validation.results.TRAFFIC_LIGHT_LABELS`. */
+export const TRAFFIC_LIGHT_LABELS: Record<string, string> = {
+  green: "Verde",
+  amber: "Ámbar",
+  red: "Rojo",
+} as const
+
+/** Espejo de `nikodym.validation.results.DISCRIMINATION_STATUS_LABELS`. */
+export const DISCRIMINATION_STATUS_LABELS: Record<string, string> = {
+  ok: "Evaluada",
+  not_evaluable: "No evaluable",
+} as const
+
+/** Espejo de `nikodym.validation.results.DISCRIMINATION_SOURCE_LABELS`. */
+export const DISCRIMINATION_SOURCE_LABELS: Record<string, string> = {
+  performance_artifact: "Reusada de la etapa de desempeño",
+  recomputed: "Recalculada en esta etapa",
+} as const
+
+/** Espejo de `nikodym.validation.results.BACKTEST_PARAMETER_LABELS`. */
+export const BACKTEST_PARAMETER_LABELS: Record<string, string> = {
+  pd: "Probabilidad de incumplimiento",
+  lgd: "Severidad",
+  ead: "Exposición",
+} as const
+
+/** Espejo de `nikodym.validation.results.BACKTEST_TEST_LABELS`. */
+export const BACKTEST_TEST_LABELS: Record<string, string> = {
+  t_test: "t de Student",
+  binomial: "Binomial",
+  jeffreys: "Jeffreys",
+} as const
+
+/** Espejo de `nikodym.validation.results.PD_TEST_LABELS`. */
+export const PD_TEST_LABELS: Record<string, string> = {
+  jeffreys: "Jeffreys",
+  binomial: "Binomial",
+} as const
+
+/** Prueba de una fila de calibración en palabras: la de partición o la del contraste por grado. */
+export function calibrationTestLabel(test: string): string {
+  return CALIBRATION_TEST_LABELS[test] ?? PD_TEST_LABELS[test] ?? test
+}
+
+/** Familias que la corrida ejecutó, en el orden canónico del motor y con su palabra. */
+export function validationFamilies(
+  validation: ValidationResult | null | undefined,
+): { family: ValidationFamily; label: string }[] {
+  const orden: ValidationFamily[] = [
+    "discrimination",
+    "calibration",
+    "stability",
+    "backtesting",
+  ]
+  const corridas = new Set(validation?.families_run ?? [])
+  return orden
+    .filter((family) => corridas.has(family))
+    .map((family) => ({ family, label: VALIDATION_FAMILY_LABELS[family] ?? family }))
+}
+
+/**
+ * Las dos formas que conviven en la tabla canónica de calibración, separadas para pintarlas:
+ * `porParticion` son Hosmer-Lemeshow y el puntaje de Brier; `porGrado`, el contraste por grado.
+ * La columna `grade` es la que las distingue, tal como la publica el motor.
+ */
+export function calibrationRowsSplit(validation: ValidationResult | null | undefined): {
+  porParticion: ValidationCalibrationRow[]
+  porGrado: ValidationCalibrationRow[]
+} {
+  const filas = validation?.calibration ?? []
+  return {
+    // Orden canónico de particiones, el mismo que la tabla de discriminación de al lado. El frame
+    // del motor las trae en orden de APARICIÓN, que depende de la partición del usuario: medido en
+    // la UI viva, la misma corrida mostraba «Desarrollo, Holdout, OOT» arriba y «Desarrollo, OOT,
+    // Holdout» abajo. Es presentación pura —no se filtra ni se recalcula nada—, y sin ella dos
+    // tablas de las mismas tres muestras se leen en dos órdenes distintos.
+    porParticion: filas
+      .filter((row) => row.traffic_light === null)
+      .slice()
+      .sort((a, b) => partitionRank(a.partition) - partitionRank(b.partition)),
+    porGrado: filas.filter((row) => row.traffic_light !== null),
+  }
+}
+
+/** Espejo de `nikodym.stability.results.STABILITY_METRIC_LABELS`: qué mide cada fila del PSI. */
+export const STABILITY_METRIC_LABELS: Record<string, string> = {
+  score_psi: "PSI del score",
+  pd_psi: "PSI de la PD",
+  csi: "CSI",
+  temporal_score: "PSI temporal",
+} as const
+
+/** Qué mide una fila de estabilidad, en palabras; fallback al slug (no oculta nada). */
+export function stabilityMetricLabel(metric: string): string {
+  return STABILITY_METRIC_LABELS[metric] ?? metric
+}
+
+/**
+ * Cobertura del contraste por grado: cuántos grados recibieron veredicto y cuántos existían.
+ *
+ * 🔴 Es la superficie que D-SC-9 exige junto a la tabla, y no un adorno: un grado bajo el mínimo
+ * técnico **no** entra en la tabla ni en `n_tests`/`n_failed` (invariante del motor: sin potencia
+ * no hay semáforo), así que sin esta línea «Pasa · 0 de 1 pruebas fallidas» podría convivir con
+ * media cartera sin evaluar. `null` cuando el contraste por grado no corrió.
+ */
+export function gradeCoverage(
+  validation: ValidationResult | null | undefined,
+): { evaluados: number; total: number; noEvaluados: ValidationNotEvaluableGrade[] } | null {
+  const noEvaluados =
+    validation?.metric_sections?.validation?.not_evaluable_grades ?? []
+  const evaluados = new Set(
+    (validation?.calibration ?? [])
+      .filter((row) => row.traffic_light !== null)
+      .map((row) => row.grade),
+  ).size
+  if (evaluados === 0 && noEvaluados.length === 0) return null
+  return { evaluados, total: evaluados + noEvaluados.length, noEvaluados }
 }

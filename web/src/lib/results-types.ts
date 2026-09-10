@@ -203,6 +203,157 @@ export interface SelectionResult {
   dependency_versions?: Record<string, string>
 }
 
+// --- validation -------------------------------------------------------------
+
+/**
+ * Estado técnico agregado de la validación formal (`OverallStatus` del backend). El slug es el
+ * dato; su palabra la resuelve `validationStatusLabel`, espejo de
+ * `nikodym.validation.results.VALIDATION_STATUS_LABELS`.
+ */
+export type ValidationOverallStatus = "pass" | "warn" | "fail"
+
+/** Familia de pruebas que la validación ejecuta (`ValidationFamily` del backend). */
+export type ValidationFamily =
+  | "discrimination"
+  | "calibration"
+  | "stability"
+  | "backtesting"
+
+/** Veredicto de una fila de calibración o de backtesting (`CalibrationDecision`/`BacktestDecision`). */
+export type ValidationDecision = "pass" | "fail" | "not_evaluable"
+
+/** Semáforo de un grado de rating (`TrafficLight` del backend). */
+export type TrafficLight = "green" | "amber" | "red"
+
+/** De dónde salió el AUC/Gini/KS de una partición (`DiscriminationSource` del backend). */
+export type DiscriminationSource = "performance_artifact" | "recomputed"
+
+/** Estado de evaluabilidad de una partición (`DiscriminationStatus` del backend). */
+export type DiscriminationStatus = "ok" | "not_evaluable"
+
+/** Prueba de calibración por partición (`CalibrationTest` del backend). */
+export type CalibrationTest = "hosmer_lemeshow" | "brier"
+
+/** Parámetro IFRS 9 contrastado contra lo realizado (`BacktestParameter` del backend). */
+export type BacktestParameter = "pd" | "lgd" | "ead"
+
+/** Prueba usada en una fila de backtesting (`BacktestTest` del backend). */
+export type BacktestTest = "t_test" | "binomial" | "jeffreys"
+
+/** Fila de `validation.discrimination` (`DiscriminationRecord` del backend). */
+export interface ValidationDiscriminationRow {
+  partition: string
+  n_total: number
+  n_bad: number
+  auc: number | null
+  gini: number | null
+  ks: number | null
+  source: DiscriminationSource
+  status: DiscriminationStatus
+}
+
+/**
+ * Fila de `validation.calibration`. La tabla canónica del motor mezcla dos formas y la columna
+ * `grade` es la que las distingue: las filas de Hosmer-Lemeshow y del puntaje de Brier traen
+ * `grade: "ALL"` y `traffic_light: null`; las del contraste por grado traen el grado y su semáforo.
+ */
+export interface ValidationCalibrationRow {
+  partition: string
+  test: CalibrationTest | BacktestTest
+  grade: string
+  n: number
+  observed_defaults: number
+  expected_pd: number | null
+  observed_dr: number | null
+  statistic: number | null
+  degrees_of_freedom: number | null
+  p_value: number | null
+  alpha: number | null
+  decision: ValidationDecision
+  traffic_light: TrafficLight | null
+}
+
+/** Fila de `validation.stability`: el PSI que la etapa de estabilidad ya calculó, con su banda. */
+export interface ValidationStabilityRow {
+  metric: string
+  comparison: string
+  feature: string | null
+  value: number | null
+  stable_threshold: number | null
+  review_threshold: number | null
+  band: StabilityBand
+  action: string | null
+  source: string
+  status: string
+  decision: ValidationDecision
+}
+
+/** Fila de `validation.backtesting`: un contraste realizado-vs-estimado por parámetro y segmento. */
+export interface ValidationBacktestRow {
+  parameter: BacktestParameter
+  segment: string
+  n: number
+  predicted_mean: number | null
+  realised_mean: number | null
+  test: BacktestTest
+  statistic: number | null
+  p_value: number | null
+  alpha: number | null
+  one_sided: boolean
+  decision: ValidationDecision
+}
+
+/**
+ * Un grado de rating sin potencia estadística, tal como lo publica
+ * `card.metric_sections.validation.not_evaluable_grades`.
+ *
+ * 🔴 Estos grados NO están en la tabla de calibración ni cuentan en `n_tests`/`n_failed`: es un
+ * invariante del motor (un grado sin potencia no produce semáforo). Por eso el panel tiene que
+ * publicar la cobertura además de la tabla: sin ella, «Pasa · 0 de 1 pruebas fallidas» podría
+ * esconder una cartera entera sin evaluar.
+ */
+export interface ValidationNotEvaluableGrade {
+  grade: string
+  n: number
+  observed_defaults: number
+  expected_pd: number | null
+  observed_dr: number | null
+  min_rows: number
+  status: string
+}
+
+/** Sección de validación formal (`ValidationCardSection` + sus cuatro tablas tidy). */
+export interface ValidationResult {
+  model_ref: string
+  families_run: ValidationFamily[]
+  overall_status: ValidationOverallStatus
+  n_tests: number
+  n_failed: number
+  falta_dato?: string[]
+  dependency_versions?: Record<string, string>
+  /**
+   * Puerta CT-2 del motor. Repite el resumen de la card —`families_run`, `overall_status`,
+   * `n_tests`, `n_failed`— para los consumidores que sólo reciben esta sección (informe y ficha
+   * del modelo), y añade lo que NO está en las tablas: el recuento del semáforo por grado y los
+   * grados que se quedaron sin evaluar. El panel lee de aquí sólo lo segundo; el estado lo toma
+   * de la card, que es donde vive.
+   */
+  metric_sections?: {
+    validation?: {
+      families_run?: ValidationFamily[]
+      overall_status?: ValidationOverallStatus
+      n_tests?: number
+      n_failed?: number
+      traffic_light?: Record<string, number>
+      not_evaluable_grades?: ValidationNotEvaluableGrade[]
+    }
+  }
+  discrimination?: ValidationDiscriminationRow[] | null
+  calibration?: ValidationCalibrationRow[] | null
+  stability?: ValidationStabilityRow[] | null
+  backtesting?: ValidationBacktestRow[] | null
+}
+
 // --- model ------------------------------------------------------------------
 
 /** Estadísticos de ajuste de la regresión (`model.fit_statistics`). */
@@ -878,6 +1029,12 @@ export interface ResultsResponse {
   performance?: PerformanceResult
   /** Estabilidad post-modelo (PSI/CSI). `null` si no corrió; ausente en payloads viejos. */
   stability?: StabilityResponse | null
+  /**
+   * Validación formal (SDD-22, D-SC-9). `null` cuando el dominio no corrió; ausente en payloads
+   * anteriores a la capa 2 —incluida la demo publicada, que se recaptura con la release—, así que
+   * el panel se guarda por presencia y no por verdad.
+   */
+  validation?: ValidationResult | null
   /** Card survival agregada; presente en F4 y `null` cuando el dominio no corrió. */
   survival?: SurvivalResult | null
   /**

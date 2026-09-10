@@ -11529,7 +11529,7 @@
             "title": "Nivel de significancia",
             "type": "number",
             "ui_group": "Backtesting",
-            "ui_order": 3,
+            "ui_order": 6,
             "ui_widget": "number_input"
           },
           "enabled": {
@@ -11547,7 +11547,7 @@
             "title": "Contraste unilateral (subestimación)",
             "type": "boolean",
             "ui_group": "Backtesting",
-            "ui_order": 4,
+            "ui_order": 7,
             "ui_widget": "checkbox"
           },
           "parameters": {
@@ -11581,7 +11581,7 @@
             "title": "Test de PD",
             "type": "string",
             "ui_group": "Backtesting",
-            "ui_order": 5,
+            "ui_order": 8,
             "ui_widget": "selectbox"
           },
           "realised_ead_col": {
@@ -11591,7 +11591,7 @@
             "title": "EAD realizada a default",
             "type": "string",
             "ui_group": "Columnas",
-            "ui_order": 4,
+            "ui_order": 5,
             "ui_widget": "text_input"
           },
           "realised_lgd_col": {
@@ -11601,7 +11601,7 @@
             "title": "LGD realizada",
             "type": "string",
             "ui_group": "Columnas",
-            "ui_order": 3,
+            "ui_order": 4,
             "ui_widget": "text_input"
           },
           "realised_pd_col": {
@@ -11611,7 +11611,7 @@
             "title": "Default realizado (0/1)",
             "type": "string",
             "ui_group": "Columnas",
-            "ui_order": 2,
+            "ui_order": 3,
             "ui_widget": "text_input"
           },
           "segment_col": {
@@ -11648,7 +11648,7 @@
             "title": "Test binomial/Jeffreys por grado",
             "type": "boolean",
             "ui_group": "Calibración",
-            "ui_order": 5,
+            "ui_order": 4,
             "ui_widget": "checkbox"
           },
           "brier": {
@@ -11657,7 +11657,7 @@
             "title": "Calcular Brier score",
             "type": "boolean",
             "ui_group": "Calibración",
-            "ui_order": 4,
+            "ui_order": 3,
             "ui_widget": "checkbox"
           },
           "grade_col": {
@@ -11667,7 +11667,7 @@
             "title": "Columna de grado de rating",
             "type": "string",
             "ui_group": "Columnas",
-            "ui_order": 1,
+            "ui_order": 5,
             "ui_widget": "text_input"
           },
           "hl_grouping": {
@@ -11707,11 +11707,11 @@
             "default": 30,
             "description": "Mínimo de operaciones para evaluar: bajo ese mínimo no hay prueba y el resultado queda marcado como no evaluado.",
             "minimum": 1,
-            "title": "Mínimo técnico por grupo HL/grado",
+            "title": "Mínimo de operaciones para evaluar",
             "type": "integer",
             "ui_group": "Calibración",
             "ui_help": "Mínimo de operaciones para evaluar: una partición entera con menos que esto no recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no recibe el test por grado. Quedan marcados como no evaluados en vez de dar un número engañoso. No se aplica a cada grupo de PD dentro de la prueba de Hosmer-Lemeshow.",
-            "ui_order": 8,
+            "ui_order": 10,
             "ui_widget": "number_input"
           },
           "partition_column": {
@@ -11763,7 +11763,7 @@
             "type": "number",
             "ui_group": "Semáforo",
             "ui_help": "Por encima de este p-valor el grado queda en verde; por debajo, en ámbar. Es un default institucional, no un umbral fijado por norma: fíjelo según su política de validación.",
-            "ui_order": 1,
+            "ui_order": 8,
             "ui_widget": "number_input"
           },
           "traffic_light_red_alpha": {
@@ -11774,7 +11774,7 @@
             "title": "Corte ámbar/rojo (p-valor)",
             "type": "number",
             "ui_group": "Semáforo",
-            "ui_order": 2,
+            "ui_order": 9,
             "ui_widget": "number_input"
           }
         },

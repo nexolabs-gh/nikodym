@@ -366,6 +366,40 @@ magnitud ganadora (`score_psi` → «score», `pd_psi` → «PD calibrada», en
 ## Validación
 
 Backtesting y pruebas regulatorias de discriminación, calibración y estabilidad (familias de tests).
+Cómo se lee el resultado —y qué hace un validador con él— está en la guía
+[Validación formal](guias/validacion-formal.md).
+
+### Estado técnico y veredictos
+
+En los resultados —JSON, tablas tidy, model card— cada estado viaja como su **identificador**; en la
+pantalla y en el informe se lee como su **palabra**. Son el mismo dato, y su correspondencia tiene
+una sola fuente: `nikodym.validation.results`.
+
+| Identificador | Palabra | Dónde aparece |
+|---|---|---|
+| `pass` | Pasa | Estado técnico agregado de la corrida |
+| `warn` | Revisar | Ídem |
+| `fail` | Falla | Ídem |
+| `pass` | Pasa | Veredicto de una fila de calibración o de backtesting |
+| `fail` | Falla | Ídem |
+| `not_evaluable` | Sin veredicto | Ídem: sin potencia estadística, o una fila que no es una prueba de pasa/falla (el puntaje de Brier) |
+| `green` / `amber` / `red` | Verde / Ámbar / Rojo | Semáforo de un grado de rating |
+
+El **estado técnico es evidencia del motor**, no el veredicto sobre el modelo: aprobar, aprobar con
+observaciones o rechazar es una decisión de quien valida, y el informe lo declara explícitamente.
+
+### Familias y sus tablas
+
+| Identificador | Palabra | Tabla que publica |
+|---|---|---|
+| `discrimination` | Discriminación | Una fila por partición: población, AUC, Gini, KS, origen y estado |
+| `calibration` | Calibración | Hosmer-Lemeshow y puntaje de Brier por partición, y el contraste por grado |
+| `stability` | Estabilidad | El PSI de cada magnitud y comparación, con su banda |
+| `backtesting` | Backtesting | Un contraste realizado-vs-estimado por parámetro y segmento |
+
+Los grados sin potencia estadística **no** entran en la tabla de calibración ni en el conteo de
+pruebas: viajan aparte, en `card.metric_sections.validation.not_evaluable_grades`, con sus conteos
+y el mínimo técnico que los dejó fuera.
 
 ::: nikodym.validation.config.ValidationConfig
     options:

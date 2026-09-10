@@ -115,7 +115,99 @@ _BACKTESTING_COLUMNS: tuple[str, ...] = (
     "decision",
 )
 
+#: Rótulo público del estado técnico: la **única** fuente de esas tres palabras (D-SC-9).
+#:
+#: El slug (``pass``/``warn``/``fail``) es el dato y no se toca —viaja en la card, en el JSON y en
+#: el anexo—; estas palabras son el copy que lee una persona. Hasta la capa 2 convivían dos
+#: vocabularios: la prosa del informe decía «Pass técnico / Requiere revisión / Falla técnica» y la
+#: pantalla no decía nada, porque no había panel. Consumidores: :mod:`nikodym.report.prose`, el
+#: panel de Resultados (espejo en ``web/src/lib/results-format.ts``, gateado en los dos sentidos
+#: por ``tests/unit/test_vocabulario_en_pantalla.py``) y la guía del sitio.
+#:
+#: ⚠️ Va bajo el rótulo **«Estado técnico»** y no «Resultado»: es evidencia del motor, y el
+#: veredicto sobre el modelo lo firma quien valida.
+VALIDATION_STATUS_LABELS: dict[str, str] = {
+    "pass": "Pasa",
+    "warn": "Revisar",
+    "fail": "Falla",
+}
+
+#: Rótulo público de cada familia de pruebas. En la pantalla titula su sección; en la prosa del
+#: informe entra dentro de una frase, así que allí se minuscula la inicial en el punto de uso.
+VALIDATION_FAMILY_LABELS: dict[str, str] = {
+    "discrimination": "Discriminación",
+    "calibration": "Calibración",
+    "stability": "Estabilidad",
+    "backtesting": "Backtesting",
+}
+
+#: Rótulo público de cada prueba de calibración por partición.
+CALIBRATION_TEST_LABELS: dict[str, str] = {
+    "hosmer_lemeshow": "Hosmer-Lemeshow",
+    "brier": "Puntaje de Brier",
+}
+
+#: Rótulo público del veredicto de una fila, de calibración o de backtesting.
+#:
+#: ⚠️ ``not_evaluable`` cubre DOS situaciones y por eso la palabra no puede ser «no evaluado»: un
+#: Hosmer-Lemeshow bajo el mínimo técnico (no hay potencia) y el puntaje de Brier (no es una prueba
+#: de pasa/falla, es un puntaje). «Sin veredicto» es cierto en las dos.
+VALIDATION_DECISION_LABELS: dict[str, str] = {
+    "pass": "Pasa",
+    "fail": "Falla",
+    "not_evaluable": "Sin veredicto",
+}
+
+#: Rótulo público del semáforo por grado de rating.
+TRAFFIC_LIGHT_LABELS: dict[str, str] = {
+    "green": "Verde",
+    "amber": "Ámbar",
+    "red": "Rojo",
+}
+
+#: Rótulo público del estado de una partición en la tabla de discriminación.
+DISCRIMINATION_STATUS_LABELS: dict[str, str] = {
+    "ok": "Evaluada",
+    "not_evaluable": "No evaluable",
+}
+
+#: De dónde salió el AUC/Gini/KS de esa partición: reúso o recálculo con el mismo motor.
+DISCRIMINATION_SOURCE_LABELS: dict[str, str] = {
+    "performance_artifact": "Reusada de la etapa de desempeño",
+    "recomputed": "Recalculada en esta etapa",
+}
+
+#: Rótulo público de cada parámetro contrastado contra lo realizado.
+BACKTEST_PARAMETER_LABELS: dict[str, str] = {
+    "pd": "Probabilidad de incumplimiento",
+    "lgd": "Severidad",
+    "ead": "Exposición",
+}
+
+#: Rótulo público de la prueba usada en una fila de backtesting.
+BACKTEST_TEST_LABELS: dict[str, str] = {
+    "t_test": "t de Student",
+    "binomial": "Binomial",
+    "jeffreys": "Jeffreys",
+}
+
+#: Rótulo público de la prueba de PD por grado, tanto en calibración como en backtesting.
+PD_TEST_LABELS: dict[str, str] = {
+    "jeffreys": "Jeffreys",
+    "binomial": "Binomial",
+}
+
 __all__ = [
+    "BACKTEST_PARAMETER_LABELS",
+    "BACKTEST_TEST_LABELS",
+    "CALIBRATION_TEST_LABELS",
+    "DISCRIMINATION_SOURCE_LABELS",
+    "DISCRIMINATION_STATUS_LABELS",
+    "PD_TEST_LABELS",
+    "TRAFFIC_LIGHT_LABELS",
+    "VALIDATION_DECISION_LABELS",
+    "VALIDATION_FAMILY_LABELS",
+    "VALIDATION_STATUS_LABELS",
     "BacktestParameter",
     "BacktestRecord",
     "CalibrationTestRecord",

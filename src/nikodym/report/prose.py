@@ -35,6 +35,10 @@ from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 # (D-SC-11). `nikodym.stability.results` no arrastra pandas, así que el import es de módulo; el de
 # `selection` sí lo haría y por eso vive dentro de `_reason_label`.
 from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS
+from nikodym.validation.results import (
+    VALIDATION_FAMILY_LABELS,
+    VALIDATION_STATUS_LABELS,
+)
 
 if TYPE_CHECKING:
     from nikodym.report.results import ReportInputBundle
@@ -73,17 +77,6 @@ _DISCRIMINANT_BANDS: Final[dict[str, str]] = {
 _PSI_METRIC_REFERENTS: Final[dict[str, str]] = {
     "score_psi": "al score",
     "pd_psi": "a la PD calibrada",
-}
-_VALIDATION_STATUS_BANDS: Final[dict[str, str]] = {
-    "pass": "Pass técnico",
-    "warn": "Requiere revisión",
-    "fail": "Falla técnica",
-}
-_VALIDATION_FAMILY_LABELS: Final[dict[str, str]] = {
-    "discrimination": "discriminación",
-    "calibration": "calibración",
-    "stability": "estabilidad",
-    "backtesting": "backtesting",
 }
 _SOLVER_LABELS: Final[dict[str, str]] = {
     "cp": "programación con restricciones (CP)",
@@ -285,14 +278,13 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
                     scope=model_ref,
                     value=(
                         f"{_miles(n_failed)} de {_miles(n_tests)} "
-                        f"{_plural(n_tests, 'test', 'tests')} fallidos"
+                        f"{_plural(n_tests, 'prueba fallida', 'pruebas fallidas')}"
                     ),
-                    band=_VALIDATION_STATUS_BANDS.get(status or "", _NOT_AVAILABLE),
+                    band=VALIDATION_STATUS_LABELS.get(status or "", _NOT_AVAILABLE),
                 )
             )
         families = tuple(
-            _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
-            for item in _sequence(validation.get("families_run"))
+            _familia_en_frase(item) for item in _sequence(validation.get("families_run"))
         )
         if families:
             notes.append(
@@ -1195,22 +1187,22 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     if card is None:
         return ()
     model_ref = _text(card.get("model_ref")) or "modelo sin referencia publicada"
-    status = _text(card.get("overall_status")) or "no disponible"
+    # 🔴 Antes esta frase publicaba el SLUG del motor —«el estado técnico … es "pass"»—, que es
+    # vocabulario interno en el informe que lee una persona. Ahora sale la palabra aprobada.
+    status = VALIDATION_STATUS_LABELS.get(_text(card.get("overall_status")) or "", _NOT_AVAILABLE)
     n_tests = _int(card.get("n_tests"))
     n_failed = _int(card.get("n_failed"))
-    families = tuple(
-        _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
-        for item in _sequence(card.get("families_run"))
-    )
+    families = tuple(_familia_en_frase(item) for item in _sequence(card.get("families_run")))
     paragraphs = [
         f"La validación formal del modelo «{model_ref}» ejecutó {_enumerar(families)}. "
         f"El estado técnico agregado publicado por el motor es «{status}».",
     ]
     if n_tests is not None and n_failed is not None:
         paragraphs.append(
-            f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'test', 'tests')}, de los "
-            f"cuales {_miles(n_failed)} quedaron fallidos. Las tablas se copian del resultado que "
-            "publicó la validación, sin recalcular métricas ni decisiones."
+            f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'prueba', 'pruebas')}, "
+            f"de las cuales {_miles(n_failed)} "
+            f"{_plural(n_failed, 'quedó fallida', 'quedaron fallidas')}. Las tablas se copian del "
+            "resultado que publicó la validación, sin recalcular métricas ni decisiones."
         )
     gaps = _declared_warning_descriptions(
         tuple(str(item) for item in _sequence(card.get("falta_dato")))
@@ -1242,8 +1234,8 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
             "la validación."
         ),
         "backtesting": (
-            "La tabla contrasta valores estimados y realizados por parámetro y segmento, con el "
-            "test, p-valor y decisión publicados."
+            "La tabla contrasta valores estimados y realizados por parámetro y segmento, con la "
+            "prueba, el p-valor y la decisión publicados."
         ),
     }
     description = descriptions.get(family)
@@ -2425,8 +2417,7 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
         )
     else:
         families = tuple(
-            _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
-            for item in _sequence(validation.get("families_run"))
+            _familia_en_frase(item) for item in _sequence(validation.get("families_run"))
         )
         alcance += (
             f" La validación formal ejecutó {_enumerar(families)} y se documenta en su capítulo "
@@ -2614,6 +2605,20 @@ def _miles(value: int) -> str:
 
 def _plural(count: int, singular: str, plural: str) -> str:
     return singular if count == 1 else plural
+
+
+def _familia_en_frase(item: object) -> str:
+    """Rótulo de una familia de validación tal como entra DENTRO de una frase.
+
+    La fuente única publica la palabra como se lee en un título —«Discriminación»—, porque ése es
+    su uso principal: titula la sección del panel de Resultados. Aquí entra en mitad de una oración
+    («ejecutó la discriminación, la calibración y…»), así que se minuscula la inicial en el punto
+    de uso. Es la única transformación admisible sobre esas palabras: elegir otras las duplicaría.
+    """
+    etiqueta = VALIDATION_FAMILY_LABELS.get(str(item))
+    if etiqueta is None:
+        return str(item)
+    return etiqueta[:1].lower() + etiqueta[1:]
 
 
 def _enumerar(items: Sequence[str]) -> str:

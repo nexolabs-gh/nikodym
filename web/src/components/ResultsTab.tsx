@@ -22,6 +22,7 @@ import {
   bandLabel,
   ifrs9StageColor,
   partitionColor,
+  validationStatusColor,
 } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,10 +34,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  BACKTEST_PARAMETER_LABELS,
+  BACKTEST_TEST_LABELS,
+  DISCRIMINATION_SOURCE_LABELS,
+  DISCRIMINATION_STATUS_LABELS,
   EMPTY,
+  TRAFFIC_LIGHT_LABELS,
+  VALIDATION_DECISION_LABELS,
   bandsPresent,
   binnedVariables,
+  calibrationRowsSplit,
+  calibrationTestLabel,
   cmfCategoryBars,
+  comparisonLabel,
   csiBars,
   csiComparisonLabel,
   discriminantRows,
@@ -79,7 +89,11 @@ import {
   selectionThresholdRows,
   sicrTriggerLabel,
   sortByIv,
+  stabilityMetricLabel,
   temporalScore,
+  gradeCoverage,
+  validationFamilies,
+  validationStatusLabel,
   variableBinning,
 } from "@/lib/results-format"
 import type {
@@ -265,6 +279,15 @@ export function ResultsPanel({
       pdPsi.length > 0 ||
       csi.length > 0 ||
       temporal !== null)
+
+  // Validación formal (D-SC-9): el acta de las pruebas del modelo. Guard por presencia, y aquí
+  // importa más que en otros dominios: la demo publicada se capturó antes de que el serializer
+  // emitiera esta clave, así que el panel tiene que renderizar sin ella sin romperse.
+  const val = results.validation ?? null
+  const valFamilies = validationFamilies(val)
+  const valCalibration = calibrationRowsSplit(val)
+  const valCoverage = gradeCoverage(val)
+  const valAvisos = val?.falta_dato ?? []
 
   // Selección de variables: qué entró, qué quedó fuera y con qué criterio. Guard por presencia,
   // como el resto de los dominios: sin `selection` la sección entera no se renderiza.
@@ -635,6 +658,337 @@ export function ResultsPanel({
                 {bandLabel(temporal.band)}
               </span>
             </div>
+          ) : null}
+        </ResultsSection>
+      ) : null}
+
+      {/* a.3 Validación formal (D-SC-9): el acta de las pruebas que documentan el modelo. Va
+          después de la estabilidad porque eso es lo que hace en el pipeline —consume lo que las
+          etapas anteriores calcularon— y porque el estado técnico se lee mejor con las series
+          delante. Guard por presencia: sin `validation` la sección entera no se renderiza. */}
+      {val ? (
+        <ResultsSection
+          title="Validación formal"
+          description="Las pruebas que documentan el modelo: discriminación, calibración, estabilidad y backtesting. El motor publica su evidencia; el veredicto sobre el modelo lo firma quien valida."
+        >
+          <dl className="grid gap-2 sm:grid-cols-3">
+            <div className="space-y-0.5">
+              <dt className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                Estado técnico
+              </dt>
+              <dd>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.8rem]"
+                  style={{
+                    backgroundColor: `${validationStatusColor(val.overall_status)}1a`,
+                    color: validationStatusColor(val.overall_status),
+                  }}
+                >
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{
+                      backgroundColor: validationStatusColor(val.overall_status),
+                    }}
+                    aria-hidden="true"
+                  />
+                  {validationStatusLabel(val.overall_status)}
+                </span>
+              </dd>
+            </div>
+            <DefItem
+              label="Pruebas fallidas"
+              value={`${formatCount(val.n_failed)} de ${formatCount(val.n_tests)}`}
+            />
+            <DefItem
+              label="Familias ejecutadas"
+              value={valFamilies.map((f) => f.label).join(" · ") || EMPTY}
+              mono={false}
+            />
+          </dl>
+
+          {/* 🔴 La marca sí, el CÓDIGO no (D-SC-9). Los `FALTA-DATO-VAL-*` son el identificador con
+              el que el motor transporta la salvedad, no una frase: viajan enteros en la card, en el
+              anexo de auditoría del informe y —cuando la gobernanza está encendida— en la ficha del
+              modelo de esta misma pantalla, que es la superficie donde S4 decidió conservarlos. Aquí
+              lo que hace falta es que se vea que hay salvedades y dónde se leen. */}
+          {valAvisos.length > 0 ? (
+            <p className="rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+              Esta validación dejó{" "}
+              {valAvisos.length === 1
+                ? "una salvedad declarada"
+                : `${valAvisos.length} salvedades declaradas`}
+              <AvisoDeclaradoChip />: algo que el motor prefiere escribir en vez de callar —una
+              convención que le corresponde fijar a tu institución, o una brecha del propio motor—.
+              El resultado sale marcado con ellas, su detalle queda en el anexo de auditoría del
+              informe y lo que significa cada una está en la referencia «Avisos declarados» de la
+              documentación.
+            </p>
+          ) : null}
+
+          {/* Discriminación: AUC/Gini/KS por partición, con la fuente y el estado del motor. */}
+          {(val.discrimination ?? []).length > 0 ? (
+            <Subchart title="Discriminación">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Muestra</th>
+                      <NumHead>Operaciones</NumHead>
+                      <NumHead>Incumplidas</NumHead>
+                      <NumHead>AUC</NumHead>
+                      <NumHead>Gini</NumHead>
+                      <NumHead>KS</NumHead>
+                      <th className="py-2 pl-3 pr-3 font-medium">Estado</th>
+                      <th className="py-2 pl-3 font-medium">Origen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(val.discrimination ?? []).map((row) => (
+                      <tr key={row.partition} className="border-b border-border">
+                        <td className="py-2 pr-3 text-foreground">
+                          {partitionLabel(row.partition)}
+                        </td>
+                        <NumCell>{formatCount(row.n_total)}</NumCell>
+                        <NumCell>{formatCount(row.n_bad)}</NumCell>
+                        <NumCell>{formatMetric(row.auc)}</NumCell>
+                        <NumCell>{formatMetric(row.gini)}</NumCell>
+                        <NumCell>{formatMetric(row.ks)}</NumCell>
+                        <td className="py-2 pl-3 pr-3 text-muted-foreground">
+                          {DISCRIMINATION_STATUS_LABELS[row.status] ?? row.status}
+                        </td>
+                        <td className="py-2 pl-3 text-muted-foreground">
+                          {DISCRIMINATION_SOURCE_LABELS[row.source] ?? row.source}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Subchart>
+          ) : null}
+
+          {/* Calibración: primero las pruebas por partición, después el contraste por grado con
+              su cobertura. Las dos formas viven en la MISMA tabla del motor y aquí se separan
+              para leerlas; ninguna se recalcula. */}
+          {valCalibration.porParticion.length > 0 ? (
+            <Subchart title="Calibración por muestra">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Muestra</th>
+                      <th className="py-2 pr-3 font-medium">Prueba</th>
+                      <NumHead>Operaciones</NumHead>
+                      <NumHead>Estadístico</NumHead>
+                      <NumHead>p-valor</NumHead>
+                      <th className="py-2 pl-3 font-medium">Veredicto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {valCalibration.porParticion.map((row) => (
+                      <tr
+                        key={`${row.partition}-${row.test}`}
+                        className="border-b border-border"
+                      >
+                        <td className="py-2 pr-3 text-foreground">
+                          {partitionLabel(row.partition)}
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {calibrationTestLabel(row.test)}
+                        </td>
+                        <NumCell>{formatCount(row.n)}</NumCell>
+                        <NumCell>{formatMetric(row.statistic)}</NumCell>
+                        <NumCell>{formatPValue(row.p_value)}</NumCell>
+                        <td className="py-2 pl-3 text-muted-foreground">
+                          {VALIDATION_DECISION_LABELS[row.decision] ?? row.decision}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Subchart>
+          ) : null}
+
+          {valCoverage ? (
+            <Subchart
+              title={`Calibración por grado de rating — ${valCoverage.evaluados} de ${valCoverage.total} evaluados`}
+            >
+              {valCalibration.porGrado.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                        <th className="py-2 pr-3 font-medium">Grado</th>
+                        <NumHead>Operaciones</NumHead>
+                        <NumHead>Incumplidas</NumHead>
+                        <NumHead>PD estimada</NumHead>
+                        <NumHead>Tasa observada</NumHead>
+                        <NumHead>p-valor</NumHead>
+                        <th className="py-2 pl-3 font-medium">Semáforo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {valCalibration.porGrado.map((row) => (
+                        <tr key={row.grade} className="border-b border-border">
+                          <td className="py-2 pr-3 font-mono text-foreground">
+                            {row.grade}
+                          </td>
+                          <NumCell>{formatCount(row.n)}</NumCell>
+                          <NumCell>{formatCount(row.observed_defaults)}</NumCell>
+                          <NumCell>{formatMetric(row.expected_pd)}</NumCell>
+                          <NumCell>{formatMetric(row.observed_dr)}</NumCell>
+                          <NumCell>{formatPValue(row.p_value)}</NumCell>
+                          <td className="py-2 pl-3 text-muted-foreground">
+                            {row.traffic_light
+                              ? (TRAFFIC_LIGHT_LABELS[row.traffic_light] ??
+                                row.traffic_light)
+                              : EMPTY}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {valCoverage.noEvaluados.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                    Grados no evaluados ({valCoverage.noEvaluados.length})
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                          <th className="py-2 pr-3 font-medium">Grado</th>
+                          <NumHead>Operaciones</NumHead>
+                          <NumHead>Incumplidas</NumHead>
+                          <NumHead>PD estimada</NumHead>
+                          <NumHead>Tasa observada</NumHead>
+                          <NumHead>Mínimo</NumHead>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {valCoverage.noEvaluados.map((row) => (
+                          <tr key={row.grade} className="border-b border-border">
+                            <td className="py-2 pr-3 font-mono text-foreground">
+                              {row.grade}
+                            </td>
+                            <NumCell>{formatCount(row.n)}</NumCell>
+                            <NumCell>{formatCount(row.observed_defaults)}</NumCell>
+                            <NumCell>{formatMetric(row.expected_pd)}</NumCell>
+                            <NumCell>{formatMetric(row.observed_dr)}</NumCell>
+                            <NumCell>{formatCount(row.min_rows)}</NumCell>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Un grado con menos operaciones que el mínimo no recibe semáforo ni cuenta en
+                    las pruebas: sin esa población, cualquier veredicto sería ruido.
+                  </p>
+                </div>
+              ) : null}
+            </Subchart>
+          ) : null}
+
+          {/* Estabilidad: el PSI que la etapa anterior calculó, aquí con su banda y su veredicto.
+              Se publica tal cual: la sección de arriba lo grafica, ésta lo documenta. */}
+          {(val.stability ?? []).length > 0 ? (
+            <Subchart title="Estabilidad">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Indicador</th>
+                      <th className="py-2 pr-3 font-medium">Variable</th>
+                      <th className="py-2 pr-3 font-medium">Comparación</th>
+                      <NumHead>Valor</NumHead>
+                      <th className="py-2 pl-3 pr-3 font-medium">Banda</th>
+                      <th className="py-2 pl-3 font-medium">Veredicto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(val.stability ?? []).map((row) => (
+                      <tr
+                        key={`${row.metric}-${row.comparison}-${row.feature ?? ""}`}
+                        className="border-b border-border"
+                      >
+                        <td className="py-2 pr-3 text-foreground">
+                          {stabilityMetricLabel(row.metric)}
+                        </td>
+                        {/* 🔴 Sin la variable, las nueve filas de CSI de una corrida real se ven
+                            idénticas: mismo indicador, misma comparación y un número. Medido en la
+                            UI viva. El nombre es el dato del motor y se muestra tal cual. */}
+                        <td className="py-2 pr-3 font-mono text-muted-foreground">
+                          {row.feature ?? EMPTY}
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {comparisonLabel(row.comparison)}
+                        </td>
+                        <NumCell>{formatMetric(row.value)}</NumCell>
+                        <td className="py-2 pl-3 pr-3 text-muted-foreground">
+                          {bandLabel(row.band)}
+                        </td>
+                        <td className="py-2 pl-3 text-muted-foreground">
+                          {VALIDATION_DECISION_LABELS[row.decision] ?? row.decision}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Subchart>
+          ) : null}
+
+          {/* Backtesting: lo estimado contra lo que de verdad ocurrió. Vacío en una corrida sin
+              IFRS 9, y entonces la tabla no se pinta (la familia tampoco aparece arriba). */}
+          {(val.backtesting ?? []).length > 0 ? (
+            <Subchart title="Backtesting">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Parámetro</th>
+                      <th className="py-2 pr-3 font-medium">Segmento</th>
+                      <NumHead>Operaciones</NumHead>
+                      <NumHead>Estimado</NumHead>
+                      <NumHead>Realizado</NumHead>
+                      <th className="py-2 pl-3 pr-3 font-medium">Prueba</th>
+                      <NumHead>p-valor</NumHead>
+                      <th className="py-2 pl-3 font-medium">Veredicto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(val.backtesting ?? []).map((row) => (
+                      <tr
+                        key={`${row.parameter}-${row.segment}`}
+                        className="border-b border-border"
+                      >
+                        <td className="py-2 pr-3 text-foreground">
+                          {BACKTEST_PARAMETER_LABELS[row.parameter] ?? row.parameter}
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-muted-foreground">
+                          {row.segment}
+                        </td>
+                        <NumCell>{formatCount(row.n)}</NumCell>
+                        <NumCell>{formatMetric(row.predicted_mean)}</NumCell>
+                        <NumCell>{formatMetric(row.realised_mean)}</NumCell>
+                        <td className="py-2 pl-3 pr-3 text-muted-foreground">
+                          {BACKTEST_TEST_LABELS[row.test] ?? row.test}
+                        </td>
+                        <NumCell>{formatPValue(row.p_value)}</NumCell>
+                        <td className="py-2 pl-3 text-muted-foreground">
+                          {VALIDATION_DECISION_LABELS[row.decision] ?? row.decision}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Subchart>
           ) : null}
         </ResultsSection>
       ) : null}

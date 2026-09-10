@@ -69,6 +69,8 @@ from nikodym.report.results import (
     ReportManifest,
     ReportSection,
 )
+from nikodym.stability.results import BAND_LABELS
+from nikodym.validation.results import VALIDATION_STATUS_LABELS
 
 if TYPE_CHECKING:
     # Sólo el alias de tipo: importar ``charts`` en runtime crearía un borde de import hacia el
@@ -569,20 +571,25 @@ def _band_class(band: str) -> str:
     """Clase CSS del semáforo: sólo se colorea lo que el motor sí evaluó.
 
     ⚠️ El mapa es por **rótulo publicado**, no por slug: la vista ejecutiva ya trae la banda
-    traducida. Por eso las palabras nuevas del PSI (D-SC-11: «Revisar»/«Redesarrollar») entran aquí
-    junto con las de validación, que siguen siendo las suyas; una banda sin entrada se pinta neutra
-    y el semáforo mentiría por omisión. Lo gatea ``test_prosa_factual``.
+    traducida. Una banda sin entrada se pinta neutra, así que el semáforo mentiría por omisión —y
+    ése fue el defecto real: al traducir las bandas del PSI (D-SC-11) este tercer consumidor no
+    estaba censado y una banda de revisión se habría publicado en gris.
+
+    🔴 Por eso las palabras **se leen de su fuente única** en vez de repetirse aquí: cambiar
+    «Revisar» en :mod:`nikodym.stability.results` o «Falla» en :mod:`nikodym.validation.results`
+    mueve el rótulo y su color a la vez, que es lo que la repetición no garantizaba. Sólo quedan
+    literales las tres de discriminación, que no tienen todavía una fuente propia. Lo gatea
+    ``test_prosa_factual``.
     """
     if band in {
         "Bajo el umbral configurado",
-        "Redesarrollar",
-        "Requiere redesarrollo",
-        "Falla técnica",
+        BAND_LABELS["redevelop"],
+        VALIDATION_STATUS_LABELS["fail"],
     }:
         return "band-alert"
-    if band in {"Revisar", "Requiere revisión"}:
+    if band in {BAND_LABELS["review"], VALIDATION_STATUS_LABELS["warn"]}:
         return "band-warn"
-    if band in {"Sin alertas", "Estable", "Pass técnico"}:
+    if band in {"Sin alertas", BAND_LABELS["stable"], VALIDATION_STATUS_LABELS["pass"]}:
         return "band-ok"
     return "band-none"
 

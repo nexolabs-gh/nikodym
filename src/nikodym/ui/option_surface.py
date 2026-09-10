@@ -237,12 +237,11 @@ _OUTSIDE_JOB_FORM_POLICIES: dict[str, tuple[str, ...]] = {
     "tuning.optimizer.pruner": ("median", "none"),
     "tuning.optimizer.sampler": ("random", "tpe"),
     "tuning.validation.strategy": ("cv", "holdout"),
-    "validation.backtesting.parameters": ("ead", "lgd", "pd"),
-    "validation.backtesting.pd_test": ("binomial", "jeffreys"),
+    # D-SC-6: las otras cinco opciones de `validation` salieron de aquí al entrar la sección al
+    # formulario — ahora las clasifica el catálogo del abanico—. Ésta se queda, y por la razón que
+    # esta política nombra: el campo es `hidden` por D-SUB (su segundo valor lo rechaza el propio
+    # motor), así que sigue alcanzable por YAML o por código y no por la pantalla.
     "validation.calibration.hl_grouping": ("deciles", "fixed_bands"),
-    "validation.calibration.pd_test": ("binomial", "jeffreys"),
-    "validation.discrimination.partitions": ("desarrollo", "holdout", "oot"),
-    "validation.families": ("backtesting", "calibration", "discrimination", "stability"),
 }
 
 _INTERNAL_DISCRIMINATOR_POLICIES: dict[str, tuple[str, ...]] = {

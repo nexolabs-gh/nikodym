@@ -152,10 +152,17 @@ def _config_sections_del_front() -> list[tuple[str, str]]:
 # ─────────────────────── §6.4: en los 10 trabajos, apagada de fábrica ───────────────────────
 
 
-def test_governance_es_la_decimoquinta_seccion_del_formulario_y_se_llama_gobernanza() -> None:
-    """D-GOB-11: `CONFIG_SECTIONS` pasa de 14 a 15, «Gobernanza», después del informe."""
+def test_governance_es_la_ultima_seccion_del_formulario_y_se_llama_gobernanza() -> None:
+    """D-GOB-11: «Gobernanza» cierra `CONFIG_SECTIONS`, después del informe.
+
+    Lo que este gate fija es la POSICIÓN —última, detrás de `report`— y el rótulo, no el número:
+    la lista crece cuando el formulario gana una sección (14 → 15 con D-GOB-11; 15 → **16** con
+    D-SC-6, que mete «Validación formal» entre estabilidad y survival). El conteo se conserva como
+    ancla de no vacuidad y se mueve a conciencia; quien lo cambie sin mirar dónde queda la
+    gobernanza rompe la promesa de D-GOB-11, que es que sea lo último que se ve.
+    """
     secciones = _config_sections_del_front()
-    assert len(secciones) == 15, [k for k, _ in secciones]
+    assert len(secciones) == 16, [k for k, _ in secciones]
     assert secciones[-2][0] == "report", "el informe sigue siendo el último paso del pipeline"
     assert secciones[-1] == ("governance", "Gobernanza")
 

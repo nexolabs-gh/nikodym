@@ -9,6 +9,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **La validación formal entra al formulario y a la pestaña Resultados.** Era la única sección del
+  pipeline del scorecard que existía en el motor, corría en los ejemplos y salía en el informe, pero
+  que quien entraba por la interfaz no podía ni ver ni tocar. Ahora «Validación formal» está en el
+  formulario —después de «Estabilidad» y antes de «Survival»—, en los dos trabajos del scorecard, y
+  su resultado se pinta en Resultados: el estado técnico con el conteo de pruebas fallidas, las
+  familias que corrieron y una tabla por familia con lo que publicó el motor, sin recalcular ni
+  reinterpretar nada. Sin `validation` en la respuesta, la sección no se renderiza.
+
+- **La cobertura por grado se publica junto a la tabla, no en su lugar.** Un grado de rating con
+  menos operaciones que el mínimo técnico no recibe semáforo —sin esa población, cualquier veredicto
+  sería ruido— y por eso no entra en la tabla ni cuenta en las pruebas fallidas. El panel dice
+  siempre cuántos grados se evaluaron de cuántos y enumera aparte los que quedaron fuera, con sus
+  conteos y el mínimo que los excluyó. Sin esa línea, un «Pasa · 0 de 1 pruebas fallidas» podía
+  convivir con media cartera sin evaluar.
+
+- **Guía nueva: «Validación formal».** Qué prueba cada familia, cómo se lee el estado técnico, por
+  qué el puntaje de Brier no tiene veredicto de pasa o falla y qué hace un validador con el
+  resultado, sobre una corrida real que **falla** en la muestra fuera de tiempo. La referencia de la
+  API publica además la correspondencia entre cada identificador y su palabra.
+
+
 - **La pestaña Resultados pinta la selección de variables.** Entre «Análisis por variable (WoE)» y
   «Escala y calibración» aparece «Selección de variables»: cuántas candidatas había, cuántas
   quedaron y cuántas se descartaron; los umbrales de esta corrida con el mismo nombre que tienen en
@@ -100,6 +121,30 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Cambiado
 
+- **El estado técnico de la validación se llama igual en la pantalla y en el informe: Pasa,
+  Revisar y Falla.** Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el
+  vocabulario que la prosa del informe usaba en solitario porque no había panel con el que
+  contrastarlo. Mismo criterio que las bandas de estabilidad: una sola fuente
+  (`nikodym.validation.results`), el informe la consume, la pantalla la replica y un gate compara
+  los dos lados. El identificador (`pass`, `warn`, `fail`) no cambia. De paso, el informe dejó de
+  publicar el identificador crudo en una frase que decía «el estado técnico … es "pass"».
+
+- **Ocho campos de la validación dejan de ofrecerse en el formulario, y cada uno con su razón
+  medida.** El criterio de agrupación de Hosmer-Lemeshow (su segundo valor lo rechaza el propio
+  motor), las tres columnas del artefacto interno de PD calibrada (las escribe el motor con nombre
+  fijo), el reúso del PSI (apagarlo aborta la corrida: esa rama no está cableada) y la columna de
+  segmento del backtesting (sale del detalle de IFRS 9, no del archivo). Ninguno desaparece del
+  config: por YAML o por Python siguen alcanzables. Y las cuatro columnas que **sí** aporta el
+  usuario —el grado de rating y las tres realizadas— pasan a comprobarse contra el archivo antes de
+  correr, pero sólo cuando su rama corre: con el contraste por grado apagado, el formulario ya no
+  reclama una columna que el motor no va a abrir.
+
+- **El copy de los 32 campos de la validación está escrito para quien mira la pantalla.** Salen los
+  literales del motor —«chi2», «G-2 gl», los nombres de las instituciones que publicaron cada
+  convención, los identificadores en inglés— y entran frases que dicen qué hace cada control y qué
+  exige. Un gate nuevo impide que una marca interna de aviso declarado vuelva a colarse en un
+  tooltip del formulario.
+
 - **Las bandas de estabilidad se llaman igual en todas partes: Estable, Revisar, Redesarrollar y
   No evaluable.** Hasta ahora el mismo dato salía con dos vocabularios —la interfaz decía
   «Revisar» y el informe «Requiere revisión»— y las guías publicaban el identificador en inglés.
@@ -185,6 +230,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   inspeccionable. No se notaba porque ningún ejemplo de fábrica traía la auditoría encendida.
 
 ### Sabido
+
+- El informe de la demo publicada sigue diciendo «Falla técnica» donde el motor ya escribe
+  «Falla»: es un artefacto capturado y se regenera en el paso de recaptura, junto con el resto.
 
 - Los datos de la demo publicada siguen mostrando el model card vacío: se regeneran en un paso
   aparte. La identidad de las corridas de la demo **no** cambia con esta versión.

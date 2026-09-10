@@ -41,6 +41,7 @@ from nikodym.report.results import (
     ReportInputBundle,
     ReportSection,
 )
+from nikodym.validation.results import VALIDATION_STATUS_LABELS
 
 # Golden del ``_digest_html`` (excluye los bytes ``<svg>``, ver renderer): con el extra ``report``
 # el bundle golden embebe un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
@@ -220,13 +221,22 @@ def test_document_view_renderiza_validacion_formal_y_control_negativo() -> None:
         for item in view["executive"]["metrics"]
         if item["label"] == "Estado técnico de validación formal"
     )
+    # D-SC-9: la banda sale de la fuente única de las tres palabras del estado técnico, y el
+    # semáforo del HTML se deriva de esa misma fuente. Escribirla aquí como literal —y no leerla
+    # de `VALIDATION_STATUS_LABELS`— es deliberado: es el golden de que la palabra publicada es
+    # ésa, y un cambio de copy tiene que verse aquí.
     assert metric == {
         "label": "Estado técnico de validación formal",
         "scope": "scorecard@oracle",
-        "value": "0 de 1 test fallidos",
-        "band": "Pass técnico",
+        # «pruebas», no «tests», y con la concordancia que faltaba: el informe decía «1
+        # quedaron fallidos». Mismo rótulo que el panel de Resultados publica arriba.
+        "value": "0 de 1 prueba fallida",
+        "band": "Pasa",
         "band_class": "band-ok",
     }
+    assert VALIDATION_STATUS_LABELS["pass"] == metric["band"]
+    assert renderer_module._band_class(VALIDATION_STATUS_LABELS["warn"]) == "band-warn"
+    assert renderer_module._band_class(VALIDATION_STATUS_LABELS["fail"]) == "band-alert"
     section = next(item for item in view["sections"] if item["id"] == "validation.discrimination")
     assert section["tables"][0]["rows"][0][3:6] == ("0.810000", "0.620000", "0.480000")
     assert section["placeholder"] is None

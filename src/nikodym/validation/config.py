@@ -168,7 +168,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             "Calcula el puntaje de Brier por partición: el error cuadrático medio entre la PD "
             "predicha y lo que ocurrió. Más bajo es mejor."
         ),
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 4},
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 3},
     )
     binomial_by_grade: bool = Field(
         default=True,
@@ -179,7 +179,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             "semáforo y la convención exacta de la prueba están declarados como brecha del "
             "motor: el resultado sale con ese aviso."
         ),
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 5},
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 4},
     )
     grade_col: str = Field(
         default="grade",
@@ -192,7 +192,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
-            "ui_order": 1,
+            "ui_order": 5,
         },
     )
     pd_test: PdTest = Field(
@@ -228,7 +228,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             ),
             "ui_widget": "number_input",
             "ui_group": "Semáforo",
-            "ui_order": 1,
+            "ui_order": 8,
         },
     )
     traffic_light_red_alpha: float = Field(
@@ -240,7 +240,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             "Por debajo de este p-valor el grado queda en rojo. Tiene que ser menor que el corte "
             "del verde."
         ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 2},
+        json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 9},
     )
     # 🔴 D-SUB (D-SC-7): las tres pasan a ocultas, y NO por ser internas sino por ser INERTES en
     # el formulario. Nombran columnas de `calibration.calibrated_pd_frame`, el artefacto que el
@@ -275,7 +275,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     min_rows_per_group: int = Field(
         default=30,
         ge=1,
-        title="Mínimo técnico por grupo HL/grado",
+        title="Mínimo de operaciones para evaluar",
         description=(
             "Mínimo de operaciones para evaluar: bajo ese mínimo no hay prueba y el resultado "
             "queda marcado como no evaluado."
@@ -290,7 +290,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             ),
             "ui_widget": "number_input",
             "ui_group": "Calibración",
-            "ui_order": 8,
+            "ui_order": 10,
         },
     )
 
@@ -426,7 +426,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
         lt=0.5,
         title="Nivel de significancia",
         description="Nivel de significancia de las pruebas de backtesting.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Backtesting", "ui_order": 3},
+        json_schema_extra={"ui_widget": "number_input", "ui_group": "Backtesting", "ui_order": 6},
     )
     one_sided: bool = Field(
         default=True,
@@ -436,7 +436,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
             "lo que le importa al supervisor; apagado, prueba desvíos en los dos sentidos. La "
             "prueba de la PD es siempre unilateral y este ajuste no la cambia."
         ),
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 4},
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 7},
     )
     realised_pd_col: str = Field(
         default="realised_default",
@@ -449,7 +449,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
-            "ui_order": 2,
+            "ui_order": 3,
         },
     )
     realised_lgd_col: str = Field(
@@ -460,7 +460,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
-            "ui_order": 3,
+            "ui_order": 4,
         },
     )
     realised_ead_col: str = Field(
@@ -471,14 +471,14 @@ class BacktestingValidationConfig(NikodymBaseConfig):
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
-            "ui_order": 4,
+            "ui_order": 5,
         },
     )
     pd_test: PdTest = Field(
         default="jeffreys",
         title="Test de PD",
         description="Qué prueba se usa para la PD: la de Jeffreys o la binomial clásica.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Backtesting", "ui_order": 5},
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Backtesting", "ui_order": 8},
     )
 
     @model_validator(mode="after")

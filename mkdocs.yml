@@ -61,6 +61,7 @@ nav:
       - Binning y selección: guias/binning-seleccion.md
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md
+      - Validación formal: guias/validacion-formal.md
       - Gobernanza y ficha del modelo: guias/gobernanza.md
       - Reanudar con artefactos: guias/puerta-artefactos.md
       - Provisiones sin normativa local: guias/provision-sin-norma-local.md

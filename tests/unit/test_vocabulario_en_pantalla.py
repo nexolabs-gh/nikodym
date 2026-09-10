@@ -43,7 +43,35 @@ from nikodym.selection.config import (
 )
 from nikodym.selection.results import REASON_LABELS, SelectionDecisionReason
 from nikodym.selection.step import _thresholds_from_config
-from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS, PsiMetricName, StabilityBand
+from nikodym.stability.results import (
+    BAND_LABELS,
+    PSI_METRIC_LABELS,
+    STABILITY_METRIC_LABELS,
+    PsiMetricName,
+    StabilityBand,
+    StabilityMetricName,
+)
+from nikodym.validation.config import BacktestParameter, ValidationFamily
+from nikodym.validation.results import (
+    BACKTEST_PARAMETER_LABELS,
+    BACKTEST_TEST_LABELS,
+    CALIBRATION_TEST_LABELS,
+    DISCRIMINATION_SOURCE_LABELS,
+    DISCRIMINATION_STATUS_LABELS,
+    PD_TEST_LABELS,
+    TRAFFIC_LIGHT_LABELS,
+    VALIDATION_DECISION_LABELS,
+    VALIDATION_FAMILY_LABELS,
+    VALIDATION_STATUS_LABELS,
+    BacktestTest,
+    CalibrationDecision,
+    CalibrationTest,
+    DiscriminationSource,
+    DiscriminationStatus,
+    OverallStatus,
+    PdTest,
+    TrafficLight,
+)
 
 _RAIZ: Final = Path(__file__).resolve().parents[2]
 _CHART_THEME: Final = _RAIZ / "web" / "src" / "components" / "charts" / "chart-theme.ts"
@@ -104,8 +132,19 @@ def _titulo_del_formulario(modelo: type[BaseModel], ruta: str) -> str | None:
     [
         (BAND_LABELS, StabilityBand, "BAND_LABELS"),
         (PSI_METRIC_LABELS, PsiMetricName, "PSI_METRIC_LABELS"),
+        (STABILITY_METRIC_LABELS, StabilityMetricName, "STABILITY_METRIC_LABELS"),
         (REASON_LABELS, SelectionDecisionReason, "REASON_LABELS"),
         (IV_BAND_LABELS, IvBand, "IV_BAND_LABELS"),
+        (VALIDATION_STATUS_LABELS, OverallStatus, "VALIDATION_STATUS_LABELS"),
+        (VALIDATION_FAMILY_LABELS, ValidationFamily, "VALIDATION_FAMILY_LABELS"),
+        (VALIDATION_DECISION_LABELS, CalibrationDecision, "VALIDATION_DECISION_LABELS"),
+        (CALIBRATION_TEST_LABELS, CalibrationTest, "CALIBRATION_TEST_LABELS"),
+        (TRAFFIC_LIGHT_LABELS, TrafficLight, "TRAFFIC_LIGHT_LABELS"),
+        (DISCRIMINATION_STATUS_LABELS, DiscriminationStatus, "DISCRIMINATION_STATUS_LABELS"),
+        (DISCRIMINATION_SOURCE_LABELS, DiscriminationSource, "DISCRIMINATION_SOURCE_LABELS"),
+        (BACKTEST_PARAMETER_LABELS, BacktestParameter, "BACKTEST_PARAMETER_LABELS"),
+        (BACKTEST_TEST_LABELS, BacktestTest, "BACKTEST_TEST_LABELS"),
+        (PD_TEST_LABELS, PdTest, "PD_TEST_LABELS"),
     ],
 )
 def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, nombre: str) -> None:
@@ -118,8 +157,16 @@ def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, no
     [
         (BAND_LABELS, "BAND_LABELS"),
         (PSI_METRIC_LABELS, "PSI_METRIC_LABELS"),
+        (STABILITY_METRIC_LABELS, "STABILITY_METRIC_LABELS"),
         (REASON_LABELS, "REASON_LABELS"),
         (IV_BAND_LABELS, "IV_BAND_LABELS"),
+        (VALIDATION_STATUS_LABELS, "VALIDATION_STATUS_LABELS"),
+        (VALIDATION_FAMILY_LABELS, "VALIDATION_FAMILY_LABELS"),
+        (VALIDATION_DECISION_LABELS, "VALIDATION_DECISION_LABELS"),
+        (TRAFFIC_LIGHT_LABELS, "TRAFFIC_LIGHT_LABELS"),
+        (DISCRIMINATION_STATUS_LABELS, "DISCRIMINATION_STATUS_LABELS"),
+        (DISCRIMINATION_SOURCE_LABELS, "DISCRIMINATION_SOURCE_LABELS"),
+        (BACKTEST_PARAMETER_LABELS, "BACKTEST_PARAMETER_LABELS"),
     ],
 )
 def test_ninguna_palabra_publica_es_un_slug(mapa: dict[str, str], nombre: str) -> None:
@@ -135,6 +182,19 @@ def test_las_cuatro_palabras_de_las_bandas_son_las_aprobadas() -> None:
         "review": "Revisar",
         "redevelop": "Redesarrollar",
         "not_evaluable": "No evaluable",
+    }
+
+
+def test_las_tres_palabras_del_estado_tecnico_son_las_aprobadas() -> None:
+    """D-SC-9, respuesta 3 de Cami del 2026-09-09: «Pasa · Revisar · Falla», bajo «Estado técnico».
+
+    Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el vocabulario que la
+    prosa del informe usaba en solitario: la pantalla no decía nada porque no había panel.
+    """
+    assert VALIDATION_STATUS_LABELS == {
+        "pass": "Pasa",
+        "warn": "Revisar",
+        "fail": "Falla",
     }
 
 
@@ -159,6 +219,59 @@ def test_el_front_espeja_la_identidad_del_resumen_psi() -> None:
     assert _mapa_ts(_RESULTS_FORMAT, "PSI_METRIC_LABELS") == PSI_METRIC_LABELS
 
 
+def test_el_front_espeja_lo_que_mide_cada_fila_de_estabilidad() -> None:
+    """Las CUATRO métricas del frame, no las dos del resumen A1.
+
+    El panel de validación publica `stability_metrics` entera —CSI incluido—, y sin este mapa la
+    columna mostraba el identificador crudo `csi`. Medido en la UI viva.
+    """
+    assert _mapa_ts(_RESULTS_FORMAT, "STABILITY_METRIC_LABELS") == STABILITY_METRIC_LABELS
+
+
+@pytest.mark.parametrize(
+    ("nombre", "fuente"),
+    [
+        ("VALIDATION_STATUS_LABELS", VALIDATION_STATUS_LABELS),
+        ("VALIDATION_FAMILY_LABELS", VALIDATION_FAMILY_LABELS),
+        ("VALIDATION_DECISION_LABELS", VALIDATION_DECISION_LABELS),
+        ("CALIBRATION_TEST_LABELS", CALIBRATION_TEST_LABELS),
+        ("TRAFFIC_LIGHT_LABELS", TRAFFIC_LIGHT_LABELS),
+        ("DISCRIMINATION_STATUS_LABELS", DISCRIMINATION_STATUS_LABELS),
+        ("DISCRIMINATION_SOURCE_LABELS", DISCRIMINATION_SOURCE_LABELS),
+        ("BACKTEST_PARAMETER_LABELS", BACKTEST_PARAMETER_LABELS),
+        ("BACKTEST_TEST_LABELS", BACKTEST_TEST_LABELS),
+        ("PD_TEST_LABELS", PD_TEST_LABELS),
+    ],
+)
+def test_el_front_espeja_el_vocabulario_de_la_validacion(
+    nombre: str, fuente: dict[str, str]
+) -> None:
+    """Los diez mapas que el panel «Validación formal» consume (D-SC-9).
+
+    Diez y no uno: cada columna de las cuatro tablas traduce un enum distinto del motor, y una
+    palabra cambiada de un solo lado deja la pantalla diciendo algo que el informe no dice.
+    """
+    assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
+
+
+def test_los_colores_del_estado_tecnico_cubren_las_tres_palabras() -> None:
+    """El semáforo del panel no puede tener un estado sin color: se pintaría gris y mentiría.
+
+    ⚠️ Se comprueban las CLAVES, no los valores, y por eso NO se usa `_mapa_ts`: los colores se
+    reúsan de las bandas de estabilidad a propósito —dos escalas para lo mismo se leerían como dos
+    significados— así que sus valores son expresiones (`BAND_COLORS.stable`) y no literales.
+    """
+    texto = _CHART_THEME.read_text(encoding="utf-8")
+    patron = (
+        r"^export const VALIDATION_STATUS_COLORS: Record<string, string> = \{"
+        r"\n(.*?)^\}"
+    )
+    cuerpo = re.search(patron, texto, re.S | re.M)
+    assert cuerpo is not None, "chart-theme.ts no declara `VALIDATION_STATUS_COLORS`"
+    claves = set(re.findall(r'^  "?([A-Za-z0-9_]+)"?:', cuerpo.group(1), re.M))
+    assert claves == set(VALIDATION_STATUS_LABELS), claves
+
+
 @pytest.mark.parametrize(
     ("enum", "interfaz"),
     [
@@ -166,6 +279,15 @@ def test_el_front_espeja_la_identidad_del_resumen_psi() -> None:
         (PsiMetricName, "PsiSummaryMetric"),
         (SelectionDecisionReason, "SelectionDecisionReason"),
         (IvBand, "IvBand"),
+        (OverallStatus, "ValidationOverallStatus"),
+        (ValidationFamily, "ValidationFamily"),
+        (CalibrationDecision, "ValidationDecision"),
+        (TrafficLight, "TrafficLight"),
+        (DiscriminationSource, "DiscriminationSource"),
+        (DiscriminationStatus, "DiscriminationStatus"),
+        (CalibrationTest, "CalibrationTest"),
+        (BacktestParameter, "BacktestParameter"),
+        (BacktestTest, "BacktestTest"),
     ],
 )
 def test_el_tipo_del_front_espeja_el_enum_del_motor(enum: Any, interfaz: str) -> None:
@@ -236,6 +358,33 @@ def test_un_control_inerte_queda_atado_al_umbral_que_lo_apaga() -> None:
     # `correlation.method` no depende de nada: la matriz se calcula aunque el filtro esté apagado.
     assert "correlation.method" not in depende_de
     assert apagado["correlation.method"] is not None
+
+
+def test_la_prosa_del_informe_ya_no_tiene_su_propio_vocabulario_de_validacion() -> None:
+    """Los dos mapas locales de `prose.py` desaparecen: si vuelven, vuelve la deriva.
+
+    Y con ellos las palabras viejas: ninguna de las tres puede sobrevivir en el fuente del
+    informe, porque la única forma de que aparezcan es que alguien las haya vuelto a escribir.
+    """
+    fuente = _PROSE.read_text(encoding="utf-8")
+    assert "_VALIDATION_STATUS_BANDS" not in fuente
+    assert "_VALIDATION_FAMILY_LABELS" not in fuente
+    for palabra in ("Pass técnico", "Falla técnica"):
+        assert palabra not in fuente, f"«{palabra}» sigue escrita en la prosa del informe"
+
+
+def test_el_semaforo_del_html_lee_las_palabras_de_su_fuente() -> None:
+    """El tercer consumidor censado en S8: `_band_class` mapea por RÓTULO, no por slug.
+
+    Con las palabras repetidas a mano, traducir una banda dejaba su color en gris —«no evaluado»—
+    sin que nada lo acusara. Ahora las lee de las dos fuentes únicas, y este gate fija que siga
+    siendo así: un literal nuevo ahí es la reaparición del defecto.
+    """
+    fuente = (_RAIZ / "src" / "nikodym" / "report" / "renderer.py").read_text(encoding="utf-8")
+    for palabra in ("Pass técnico", "Falla técnica", "Requiere revisión", "Requiere redesarrollo"):
+        assert palabra not in fuente, f"«{palabra}» volvió al mapa del semáforo"
+    assert 'BAND_LABELS["review"]' in fuente
+    assert 'VALIDATION_STATUS_LABELS["fail"]' in fuente
 
 
 def test_la_prosa_del_informe_ya_no_tiene_su_propio_diccionario_de_bandas() -> None:

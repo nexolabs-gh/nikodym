@@ -130,6 +130,27 @@ export function bandColor(band: string): string {
   return BAND_COLORS[band] ?? BRAND.gray
 }
 
+/**
+ * Paleta del estado técnico de la validación formal (D-SC-9), con el mismo criterio semáforo que
+ * las bandas de estabilidad y REUSANDO sus colores: dos escalas distintas para «esto va bien» y
+ * «esto va mal» en la misma pantalla se leerían como dos significados.
+ *
+ * ⚠️ Sólo el color se comparte. Las PALABRAS son otras y tienen su propia fuente única
+ * (`nikodym.validation.results.VALIDATION_STATUS_LABELS`, espejada en `results-format.ts`): una
+ * banda de PSI no es un estado de validación, y confundirlos sería exactamente el defecto que
+ * D-SC-11 vino a cerrar. Accesibilidad: el color nunca va solo; la palabra lo acompaña siempre.
+ */
+export const VALIDATION_STATUS_COLORS: Record<string, string> = {
+  pass: BAND_COLORS.stable,
+  warn: BAND_COLORS.review,
+  fail: BAND_COLORS.redevelop,
+} as const
+
+/** Color del estado técnico; fallback neutro si el enum crece (robustez). */
+export function validationStatusColor(status: string): string {
+  return VALIDATION_STATUS_COLORS[status] ?? BRAND.gray
+}
+
 /** Etiqueta de una banda; fallback al propio slug si el enum crece (no oculta nada). */
 export function bandLabel(band: string): string {
   return BAND_LABELS[band] ?? band

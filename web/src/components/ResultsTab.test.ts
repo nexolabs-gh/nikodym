@@ -20,7 +20,14 @@ import resultsTabSource from "@/components/ResultsTab.tsx?raw"
 import demoF1 from "@/fixtures/demo/results-f1.json"
 import demoF4 from "@/fixtures/demo/results-ifrs9.json"
 import { MODEL_CARD_F1 } from "@/lib/model-card.fixture"
-import type { ModelCard, ResultsResponse } from "@/lib/results-types"
+import type {
+  ModelCard,
+  ResultsResponse,
+  ValidationCalibrationRow,
+  ValidationNotEvaluableGrade,
+  ValidationResult,
+} from "@/lib/results-types"
+import { VALIDATION_F1 } from "@/lib/validation.fixture"
 
 const TITULO = "Ficha del modelo"
 /** Rótulos que sólo la sección de la ficha escribe: ninguno debe sobrevivir sin card. */
@@ -467,5 +474,177 @@ describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
     const html = render({ ...demo, stability: null })
     expect(ocurrencias(html, "Estabilidad del score")).toBe(0)
     expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(0)
+  })
+})
+
+describe("«Validación formal» (D-SC-9) sobre una corrida real", () => {
+  const conValidacion = (validation: ValidationResult | null): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation,
+  })
+
+  it("publica el estado técnico del motor tal cual, aunque sea «Falla»", () => {
+    const html = render(conValidacion(VALIDATION_F1))
+    expect(html).toContain("Validación formal")
+    expect(html).toContain("Estado técnico")
+    expect(html).toContain("Falla")
+    // El conteo del motor, sin recalcular: 1 de 3 pruebas fallidas.
+    expect(html).toContain("1 de 3")
+    // Y las palabras viejas del informe no sobreviven en ninguna parte de la pantalla.
+    expect(html).not.toContain("Pass técnico")
+    expect(html).not.toContain("Falla técnica")
+  })
+
+  it("una sección por familia corrida, con su tabla y sin las que no corrieron", () => {
+    const html = render(conValidacion(VALIDATION_F1))
+    expect(html).toContain("Discriminación")
+    expect(html).toContain("Calibración por muestra")
+    expect(html).toContain("Hosmer-Lemeshow")
+    expect(html).toContain("Puntaje de Brier")
+    expect(html).toContain("Reusada de la etapa de desempeño")
+    // El backtesting no está en `families_run` y su tabla llega vacía: no se pinta. ⚠️ Se busca
+    // el TÍTULO con su marcado (`Subchart` pinta un `<p>`), no la palabra suelta: «backtesting»
+    // aparece en la descripción de la sección, así que una aserción sobre la palabra suelta sería vacua.
+    expect(html).not.toContain(">Backtesting</p>")
+  })
+
+  it("con backtesting corrido, su tabla sí aparece (ancla de la aserción de arriba)", () => {
+    // 🔴 Sin este control positivo, «no aparece Backtesting» pasaría también si el panel entero
+    // hubiera dejado de pintar tablas. Es el mismo cuidado que exige un control negativo: hay que
+    // comprobar que la aserción puede fallar.
+    const html = render(
+      conValidacion({
+        ...VALIDATION_F1,
+        families_run: [...VALIDATION_F1.families_run, "backtesting"],
+        backtesting: [
+          {
+            parameter: "lgd",
+            segment: "consumo",
+            n: 240,
+            predicted_mean: 0.41,
+            realised_mean: 0.47,
+            test: "t_test",
+            statistic: 2.1,
+            p_value: 0.018,
+            alpha: 0.05,
+            one_sided: true,
+            decision: "fail",
+          },
+        ],
+      }),
+    )
+    expect(html).toContain(">Backtesting</p>")
+    expect(html).toContain("Severidad")
+    expect(html).toContain("t de Student")
+  })
+
+  it("el puntaje de Brier no finge un veredicto de pasa/falla", () => {
+    // Es una fila `not_evaluable` por razones de forma —un puntaje no es un test—, no por falta
+    // de potencia. La palabra tiene que servir para las dos cosas sin mentir en ninguna.
+    const html = render(conValidacion(VALIDATION_F1))
+    expect(html).toContain("Sin veredicto")
+  })
+
+  it("los avisos declarados se marcan, pero su código no se publica", () => {
+    // AGENTS.md §copy público y D-SC-9: el identificador con el que el motor transporta la
+    // salvedad es dato de auditoría, no una frase. Viaja entero en la card y en el anexo; aquí
+    // sólo tiene que verse que hay salvedades y dónde se leen.
+    const html = render(
+      conValidacion({
+        ...VALIDATION_F1,
+        falta_dato: ["FALTA-DATO-VAL-2", "FALTA-DATO-VAL-3"],
+      }),
+    )
+    expect(html).toContain("2 salvedades declaradas")
+    expect(html).toContain("aviso declarado")
+    expect(html).not.toContain("FALTA-DATO")
+    expect(html).not.toContain("DATO-INSTITUCIONAL")
+  })
+
+  it("sin salvedades no hay nota, ni vacía ni fabricada", () => {
+    const html = render(conValidacion({ ...VALIDATION_F1, falta_dato: [] }))
+    expect(html).not.toContain("salvedad declarada")
+    expect(html).not.toContain("salvedades declaradas")
+  })
+
+  it("sin `validation` el panel entero desaparece, no queda vacío", () => {
+    const html = render(conValidacion(null))
+    expect(html).not.toContain("Validación formal")
+    expect(html).not.toContain("Estado técnico")
+    // Y la demo publicada, que se capturó ANTES de que el serializer emitiera la clave, tampoco
+    // lo pinta: es el mismo guard, por presencia y no por verdad.
+    const demo = render(demoF1 as unknown as ResultsResponse)
+    expect(demo).not.toContain("Validación formal")
+  })
+})
+
+describe("cobertura por grado (§0-20): la tabla sola escondería media cartera", () => {
+  const conGrados = (
+    porGrado: ValidationCalibrationRow[],
+    noEvaluados: ValidationNotEvaluableGrade[],
+  ): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation: {
+      ...VALIDATION_F1,
+      calibration: [...(VALIDATION_F1.calibration ?? []), ...porGrado],
+      metric_sections: {
+        validation: {
+          ...VALIDATION_F1.metric_sections?.validation,
+          not_evaluable_grades: noEvaluados,
+        },
+      },
+    },
+  })
+
+  const gradoEvaluado: ValidationCalibrationRow = {
+    partition: "desarrollo",
+    test: "jeffreys",
+    grade: "A",
+    n: 500,
+    observed_defaults: 40,
+    expected_pd: 0.08,
+    observed_dr: 0.08,
+    statistic: 0.1,
+    degrees_of_freedom: null,
+    p_value: 0.91,
+    alpha: 0.05,
+    decision: "pass",
+    traffic_light: "green",
+  }
+  const gradoBajoMinimo: ValidationNotEvaluableGrade = {
+    grade: "Z",
+    n: 12,
+    observed_defaults: 3,
+    expected_pd: 0.2,
+    observed_dr: 0.25,
+    min_rows: 30,
+    status: "not_evaluable",
+  }
+
+  it("con cobertura parcial declara cuántos grados se evaluaron y enumera los que no", () => {
+    const html = render(conGrados([gradoEvaluado], [gradoBajoMinimo]))
+    expect(html).toContain("1 de 2 evaluados")
+    expect(html).toContain("Grados no evaluados (1)")
+    // Las cinco columnas que D-SC-9 exige, más el mínimo que lo dejó fuera.
+    expect(html).toContain("Z")
+    expect(html).toContain("Mínimo")
+    expect(html).toContain("no recibe semáforo ni cuenta en las pruebas")
+    // 🔴 Y el estado del motor NO se recalcula por tener un grado fuera.
+    expect(html).toContain("1 de 3")
+  })
+
+  it("con TODOS los grados bajo el mínimo, cero evaluados y ningún semáforo", () => {
+    const html = render(conGrados([], [gradoBajoMinimo]))
+    expect(html).toContain("0 de 1 evaluados")
+    expect(html).toContain("Grados no evaluados (1)")
+    expect(html).not.toContain("Verde")
+    expect(html).not.toContain("Ámbar")
+    expect(html).not.toContain("Rojo")
+  })
+
+  it("sin contraste por grado no se pinta la sección de cobertura", () => {
+    const html = render(conGrados([], []))
+    expect(html).not.toContain("evaluados")
+    expect(html).not.toContain("Grados no evaluados")
   })
 })
