@@ -35,8 +35,14 @@ import pytest
 from pydantic import BaseModel
 
 from nikodym.binning.results import IV_BAND_LABELS, IvBand
-from nikodym.selection.config import SelectionConfig
+from nikodym.selection.config import (
+    CorrelationSelectionConfig,
+    SelectionConfig,
+    StabilitySelectionConfig,
+    VifSelectionConfig,
+)
 from nikodym.selection.results import REASON_LABELS, SelectionDecisionReason
+from nikodym.selection.step import _thresholds_from_config
 from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS, PsiMetricName, StabilityBand
 
 _RAIZ: Final = Path(__file__).resolve().parents[2]
@@ -182,6 +188,54 @@ def test_los_umbrales_rotulados_son_los_que_la_card_publica() -> None:
     """Medido sobre la corrida real que la demo sirve: ni un umbral mudo ni un rótulo fantasma."""
     thresholds = json.loads(_RESULTS_F1.read_text(encoding="utf-8"))["selection"]["thresholds"]
     assert set(_mapa_ts(_RESULTS_FORMAT, "SELECTION_THRESHOLD_LABELS")) == set(thresholds)
+
+
+def test_un_control_inerte_queda_atado_al_umbral_que_lo_apaga() -> None:
+    """El serializer publica la acción SIEMPRE y anula sólo su umbral, así que el panel decide si
+    un control describe la corrida mirando el umbral del que depende. Esta tabla es la que el front
+    espeja; si el motor dejara de anular ese umbral, la pantalla atribuiría un criterio que no
+    corrió y nadie lo notaría.
+
+    🔴 Hallazgo de la segunda pasada de la revisión adversarial de S8, verificado en el motor:
+    ``_apply_stability_action`` sale por tabla vacía con la estabilidad apagada, el clustering por
+    correlación sólo se consume dentro de ``if self.correlation_enabled`` y la acción ante IV alto
+    sólo dentro de ``if estimator.max_iv is not None``.
+    """
+    depende_de = _mapa_ts(_RESULTS_FORMAT, "SELECTION_THRESHOLD_DEPENDS_ON")
+    assert depende_de == {
+        "max_iv_action": "max_iv",
+        "correlation.clustering_method": "correlation.threshold",
+        "stability.action": "stability.stable_threshold",
+    }
+
+    apagado = _thresholds_from_config(
+        SelectionConfig(
+            max_iv=None,
+            correlation=CorrelationSelectionConfig(enabled=False),
+            vif=VifSelectionConfig(enabled=False),
+            stability=StabilitySelectionConfig(enabled=False),
+        )
+    )
+    encendido = _thresholds_from_config(
+        SelectionConfig(
+            max_iv=0.5,
+            correlation=CorrelationSelectionConfig(enabled=True),
+            vif=VifSelectionConfig(enabled=True),
+            stability=StabilitySelectionConfig(enabled=True),
+        )
+    )
+    for control, umbral in depende_de.items():
+        # Apagado: el umbral se anula y el control queda inerte —pero el serializer lo sigue
+        # publicando, que es justo por lo que el front necesita la tabla—.
+        assert apagado[umbral] is None, umbral
+        assert apagado[control] is not None, control
+        # Encendido: los dos viajan, y el panel los pinta.
+        assert encendido[umbral] is not None, umbral
+        assert encendido[control] is not None, control
+
+    # `correlation.method` no depende de nada: la matriz se calcula aunque el filtro esté apagado.
+    assert "correlation.method" not in depende_de
+    assert apagado["correlation.method"] is not None
 
 
 def test_la_prosa_del_informe_ya_no_tiene_su_propio_diccionario_de_bandas() -> None:

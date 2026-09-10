@@ -2576,6 +2576,22 @@ describe("psiSummaryRows (D-SC-12): valor, identidad y banda de la MISMA observa
     expect(psiSummaryUnattributed(legacy)).toEqual(["Dev vs Holdout"])
   })
 
+  it("una card legacy con la banda del score y el valor de la PD tampoco recibe semáforo", () => {
+    // 🔴 Segundo hallazgo de la revisión adversarial de S8: mirar sólo la banda no basta. Con el
+    // score no evaluable y la PD en 0,30, el agregador histórico conserva el máximo (0,30) y la
+    // banda del score (`not_evaluable`). «0,3000 · No evaluable» escondería un PSI en banda de
+    // redesarrollo.
+    const legacy: StabilityResponse = {
+      ...divergente,
+      comparisons: ["dev_vs_holdout"],
+      max_psi_by_comparison: { dev_vs_holdout: 0.3 },
+      psi_metric_by_comparison: null,
+      bands_by_comparison: { dev_vs_holdout: "not_evaluable" },
+    }
+    expect(psiSummaryRows(legacy)).toEqual([])
+    expect(psiSummaryUnattributed(legacy)).toEqual(["Dev vs Holdout"])
+  })
+
   it("la no evaluable sí se conserva sin identidad: no hay valor que atribuir", () => {
     const sinValor: StabilityResponse = {
       ...divergente,
@@ -2623,6 +2639,8 @@ describe("selectionThresholdRows (D-SC-10)", () => {
       "stability.stable_threshold": null,
       "stability.review_threshold": null,
     })
+    // `stability.action` NO entra: sus dos umbrales vienen nulos, que es como el serializer dice
+    // que la corrida no filtró por estabilidad (es el caso del preset F1).
     expect(filas.map((f) => f.key)).toEqual([
       "min_iv",
       "max_iv",
@@ -2631,11 +2649,33 @@ describe("selectionThresholdRows (D-SC-10)", () => {
       "correlation.threshold",
       "correlation.clustering_method",
       "vif.threshold",
-      "stability.action",
     ])
     expect(filas[0]).toEqual({ key: "min_iv", label: "IV mínimo", value: "0.02" })
     // El valor de un enum se muestra crudo: es lo mismo que enseña el selector del formulario.
     expect(filas[2].value).toBe("flag")
+  })
+
+  it("un control inerte no se presenta como criterio de la corrida", () => {
+    // 🔴 Segundo hallazgo de la revisión adversarial de S8: el serializer publica la acción
+    // SIEMPRE y anula sólo su umbral. Con la correlación y la estabilidad apagadas, el motor no
+    // poda por ninguna de las dos, así que su clustering y su acción no describen esta corrida.
+    const filas = selectionThresholdRows({
+      min_iv: 0.02,
+      max_iv: null,
+      max_iv_action: "flag",
+      min_auc: null,
+      min_ks: null,
+      min_gini: null,
+      "correlation.method": "pearson",
+      "correlation.threshold": null,
+      "correlation.clustering_method": "connected_components",
+      "vif.threshold": null,
+      "stability.action": "exclude",
+      "stability.stable_threshold": null,
+      "stability.review_threshold": null,
+    })
+    // `correlation.method` sí se conserva: la matriz se calcula aunque el filtro esté apagado.
+    expect(filas.map((f) => f.key)).toEqual(["min_iv", "correlation.method"])
   })
 
   it("sin umbrales no inventa filas", () => {

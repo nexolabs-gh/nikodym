@@ -30,6 +30,10 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   publicaban el peor valor entre score y PD junto a la banda del score, así que atribuirlo sería
   inventar. La pantalla lo dice en una línea y conserva las series completas, que sí son correctas.
 
+  Y en la selección, un criterio que la corrida no ejecutó no se presenta como suyo: la acción ante
+  inestabilidad y el clustering por correlación sólo aparecen cuando su filtro estuvo encendido, y
+  la acción ante IV alto sólo cuando había un IV sospechoso que alcanzar.
+
 - **La pestaña Resultados pinta la ficha del modelo.** Cuando la corrida lleva gobernanza, justo
   después de los artefactos de la corrida aparece «Ficha del modelo»: el propósito, los supuestos y
   las limitaciones que declaró la institución, la fecha de emisión y la de próxima revisión, las

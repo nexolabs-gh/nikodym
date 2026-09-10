@@ -1755,8 +1755,13 @@ function psiSummaryPartition(stability: StabilityResponse | null | undefined): {
     const band = bands[comparison]
     const metric = metrics?.[comparison] ?? null
     const value = values[comparison] ?? null
-    // Sin identidad, la única tripleta defendible es la no evaluable: no hay valor que atribuir.
-    if (metric === null && band !== "not_evaluable") {
+    // Sin identidad, la única tripleta defendible es la que no publica valor: no hay nada que
+    // atribuir. 🔴 Mirar sólo la banda no basta: una card legacy con el score no evaluable y la PD
+    // en 0,30 conserva el máximo (0,30, que es el de la PD) y la banda del score
+    // (`not_evaluable`), y pintarlas juntas diría «0,3000 · No evaluable», escondiendo un PSI en
+    // banda de redesarrollo. Una card actual no evaluable publica valor **e** identidad nulos —su
+    // propio validador lo exige—, así que esta condición no la toca.
+    if (metric === null && (band !== "not_evaluable" || value !== null)) {
       unattributed.push(comparisonLabel(comparison))
       continue
     }
@@ -1773,6 +1778,24 @@ function psiSummaryPartition(stability: StabilityResponse | null | undefined): {
 }
 
 // --- panel de selección (D-SC-10) -------------------------------------------
+
+/**
+ * Qué umbral vuelve **inerte** a cada control de acción o método cuando está ausente. Medido en el
+ * motor: `_apply_stability_action` sale por tabla vacía con la estabilidad apagada; el clustering
+ * por correlación sólo se consume dentro de `if self.correlation_enabled`; y la acción ante IV alto
+ * sólo dentro de `if estimator.max_iv is not None`. El serializer, en cambio, publica la acción
+ * **siempre** y anula sólo su umbral, así que sin esta tabla la pantalla atribuiría a la corrida un
+ * criterio que nunca se ejecutó.
+ *
+ * `correlation.method` NO está aquí a propósito: la matriz de correlación se calcula aunque el
+ * filtro esté apagado —es la que produce la peor correlación de cada fila—, así que su método
+ * siempre es real. Lo gatea `tests/unit/test_vocabulario_en_pantalla.py` contra el serializer.
+ */
+export const SELECTION_THRESHOLD_DEPENDS_ON: Record<string, string> = {
+  max_iv_action: "max_iv",
+  "correlation.clustering_method": "correlation.threshold",
+  "stability.action": "stability.stable_threshold",
+} as const
 
 /** Un umbral activo de selección, con su rótulo del formulario y su valor ya formateado. */
 export interface SelectionThresholdRow {
@@ -1792,8 +1815,14 @@ export function selectionThresholdRows(
   thresholds: Record<string, SelectionThresholdValue> | null | undefined,
 ): SelectionThresholdRow[] {
   if (!thresholds) return []
+  const presente = (key: string): boolean =>
+    thresholds[key] !== null && thresholds[key] !== undefined
   return Object.keys(SELECTION_THRESHOLD_LABELS)
-    .filter((key) => thresholds[key] !== null && thresholds[key] !== undefined)
+    .filter((key) => presente(key))
+    .filter((key) => {
+      const del_que_depende = SELECTION_THRESHOLD_DEPENDS_ON[key]
+      return del_que_depende === undefined || presente(del_que_depende)
+    })
     .map((key) => {
       const raw = thresholds[key]
       return {
