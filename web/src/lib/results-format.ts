@@ -15,9 +15,13 @@ import type {
   InternalProvisioningResult,
   PerformanceResult,
   ProvisioningResult,
+  PsiSummaryMetric,
   RunLineage,
+  SelectionDecision,
+  SelectionThresholdValue,
   StabilityBand,
   StabilityMetricRow,
+  StabilityResponse,
 } from "@/lib/results-types"
 
 /** Placeholder uniforme para valores ausentes/no finitos en toda la pestaña. */
@@ -1598,4 +1602,227 @@ export function panelConfigHash(
   hashDelFormulario: string | null,
 ): string | null {
   return lineage?.config_hash ?? hashDelFormulario
+}
+
+// --- vocabulario público espejado del backend (D-SC-10/D-SC-11) -------------
+//
+// Estas palabras NO se inventan aquí: cada mapa es el espejo de una fuente única de Python, y
+// `tests/unit/test_vocabulario_en_pantalla.py` los compara en los dos sentidos —una palabra
+// cambiada de un solo lado, o una clave de más o de menos, pone el gate en rojo—. Los slugs
+// (`low_iv`, `weak`, `pd_psi`) siguen siendo el dato del JSON: lo que se traduce es el copy.
+// El espejo de las bandas de estabilidad vive en `charts/chart-theme.ts` (`BAND_LABELS`), junto
+// a sus colores, y lo cubre el mismo gate.
+
+/** Espejo de `nikodym.selection.results.REASON_LABELS`. */
+export const SELECTION_REASON_LABELS: Record<string, string> = {
+  included: "inclusión",
+  business_exclude: "exclusión de negocio",
+  business_include: "inclusión forzada de negocio",
+  low_iv: "IV insuficiente",
+  high_iv: "IV excesivo (posible fuga)",
+  low_auc: "AUC insuficiente",
+  low_ks: "KS insuficiente",
+  low_gini: "Gini insuficiente",
+  high_correlation: "correlación excesiva",
+  high_vif: "VIF excesivo",
+  cluster_representative_lost: "no ser representante de su clúster",
+  constant_or_nonfinite: "ser constante o no finita",
+  missing_binning_artifact: "faltar su artefacto de binning",
+  forced_conflict: "conflicto entre reglas forzadas",
+  high_stability: "inestabilidad temporal",
+} as const
+
+/** Motivo de una decisión de selección en palabras; fallback al slug (no oculta nada). */
+export function selectionReasonLabel(reason: string): string {
+  return SELECTION_REASON_LABELS[reason] ?? reason
+}
+
+/** Espejo de `nikodym.binning.results.IV_BAND_LABELS` (las palabras del glosario). */
+export const IV_BAND_LABELS: Record<string, string> = {
+  none: "sin poder",
+  weak: "débil",
+  medium: "medio",
+  strong: "fuerte",
+  suspicious: "sospechoso",
+} as const
+
+/** Banda de IV en palabras; fallback al slug. */
+export function ivBandLabel(band: string): string {
+  return IV_BAND_LABELS[band] ?? band
+}
+
+/** Espejo de `nikodym.stability.results.PSI_METRIC_LABELS`: la identidad del resumen A1. */
+export const PSI_METRIC_LABELS: Record<string, string> = {
+  score_psi: "score",
+  pd_psi: "PD calibrada",
+} as const
+
+/** Identidad de la magnitud ganadora del peor PSI; `null` si la card no la declara. */
+export function psiMetricLabel(metric: string | null | undefined): string | null {
+  if (!metric) return null
+  return PSI_METRIC_LABELS[metric] ?? metric
+}
+
+/**
+ * Rótulo de cada umbral de `selection.thresholds` con la palabra del FORMULARIO: son los mismos
+ * campos que el analista rellenó, así que llamarlos de otro modo aquí sería un tercer vocabulario.
+ * El gate los compara contra el `title` de cada campo de `SelectionConfig` y contra las claves que
+ * la card realmente publica.
+ */
+export const SELECTION_THRESHOLD_LABELS: Record<string, string> = {
+  min_iv: "IV mínimo",
+  max_iv: "IV sospechoso",
+  max_iv_action: "Acción ante IV alto",
+  min_auc: "AUC mínimo",
+  min_ks: "KS mínimo",
+  min_gini: "Gini mínimo",
+  "correlation.method": "Método de correlación",
+  "correlation.threshold": "Umbral |rho|",
+  "correlation.clustering_method": "Clustering por correlación",
+  "vif.threshold": "Umbral VIF",
+  "stability.action": "Acción ante inestabilidad",
+  "stability.stable_threshold": "Umbral PSI/CSI de revisión",
+  "stability.review_threshold": "Umbral PSI/CSI de redesarrollo",
+} as const
+
+// --- resumen A1 del PSI (D-SC-12) -------------------------------------------
+
+/**
+ * Una fila del resumen de estabilidad: el peor PSI entre score y PD de una comparación, con la
+ * identidad de la magnitud ganadora y la banda de ESA MISMA magnitud.
+ */
+export interface PsiSummaryRow {
+  comparison: string
+  label: string
+  metric: PsiSummaryMetric | null
+  metricLabel: string | null
+  value: number | null
+  band: StabilityBand
+}
+
+/**
+ * El resumen A1 que la card ya publica, listo para pintar.
+ *
+ * 🔴 Valor, identidad y banda salen de las TRES claves agregadas de la misma card
+ * (`max_psi_by_comparison`, `psi_metric_by_comparison`, `bands_by_comparison`): son una sola
+ * observación indivisible. Derivar la banda de la serie del score —que es lo que el informe hacía
+ * antes de la enmienda del resumen PSI— publica el valor de la PD con el semáforo del score cuando
+ * la PD es la peor. Aquí NO se recalcula nada ni se mira `stability_metrics`.
+ *
+ * Una comparación sin valor publicado se conserva con `value: null`: la card declaró su banda
+ * (típicamente `not_evaluable`) y esconder la fila sería ocultar que no se pudo evaluar.
+ */
+export function psiSummaryRows(
+  stability: StabilityResponse | null | undefined,
+): PsiSummaryRow[] {
+  if (!stability) return []
+  const bands = stability.bands_by_comparison ?? {}
+  const values = stability.max_psi_by_comparison ?? {}
+  const metrics = stability.psi_metric_by_comparison ?? {}
+  const comparisons =
+    stability.comparisons.length > 0
+      ? stability.comparisons
+      : Object.keys(bands).sort()
+  return comparisons
+    .filter((comparison) => comparison in bands)
+    .map((comparison) => {
+      const metric = metrics?.[comparison] ?? null
+      return {
+        comparison,
+        label: comparisonLabel(comparison),
+        metric,
+        metricLabel: psiMetricLabel(metric),
+        value: values[comparison] ?? null,
+        band: bands[comparison],
+      }
+    })
+}
+
+// --- panel de selección (D-SC-10) -------------------------------------------
+
+/** Un umbral activo de selección, con su rótulo del formulario y su valor ya formateado. */
+export interface SelectionThresholdRow {
+  key: string
+  label: string
+  value: string
+}
+
+/**
+ * Los umbrales ACTIVOS de la corrida, en el orden del formulario.
+ *
+ * Un umbral apagado llega como `null` y no se pinta: enseñarlo como «—» sugeriría que hubo un
+ * criterio donde no lo hubo. Los valores de enum (`flag`, `pearson`) se muestran crudos, que es
+ * exactamente lo que el formulario enseña en su selector.
+ */
+export function selectionThresholdRows(
+  thresholds: Record<string, SelectionThresholdValue> | null | undefined,
+): SelectionThresholdRow[] {
+  if (!thresholds) return []
+  return Object.keys(SELECTION_THRESHOLD_LABELS)
+    .filter((key) => thresholds[key] !== null && thresholds[key] !== undefined)
+    .map((key) => {
+      const raw = thresholds[key]
+      return {
+        key,
+        label: SELECTION_THRESHOLD_LABELS[key],
+        value: typeof raw === "number" ? formatMetric(raw, 2) : String(raw),
+      }
+    })
+}
+
+/**
+ * Cómo se lee una variable que el usuario forzó. No es un enum del motor con vocabulario propio:
+ * `forced` sólo vale `include`/`exclude` y aquí se dice en la voz de la tabla.
+ */
+const FORCED_LABELS: Record<string, string> = {
+  include: "forzada dentro",
+  exclude: "forzada fuera",
+}
+
+/** Una fila de la tabla de decisiones de selección, ya en palabras y ya formateada. */
+export interface SelectionDecisionRow {
+  feature: string
+  included: boolean
+  reason: string
+  iv: string
+  ivBand: string
+  auc: string
+  ks: string
+  correlation: string
+  vif: string
+  csi: string
+  forced: string | null
+  detail: string | null
+}
+
+/**
+ * Las decisiones de selección listas para la tabla, ordenadas por IV descendente (misma lectura
+ * que el gráfico de IV: de la más informativa a la que menos discrimina).
+ *
+ * `detail` viaja tal cual lo escribió el motor (`iv=0.0029 < min_iv=0.02`): es el dato de
+ * auditoría de la fila y reescribirlo lo desconectaría del audit-trail.
+ */
+export function selectionDecisionRows(
+  decisions: SelectionDecision[] | null | undefined,
+): SelectionDecisionRow[] {
+  if (!decisions) return []
+  return [...decisions]
+    .sort((a, b) => b.iv - a.iv || a.feature.localeCompare(b.feature))
+    .map((d) => ({
+      feature: d.feature,
+      included: d.included,
+      reason: selectionReasonLabel(d.reason),
+      iv: formatMetric(d.iv),
+      ivBand: ivBandLabel(d.iv_band),
+      auc: formatMetric(d.auc),
+      ks: formatMetric(d.ks),
+      correlation:
+        d.max_abs_corr === null || d.max_abs_corr === undefined
+          ? EMPTY
+          : `${formatMetric(d.max_abs_corr)}${d.max_corr_with ? ` · ${d.max_corr_with}` : ""}`,
+      vif: formatMetric(d.vif, 2),
+      csi: formatMetric(d.max_csi),
+      forced: FORCED_LABELS[d.forced ?? ""] ?? null,
+      detail: d.detail,
+    }))
 }

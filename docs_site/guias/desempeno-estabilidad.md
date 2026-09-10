@@ -121,14 +121,22 @@ diagnóstico.
 A diferencia de la discriminación, aquí los umbrales **sí son fijos y estándar de industria**, y
 Nikodym los aplica para asignar una banda a cada comparación:
 
-| PSI / CSI | Banda | Interpretación | Acción |
+| PSI / CSI | Banda | Interpretación | Acción auditada |
 |---|---|---|---|
-| < 0,10 | `stable` | Sin cambio material | `none` |
-| 0,10 ≤ PSI/CSI < 0,25 | `review` | Desvío moderado, investigar | `vigilar` |
-| ≥ 0,25 | `redevelop` | Cambio significativo | `redesarrollar` |
+| < 0,10 | **Estable** | Sin cambio material | `none` |
+| 0,10 ≤ PSI/CSI < 0,25 | **Revisar** | Desvío moderado, investigar | `vigilar` |
+| ≥ 0,25 | **Redesarrollar** | Cambio significativo | `redesarrollar` |
+
+Una comparación sin valor comparable queda en **No evaluable**, que no es lo mismo que estar en
+banda estable: significa que el motor no pudo medirla.
 
 En la corrida de ejemplo estos son los campos reales del config de estabilidad:
 `stable_threshold=0.1`, `review_threshold=0.25`.
+
+Esas cuatro palabras son las que ves en la pestaña **Resultados** y las que escribe el informe: hay
+una sola fuente para las tres superficies. En el JSON de resultados la banda viaja como su
+identificador, que es lo que consume tu código; la correspondencia entre identificador, palabra y
+acción está en la [referencia de la API](../api.md#bandas-de-estabilidad).
 
 La card resume cada comparación con el **peor PSI entre score y PD calibrada**. El valor, la
 identidad de la magnitud ganadora y su banda se publican juntos; la tabla detallada conserva ambas
@@ -136,23 +144,23 @@ series por separado.
 
 ### La corrida de ejemplo
 
-El modelo es muy estable: todas las comparaciones caen holgadamente en banda `stable`
-(`action="none"`).
+El modelo es muy estable: todas las comparaciones caen holgadamente en banda **Estable**
+(acción auditada `none`).
 
 | Métrica | Comparación | Valor | Banda |
 |---|---|---:|---|
-| PSI de score | dev vs holdout | 0,0127 | stable |
-| PSI de score | dev vs oot | 0,0068 | stable |
-| PSI de PD | dev vs holdout | 0,0132 | stable |
-| PSI de PD | dev vs oot | 0,0065 | stable |
-| CSI (peor característica) | dev vs holdout | 0,0102 (`mora_max_12m`) | stable |
+| PSI de score | dev vs holdout | 0,0127 | Estable |
+| PSI de score | dev vs oot | 0,0068 | Estable |
+| PSI de PD | dev vs holdout | 0,0132 | Estable |
+| PSI de PD | dev vs oot | 0,0065 | Estable |
+| CSI (peor característica) | dev vs holdout | 0,0102 (`mora_max_12m`) | Estable |
 
 *Fuente: corrida de ejemplo, `stability.stability_metrics` y `stability.worst_csi_*`.*
 
 Todos los valores están uno o dos órdenes de magnitud por debajo del umbral `0,10`. Es el
 resultado esperable en un dataset sintético con particiones bien comportadas; en producción real la
-gracia del monitoreo es detectar cuándo un `mora_max_12m__points` cruza `0,10` y pasa a `review`
-**antes** de que la discriminación se caiga.
+gracia del monitoreo es detectar cuándo un `mora_max_12m__points` cruza `0,10` y pasa a
+**Revisar** **antes** de que la discriminación se caiga.
 
 !!! tip "Estabilidad ≠ desempeño"
     Son señales independientes y complementarias. Un modelo puede tener PSI bajo (población estable)

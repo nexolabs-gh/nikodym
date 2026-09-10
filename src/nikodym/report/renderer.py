@@ -566,10 +566,21 @@ def _executive_view(bundle: ReportInputBundle) -> dict[str, Any]:
 
 
 def _band_class(band: str) -> str:
-    """Clase CSS del semáforo: sólo se colorea lo que el motor sí evaluó."""
-    if band in {"Bajo el umbral configurado", "Requiere redesarrollo", "Falla técnica"}:
+    """Clase CSS del semáforo: sólo se colorea lo que el motor sí evaluó.
+
+    ⚠️ El mapa es por **rótulo publicado**, no por slug: la vista ejecutiva ya trae la banda
+    traducida. Por eso las palabras nuevas del PSI (D-SC-11: «Revisar»/«Redesarrollar») entran aquí
+    junto con las de validación, que siguen siendo las suyas; una banda sin entrada se pinta neutra
+    y el semáforo mentiría por omisión. Lo gatea ``test_prosa_factual``.
+    """
+    if band in {
+        "Bajo el umbral configurado",
+        "Redesarrollar",
+        "Requiere redesarrollo",
+        "Falla técnica",
+    }:
         return "band-alert"
-    if band == "Requiere revisión":
+    if band in {"Revisar", "Requiere revisión"}:
         return "band-warn"
     if band in {"Sin alertas", "Estable", "Pass técnico"}:
         return "band-ok"

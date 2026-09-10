@@ -71,7 +71,30 @@ _BAND_TO_ACTION: dict[str, str] = {
     "not_evaluable": "none",
 }
 
+#: Rótulo público de cada banda: la **única** fuente de esas cuatro palabras (D-SC-11). El slug
+#: (``stable``/``review``/…) es el dato y no se toca —viaja en el JSON, en ``psi_table`` y en
+#: ``stability_metrics``—; estas palabras son el copy que lee una persona. Hasta esta capa convivían
+#: dos vocabularios —la interfaz decía «Revisar» y la prosa del informe «Requiere revisión»— y la
+#: guía publicaba los slugs en inglés. Consumidores: ``nikodym.report.prose``, el panel de
+#: Resultados (espejo en ``web/src/components/charts/chart-theme.ts``, gateado en los dos sentidos
+#: por ``tests/unit/test_vocabulario_en_pantalla.py``) y las guías del sitio.
+BAND_LABELS: dict[str, str] = {
+    "stable": "Estable",
+    "review": "Revisar",
+    "redevelop": "Redesarrollar",
+    "not_evaluable": "No evaluable",
+}
+
+#: Identidad pública de la magnitud que gana el resumen A1 (peor PSI entre score y PD). Misma regla
+#: que ``BAND_LABELS``: una sola fuente para el informe y para la pantalla.
+PSI_METRIC_LABELS: dict[str, str] = {
+    "score_psi": "score",
+    "pd_psi": "PD calibrada",
+}
+
 __all__ = [
+    "BAND_LABELS",
+    "PSI_METRIC_LABELS",
     "CsiRecord",
     "CsiSource",
     "PsiRecord",

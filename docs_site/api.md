@@ -190,6 +190,39 @@ OptBinning tras el *extra* `scoring`).
 
 Filtrado pre-modelo por IV, correlación, VIF y estabilidad.
 
+### Motivos y bandas de IV
+
+Cada variable candidata sale con un motivo (`decisions[].reason`) y con la banda diagnóstica de su
+IV (`decisions[].iv_band`). Igual que con las bandas de estabilidad, el identificador es el dato y
+la palabra es lo que se lee en pantalla y en el informe; las fuentes únicas son
+`nikodym.selection.results.REASON_LABELS` y `nikodym.binning.results.IV_BAND_LABELS`.
+
+| Motivo | Palabra |
+|---|---|
+| `included` | inclusión |
+| `business_include` | inclusión forzada de negocio |
+| `business_exclude` | exclusión de negocio |
+| `low_iv` | IV insuficiente |
+| `high_iv` | IV excesivo (posible fuga) |
+| `low_auc` | AUC insuficiente |
+| `low_ks` | KS insuficiente |
+| `low_gini` | Gini insuficiente |
+| `high_correlation` | correlación excesiva |
+| `high_vif` | VIF excesivo |
+| `cluster_representative_lost` | no ser representante de su clúster |
+| `constant_or_nonfinite` | ser constante o no finita |
+| `missing_binning_artifact` | faltar su artefacto de binning |
+| `forced_conflict` | conflicto entre reglas forzadas |
+| `high_stability` | inestabilidad temporal |
+
+| Banda de IV | Palabra |
+|---|---|
+| `none` | sin poder |
+| `weak` | débil |
+| `medium` | medio |
+| `strong` | fuerte |
+| `suspicious` | sospechoso |
+
 ::: nikodym.selection.config.SelectionConfig
     options:
       heading_level: 3
@@ -295,6 +328,24 @@ Métricas de discriminación (AUC/KS/Gini) y desempeño por decil, por partició
 ## Estabilidad
 
 PSI/CSI y estabilidad temporal del puntaje y de las características.
+
+### Bandas de estabilidad
+
+Cada comparación se clasifica en una banda, y la banda fija de forma única la acción auditada. En
+los resultados —JSON, `psi_table`, `stability_metrics`, model card— la banda viaja como su
+**identificador**; en la pantalla, en el informe y en las guías se lee como su **palabra**. Son el
+mismo dato: la fuente única de la correspondencia es `nikodym.stability.results.BAND_LABELS`.
+
+| Identificador | Palabra | Acción auditada |
+|---|---|---|
+| `stable` | Estable | `none` |
+| `review` | Revisar | `vigilar` |
+| `redevelop` | Redesarrollar | `redesarrollar` |
+| `not_evaluable` | No evaluable | `none` |
+
+El resumen de cada comparación publica juntos el peor PSI entre score y PD, la identidad de la
+magnitud ganadora (`score_psi` → «score», `pd_psi` → «PD calibrada», en
+`nikodym.stability.results.PSI_METRIC_LABELS`) y la banda **de esa misma magnitud**.
 
 ::: nikodym.stability.config.StabilityConfig
     options:

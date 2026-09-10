@@ -84,11 +84,15 @@ inferior inclusivo**). Estas bandas son diagnósticas, **no** son el filtro de c
 
 | Banda | Rango de IV | Lectura |
 |---|---|---|
-| `none` | IV < 0.02 | Sin poder predictivo útil |
-| `weak` | 0.02 ≤ IV < 0.10 | Débil |
-| `medium` | 0.10 ≤ IV < 0.30 | Predictor sólido |
-| `strong` | 0.30 ≤ IV < 0.50 | Fuerte |
-| `suspicious` | IV ≥ 0.50 | Sospechosamente alto (posible *fuga de información*) |
+| **sin poder** | IV < 0.02 | Sin poder predictivo útil |
+| **débil** | 0.02 ≤ IV < 0.10 | Aporta poco por sí sola |
+| **medio** | 0.10 ≤ IV < 0.30 | Predictor sólido |
+| **fuerte** | 0.30 ≤ IV < 0.50 | Muy informativa |
+| **sospechoso** | IV ≥ 0.50 | Sospechosamente alto (posible *fuga de información*) |
+
+Esas son las palabras que ves en el panel **Selección de variables** de Resultados. En el JSON la
+banda viaja como su identificador; la correspondencia está en la
+[referencia de la API](../api.md#motivos-y-bandas-de-iv), junto a la de los motivos de exclusión.
 
 Un IV muy alto no es automáticamente bueno: suele delatar una variable que filtra el resultado
 (*leakage*) o que es un proxy casi directo del target. Por eso la selección trata el extremo
@@ -100,12 +104,12 @@ Del mismo fixture (`binning.iv_by_variable` y `monotonicity_by_variable`):
 
 | Variable | IV | Banda | Monotonía (tasa de evento) |
 |---|---:|---|---|
-| `ingreso_mensual` | 0.3048 | `strong` | descending |
-| `deuda_ingreso` | 0.1635 | `medium` | ascending |
-| `utilizacion_linea` | 0.0610 | `weak` | ascending |
-| `antiguedad_meses` | 0.0414 | `weak` | descending |
-| `mora_max_12m` | 0.0219 | `weak` | ascending |
-| `segmento` | 0.0029 | `none` | — (categórica, sin monotonía) |
+| `ingreso_mensual` | 0.3048 | fuerte | descending |
+| `deuda_ingreso` | 0.1635 | medio | ascending |
+| `utilizacion_linea` | 0.0610 | débil | ascending |
+| `antiguedad_meses` | 0.0414 | débil | descending |
+| `mora_max_12m` | 0.0219 | débil | ascending |
+| `segmento` | 0.0029 | sin poder | — (categórica, sin monotonía) |
 
 `optbinning_version` registrado en la corrida: `0.20.0`.
 
@@ -189,7 +193,7 @@ aplican en cascada y cada decisión queda registrada (variable, motivo, métrica
 ### 1. Filtro por IV
 
 - `min_iv` (default `0.02`): descarta variables con IV bajo el umbral por poder predictivo
-  insuficiente. Coincide con la frontera `none`/`weak` de `iv_band`.
+  insuficiente. Coincide con la frontera entre **sin poder** y **débil** de `iv_band`.
 - `max_iv` (default `0.50`) + `max_iv_action` (`"flag"` | `"exclude"`): trata el IV
   *sospechosamente alto*. Por defecto solo **marca** la variable para revisión manual (posible
   *leakage*); con `"exclude"` la descarta automáticamente.
@@ -253,7 +257,9 @@ estándar (`min_iv=0.02`, `max_iv=0.5` acción `flag`, `correlation.threshold=0.
 `vif.threshold=5.0`):
 
 - **6 candidatas → 5 seleccionadas, 1 excluida.**
-- La única exclusión fue `segmento`, por `low_iv`: `iv=0.00292 < min_iv=0.02`.
+- La única exclusión fue `segmento`, por **IV insuficiente**: `iv=0.00292 < min_iv=0.02`.
+  El panel de Resultados muestra esa misma fila con su motivo y con el detalle que dejó
+  escrito el motor, que es lo que se audita.
 - Sin banderas de IV alto ni de estabilidad.
 - Tras la selección, la máxima correlación absoluta entre variables retenidas fue **0.0303** y el
   máximo VIF **1.0016**: el conjunto final es prácticamente ortogonal, así que ni el filtro de

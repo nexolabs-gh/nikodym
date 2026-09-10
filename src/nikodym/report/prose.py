@@ -30,6 +30,12 @@ from nikodym.core.markers import strip_declared_codes
 from nikodym.methodology import build_ifrs9_methodology_card, methodology_paragraphs
 from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 
+# Las cuatro palabras de las bandas del PSI y la identidad de la magnitud ganadora del resumen A1
+# NO se reescriben aquí: son copy público con una sola fuente, la del dominio que las produce
+# (D-SC-11). `nikodym.stability.results` no arrastra pandas, así que el import es de módulo; el de
+# `selection` sí lo haría y por eso vive dentro de `_reason_label`.
+from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS
+
 if TYPE_CHECKING:
     from nikodym.report.results import ReportInputBundle
 
@@ -63,16 +69,6 @@ _DISCRIMINANT_BANDS: Final[dict[str, str]] = {
     "ok": "Sin alertas",
     "threshold_flag": "Bajo el umbral configurado",
     "not_evaluable": "No evaluable",
-}
-_STABILITY_BANDS: Final[dict[str, str]] = {
-    "stable": "Estable",
-    "review": "Requiere revisión",
-    "redevelop": "Requiere redesarrollo",
-    "not_evaluable": "No evaluable",
-}
-_PSI_METRIC_LABELS: Final[dict[str, str]] = {
-    "score_psi": "score",
-    "pd_psi": "PD calibrada",
 }
 _PSI_METRIC_REFERENTS: Final[dict[str, str]] = {
     "score_psi": "al score",
@@ -255,7 +251,7 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
         for comparison in _sequence(stability.get("comparisons")):
             comparison_id = str(comparison)
             metric_name = str(psi_metrics.get(comparison_id, ""))
-            metric_label = _PSI_METRIC_LABELS.get(metric_name)
+            metric_label = PSI_METRIC_LABELS.get(metric_name)
             label = "Peor PSI entre score y PD"
             if metric_label is not None:
                 label += f" · {metric_label}"
@@ -264,7 +260,7 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
                     label=label,
                     scope=_comparison_label(comparison_id),
                     value=_num(max_psi.get(comparison_id), decimals=4),
-                    band=_STABILITY_BANDS.get(str(bands.get(comparison_id, "")), _NOT_AVAILABLE),
+                    band=BAND_LABELS.get(str(bands.get(comparison_id, "")), _NOT_AVAILABLE),
                 )
             )
         stable = _float(stability.get("stable_threshold"))
@@ -1595,7 +1591,7 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
         identity = f"; corresponde {referent}" if referent is not None else ""
         paragraphs.append(
             f"El peor PSI entre score y PD en {_comparison_label(comparison_id)} es "
-            f"{_num(value)} (banda «{_STABILITY_BANDS.get(band, band)}»){identity}. {lectura}"
+            f"{_num(value)} (banda «{BAND_LABELS.get(band, band)}»){identity}. {lectura}"
         )
 
     worst_feature = _text(card.get("worst_csi_feature"))
@@ -2317,11 +2313,11 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
         for comparison, band in sorted(bands.items(), key=lambda item: str(item[0])):
             if _float(max_psi.get(comparison)) is None:
                 continue
-            metric_label = _PSI_METRIC_LABELS.get(str(psi_metrics.get(comparison)))
+            metric_label = PSI_METRIC_LABELS.get(str(psi_metrics.get(comparison)))
             identity = f"; {metric_label}" if metric_label is not None else ""
             detalles_list.append(
                 f"{_comparison_label(str(comparison))} {_num(max_psi.get(comparison))} "
-                f"(«{_STABILITY_BANDS.get(str(band), str(band))}»{identity})"
+                f"(«{BAND_LABELS.get(str(band), str(band))}»{identity})"
             )
         detalles = tuple(detalles_list)
         if detalles:
@@ -2653,22 +2649,14 @@ def _quality_label(flag: str) -> str:
 
 
 def _reason_label(reason: str) -> str:
-    return {
-        "business_exclude": "exclusión de negocio",
-        "business_include": "inclusión forzada de negocio",
-        "low_iv": "IV insuficiente",
-        "high_iv": "IV excesivo (posible fuga)",
-        "low_auc": "AUC insuficiente",
-        "low_ks": "KS insuficiente",
-        "low_gini": "Gini insuficiente",
-        "high_correlation": "correlación excesiva",
-        "high_vif": "VIF excesivo",
-        "cluster_representative_lost": "no ser representante de su clúster",
-        "constant_or_nonfinite": "ser constante o no finita",
-        "missing_binning_artifact": "faltar su artefacto de binning",
-        "forced_conflict": "conflicto entre reglas forzadas",
-        "high_stability": "inestabilidad temporal",
-    }.get(reason, f"la razón «{reason}»")
+    """Rótulo público de un motivo de selección, leído de su fuente única (D-SC-10).
+
+    El import va dentro de la función a propósito: ``nikodym.selection.results`` importa ``pandas``
+    y este módulo se mantiene liviano (lo gatea ``test_report_prose_no_arrastra_pandas``).
+    """
+    from nikodym.selection.results import REASON_LABELS
+
+    return REASON_LABELS.get(reason, f"la razón «{reason}»")
 
 
 def _threshold_flags(card: Mapping[str, Any], partition: str) -> tuple[str, ...]:

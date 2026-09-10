@@ -25,7 +25,25 @@ from nikodym.binning.exceptions import BinningError
 
 IvBand: TypeAlias = Literal["none", "weak", "medium", "strong", "suspicious"]
 
-__all__ = ["BinningCardSection", "BinningResult", "BinningVariableSummary", "iv_band"]
+#: Rótulo público de cada banda de IV: la **única** fuente de esas cinco palabras (D-SC-10). Son
+#: las que el glosario del sitio ya publica; el slug sigue siendo el dato del JSON. El espejo del
+#: panel de selección vive en ``web/src/lib/results-format.ts`` y lo gatea
+#: ``tests/unit/test_vocabulario_en_pantalla.py`` en los dos sentidos.
+IV_BAND_LABELS: dict[str, str] = {
+    "none": "sin poder",
+    "weak": "débil",
+    "medium": "medio",
+    "strong": "fuerte",
+    "suspicious": "sospechoso",
+}
+
+__all__ = [
+    "IV_BAND_LABELS",
+    "BinningCardSection",
+    "BinningResult",
+    "BinningVariableSummary",
+    "iv_band",
+]
 
 
 def iv_band(iv: float) -> IvBand:

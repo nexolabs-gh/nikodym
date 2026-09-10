@@ -9,6 +9,23 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **La pestaña Resultados pinta la selección de variables.** Entre «Análisis por variable (WoE)» y
+  «Escala y calibración» aparece «Selección de variables»: cuántas candidatas había, cuántas
+  quedaron y cuántas se descartaron; los umbrales de esta corrida con el mismo nombre que tienen en
+  el formulario; y una fila por variable con la decisión, el motivo en español, su IV con la banda
+  diagnóstica, AUC, KS, la peor correlación y con quién, VIF y CSI. El detalle que dejó escrito el
+  motor —`iv=0.0029 < min_iv=0.02`— se muestra tal cual: es lo que ata la fila al audit-trail y
+  reescribirlo la desconectaría. Las variables que el motor marcó por IV alto o por inestabilidad
+  se avisan aparte, porque marcadas no es lo mismo que excluidas. Esta información viajaba entera
+  en la respuesta de la interfaz y no se veía en ninguna pantalla; sin `selection`, la sección no
+  se renderiza.
+
+- **El resumen del peor PSI se ve en pantalla, no sólo en el informe.** «Estabilidad del score»
+  gana, arriba de las series, una línea por comparación: el peor PSI entre score y PD calibrada,
+  cuál de las dos magnitudes es la peor, y la banda **de esa misma magnitud**. Los tres datos
+  viajaban juntos desde que se corrigió el resumen del informe, y la pantalla mostraba sólo las
+  series: había que leer dos gráficos para saber qué decía el semáforo.
+
 - **La pestaña Resultados pinta la ficha del modelo.** Cuando la corrida lleva gobernanza, justo
   después de los artefactos de la corrida aparece «Ficha del modelo»: el propósito, los supuestos y
   las limitaciones que declaró la institución, la fecha de emisión y la de próxima revisión, las
@@ -74,6 +91,16 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   ese archivo hoy no se escribe, y ofrecer su nombre sería un control sin efecto.
 
 ### Cambiado
+
+- **Las bandas de estabilidad se llaman igual en todas partes: Estable, Revisar, Redesarrollar y
+  No evaluable.** Hasta ahora el mismo dato salía con dos vocabularios —la interfaz decía
+  «Revisar» y el informe «Requiere revisión»— y las guías publicaban el identificador en inglés.
+  Ahora hay una sola fuente (`nikodym.stability.results.BAND_LABELS`), el informe la consume, la
+  pantalla la replica con un gate que compara ambos lados y las guías publican las palabras. El
+  identificador (`stable`, `review`, `redevelop`, `not_evaluable`) **no cambia**: sigue siendo lo
+  que viaja en el JSON, en `psi_table`, en `stability_metrics` y en la model card, y ahora está
+  documentado junto a su palabra en la referencia de la API. Mismo criterio para los motivos de
+  selección y las bandas de IV, que ya se leían en el informe y ahora también en pantalla.
 
 - **El caso de referencia de norma local ya no se ofrece en el catálogo por defecto de la
   interfaz.** La primera pantalla describe lo que el motor hace para cualquiera, así que los dos

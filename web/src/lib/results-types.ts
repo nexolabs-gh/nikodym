@@ -130,20 +130,77 @@ export interface BinningResult {
 
 // --- selection --------------------------------------------------------------
 
-/** Sección de selección de variables (no renderizada en v1; tipada laxa). */
+/**
+ * Banda diagnóstica del IV (`IvBand` del backend). El slug es el dato; su palabra en español
+ * la resuelve `ivBandLabel`, espejo de `nikodym.binning.results.IV_BAND_LABELS`.
+ */
+export type IvBand = "none" | "weak" | "medium" | "strong" | "suspicious"
+
+/**
+ * Motivo de la decisión sobre una variable candidata (`SelectionDecisionReason` del backend).
+ * `included` es el único que no excluye. Su palabra en español la resuelve `selectionReasonLabel`,
+ * espejo de `nikodym.selection.results.REASON_LABELS`.
+ */
+export type SelectionDecisionReason =
+  | "included"
+  | "business_exclude"
+  | "business_include"
+  | "low_iv"
+  | "high_iv"
+  | "low_auc"
+  | "low_ks"
+  | "low_gini"
+  | "high_correlation"
+  | "high_vif"
+  | "cluster_representative_lost"
+  | "constant_or_nonfinite"
+  | "missing_binning_artifact"
+  | "forced_conflict"
+  | "high_stability"
+
+/**
+ * Una fila de `selection.decisions` (`VariableSelectionDecision` del backend): la decisión
+ * auditable sobre una variable candidata. `detail` es texto libre del motor (p. ej.
+ * `iv=0.0029 < min_iv=0.02`) y se muestra tal cual: es el dato de auditoría de la fila.
+ */
+export interface SelectionDecision {
+  feature: string
+  woe_column: string
+  included: boolean
+  reason: SelectionDecisionReason
+  iv: number
+  iv_band: IvBand
+  auc: number | null
+  gini: number | null
+  ks: number | null
+  max_abs_corr: number | null
+  max_corr_with: string | null
+  vif: number | null
+  max_csi: number | null
+  forced: "include" | "exclude" | null
+  detail: string | null
+}
+
+/**
+ * Valor de un umbral activo de `selection.thresholds` (`ThresholdValue` del backend): un número,
+ * el valor crudo de un enum (el mismo que muestra el formulario) o `null` si está apagado.
+ */
+export type SelectionThresholdValue = number | string | null
+
+/** Sección de selección de variables (`SelectionCardSection` + `decisions`). */
 export interface SelectionResult {
   n_candidates: number
   n_selected: number
   n_excluded: number
   selected_features: string[]
-  max_abs_correlation_after_selection?: number
-  max_vif_after_selection?: number
-  thresholds?: Record<string, unknown>
-  excluded_by_reason?: Record<string, unknown>
-  high_iv_flags?: unknown[]
-  stability_flags?: unknown[]
-  decisions?: unknown[]
-  dependency_versions?: Record<string, unknown>
+  max_abs_correlation_after_selection?: number | null
+  max_vif_after_selection?: number | null
+  thresholds?: Record<string, SelectionThresholdValue>
+  excluded_by_reason?: Record<string, number>
+  high_iv_flags?: string[]
+  stability_flags?: string[]
+  decisions?: SelectionDecision[] | null
+  dependency_versions?: Record<string, string>
 }
 
 // --- model ------------------------------------------------------------------

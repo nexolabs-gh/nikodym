@@ -65,7 +65,35 @@ _DECISION_REASON_ORDER: tuple[SelectionDecisionReason, ...] = (
     "high_stability",
 )
 
+#: Rótulo público de cada motivo de selección: la **única** fuente de esas quince palabras
+#: (D-SC-10). El slug es el dato —viaja en ``decisions[].reason`` y en ``excluded_by_reason``—; esto
+#: es el copy que lee una persona. Lo consumen la prosa del informe (``nikodym.report.prose``, que
+#: lo importa dentro de la función para no arrastrar ``pandas`` a un módulo liviano) y el panel de
+#: selección de Resultados, cuyo espejo en ``web/src/lib/results-format.ts`` gatea
+#: ``tests/unit/test_vocabulario_en_pantalla.py`` en los dos sentidos.
+#:
+#: Las frases están redactadas para caber en «las exclusiones se reparten en 1 por …» —que es como
+#: las enuncia el informe— y en la columna «Motivo» de la tabla de decisiones.
+REASON_LABELS: dict[str, str] = {
+    "included": "inclusión",
+    "business_exclude": "exclusión de negocio",
+    "business_include": "inclusión forzada de negocio",
+    "low_iv": "IV insuficiente",
+    "high_iv": "IV excesivo (posible fuga)",
+    "low_auc": "AUC insuficiente",
+    "low_ks": "KS insuficiente",
+    "low_gini": "Gini insuficiente",
+    "high_correlation": "correlación excesiva",
+    "high_vif": "VIF excesivo",
+    "cluster_representative_lost": "no ser representante de su clúster",
+    "constant_or_nonfinite": "ser constante o no finita",
+    "missing_binning_artifact": "faltar su artefacto de binning",
+    "forced_conflict": "conflicto entre reglas forzadas",
+    "high_stability": "inestabilidad temporal",
+}
+
 __all__ = [
+    "REASON_LABELS",
     "SelectionCardSection",
     "SelectionDecisionReason",
     "SelectionResult",

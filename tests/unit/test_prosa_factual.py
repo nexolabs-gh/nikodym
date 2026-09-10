@@ -7,9 +7,11 @@ from typing import Any, cast
 
 from nikodym.data.config import MissingConfig
 from nikodym.report.prose import conclusions_body, executive_view, methodology_body, results_body
+from nikodym.report.renderer import _band_class
 from nikodym.report.results import ReportInputBundle
 from nikodym.selection.config import SelectionConfig, StabilitySelectionConfig
 from nikodym.stability.config import StabilityConfig
+from nikodym.stability.results import BAND_LABELS
 from nikodym.validation.config import StabilityValidationConfig
 
 
@@ -177,11 +179,21 @@ def test_resumen_psi_publica_magnitud_identidad_banda_y_fronteras_coherentes() -
     assert "El peor PSI entre score y PD" in texto_resultados
     assert "corresponde a la PD calibrada" in texto_resultados
     assert "0,1200" in texto_resultados
-    assert "Requiere revisión" in texto_resultados
+    # D-SC-11: la palabra es la de la fuente única, la misma que pinta la interfaz. Antes de la
+    # capa 1 el informe decía «Requiere revisión» y la pantalla «Revisar» para este mismo dato.
+    assert "Revisar" in texto_resultados
+    assert "Requiere revisión" not in texto_resultados
     assert "PSI del score 0,1200" not in texto_resultados
     assert metrica_psi.label == "Peor PSI entre score y PD · PD calibrada"
     assert metrica_psi.value == "0,1200"
-    assert metrica_psi.band == "Requiere revisión"
+    assert metrica_psi.band == BAND_LABELS["review"]
+    assert metrica_psi.band == "Revisar"
+    # El semáforo del HTML mapea por rótulo, no por slug: una palabra nueva sin su clase deja la
+    # banda en gris y el informe miente por omisión sobre una revisión pendiente.
+    assert _band_class(metrica_psi.band) == "band-warn"
+    assert _band_class(BAND_LABELS["redevelop"]) == "band-alert"
+    assert _band_class(BAND_LABELS["stable"]) == "band-ok"
+    assert _band_class(BAND_LABELS["not_evaluable"]) == "band-none"
     assert "Estabilidad (peor PSI entre score y PD)" in texto_conclusiones
     assert "PD calibrada" in texto_conclusiones
     assert "redesarrollo desde 0,25" in " ".join(vista_ejecutiva.notes)

@@ -71,8 +71,11 @@ import {
   provisioningSectionCopy,
   provisioningSourceLabel,
   psiBars,
+  psiSummaryRows,
   reliabilityCurve,
   scoreHistogram,
+  selectionDecisionRows,
+  selectionThresholdRows,
   sicrTriggerLabel,
   sortByIv,
   temporalScore,
@@ -85,8 +88,10 @@ import type {
   Ifrs9SummaryRowView,
   InternalGroupBar,
   ProvisioningHeadline,
+  PsiSummaryRow,
   ReliabilityPartitionView,
   ReliabilityView,
+  SelectionDecisionRow,
   VariableBinning,
 } from "@/lib/results-format"
 import {
@@ -239,6 +244,10 @@ export function ResultsPanel({
   // Estabilidad (PSI/CSI): la sección se muestra solo si la corrida la calculó.
   const stab = results.stability ?? null
   const stabMetrics = stab?.stability_metrics ?? null
+  // Resumen A1: el peor PSI entre score y PD por comparación, con su identidad y su banda. Sale de
+  // las claves agregadas de la card, no de las series: viajaban en el payload desde la enmienda del
+  // resumen PSI y no se pintaban en ninguna pantalla.
+  const psiSummary = psiSummaryRows(stab)
   const scorePsi = psiBars(stabMetrics, "score_psi")
   const pdPsi = psiBars(stabMetrics, "pd_psi")
   const csi = csiBars(stabMetrics)
@@ -246,10 +255,19 @@ export function ResultsPanel({
   const temporal = temporalScore(stabMetrics)
   const hasStability =
     stab !== null &&
-    (scorePsi.length > 0 ||
+    (psiSummary.length > 0 ||
+      scorePsi.length > 0 ||
       pdPsi.length > 0 ||
       csi.length > 0 ||
       temporal !== null)
+
+  // Selección de variables: qué entró, qué quedó fuera y con qué criterio. Guard por presencia,
+  // como el resto de los dominios: sin `selection` la sección entera no se renderiza.
+  const sel = results.selection ?? null
+  const selThresholds = selectionThresholdRows(sel?.thresholds)
+  const selDecisions = selectionDecisionRows(sel?.decisions)
+  const selHighIv = sel?.high_iv_flags ?? []
+  const selStabilityFlags = sel?.stability_flags ?? []
 
   // Provisiones (SDD-28): las tres cards del preset F3. `null` en una corrida F1 (guard por
   // presencia → el bloque entero no se renderiza). El TITULAR es el sobrecosto en la moneda de
@@ -529,6 +547,17 @@ export function ResultsPanel({
           title="Estabilidad del score"
           description="Deriva del score y de la PD calibrada entre particiones (PSI), y desplazamiento de cada variable (CSI). Umbrales de referencia dibujados como líneas."
         >
+          {/* 0. Resumen: una fila por comparación con el peor PSI entre score y PD, la identidad
+              de la magnitud ganadora y la banda de ESA magnitud. Va arriba de las series porque es
+              la lectura de una línea; el detalle por magnitud queda debajo. */}
+          {psiSummary.length > 0 ? (
+            <dl className="grid gap-2 sm:grid-cols-2">
+              {psiSummary.map((row) => (
+                <PsiSummaryItem key={row.comparison} row={row} />
+              ))}
+            </dl>
+          ) : null}
+
           <StabilityBandLegend bands={bandsPresent(stabMetrics)} />
 
           {/* 1+2. PSI del score y de la PD calibrada, lado a lado (mismo formato). */}
@@ -714,6 +743,82 @@ export function ResultsPanel({
 
           <WoeByBinChart rows={woeDetail.rows} />
           <WoeDetailTable detail={woeDetail} />
+        </ResultsSection>
+      ) : null}
+
+      {/* d.2 Selección de variables: qué entró, qué quedó fuera y con qué criterio. Va tras el
+          detalle por variable (IV → WoE → decisión) y antes de la escala, que ya es el modelo
+          construido. Guard por presencia: sin `selection`, la sección no se renderiza. */}
+      {sel ? (
+        <ResultsSection
+          title="Selección de variables"
+          description="Qué variables pasaron el filtro y por qué quedó fuera cada una. Los umbrales son los de esta corrida; el detalle de cada fila es el que dejó escrito el motor."
+        >
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+            <DefItem label="Candidatas" value={formatCount(sel.n_candidates)} />
+            <DefItem label="Seleccionadas" value={formatCount(sel.n_selected)} />
+            <DefItem label="Excluidas" value={formatCount(sel.n_excluded)} />
+            <DefItem
+              label="Correlación máx. final"
+              value={formatMetric(sel.max_abs_correlation_after_selection)}
+            />
+            <DefItem
+              label="VIF máx. final"
+              value={formatMetric(sel.max_vif_after_selection, 2)}
+            />
+          </dl>
+
+          {/* Umbrales activos, con el rótulo del formulario que los fijó. */}
+          {selThresholds.length > 0 ? (
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border pt-3 text-xs">
+              {selThresholds.map((t) => (
+                <span key={t.key} className="inline-flex items-center gap-1.5">
+                  <span className="text-muted-foreground">{t.label}</span>
+                  <span className="font-mono tabular-nums text-foreground">{t.value}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Avisos que el motor dejó marcados sin excluir: IV alto e inestabilidad. */}
+          {selHighIv.length > 0 ? (
+            <p className="text-xs text-amber-200/90">
+              Marcadas por IV alto (posible fuga de información):{" "}
+              <span className="font-mono">{selHighIv.join(", ")}</span>
+            </p>
+          ) : null}
+          {selStabilityFlags.length > 0 ? (
+            <p className="text-xs text-amber-200/90">
+              Marcadas por inestabilidad entre particiones:{" "}
+              <span className="font-mono">{selStabilityFlags.join(", ")}</span>
+            </p>
+          ) : null}
+
+          {selDecisions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Variable</th>
+                    <th className="py-2 pr-3 font-medium">Decisión</th>
+                    <th className="py-2 pr-3 font-medium">Motivo</th>
+                    <NumHead>IV</NumHead>
+                    <th className="py-2 pl-3 pr-3 font-medium">Banda IV</th>
+                    <NumHead>AUC</NumHead>
+                    <NumHead>KS</NumHead>
+                    <NumHead>Corr. máx.</NumHead>
+                    <NumHead>VIF</NumHead>
+                    <NumHead>CSI</NumHead>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selDecisions.map((row) => (
+                    <SelectionDecisionTableRow key={row.feature} row={row} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </ResultsSection>
       ) : null}
 
@@ -1821,6 +1926,84 @@ function CoefRow({ coef }: { coef: Coefficient }) {
           <span className="text-amber-200/90">≠</span>
         )}
       </td>
+    </tr>
+  )
+}
+
+/**
+ * Una fila del resumen A1 del PSI (D-SC-12): el peor PSI entre score y PD de una comparación.
+ *
+ * 🔴 Valor, identidad y banda salen de la MISMA observación agregada de la card; la banda no se
+ * deriva de la serie del score. El rótulo es el que fija la enmienda del resumen PSI y el que ya
+ * usa el informe, para que la pantalla y el documento digan lo mismo.
+ */
+function PsiSummaryItem({ row }: { row: PsiSummaryRow }) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+        Peor PSI entre score y PD
+        {row.metricLabel ? ` · ${row.metricLabel}` : ""}
+        <span className="ml-1.5 normal-case tracking-normal">({row.label})</span>
+      </dt>
+      <dd className="flex items-center gap-2">
+        <span className="font-mono tabular-nums text-foreground">
+          {formatMetric(row.value)}
+        </span>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.7rem]"
+          style={{
+            backgroundColor: `${bandColor(row.band)}1a`,
+            color: bandColor(row.band),
+          }}
+        >
+          <span
+            className="size-1.5 rounded-full"
+            style={{ backgroundColor: bandColor(row.band) }}
+            aria-hidden="true"
+          />
+          {bandLabel(row.band)}
+        </span>
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * Una fila de la tabla de decisiones de selección (D-SC-10). El `detail` del motor va como segunda
+ * línea de la celda de motivo: es texto de auditoría (`iv=0.0029 < min_iv=0.02`) y se muestra tal
+ * cual lo escribió el motor, sin reescribirlo.
+ */
+function SelectionDecisionTableRow({ row }: { row: SelectionDecisionRow }) {
+  return (
+    <tr className="border-b border-border">
+      <td className="py-2 pr-3 font-mono text-foreground">{row.feature}</td>
+      <td className="py-2 pr-3">
+        {row.included ? (
+          <span className="text-eyebrow">Seleccionada</span>
+        ) : (
+          <span className="text-amber-200/90">Excluida</span>
+        )}
+        {row.forced ? (
+          <span className="ml-1.5 text-[0.7rem] text-muted-foreground">
+            {row.forced}
+          </span>
+        ) : null}
+      </td>
+      <td className="py-2 pr-3 text-foreground">
+        {row.reason}
+        {row.detail ? (
+          <span className="block font-mono text-[0.7rem] text-muted-foreground">
+            {row.detail}
+          </span>
+        ) : null}
+      </td>
+      <NumCell>{row.iv}</NumCell>
+      <td className="py-2 pl-3 pr-3 text-muted-foreground">{row.ivBand}</td>
+      <NumCell>{row.auc}</NumCell>
+      <NumCell>{row.ks}</NumCell>
+      <NumCell>{row.correlation}</NumCell>
+      <NumCell>{row.vif}</NumCell>
+      <NumCell>{row.csi}</NumCell>
     </tr>
   )
 }

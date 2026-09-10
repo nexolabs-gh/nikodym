@@ -193,6 +193,18 @@
     escribe `null`, distinta de la lista vacía; el copy de §3.6 lo dice y la capa 3 gatea el
     recorrido seleccionar → vaciar → «Todas».
 
+### 0.1 Lo que la implementación de la capa 1 (S8) midió distinto de este texto
+
+Medido el 2026-09-10 al implementar D-SC-10/11/12. Ninguna diferencia cambia una decisión; se
+dejan escritas para que el texto no siga afirmando lo que el árbol desmiente.
+
+| Este documento decía | Lo medido | Qué se hizo |
+|---|---|---|
+| §0-5 censa **dos** consumidores de las palabras de banda —la interfaz y la prosa— y §3 D-SC-11 sólo manda retirar `_STABILITY_BANDS` | hay un **tercero**: `report/renderer.py::_band_class` decide la clase CSS del semáforo del HTML **por el rótulo ya traducido**, no por el slug (`"Requiere revisión"` → `band-warn`). Con las palabras nuevas y sin tocarlo, una banda de revisión o de redesarrollo se habría publicado en gris —«no evaluado»— en el informe | el mapa gana «Revisar» y «Redesarrollar» junto a las palabras de validación, que siguen siendo las suyas hasta la capa 2, y `test_prosa_factual` fija las cuatro clases contra `BAND_LABELS`. Su control negativo está en el cierre de S8 |
+| D-SC-11 pone la fuente en `nikodym.stability.results` y D-SC-10 dice «el mapa de `_reason_label` replicado en TS» sin fijar dónde vive la fuente | `nikodym.selection.results` y `nikodym.binning.results` **importan `pandas`**, y `nikodym.report.prose` hoy no lo arrastra (medido en subproceso limpio). Subir esos rótulos a un import de módulo habría engordado un módulo liviano | los rótulos viven en su dominio —`REASON_LABELS` en `selection`, `IV_BAND_LABELS` en `binning`, `BAND_LABELS`/`PSI_METRIC_LABELS` en `stability`, este último sin pandas y por eso importado arriba— y `_reason_label` hace el import **dentro de la función**, con un gate que lo fija |
+| §3 D-SC-10 enumera el contenido del panel sin decir de dónde salen los rótulos de «los umbrales activos con su rótulo del formulario» | los trece umbrales que la card publica se corresponden 1:1 con el `title` de un campo de `SelectionConfig` | el espejo del front se gatea contra esos `title` **y** contra las claves que la card publica en la corrida real de la demo: ni un umbral mudo ni un rótulo fantasma |
+| §6 capa 1 pide las guías «sin slugs» y D-SC-11 los deja «sólo en la referencia de la API» | `docs_site/api.md` documentaba los dominios por autodoc y no tenía dónde vivir esa correspondencia | la referencia gana «Bandas de estabilidad» y «Motivos y bandas de IV», con la tabla identificador → palabra; las dos guías enlazan ahí |
+
 ## 1. El estado, medido sobre `40cb5a3`
 
 | Pieza | Config | Preset | Trabajo | `CONFIG_SECTIONS` | `serialize_study` | Panel Resultados | Informe | Guía | Métricas D-GOB-4 | SemVer |

@@ -6,6 +6,7 @@ import gainsChartSource from "@/components/charts/GainsChart.tsx?raw"
 import internalChartSource from "@/components/charts/InternalGroupsChart.tsx?raw"
 import liftChartSource from "@/components/charts/LiftChart.tsx?raw"
 import resultsTabSource from "@/components/ResultsTab.tsx?raw"
+import demoF1 from "@/fixtures/demo/results-f1.json"
 import type { RunLineage } from "@/lib/results-types"
 
 import {
@@ -59,6 +60,12 @@ import {
   scoreBandLabel,
   scoreHistogram,
   sicrTriggerLabel,
+  ivBandLabel,
+  psiMetricLabel,
+  psiSummaryRows,
+  selectionDecisionRows,
+  selectionReasonLabel,
+  selectionThresholdRows,
   sortByIv,
   stabilityThresholdLabels,
   temporalScore,
@@ -73,7 +80,9 @@ import type {
   InternalProvisioningResult,
   ProvisioningResult,
   ResultsResponse,
+  SelectionDecision,
   StabilityMetricRow,
+  StabilityResponse,
 } from "./results-types"
 
 /**
@@ -2466,5 +2475,225 @@ describe("la proyección visible de la procedencia (D-LIN-1)", () => {
     // `String(0)` es "0", pero un `||` la habría convertido en ausente: es un valor legítimo y su
     // ausencia significaría otra cosa. Mismo criterio de presencia que el resto del panel.
     expect(lineageRows({ ...base, root_seed: 0 }).find((f) => f.label === "semilla")?.value).toBe("0")
+  })
+})
+
+// ─────────────── capa 1 de SCORECARD-COMPLETO: resumen A1 y panel de selección ───────────────
+
+describe("psiSummaryRows (D-SC-12): valor, identidad y banda de la MISMA observación", () => {
+  /** La card tal como la publica el motor cuando la PD es la peor y el score es estable. */
+  const divergente: StabilityResponse = {
+    score_direction: "higher_is_lower_risk",
+    csi_source: "score_points",
+    comparisons: ["dev_vs_holdout", "dev_vs_oot"],
+    psi_bins: 10,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    max_psi_by_comparison: { dev_vs_holdout: 0.12, dev_vs_oot: 0.006 },
+    psi_metric_by_comparison: { dev_vs_holdout: "pd_psi", dev_vs_oot: "score_psi" },
+    bands_by_comparison: { dev_vs_holdout: "review", dev_vs_oot: "stable" },
+    worst_csi_feature: null,
+    worst_csi_value: null,
+    // 🔴 La serie del score sí es estable en esa comparación: derivar la banda de aquí es
+    // exactamente el defecto que la enmienda del resumen PSI cerró.
+    stability_metrics: [
+      {
+        metric: "score_psi",
+        comparison: "dev_vs_holdout",
+        feature: "score",
+        value: 0.05,
+        stable_threshold: 0.1,
+        review_threshold: 0.25,
+        band: "stable",
+        action: "none",
+      },
+      {
+        metric: "pd_psi",
+        comparison: "dev_vs_holdout",
+        feature: "pd",
+        value: 0.12,
+        stable_threshold: 0.1,
+        review_threshold: 0.25,
+        band: "review",
+        action: "vigilar",
+      },
+    ],
+  }
+
+  it("con la PD ganando, la banda es la de la PD y NO la del score", () => {
+    const [primera] = psiSummaryRows(divergente)
+    expect(primera.metric).toBe("pd_psi")
+    expect(primera.metricLabel).toBe("PD calibrada")
+    expect(primera.value).toBe(0.12)
+    expect(primera.band).toBe("review")
+  })
+
+  it("con el score ganando, la identidad es el score", () => {
+    const fila = psiSummaryRows(divergente)[1]
+    expect(fila.comparison).toBe("dev_vs_oot")
+    expect(fila.metricLabel).toBe("score")
+    expect(fila.band).toBe("stable")
+  })
+
+  it("respeta el orden de `comparisons` de la card, no el del diccionario", () => {
+    const alReves = { ...divergente, comparisons: ["dev_vs_oot", "dev_vs_holdout"] }
+    expect(psiSummaryRows(alReves).map((r) => r.comparison)).toEqual([
+      "dev_vs_oot",
+      "dev_vs_holdout",
+    ])
+  })
+
+  it("una comparación no evaluable se conserva con su banda y sin valor", () => {
+    const sinValor: StabilityResponse = {
+      ...divergente,
+      comparisons: ["dev_vs_holdout"],
+      max_psi_by_comparison: { dev_vs_holdout: null },
+      psi_metric_by_comparison: { dev_vs_holdout: null },
+      bands_by_comparison: { dev_vs_holdout: "not_evaluable" },
+    }
+    const [fila] = psiSummaryRows(sinValor)
+    expect(fila.value).toBeNull()
+    expect(fila.metricLabel).toBeNull()
+    expect(fila.band).toBe("not_evaluable")
+  })
+
+  it("una card vieja sin identidad publicada sigue dando valor y banda", () => {
+    // `psi_metric_by_comparison` es opcional en el tipo (cards 1.x anteriores a la enmienda).
+    const legacy = { ...divergente, psi_metric_by_comparison: null }
+    const [fila] = psiSummaryRows(legacy)
+    expect(fila.metricLabel).toBeNull()
+    expect(fila.value).toBe(0.12)
+    expect(fila.band).toBe("review")
+  })
+
+  it("sin estabilidad no fabrica filas", () => {
+    expect(psiSummaryRows(null)).toEqual([])
+    expect(psiSummaryRows(undefined)).toEqual([])
+  })
+
+  it("sobre la corrida real de la demo devuelve sus dos comparaciones", () => {
+    const demo = demoF1 as unknown as ResultsResponse
+    const filas = psiSummaryRows(demo.stability)
+    expect(filas.map((r) => r.metricLabel)).toEqual(["PD calibrada", "score"])
+    expect(filas.every((r) => r.band === "stable")).toBe(true)
+  })
+})
+
+describe("selectionThresholdRows (D-SC-10)", () => {
+  it("pinta sólo los umbrales activos, con el rótulo del formulario", () => {
+    const filas = selectionThresholdRows({
+      min_iv: 0.02,
+      max_iv: 0.5,
+      max_iv_action: "flag",
+      min_auc: null,
+      min_ks: null,
+      min_gini: null,
+      "correlation.method": "pearson",
+      "correlation.threshold": 0.75,
+      "correlation.clustering_method": "none",
+      "vif.threshold": 5,
+      "stability.action": "report_only",
+      "stability.stable_threshold": null,
+      "stability.review_threshold": null,
+    })
+    expect(filas.map((f) => f.key)).toEqual([
+      "min_iv",
+      "max_iv",
+      "max_iv_action",
+      "correlation.method",
+      "correlation.threshold",
+      "correlation.clustering_method",
+      "vif.threshold",
+      "stability.action",
+    ])
+    expect(filas[0]).toEqual({ key: "min_iv", label: "IV mínimo", value: "0.02" })
+    // El valor de un enum se muestra crudo: es lo mismo que enseña el selector del formulario.
+    expect(filas[2].value).toBe("flag")
+  })
+
+  it("sin umbrales no inventa filas", () => {
+    expect(selectionThresholdRows(null)).toEqual([])
+    expect(selectionThresholdRows({})).toEqual([])
+  })
+})
+
+describe("selectionDecisionRows (D-SC-10)", () => {
+  const decision: SelectionDecision = {
+    feature: "segmento",
+    woe_column: "segmento__woe",
+    included: false,
+    reason: "low_iv",
+    iv: 0.002922409359928141,
+    iv_band: "none",
+    auc: 0.5146219711580264,
+    gini: 0.029243942316052873,
+    ks: 0.023398646134899004,
+    max_abs_corr: null,
+    max_corr_with: null,
+    vif: null,
+    max_csi: null,
+    forced: null,
+    detail: "iv=0.00292241 < min_iv=0.02",
+  }
+
+  it("traduce motivo y banda de IV, y conserva el detalle del motor tal cual", () => {
+    const [fila] = selectionDecisionRows([decision])
+    expect(fila.reason).toBe("IV insuficiente")
+    expect(fila.ivBand).toBe("sin poder")
+    expect(fila.iv).toBe("0.0029")
+    expect(fila.detail).toBe("iv=0.00292241 < min_iv=0.02")
+    expect(fila.included).toBe(false)
+  })
+
+  it("una métrica ausente no se rellena con cero", () => {
+    const [fila] = selectionDecisionRows([decision])
+    expect(fila.vif).toBe(EMPTY)
+    expect(fila.csi).toBe(EMPTY)
+    expect(fila.correlation).toBe(EMPTY)
+  })
+
+  it("la correlación nombra con quién, cuando el motor lo publica", () => {
+    const [fila] = selectionDecisionRows([
+      { ...decision, max_abs_corr: 0.81, max_corr_with: "deuda_ingreso" },
+    ])
+    expect(fila.correlation).toBe("0.8100 · deuda_ingreso")
+  })
+
+  it("una variable forzada lo dice en palabras", () => {
+    expect(selectionDecisionRows([{ ...decision, forced: "include" }])[0].forced).toBe(
+      "forzada dentro",
+    )
+    expect(selectionDecisionRows([{ ...decision, forced: "exclude" }])[0].forced).toBe(
+      "forzada fuera",
+    )
+    expect(selectionDecisionRows([decision])[0].forced).toBeNull()
+  })
+
+  it("ordena por IV descendente, como el gráfico de IV", () => {
+    const alta = { ...decision, feature: "ingreso_mensual", iv: 0.3, iv_band: "strong" as const }
+    expect(selectionDecisionRows([decision, alta]).map((f) => f.feature)).toEqual([
+      "ingreso_mensual",
+      "segmento",
+    ])
+  })
+
+  it("sin decisiones no fabrica tabla", () => {
+    expect(selectionDecisionRows(null)).toEqual([])
+    expect(selectionDecisionRows(undefined)).toEqual([])
+  })
+})
+
+describe("el vocabulario público es un espejo, no un diccionario propio", () => {
+  // La igualdad con Python la gatea `tests/unit/test_vocabulario_en_pantalla.py`, que es el único
+  // lado con acceso a los dos. Aquí se cubre el fallback: un slug nuevo del motor no se oculta.
+  it("un valor no previsto cae a su propio slug", () => {
+    expect(selectionReasonLabel("motivo_inventado")).toBe("motivo_inventado")
+    expect(ivBandLabel("banda_inventada")).toBe("banda_inventada")
+    expect(psiMetricLabel("metrica_inventada")).toBe("metrica_inventada")
+  })
+
+  it("sin identidad publicada, el resumen no fabrica una", () => {
+    expect(psiMetricLabel(null)).toBeNull()
+    expect(psiMetricLabel(undefined)).toBeNull()
   })
 })

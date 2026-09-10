@@ -260,3 +260,188 @@ describe("guardrails del cableado (fuente)", () => {
     expect(resultsTabSource).toContain("<ResultsPanel")
   })
 })
+
+// ───────── capa 1 de SCORECARD-COMPLETO: panel de selección y resumen del PSI ─────────
+
+describe("«Selección de variables» (D-SC-10) sobre la corrida real de la demo", () => {
+  const demo = demoF1 as unknown as ResultsResponse
+  const html = render(demo)
+
+  it("pinta la sección una vez, con candidatas, seleccionadas y excluidas", () => {
+    expect(ocurrencias(html, "Selección de variables")).toBe(1)
+    expect(html).toContain("Candidatas")
+    expect(html).toContain("Seleccionadas")
+    expect(html).toContain("Excluidas")
+  })
+
+  it("la exclusión real de la corrida sale con su motivo en español y su detalle del motor", () => {
+    // F1 excluye `segmento` por `low_iv`. El motivo se traduce; el `detail` NO se reescribe: es
+    // el dato de auditoría que ata la fila al audit-trail.
+    expect(html).toContain("segmento")
+    expect(html).toContain("IV insuficiente")
+    expect(html).toContain("iv=0.00292241 &lt; min_iv=0.02")
+    expect(html).not.toContain("low_iv")
+  })
+
+  it("las bandas de IV salen en palabras, no en slugs", () => {
+    expect(html).toContain("sin poder")
+    expect(html).toContain("fuerte")
+    // Los slugs del enum de IV no llegan a la pantalla (`none` y `medium` son subcadenas
+    // demasiado comunes para buscarlas a secas; `weak`/`strong`/`suspicious` no lo son).
+    for (const slug of ["weak", "strong", "suspicious"]) {
+      expect(html, slug).not.toContain(slug)
+    }
+  })
+
+  it("los umbrales activos llevan el rótulo del formulario y los apagados no se pintan", () => {
+    expect(html).toContain("IV mínimo")
+    expect(html).toContain("Umbral |rho|")
+    expect(html).toContain("Umbral VIF")
+    // F1 corre sin mínimos de discriminación: pintarlos como «—» inventaría un criterio.
+    for (const apagado of ["AUC mínimo", "KS mínimo", "Gini mínimo"]) {
+      expect(html, apagado).not.toContain(apagado)
+    }
+  })
+
+  it("sin marcas de IV alto ni de inestabilidad, no se explica una salvedad que no ocurrió", () => {
+    expect(html).not.toContain("Marcadas por IV alto")
+    expect(html).not.toContain("Marcadas por inestabilidad")
+  })
+
+  it("va entre «Análisis por variable (WoE)» y «Escala y calibración»", () => {
+    const woe = html.indexOf("Análisis por variable (WoE)")
+    const seleccion = html.indexOf("Selección de variables")
+    const escala = html.indexOf("Escala y calibración")
+    expect(woe).toBeGreaterThan(-1)
+    expect(seleccion).toBeGreaterThan(woe)
+    expect(escala).toBeGreaterThan(seleccion)
+  })
+})
+
+describe("«Selección de variables»: guard por presencia y avisos declarados", () => {
+  const demo = demoF1 as unknown as ResultsResponse
+
+  it("sin `selection` la sección entera desaparece, y el resto del panel sigue", () => {
+    const html = render({ ...demo, selection: undefined })
+    expect(ocurrencias(html, "Selección de variables")).toBe(0)
+    expect(html).not.toContain("IV insuficiente")
+    expect(html).toContain("Artefactos de la corrida")
+    expect(html).toContain("Estabilidad del score")
+  })
+
+  it("las marcas de IV alto e inestabilidad se pintan cuando el motor las publica", () => {
+    const html = render({
+      ...demo,
+      selection: {
+        ...demo.selection!,
+        high_iv_flags: ["ingreso_mensual"],
+        stability_flags: ["mora_max_12m"],
+      },
+    })
+    expect(html).toContain("Marcadas por IV alto")
+    expect(html).toContain("Marcadas por inestabilidad")
+    expect(html).toContain("mora_max_12m")
+  })
+
+  it("una variable forzada lo dice en la fila", () => {
+    const decisions = demo.selection!.decisions!
+    const html = render({
+      ...demo,
+      selection: {
+        ...demo.selection!,
+        decisions: [{ ...decisions[0], forced: "include" }, ...decisions.slice(1)],
+      },
+    })
+    expect(html).toContain("forzada dentro")
+  })
+})
+
+describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
+  const demo = demoF1 as unknown as ResultsResponse
+
+  it("una fila por comparación, con el rótulo que el informe usa", () => {
+    const html = render(demo)
+    expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(2)
+    expect(html).toContain("PD calibrada")
+    expect(html).toContain("0.0132")
+  })
+
+  it("con la PD ganando, la banda pintada es la de la PD y no la del score", () => {
+    // 🔴 El caso divergente de A1: score estable (0,05) y PD en revisión (0,12). Pintar la banda
+    // del score aquí publicaría «0,1200 · Estable», que es la contradicción que la enmienda del
+    // resumen PSI cerró en el informe y que la pantalla nunca llegó a mostrar.
+    const html = render({
+      ...demo,
+      stability: {
+        ...demo.stability!,
+        comparisons: ["dev_vs_holdout"],
+        max_psi_by_comparison: { dev_vs_holdout: 0.12 },
+        psi_metric_by_comparison: { dev_vs_holdout: "pd_psi" },
+        bands_by_comparison: { dev_vs_holdout: "review" },
+        stability_metrics: [
+          {
+            metric: "score_psi",
+            comparison: "dev_vs_holdout",
+            feature: "score",
+            value: 0.05,
+            stable_threshold: 0.1,
+            review_threshold: 0.25,
+            band: "stable",
+            action: "none",
+          },
+          {
+            metric: "pd_psi",
+            comparison: "dev_vs_holdout",
+            feature: "pd",
+            value: 0.12,
+            stable_threshold: 0.1,
+            review_threshold: 0.25,
+            band: "review",
+            action: "vigilar",
+          },
+        ],
+      },
+    })
+    // El recorte llega hasta el cierre del `<dl>` del resumen: la leyenda que va justo debajo
+    // nombra las cuatro bandas y contaminaría la aserción.
+    const inicio = html.indexOf("Peor PSI entre score y PD")
+    const resumen = html.slice(inicio, html.indexOf("</dl>", inicio))
+    expect(resumen).toContain("PD calibrada")
+    expect(resumen).toContain("0.1200")
+    expect(resumen).toContain("Revisar")
+    expect(resumen).not.toContain("Estable")
+  })
+
+  it("con el score ganando, la identidad pintada es el score", () => {
+    const html = render({
+      ...demo,
+      stability: {
+        ...demo.stability!,
+        comparisons: ["dev_vs_oot"],
+        max_psi_by_comparison: { dev_vs_oot: 0.3 },
+        psi_metric_by_comparison: { dev_vs_oot: "score_psi" },
+        bands_by_comparison: { dev_vs_oot: "redevelop" },
+      },
+    })
+    const inicio = html.indexOf("Peor PSI entre score y PD")
+    const resumen = html.slice(inicio, html.indexOf("</dl>", inicio))
+    expect(resumen).toContain("score")
+    expect(resumen).toContain("0.3000")
+    expect(resumen).toContain("Redesarrollar")
+    expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(1)
+  })
+
+  it("las palabras de las bandas son las aprobadas, y ningún slug llega a la pantalla", () => {
+    const html = render(demo)
+    expect(html).toContain("Estable")
+    for (const slug of ["not_evaluable", "redevelop", "pd_psi", "score_psi"]) {
+      expect(html, slug).not.toContain(slug)
+    }
+  })
+
+  it("sin estabilidad no hay sección ni resumen", () => {
+    const html = render({ ...demo, stability: null })
+    expect(ocurrencias(html, "Estabilidad del score")).toBe(0)
+    expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(0)
+  })
+})
