@@ -110,7 +110,7 @@ class DiscriminationValidationConfig(NikodymBaseConfig):
 
     consume_performance: bool = Field(
         default=True,
-        title="Reusar las métricas de discriminación ya calculadas",
+        title="Reutilizar las métricas ya calculadas",
         description=(
             "Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, "
             "los vuelve a calcular con el mismo motor, nunca con otra fórmula."
@@ -119,7 +119,7 @@ class DiscriminationValidationConfig(NikodymBaseConfig):
     )
     partitions: tuple[DiscriminationPartition, ...] = Field(
         default=("desarrollo", "holdout", "oot"),
-        title="Particiones a validar",
+        title="Muestras sobre las que se reporta",
         description=(
             "Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera "
             "de tiempo."
@@ -144,7 +144,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         default=10,
         ge=5,
         le=20,
-        title="Nº de grupos HL (deciles)",
+        title="Grupos de PD para Hosmer-Lemeshow",
         description=(
             "En cuántos grupos de PD se parte la cartera para la prueba de Hosmer-Lemeshow. "
             "La convención estándar es diez."
@@ -163,7 +163,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     )
     brier: bool = Field(
         default=True,
-        title="Calcular Brier score",
+        title="Calcular el puntaje de Brier",
         description=(
             "Calcula el puntaje de Brier por partición: el error cuadrático medio entre la PD "
             "predicha y lo que ocurrió. Más bajo es mejor."
@@ -172,7 +172,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     )
     binomial_by_grade: bool = Field(
         default=True,
-        title="Test binomial/Jeffreys por grado",
+        title="Contrastar la PD por grado de rating",
         description=(
             "Contrasta, grado por grado, si los incumplimientos observados caben en la PD "
             "estimada. Exige una columna de grado de rating en tu archivo. Los cortes del "
@@ -197,7 +197,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     )
     pd_test: PdTest = Field(
         default="jeffreys",
-        title="Test de PD por grado",
+        title="Prueba para el contraste por grado",
         description=(
             "Qué prueba se usa por grado: la de Jeffreys, que se comporta bien cuando un grado "
             "no tiene incumplimientos, o la binomial clásica."
@@ -277,8 +277,8 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         ge=1,
         title="Mínimo de operaciones para evaluar",
         description=(
-            "Mínimo de operaciones para evaluar: bajo ese mínimo no hay prueba y el resultado "
-            "queda marcado como no evaluado."
+            "Bajo ese mínimo no hay prueba: el resultado queda marcado como no evaluado en vez "
+            "de dar un número engañoso."
         ),
         json_schema_extra={
             "ui_help": (
@@ -404,7 +404,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
     )
     parameters: tuple[BacktestParameter, ...] = Field(
         default=("pd", "lgd", "ead"),
-        title="Parámetros a backtestear",
+        title="Parámetros a contrastar",
         description="Qué parámetros se contrastan: la PD, la severidad o la exposición.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Backtesting", "ui_order": 2},
     )
@@ -440,7 +440,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
     )
     realised_pd_col: str = Field(
         default="realised_default",
-        title="Default realizado (0/1)",
+        title="Incumplimiento realizado",
         description=(
             "La columna de tu archivo que dice si la operación incumplió de verdad en el período "
             "de desempeño."
@@ -454,7 +454,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
     )
     realised_lgd_col: str = Field(
         default="realised_lgd",
-        title="LGD realizada",
+        title="Severidad realizada",
         description="La columna con la severidad que de verdad se observó.",
         json_schema_extra={
             "column_role": "input",
@@ -465,7 +465,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
     )
     realised_ead_col: str = Field(
         default="realised_ead",
-        title="EAD realizada a default",
+        title="Exposición realizada",
         description="La columna con la exposición que de verdad había al incumplir.",
         json_schema_extra={
             "column_role": "input",
@@ -476,7 +476,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
     )
     pd_test: PdTest = Field(
         default="jeffreys",
-        title="Test de PD",
+        title="Prueba para la PD",
         description="Qué prueba se usa para la PD: la de Jeffreys o la binomial clásica.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Backtesting", "ui_order": 8},
     )
@@ -531,7 +531,7 @@ class ValidationConfig(NikodymBaseConfig):
     )
     families: tuple[ValidationFamily, ...] = Field(
         default=("discrimination", "calibration", "stability"),
-        title="Familias de validación activas",
+        title="Familias de pruebas que corren",
         description=(
             "Qué familias de pruebas corren: discriminación, calibración, estabilidad y "
             "backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las "
@@ -552,8 +552,9 @@ class ValidationConfig(NikodymBaseConfig):
         default_factory=CalibrationValidationConfig,
         title="Calibración",
         description=(
-            "Mide la calibración con Hosmer-Lemeshow, el contraste binomial/Jeffreys por grado, "
-            "el Brier score y un semáforo."
+            "Comprueba si la probabilidad que el modelo estima coincide con lo que ocurrió: por "
+            "grupos de PD, con un puntaje de error medio y, si tienes grados de rating, grado a "
+            "grado."
         ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Calibración", "ui_order": 1},
     )
@@ -570,11 +571,15 @@ class ValidationConfig(NikodymBaseConfig):
         default_factory=BacktestingValidationConfig,
         title="Backtesting IFRS 9",
         description=(
-            "Contrasta lo realizado contra lo estimado en IFRS 9 (t-test de LGD/EAD, "
-            "binomial/Jeffreys de PD)."
+            "Contrasta lo que IFRS 9 estimó contra lo que de verdad ocurrió, parámetro por "
+            "parámetro y segmento por segmento."
         ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Backtesting", "ui_order": 1},
     )
+    # ⚠️ El título NO se tradujo al revisar el copy de la capa 2, y es deliberado: este mismo flag
+    # existe en `provisioning` con este mismo rótulo (`provisioning/config.py`). Traducir uno de los
+    # dos dejaría dos vocabularios para el mismo interruptor, que es exactamente lo que esta capa
+    # cierra. Se cambian los dos a la vez, en un paso de copy que cubra las dos secciones.
     fail_on_falta_dato: bool = Field(
         default=True,
         title="Fallar ante brechas críticas de dato",
