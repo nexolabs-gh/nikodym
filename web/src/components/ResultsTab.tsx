@@ -93,6 +93,7 @@ import {
   temporalScore,
   gradeCoverage,
   validationFamilies,
+  validationFamiliesWithoutRows,
   validationStatusLabel,
   variableBinning,
 } from "@/lib/results-format"
@@ -287,6 +288,7 @@ export function ResultsPanel({
   const valFamilies = validationFamilies(val)
   const valCalibration = calibrationRowsSplit(val)
   const valCoverage = gradeCoverage(val)
+  const valSinFilas = validationFamiliesWithoutRows(val)
   const valAvisos = val?.falta_dato ?? []
 
   // Selección de variables: qué entró, qué quedó fuera y con qué criterio. Guard por presencia,
@@ -695,9 +697,17 @@ export function ResultsPanel({
                 </span>
               </dd>
             </div>
+            {/* «0 de 0» sería cierto y engañoso a la vez: sólo la calibración y el
+                backtesting producen pruebas de pasa o falla, así que una corrida de
+                discriminación y estabilidad las tiene todas en cero sin que nada haya fallado. */}
             <DefItem
               label="Pruebas fallidas"
-              value={`${formatCount(val.n_failed)} de ${formatCount(val.n_tests)}`}
+              value={
+                val.n_tests === 0
+                  ? "Sin pruebas de pasa o falla"
+                  : `${formatCount(val.n_failed)} de ${formatCount(val.n_tests)}`
+              }
+              mono={val.n_tests !== 0}
             />
             <DefItem
               label="Familias ejecutadas"
@@ -722,6 +732,21 @@ export function ResultsPanel({
               El resultado sale marcado con ellas, su detalle queda en el anexo de auditoría del
               informe y lo que significa cada una está en la referencia «Avisos declarados» de la
               documentación.
+            </p>
+          ) : null}
+
+          {/* 🔴 Una familia que se pidió y no publicó nada se DICE. El motor registra en la card
+              lo que el config declaró, no lo que produjo: con el backtesting encendido y sin los
+              artefactos de IFRS 9, la corrida termina en «Pasa», con la familia listada arriba y
+              sin una sola fila. Callarlo presentaría como ejecutado algo que no se ejecutó. */}
+          {valSinFilas.length > 0 ? (
+            <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              {valSinFilas.length === 1
+                ? "Esta familia se pidió y no publicó ninguna prueba"
+                : "Estas familias se pidieron y no publicaron ninguna prueba"}
+              : {valSinFilas.map((f) => f.label).join(" · ")}. O le faltó un insumo —y entonces hay
+              una salvedad declarada arriba— o sus pruebas quedaron apagadas en la configuración. El
+              estado técnico no las cuenta: no hay nada que contar.
             </p>
           ) : null}
 

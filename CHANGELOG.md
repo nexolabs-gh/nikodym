@@ -24,6 +24,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   conteos y el mínimo que los excluyó. Sin esa línea, un «Pasa · 0 de 1 pruebas fallidas» podía
   convivir con media cartera sin evaluar.
 
+- **Una familia de pruebas que se pidió y no publicó nada se dice en pantalla.** El motor registra
+  en su resultado las familias que el config declaró, no las que produjeron algo: con el backtesting
+  encendido pero sin el cálculo IFRS 9, o con las tres pruebas de calibración apagadas, la corrida
+  termina en «Pasa» con la familia listada y cero filas. El panel la nombra y explica las dos
+  razones posibles, y el contador de pruebas fallidas dice «Sin pruebas de pasa o falla» en vez de
+  «0 de 0», que es cierto y engañoso a la vez.
+
 - **Guía nueva: «Validación formal».** Qué prueba cada familia, cómo se lee el estado técnico, por
   qué el puntaje de Brier no tiene veredicto de pasa o falla y qué hace un validador con el
   resultado, sobre una corrida real que **falla** en la muestra fuera de tiempo. La referencia de la

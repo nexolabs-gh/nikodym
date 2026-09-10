@@ -567,6 +567,39 @@ describe("«Validación formal» (D-SC-9) sobre una corrida real", () => {
     expect(html).not.toContain("salvedades declaradas")
   })
 
+  it("una familia pedida que no publicó nada se dice, no se calla", () => {
+    // 🔴 Verificado contra el motor: con el backtesting encendido, sin los artefactos de IFRS 9 y
+    // con la parada por brechas apagada, el evaluador registra el aviso, omite la prueba y la
+    // corrida termina en «Pasa» con `families_run` incluyendo `backtesting` y cero filas. Sin esta
+    // nota el panel presentaría como ejecutado algo que no publicó una sola línea (§5).
+    const html = render(
+      conValidacion({
+        ...VALIDATION_F1,
+        families_run: ["stability", "backtesting"],
+        overall_status: "pass",
+        n_tests: 0,
+        n_failed: 0,
+        discrimination: [],
+        calibration: [],
+        backtesting: [],
+        falta_dato: ["DATO-INSTITUCIONAL: falta el artefacto para el backtesting."],
+      }),
+    )
+    expect(html).toContain("Esta familia se pidió y no publicó ninguna prueba")
+    expect(html).toContain("Backtesting")
+    // Y el contador no finge que hubo pruebas y todas pasaron.
+    expect(html).toContain("Sin pruebas de pasa o falla")
+    expect(html).not.toContain("0 de 0")
+  })
+
+  it("con todas las familias publicando filas, la nota no aparece", () => {
+    // Ancla del control de arriba: «no publicó nada» tiene que poder ser falso.
+    const html = render(conValidacion(VALIDATION_F1))
+    expect(html).not.toContain("no publicó ninguna prueba")
+    expect(html).not.toContain("Sin pruebas de pasa o falla")
+    expect(html).toContain("1 de 3")
+  })
+
   it("sin `validation` el panel entero desaparece, no queda vacío", () => {
     const html = render(conValidacion(null))
     expect(html).not.toContain("Validación formal")

@@ -143,6 +143,10 @@ Dos detalles que el copy del formulario declara y conviene tener presentes:
   situaciones distintas.
 - **Mira la cobertura antes que el veredicto.** Un estado verde sobre media cartera sin evaluar no
   es un estado verde.
+- **Comprueba que cada familia que pediste publicó algo.** Una familia puede quedar registrada como
+  ejecutada y no traer ninguna prueba: le faltó un insumo —el backtesting sin el cálculo IFRS 9, por
+  ejemplo— o sus pruebas quedaron apagadas. El panel lo dice con todas sus letras, y el estado
+  técnico no la cuenta porque no hay nada que contar.
 - **Separa la deriva del defecto.** Un rechazo que aparece sólo fuera de tiempo suele ser la
   cartera moviéndose, no el modelo mal construido; un rechazo en desarrollo casi nunca lo es.
 - **Trata los avisos declarados como preguntas abiertas.** Cada uno señala algo que le corresponde

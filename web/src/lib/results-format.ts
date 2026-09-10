@@ -1995,6 +1995,30 @@ export function validationFamilies(
 }
 
 /**
+ * Familias que la corrida pidió y que **no publicaron ninguna fila**.
+ *
+ * 🔴 No es un caso raro: el evaluador registra `families_run` con lo que el config declaró, no con
+ * lo que produjo. Con el backtesting encendido, sin los artefactos de IFRS 9 y con la parada por
+ * brechas de dato apagada, el motor deja el aviso, omite la prueba y termina — y la card sigue
+ * diciendo que el backtesting se ejecutó, con `overall_status` en «Pasa» y cero pruebas. Lo mismo
+ * con la calibración si sus tres pruebas quedan apagadas. Sin nombrarlas, el panel presentaría
+ * como ejecutado algo que no publicó una sola línea (§5 de la enmienda: «backtesting: sin
+ * pruebas»). Hallazgo de la revisión adversarial, verificado contra el motor.
+ */
+export function validationFamiliesWithoutRows(
+  validation: ValidationResult | null | undefined,
+): { family: ValidationFamily; label: string }[] {
+  if (!validation) return []
+  const filas: Record<ValidationFamily, number> = {
+    discrimination: (validation.discrimination ?? []).length,
+    calibration: (validation.calibration ?? []).length,
+    stability: (validation.stability ?? []).length,
+    backtesting: (validation.backtesting ?? []).length,
+  }
+  return validationFamilies(validation).filter(({ family }) => filas[family] === 0)
+}
+
+/**
  * Las dos formas que conviven en la tabla canónica de calibración, separadas para pintarlas:
  * `porParticion` son Hosmer-Lemeshow y el puntaje de Brier; `porGrado`, el contraste por grado.
  * La columna `grade` es la que las distingue, tal como la publica el motor.
