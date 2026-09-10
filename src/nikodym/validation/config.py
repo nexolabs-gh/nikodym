@@ -23,7 +23,7 @@ bloques posteriores (§6/§8), de modo que ``ValidationConfig()`` siga construye
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Literal, Self, get_args
 
 from pydantic import Field, model_validator
 
@@ -50,6 +50,18 @@ __all__ = [
     "ValidationFamily",
 ]
 
+
+#: Qué columna realizada exige cada parámetro del backtesting (``evaluator.py``, §8 de SDD-22).
+#:
+#: Vive aquí y no dentro del método porque es el mapa que ata `parameters` con sus tres campos, y
+#: un gate lo compara contra los `Literal` de :data:`BacktestParameter`: un parámetro nuevo sin su
+#: columna dejaría `columnas_inactivas()` suprimiendo una columna que el motor sí abre, que es el
+#: modo de fallo caro de D-RAM-3.
+_COLUMNA_REALIZADA_POR_PARAMETRO: dict[str, str] = {
+    "pd": "realised_pd_col",
+    "lgd": "realised_lgd_col",
+    "ead": "realised_ead_col",
+}
 
 #: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
 #: Vive en UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara es
@@ -100,15 +112,18 @@ class DiscriminationValidationConfig(NikodymBaseConfig):
         default=True,
         title="Reusar las métricas de discriminación ya calculadas",
         description=(
-            "Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; "
-            "con False se calculan aquí con ese mismo motor, nunca con otra fórmula."
+            "Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, "
+            "los vuelve a calcular con el mismo motor, nunca con otra fórmula."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Discriminación", "ui_order": 1},
     )
     partitions: tuple[DiscriminationPartition, ...] = Field(
         default=("desarrollo", "holdout", "oot"),
         title="Particiones a validar",
-        description="Particiones sobre las que se reporta la discriminación del modelo.",
+        description=(
+            "Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera "
+            "de tiempo."
+        ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Discriminación", "ui_order": 2},
     )
 
@@ -119,7 +134,10 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     hosmer_lemeshow: bool = Field(
         default=True,
         title="Ejecutar Hosmer-Lemeshow",
-        description="Activa el estadístico Hosmer-Lemeshow por grupos de PD (chi2 con G-2 gl).",
+        description=(
+            "Comprueba con la prueba de Hosmer-Lemeshow que la PD predicha coincide con la "
+            "observada, por grupos de PD."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 1},
     )
     hl_n_groups: int = Field(
@@ -127,37 +145,63 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         ge=5,
         le=20,
         title="Nº de grupos HL (deciles)",
-        description="Nº de grupos G del Hosmer-Lemeshow; convención estándar G=10 -> G-2=8 gl.",
+        description=(
+            "En cuántos grupos de PD se parte la cartera para la prueba de Hosmer-Lemeshow. "
+            "La convención estándar es diez."
+        ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Calibración", "ui_order": 2},
     )
+    # D-SUB (D-SC-7): oculto. De sus dos valores, `_check_calibration` rechaza `fixed_bands`
+    # —«no soportado: exige bandas declaradas»—, así que en pantalla sería un selector con una
+    # sola opción usable: una subsección inerte cuyo otro valor sólo produce un error. Se expone
+    # cuando las bandas fijas existan, con el gate de su rama.
     hl_grouping: HlGrouping = Field(
         default="deciles",
         title="Criterio de agrupación HL",
-        description="deciles (default estándar); fixed_bands reservado (exige bandas declaradas).",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Calibración", "ui_order": 3},
+        description="Agrupación del Hosmer-Lemeshow; las bandas fijas están reservadas.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Calibración", "ui_order": 3},
     )
     brier: bool = Field(
         default=True,
         title="Calcular Brier score",
-        description="Activa el Brier score (1/N)*suma((p-y)^2) por partición.",
+        description=(
+            "Calcula el puntaje de Brier por partición: el error cuadrático medio entre la PD "
+            "predicha y lo que ocurrió. Más bajo es mejor."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 4},
     )
     binomial_by_grade: bool = Field(
         default=True,
         title="Test binomial/Jeffreys por grado",
-        description="Activa el contraste binomial/Jeffreys de PD por grado de rating.",
+        description=(
+            "Contrasta, grado por grado, si los incumplimientos observados caben en la PD "
+            "estimada. Exige una columna de grado de rating en tu archivo. Los cortes del "
+            "semáforo y la convención exacta de la prueba están declarados como brecha del "
+            "motor: el resultado sale con ese aviso."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 5},
     )
     grade_col: str = Field(
         default="grade",
         title="Columna de grado de rating",
-        description="Columna que identifica el grado de rating para el test binomial por grado.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        description="La columna de tu archivo con el grado de rating de cada operación.",
+        json_schema_extra={
+            # La aporta el usuario, así que el preflight la reclama ANTES de correr — pero sólo
+            # cuando esta rama corre: `columnas_inactivas()` la declara inerte con el contraste
+            # por grado apagado, que es como la traen el preset F1 y los dos trabajos (D-RAM-1).
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     pd_test: PdTest = Field(
         default="jeffreys",
         title="Test de PD por grado",
-        description="jeffreys (ECB feb 2019, robusto con D=0) o binomial (BCBS WP14).",
+        description=(
+            "Qué prueba se usa por grado: la de Jeffreys, que se comporta bien cuando un grado "
+            "no tiene incumplimientos, o la binomial clásica."
+        ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Calibración", "ui_order": 6},
     )
     alpha: float = Field(
@@ -165,7 +209,9 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         gt=0.0,
         lt=0.5,
         title="Nivel de significancia",
-        description="Nivel de significancia estándar de los tests de calibración; configurable.",
+        description=(
+            "Nivel de significancia de las pruebas de calibración. Cinco por ciento es el estándar."
+        ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Calibración", "ui_order": 7},
     )
     traffic_light_green_alpha: float = Field(
@@ -173,10 +219,10 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         gt=0.0,
         lt=1.0,
         title="Corte verde/ámbar (p-valor)",
-        description=("Corte del semáforo verde/ámbar sobre el p-valor del test por grado."),
+        description="Por encima de este p-valor el grado queda en verde; por debajo, en ámbar.",
         json_schema_extra={
             "ui_help": (
-                "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un "
+                "Por encima de este p-valor el grado queda en verde; por debajo, en ámbar. Es un "
                 "default institucional, no un umbral fijado por norma: fíjelo según su "
                 "política de validación."
             ),
@@ -191,37 +237,61 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         lt=1.0,
         title="Corte ámbar/rojo (p-valor)",
         description=(
-            "Corte del semáforo ámbar/rojo sobre el p-valor del test por grado; debe ser más "
-            "estricto que el corte verde (rojo < verde)."
+            "Por debajo de este p-valor el grado queda en rojo. Tiene que ser menor que el corte "
+            "del verde."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 2},
     )
+    # 🔴 D-SUB (D-SC-7): las tres pasan a ocultas, y NO por ser internas sino por ser INERTES en
+    # el formulario. Nombran columnas de `calibration.calibrated_pd_frame`, el artefacto que el
+    # propio motor produce con nombres fijos —`target`, `pd_calibrated`, `partition`—, así que
+    # ningún otro valor corre desde una corrida por formulario: escribirlo sólo produce «El frame
+    # de calibración requiere la columna …». Tampoco llevan `column_role`: no las aporta el
+    # usuario, y reclamárselas sería un aviso falso.
+    #
+    # ⚠️ Su reverso, medido en la capa 2: por eso `validation` NO entra a «Validar un modelo
+    # existente». En ese trabajo la PD entra por la puerta de artefactos con las columnas que el
+    # usuario les puso y el backend NO las renombra (`ui/routes.py::_materializar_externos`), así
+    # que la validación formal exigiría justo estos tres campos — y están ocultos. El DAG sí
+    # resuelve (medido con `check_pipeline`); lo que no hay es dónde nombrar esas columnas.
     target_column: str = Field(
         default="target",
         title="Columna target binario",
-        description="Columna con el resultado binario (0/1) para la calibración.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        description="Columna con el resultado binario del artefacto interno de PD calibrada.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Columnas", "ui_order": 2},
     )
     pd_column: str = Field(
         default="pd_calibrated",
         title="Columna PD calibrada",
-        description=(
-            "Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        description="Columna con la PD calibrada del artefacto interno que produce el motor.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Columnas", "ui_order": 3},
     )
     partition_column: str = Field(
         default="partition",
         title="Columna partición",
-        description="Columna que identifica Desarrollo, Holdout y OOT.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
+        description="Columna de partición del artefacto interno de PD calibrada.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Columnas", "ui_order": 4},
     )
     min_rows_per_group: int = Field(
         default=30,
         ge=1,
         title="Mínimo técnico por grupo HL/grado",
-        description="Grupos HL/grados bajo este mínimo se auditan como not_evaluable, no NaN.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Calibración", "ui_order": 8},
+        description=(
+            "Mínimo de operaciones para evaluar: bajo ese mínimo no hay prueba y el resultado "
+            "queda marcado como no evaluado."
+        ),
+        json_schema_extra={
+            "ui_help": (
+                "Mínimo de operaciones para evaluar: una partición entera con menos que esto no "
+                "recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no "
+                "recibe el test por grado. Quedan marcados como no evaluados en vez de dar un "
+                "número engañoso. No se aplica a cada grupo de PD dentro de la prueba de "
+                "Hosmer-Lemeshow."
+            ),
+            "ui_widget": "number_input",
+            "ui_group": "Calibración",
+            "ui_order": 8,
+        },
     )
 
     @model_validator(mode="after")
@@ -247,32 +317,50 @@ class CalibrationValidationConfig(NikodymBaseConfig):
             raise ValidationConfigError(
                 "hl_grouping='fixed_bands' aún no está soportado: exige bandas declaradas "
                 "(reservado; use el default 'deciles').",
-                # D-EXI-5: el valor inválido es el de ESTE campo, así que el formulario puede
-                # llevar al usuario justo al selector donde lo eligió.
+                # D-EXI-5: el valor inválido es el de ESTE campo. Desde que el campo es `hidden`
+                # (D-SUB, D-SC-7) el formulario ya no puede llevar a nadie ahí —no lo pinta—, pero
+                # el ancla sigue siendo la correcta para quien escribe el YAML por código, que es
+                # el único camino que hoy alcanza este error.
                 loc=(*_LOC_SECCION, "calibration", "hl_grouping"),
             )
         return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """La columna de grado sólo se lee con el contraste por grado encendido (D-RAM-1).
+
+        Medido en `evaluator.py::_grade_records`: sale por `if not calib.binomial_by_grade` antes
+        de tocar el frame, y ninguna otra rama de la calibración mira `grade_col`. Sin esta
+        declaración, darle `column_role` habría hecho que el preflight reclamara «grade» en el
+        preset F1 y en los dos trabajos del scorecard, que traen el contraste apagado — el falso
+        positivo exacto que D-RAM-1 cierra.
+
+        Las otras tres columnas de esta subsección no entran: no llevan rol, porque nombran el
+        artefacto que produce el motor y no el archivo del usuario (ver su comentario).
+        """
+        return frozenset() if self.binomial_by_grade else frozenset({"grade_col"})
 
 
 class StabilityValidationConfig(NikodymBaseConfig):
     """Reporta el PSI con el mismo motor de la etapa de estabilidad."""
 
+    # 🔴 D-SUB (D-SC-7): oculto porque apagarlo ABORTA la corrida, no porque sea interno.
+    # Medido: `ValidationStep.execute` pasa la PD calibrada, las métricas de desempeño y las de
+    # estabilidad, pero nunca el frame de estabilidad, y el recálculo lo exige — así que el único
+    # valor que corre desde el formulario es el encendido. Se expone cuando ese cableado exista,
+    # con su gate de filas `source="recomputed"`.
     consume_stability: bool = Field(
         default=True,
         title="Reusar el PSI ya calculado",
-        description=(
-            "Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se "
-            "calcula aquí con ese mismo motor, nunca con otra fórmula."
-        ),
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Estabilidad", "ui_order": 1},
+        description="Toma el PSI que ya calculó la etapa de estabilidad.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Estabilidad", "ui_order": 1},
     )
     psi_stable_threshold: float = Field(
         default=0.10,
         ge=0.0,
         title="Umbral PSI de revisión",
         description=(
-            "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo "
-            "inicia la banda de revisión."
+            "Por debajo de este PSI la población se considera estable; desde este valor entra en "
+            "la banda de revisión."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Estabilidad", "ui_order": 2},
     )
@@ -280,7 +368,10 @@ class StabilityValidationConfig(NikodymBaseConfig):
         default=0.25,
         ge=0.0,
         title="Umbral PSI de redesarrollo",
-        description="Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
+        description=(
+            "Desde este PSI la banda es la de redesarrollo. Tiene que ser mayor que el umbral de "
+            "revisión."
+        ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Estabilidad", "ui_order": 3},
     )
 
@@ -304,59 +395,89 @@ class BacktestingValidationConfig(NikodymBaseConfig):
         default=False,
         title="Ejecutar backtesting IFRS 9",
         description=(
-            "Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas "
-            "de resultado realizado, que no todos los modelos del inventario tienen."
+            "Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida "
+            "calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La "
+            "forma exacta de la prueba de severidad y exposición está declarada como brecha del "
+            "motor: el resultado sale con ese aviso."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 1},
     )
     parameters: tuple[BacktestParameter, ...] = Field(
         default=("pd", "lgd", "ead"),
         title="Parámetros a backtestear",
-        description="Parámetros IFRS 9 a contrastar realizado-vs-estimado.",
+        description="Qué parámetros se contrastan: la PD, la severidad o la exposición.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Backtesting", "ui_order": 2},
     )
+    # 🔴 D-SUB (D-SC-7): oculta, y sin `column_role`, porque NO es una columna del archivo del
+    # usuario. El evaluador la lee del lado estimado —el detalle de IFRS 9—, y ese motor publica
+    # siempre esa columna como `portfolio` aunque la entrada se llame de otro modo por
+    # `provisioning_ifrs9.portfolio_col`. Un rol de entrada habría dado un aviso falso con una
+    # cartera renombrada, y renombrar este campo para callarlo habría roto el consumo del
+    # artefacto.
     segment_col: str = Field(
         default="portfolio",
         title="Segmento de agregación",
-        description="Columna de segmento/cartera para agregar el backtesting.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        description="Columna de segmento del detalle IFRS 9 sobre la que se agrega el backtesting.",
+        json_schema_extra={"ui_widget": "hidden", "ui_group": "Columnas", "ui_order": 1},
     )
     alpha: float = Field(
         default=0.05,
         gt=0.0,
         lt=0.5,
         title="Nivel de significancia",
-        description="Nivel de significancia de los contrastes de backtesting; configurable.",
+        description="Nivel de significancia de las pruebas de backtesting.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Backtesting", "ui_order": 3},
     )
     one_sided: bool = Field(
         default=True,
         title="Contraste unilateral (subestimación)",
-        description="El interés supervisor es la subestimación del parámetro (ECB); configurable.",
+        description=(
+            "Para la severidad y la exposición: prueba sólo si el parámetro se subestimó, que es "
+            "lo que le importa al supervisor; apagado, prueba desvíos en los dos sentidos. La "
+            "prueba de la PD es siempre unilateral y este ajuste no la cambia."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 4},
     )
     realised_pd_col: str = Field(
         default="realised_default",
         title="Default realizado (0/1)",
-        description="Columna con el default efectivo realizado del período de desempeño.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        description=(
+            "La columna de tu archivo que dice si la operación incumplió de verdad en el período "
+            "de desempeño."
+        ),
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
     realised_lgd_col: str = Field(
         default="realised_lgd",
         title="LGD realizada",
-        description="Columna con la LGD realizada del período de desempeño.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        description="La columna con la severidad que de verdad se observó.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+        },
     )
     realised_ead_col: str = Field(
         default="realised_ead",
         title="EAD realizada a default",
-        description="Columna con la EAD realizada a default del período de desempeño.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
+        description="La columna con la exposición que de verdad había al incumplir.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 4,
+        },
     )
     pd_test: PdTest = Field(
         default="jeffreys",
         title="Test de PD",
-        description="jeffreys (ECB feb 2019) o binomial (BCBS WP14) para el backtesting de PD.",
+        description="Qué prueba se usa para la PD: la de Jeffreys o la binomial clásica.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Backtesting", "ui_order": 5},
     )
 
@@ -372,6 +493,25 @@ class BacktestingValidationConfig(NikodymBaseConfig):
         _require_non_empty(columns, context="backtesting")
         _require_no_collision(columns, context="backtesting")
         return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """Columnas realizadas que esta configuración de backtesting no abre (D-RAM-1).
+
+        Dos condiciones anidadas, las dos leídas del motor (`evaluator.py::
+        _required_realised_columns`): con el backtesting apagado el evaluador no entra a la
+        familia y **ninguna** de las tres se lee; encendido, cada columna se lee sólo si su
+        parámetro está elegido —un backtesting de PD sola no abre la severidad ni la exposición—.
+
+        `segment_col` NO entra, y no por olvido: no lleva rol, porque la lee del detalle de IFRS 9
+        y no del archivo del usuario (ver su comentario).
+        """
+        if not self.enabled:
+            return frozenset(_COLUMNA_REALIZADA_POR_PARAMETRO.values())
+        return frozenset(
+            campo
+            for parametro, campo in _COLUMNA_REALIZADA_POR_PARAMETRO.items()
+            if parametro not in self.parameters
+        )
 
 
 class ValidationConfig(NikodymBaseConfig):
@@ -393,8 +533,9 @@ class ValidationConfig(NikodymBaseConfig):
         default=("discrimination", "calibration", "stability"),
         title="Familias de validación activas",
         description=(
-            "Familias de validación que se ejecutan. El backtesting queda fuera por defecto: "
-            "exige los resultados IFRS 9 y las columnas de resultado realizado."
+            "Qué familias de pruebas corren: discriminación, calibración, estabilidad y "
+            "backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las "
+            "columnas con lo que de verdad ocurrió."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 2},
     )
@@ -419,10 +560,10 @@ class ValidationConfig(NikodymBaseConfig):
     stability: StabilityValidationConfig = Field(
         default_factory=StabilityValidationConfig,
         title="Estabilidad",
-        description=(
-            "Reporta el PSI tomándolo de la etapa de estabilidad o calculándolo con ese mismo "
-            "motor, nunca con otra fórmula."
-        ),
+        # La frase decía «o calculándolo con ese mismo motor»: esa rama no está cableada y su
+        # interruptor pasó a oculto (D-SUB, arriba), así que prometerla en pantalla habría sido
+        # vender una capacidad que la corrida no alcanza.
+        description="Reporta el PSI con el mismo motor de la etapa de estabilidad.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Estabilidad", "ui_order": 1},
     )
     backtesting: BacktestingValidationConfig = Field(
@@ -438,8 +579,11 @@ class ValidationConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante brechas críticas de dato",
         description=(
-            "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar "
-            "la corrida en vez de quedar registrada como aviso declarado en el resultado."
+            "Detiene la corrida cuando la validación emite un aviso declarado que le corresponde "
+            "gobernar a tu institución: la familia de backtesting elegida sin activarla, o el "
+            "backtesting activo sin las columnas de resultado realizado en tu archivo. Apagado, "
+            "el aviso queda registrado, esa prueba se omite y la corrida sigue. No afecta a la "
+            "columna de grado de rating: si falta, la corrida se detiene siempre."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 3},
     )
@@ -467,6 +611,25 @@ class ValidationConfig(NikodymBaseConfig):
                 loc=(*_LOC_SECCION, "backtesting", "enabled"),
             )
         return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """La subsección entera de cada familia que no corre (D-RAM-1 + D-SUB-1).
+
+        🔴 **Es la primera declaración del repo que nombra SUBMODELOS y no columnas sueltas**, y
+        hace falta porque la condición vive un nivel arriba de los campos que apaga: quien decide
+        si la calibración lee `grade_col` no es `binomial_by_grade` sino, antes que él, `families`.
+        Medido en `evaluator.py::validate`: cada familia entra por `if "<familia>" in
+        self.families`, así que una familia deseleccionada no abre ninguna columna aunque sus
+        flags queden encendidos — y quedan, porque deseleccionar una familia no los apaga.
+
+        El preflight poda el campo **y su subárbol** cuando el padre lo declara inactivo
+        (`dataset_check.py::_declaraciones`, D-SUB-1), que es exactamente lo que hace falta aquí.
+
+        Las cuatro familias se llaman igual que sus cuatro sub-configs, y eso no es casualidad
+        sino el contrato que un gate fija: una familia nueva sin su sub-config —o al revés— haría
+        que este método suprimiera de más o de menos, en silencio.
+        """
+        return frozenset(get_args(ValidationFamily)) - frozenset(self.families)
 
     def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
         """Invariantes que el evaluador exige y que sólo se descubrían corriendo (D-INV-1).

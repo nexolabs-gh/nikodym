@@ -52,6 +52,12 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "calibration": "card",
     "performance": "card",
     "stability": "card",
+    # Validación formal (SDD-22, D-SC-9): la card trae el estado técnico, el conteo de pruebas, las
+    # familias corridas, los avisos declarados y `metric_sections`, donde viajan los grados sin
+    # potencia. Sus cuatro tablas son AGREGADAS por partición/test/grado/segmento —decenas de
+    # filas, no miles—, así que entran enteras por `_augment`, a diferencia de los `detail` de
+    # provisiones.
+    "validation": "card",
     # Survival se expone porque la ficha F4 necesita la evidencia observada del ajuste (filas,
     # eventos y períodos). Es una card agregada pequeña; nunca se serializa la term-structure larga.
     "survival": "card",
@@ -213,6 +219,15 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         payload["stability"]["stability_metrics"] = _domain_records(
             study, "stability", "stability_metrics"
         )
+    if isinstance(payload["validation"], dict):
+        # Las CUATRO tablas tidy tal cual las publica el motor (SDD-22 §6), sin reagrupar ni
+        # reinterpretar: el panel las pinta por familia y el veredicto sigue siendo el del motor.
+        # ⚠️ `calibration` mezcla a propósito las filas de Hosmer-Lemeshow/Brier con las del test
+        # por grado —es una sola tabla canónica, y la columna `grade` es la que las distingue—;
+        # los grados SIN potencia no están aquí sino en `card.metric_sections`, y ésa es la razón
+        # de que el panel tenga que publicar la cobertura además de la tabla (§0-20).
+        for clave in ("discrimination", "calibration", "stability", "backtesting"):
+            payload["validation"][clave] = _domain_records(study, "validation", clave)
     # Provisiones (SDD-28): solo frames AGREGADOS (graficables), nunca los ``detail`` por operación.
     if isinstance(payload["provisioning_cmf"], dict):
         # Desglose del método estándar por categoría CMF (~20 filas): dónde vive la provisión.

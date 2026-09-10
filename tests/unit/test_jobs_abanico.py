@@ -203,6 +203,14 @@ _EXENTOS: dict[str, str] = {
         )
         for campo in ("motor", "fase", "estado_validacion")
     },
+    # D-SC-7: el sexto campo de `validation` con más de un valor, y el único que no es abanico.
+    "validation.calibration.hl_grouping": (
+        "ofrece dos valores y sólo uno es usable: `_check_calibration` rechaza `fixed_bands` "
+        "—«no soportado: exige bandas declaradas»—, así que no hay elección metodológica que "
+        "ofrecer sino un selector que sólo puede producir un error. Por eso el campo pasó a "
+        "`hidden` por D-SUB (D-SC-7) y no aparece en pantalla. Cuando las bandas fijas existan "
+        "vuelve como punto del abanico, con su oráculo de despacho y de efecto"
+    ),
 }
 
 

@@ -609,6 +609,52 @@ def test_validate_sin_familias_activas_falla() -> None:
         ValidationEvaluator.from_config(cfg).validate()
 
 
+def test_cada_familia_seleccionada_decide_que_tabla_trae_filas() -> None:
+    """`families` despacha, familia por familia, y una deseleccionada no publica nada (D-SC-7).
+
+    🔴 Es el invariante del que cuelga ``ValidationConfig.columnas_inactivas()``: si una familia
+    ausente pudiera abrir columnas, declarar su sub-config inerte silenciaría el preflight sobre
+    algo que el motor sí lee — el falso negativo caro de D-RAM-3. Aquí se mide en el motor, con
+    los MISMOS insumos en todas las corridas: lo único que cambia es `families`.
+
+    Se prueba en los dos sentidos por familia (con ella, hay filas; sin ella, la tabla va vacía) y
+    con la card, que declara exactamente las familias corridas.
+    """
+    insumos: dict[str, Any] = {
+        "calibrated_pd": _analytic_frame(),
+        "performance_metrics": _performance_metrics(),
+        "stability_metrics": _stability_metrics(),
+    }
+    tabla_de = {
+        "discrimination": lambda r: r.discrimination,
+        "calibration": lambda r: r.calibration,
+        "stability": lambda r: r.stability,
+    }
+
+    for familia, tabla in tabla_de.items():
+        sola = ValidationEvaluator.from_config(_config(families=(familia,))).validate(**insumos)
+        assert not tabla(sola).empty, f"{familia} seleccionada y su tabla llega vacía"
+        assert sola.card.families_run == (familia,)
+        for otra, otra_tabla in tabla_de.items():
+            if otra != familia:
+                assert otra_tabla(sola).empty, (
+                    f"{otra} NO está en families y su tabla trae filas: el despacho por familia "
+                    "no es el que `columnas_inactivas()` supone"
+                )
+
+    # El backtesting es la cuarta y no se puede pedir sola con estos insumos —exige IFRS 9—, así
+    # que su cara medida es la simétrica: sin la familia, su tabla va vacía aunque `enabled` esté
+    # encendido, que es exactamente el config que §0-12 describe (flags vivos, familia fuera).
+    con_flag_vivo = ValidationEvaluator.from_config(
+        _config(
+            families=("discrimination",),
+            backtesting=BacktestingValidationConfig(enabled=True),
+        )
+    ).validate(**insumos)
+    assert con_flag_vivo.backtesting.empty
+    assert con_flag_vivo.card.families_run == ("discrimination",)
+
+
 def test_deep_copy_rechaza_no_dataframe() -> None:
     """El copiado defensivo rechaza entradas que no son DataFrame."""
     with pytest.raises(ValidationDataError, match=r"pandas\.DataFrame"):

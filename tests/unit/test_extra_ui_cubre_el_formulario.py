@@ -38,6 +38,10 @@ EXTRA_POR_SECCION = {
     "calibration": "scoring",
     "performance": "scoring",
     "stability": "scoring",
+    # `validation` reúsa los motores de `performance` y `stability` y añade Hosmer-Lemeshow,
+    # binomial/Jeffreys y el t-test, que importan `scipy` de forma perezosa y traducen su ausencia
+    # a «requiere scipy; instale nikodym[scoring]». Ningún extra propio: `scoring` ya lo trae.
+    "validation": "scoring",
     "survival": "survival",  # además de `scoring`: `cox_ph`/`aft` exigen lifelines (KM no)
     "provisioning_cmf": "scoring",
     "provisioning_internal": "scoring",

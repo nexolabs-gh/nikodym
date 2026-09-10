@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from nikodym.core.markers import DECLARED_MARKERS
 from nikodym.ui.routes import schema_payload
 
 #: Las secciones que el formulario expande hoy. Espejo de `CONFIG_SECTIONS`
@@ -42,6 +43,7 @@ SECCIONES_DEL_FORMULARIO = (
     "calibration",
     "performance",
     "stability",
+    "validation",
     "survival",
     "provisioning_cmf",
     "provisioning_internal",
@@ -185,6 +187,51 @@ def test_el_gate_caza_lo_que_promete() -> None:
     # Y no acusa a lo que sólo se le parece: «Ninguno» en español, o `none` como literal de opción.
     assert not _LITERALES_PYTHON.search("Ninguno de los bins queda vacío.")
     assert not _LITERALES_PYTHON.search("Pon el eje temporal en none.")
+
+
+# --------------------------------------------------------------------------------------------
+# Y los CÓDIGOS INTERNOS, que son vocabulario del motor y no del formulario
+# --------------------------------------------------------------------------------------------
+
+
+def test_ningun_campo_visible_publica_una_marca_de_aviso_declarado() -> None:
+    """`FALTA-DATO-VAL-2` no es una frase: es un identificador para el anexo de auditoría.
+
+    El contrato del repo lo dice desde AGENTS.md —«los códigos internos no van al copy público»— y
+    la superficie donde más fácil se cuela es ésta: el tooltip de un campo cuyo interruptor
+    enciende justo la prueba que declara la brecha. Al poner `validation` en pantalla (D-SC-7) el
+    copy aprobado dice «está declarado como brecha del motor: el resultado sale con ese aviso»,
+    que es la misma información en idioma de negocio; el código lo lleva el anexo, con su marca.
+
+    ⚠️ El detector se deriva de :mod:`nikodym.core.markers`, que es la fuente de las dos marcas:
+    escribir la lista al lado la dejaría stale el día que nazca una tercera.
+    """
+    marcas = re.compile("|".join(re.escape(m) for m in DECLARED_MARKERS))
+    ofensores = [
+        f"{ruta}.{campo}: {nodo[campo]}"
+        for ruta, nodo in _campos_visibles()
+        for campo in ("title", "description", "ui_help")
+        if isinstance(nodo.get(campo), str) and marcas.search(nodo[campo])
+    ]
+    assert ofensores == [], (
+        "hay copy del formulario que publica una marca interna:\n"
+        + "\n".join(ofensores)
+        + "\n\nNo se arregla borrando la advertencia: se dice en idioma de negocio («declarado "
+        "como brecha del motor») y el código se queda en el anexo, que es donde se audita."
+    )
+
+
+def test_el_gate_de_marcas_caza_lo_que_promete() -> None:
+    """Ancla del detector contra los códigos reales que la sección `validation` puede emitir."""
+    marcas = re.compile("|".join(re.escape(m) for m in DECLARED_MARKERS))
+    assert marcas.search("Activa el contraste (FALTA-DATO-VAL-2) por grado.")
+    assert marcas.search("DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'.")
+    assert marcas.search("Deja el aviso FALTA-DATO registrado.")
+    # Y no acusa a la frase aprobada, que dice lo mismo sin el código.
+    assert not marcas.search(
+        "Los cortes del semáforo están declarados como brecha del motor: el resultado sale con "
+        "ese aviso."
+    )
 
 
 #: Pares de delimitadores que, desbalanceados, delatan una frase editada a medias.

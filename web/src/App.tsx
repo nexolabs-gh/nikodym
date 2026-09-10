@@ -3,6 +3,7 @@ import {
   Activity,
   Boxes,
   ChartColumn,
+  ClipboardCheck,
   Database,
   FileSignature,
   FileText,
@@ -72,6 +73,8 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   calibration: Scale,
   performance: Activity,
   stability: Waves,
+  // La validación formal es el acta de las pruebas del modelo (D-SC-6).
+  validation: ClipboardCheck,
   survival: TrendingDown,
   provisioning_cmf: Landmark,
   provisioning_internal: Users,

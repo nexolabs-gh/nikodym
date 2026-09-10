@@ -445,3 +445,104 @@ def test_core_valida_validation_como_blob_opaco_sin_importar_la_capa() -> None:
         "assert 'nikodym.validation' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+# ---------------------------------------------------------------------------------------------
+# D-SC-7: qué se pinta y qué NO, con la razón de cada campo oculto
+# ---------------------------------------------------------------------------------------------
+
+#: Los ocho campos de `validation` que el formulario **no** pinta, con su razón MEDIDA.
+#:
+#: 🔴 Se escribe a mano y se compara en los dos sentidos a propósito. Un campo que deja de ocultarse
+#: —o uno nuevo que se oculta sin razón— cambia la superficie pública sin que nadie lo mire: es
+#: exactamente lo que D-SUB pide declarar. Y ocultar un campo NO es hacerlo desaparecer: sigue
+#: viajando en el config, así que quien escribe YAML lo alcanza igual.
+_OCULTOS_CON_SU_RAZON: dict[str, str] = {
+    "schema_version": "fontanería del config para migraciones futuras; nunca fue copy",
+    "type": "variante de la sección; hoy sólo existe la estándar, así que no hay nada que elegir",
+    "calibration.hl_grouping": (
+        "de sus dos valores el motor rechaza `fixed_bands` («no soportado: exige bandas "
+        "declaradas»), así que en pantalla sería un selector con una sola opción usable"
+    ),
+    "calibration.target_column": (
+        "nombra una columna del artefacto interno de PD calibrada, que el motor produce con "
+        "nombre fijo; ningún otro valor corre desde el formulario"
+    ),
+    "calibration.pd_column": (
+        "misma razón: la columna de PD la escribe el propio motor, y renombrarla aquí sólo "
+        "produce «El frame de calibración requiere la columna …»"
+    ),
+    "calibration.partition_column": (
+        "misma razón: la partición viaja en el artefacto interno con el nombre que el motor le "
+        "puso, no con el que traiga el archivo del usuario"
+    ),
+    "stability.consume_stability": (
+        "apagarlo ABORTA la corrida: el paso no pasa el frame que el recálculo exige, así que el "
+        "único valor que corre desde el formulario es el encendido"
+    ),
+    "backtesting.segment_col": (
+        "la lee del detalle de IFRS 9, que publica esa columna con nombre fijo aunque la entrada "
+        "se llame de otro modo; un rol de entrada habría dado un aviso falso"
+    ),
+}
+
+
+def _ocultos_del_modelo() -> dict[str, str]:
+    """Rutas relativas a `validation` de todo campo con ``ui_widget: hidden``."""
+    encontrados: dict[str, str] = {}
+
+    def recorre(modelo: Any, prefijo: str) -> None:
+        for nombre, info in modelo.model_fields.items():
+            extra = info.json_schema_extra or {}
+            ruta = f"{prefijo}{nombre}"
+            if isinstance(extra, dict) and extra.get("ui_widget") == "hidden":
+                encontrados[ruta] = str(info.title or "")
+            anotacion = info.annotation
+            if isinstance(anotacion, type) and hasattr(anotacion, "model_fields"):
+                recorre(anotacion, f"{ruta}.")
+
+    recorre(ValidationConfig, "")
+    return encontrados
+
+
+def test_los_campos_inertes_de_validation_estan_ocultos_y_declarados() -> None:
+    """Bidireccional: lo oculto es exactamente lo declarado, y cada razón dice algo (D-SC-7)."""
+    ocultos = set(_ocultos_del_modelo())
+
+    assert ocultos == set(_OCULTOS_CON_SU_RAZON), (
+        "la superficie de `validation` cambió sin declararlo.\n"
+        f"  ocultos sin razón escrita: {sorted(ocultos - set(_OCULTOS_CON_SU_RAZON))}\n"
+        f"  declarados que ya no se ocultan: {sorted(set(_OCULTOS_CON_SU_RAZON) - ocultos)}\n"
+        "Un campo se oculta por D-SUB —es inerte, o su valor no corre desde el formulario— y esa "
+        "razón se escribe aquí; exponerlo otra vez es una decisión de producto, no un ajuste."
+    )
+    for ruta, razon in _OCULTOS_CON_SU_RAZON.items():
+        assert len(razon) > 30, f"{ruta}: la razón no explica nada"
+
+
+def test_las_cuatro_columnas_del_archivo_declaran_su_rol_y_las_otras_cuatro_no() -> None:
+    """El reverso del gate de arriba: quién puede pedirle una columna al usuario y quién no.
+
+    Las cuatro con rol son las que el usuario aporta —el grado de rating y las tres realizadas—; las
+    cuatro sin rol nombran artefactos que produce el motor. Declararle rol a una de esas cuatro
+    haría que el preflight reclamara una columna que el archivo no tiene por qué traer.
+    """
+    con_rol: set[str] = set()
+
+    def recorre(modelo: Any, prefijo: str) -> None:
+        for nombre, info in modelo.model_fields.items():
+            extra = info.json_schema_extra or {}
+            if isinstance(extra, dict) and extra.get("column_role"):
+                con_rol.add(f"{prefijo}{nombre}")
+            anotacion = info.annotation
+            if isinstance(anotacion, type) and hasattr(anotacion, "model_fields"):
+                recorre(anotacion, f"{prefijo}{nombre}.")
+
+    recorre(ValidationConfig, "")
+
+    assert con_rol == {
+        "calibration.grade_col",
+        "backtesting.realised_pd_col",
+        "backtesting.realised_lgd_col",
+        "backtesting.realised_ead_col",
+    }, f"cambió qué columnas de validación se le piden al usuario: {sorted(con_rol)}"

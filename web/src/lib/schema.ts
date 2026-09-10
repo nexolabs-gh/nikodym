@@ -130,6 +130,16 @@ export const CONFIG_SECTIONS: ConfigSectionDef[] = [
       "PSI y CSI del score y de la PD calibrada: umbrales, comparaciones entre particiones y eje temporal.",
   },
   {
+    // Después de «Estabilidad» y antes de «Survival» porque ése es su lugar en el pipeline: la
+    // validación formal corre penúltima —consume la discriminación, la calibración y el PSI que
+    // las etapas anteriores ya calcularon— y el informe la publica. Es la sección que D-JOB-18
+    // dejó pendiente en el formulario (D-SC-6).
+    key: "validation",
+    label: "Validación formal",
+    description:
+      "Las pruebas que documentan el modelo: discriminación, calibración, estabilidad y backtesting.",
+  },
+  {
     key: "survival",
     label: "Survival — PD lifetime",
     description:

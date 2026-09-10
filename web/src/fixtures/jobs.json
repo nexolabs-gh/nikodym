@@ -547,6 +547,165 @@
           "when": null
         },
         {
+          "help": "La validación formal agrupa sus pruebas en familias, y cada una responde una pregunta distinta sobre el mismo modelo. Puedes pedir las que necesites; al menos una.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Reporta el AUC, el Gini y el KS por muestra. Reutiliza lo que ya calculó la etapa de desempeño, así que no cuesta cómputo extra.",
+              "label": "Si separa a quien incumple de quien no",
+              "motivo": null,
+              "value": "discrimination"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la PD estimada con el incumplimiento observado: por grupos de PD, con un puntaje de error medio y, si tienes grados de rating, grado por grado. Es la familia que esta etapa aporta de nuevo.",
+              "label": "Si la probabilidad que da es la que ocurre",
+              "motivo": null,
+              "value": "calibration"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Trae el PSI que ya calculó la etapa de estabilidad y lo publica con sus bandas dentro del informe de validación.",
+              "label": "Si la población se movió",
+              "motivo": null,
+              "value": "stability"
+            },
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "validation.backtesting.enabled"
+              ],
+              "help": "Contrasta la PD, la severidad y la exposición estimadas por IFRS 9 contra las realizadas. Elegirla sola no basta: hay que activarla y traer las columnas con el resultado realizado.",
+              "label": "Si lo estimado coincidió con lo que pasó",
+              "motivo": "Pedir la familia no enciende el backtesting: mientras «Ejecutar backtesting IFRS 9» siga apagado, la corrida se detiene ahí — o registra el aviso y sigue, si apagas la parada por brechas de dato.",
+              "value": "backtesting"
+            }
+          ],
+          "path": "validation.families",
+          "question": "¿Qué familias de pruebas quieres correr?",
+          "when": null
+        },
+        {
+          "help": "Cada muestra responde una pregunta distinta, y el informe las publica en una fila cada una. Una muestra que tu partición no produzca sale sin evaluar.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sobre la que se ajustó el modelo: es la cota optimista, no el veredicto.",
+              "label": "La muestra de desarrollo",
+              "motivo": null,
+              "value": "desarrollo"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Clientes del mismo período que el modelo no usó para ajustarse: mide si lo aprendido generaliza.",
+              "label": "La muestra de validación",
+              "motivo": null,
+              "value": "holdout"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Un período posterior: es la que interesa a quien va a poner el modelo en producción.",
+              "label": "La muestra fuera de tiempo",
+              "motivo": null,
+              "value": "oot"
+            }
+          ],
+          "path": "validation.discrimination.partitions",
+          "question": "¿Sobre qué muestras quieres reportar la discriminación?",
+          "when": null
+        },
+        {
+          "help": "Las dos comparan los incumplimientos observados de un grado con su PD estimada, y se diferencian en cómo se comportan cuando un grado tiene muy pocos o ningún incumplimiento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sigue dando un resultado utilizable cuando un grado no registró ningún incumplimiento, que es lo habitual en los grados buenos de una cartera minorista. Es la que viene de fábrica.",
+              "label": "La que aguanta un grado sin incumplimientos",
+              "motivo": null,
+              "value": "jeffreys"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La prueba de siempre. Es la que muchas políticas de validación citan por su nombre; con grados sin incumplimientos se vuelve poco informativa.",
+              "label": "La binomial clásica",
+              "motivo": null,
+              "value": "binomial"
+            }
+          ],
+          "path": "validation.calibration.pd_test",
+          "question": "¿Con qué prueba quieres contrastar la PD de cada grado?",
+          "when": null
+        },
+        {
+          "help": "Cada parámetro se contrasta por separado y exige su propia columna con lo que de verdad ocurrió. Elegir sólo los que tienes evita pedir columnas que no tengas.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la PD estimada con la proporción de operaciones que de verdad incumplieron. Necesita que tu archivo diga, operación por operación, si incumplió en el período de desempeño.",
+              "label": "La probabilidad de incumplimiento",
+              "motivo": null,
+              "value": "pd"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la severidad estimada con la observada. Necesita que tu archivo traiga la severidad que de verdad se observó en las operaciones que incumplieron.",
+              "label": "La severidad de la pérdida",
+              "motivo": null,
+              "value": "lgd"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la exposición estimada con la que de verdad había al incumplir. Necesita que tu archivo traiga esa exposición realizada.",
+              "label": "La exposición al incumplir",
+              "motivo": null,
+              "value": "ead"
+            }
+          ],
+          "path": "validation.backtesting.parameters",
+          "question": "¿Qué parámetros quieres contrastar contra lo realizado?",
+          "when": null
+        },
+        {
+          "help": "Las mismas dos del contraste por grado, aplicadas aquí al contraste contra el incumplimiento que de verdad ocurrió, segmento por segmento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sigue dando un resultado utilizable cuando un segmento no registró ningún incumplimiento. Es la que viene de fábrica.",
+              "label": "La que aguanta un segmento sin incumplimientos",
+              "motivo": null,
+              "value": "jeffreys"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La prueba de siempre, la que muchas políticas de validación citan por su nombre.",
+              "label": "La binomial clásica",
+              "motivo": null,
+              "value": "binomial"
+            }
+          ],
+          "path": "validation.backtesting.pd_test",
+          "question": "¿Con qué prueba quieres contrastar la PD contra lo realizado?",
+          "when": null
+        },
+        {
           "help": "El modelo ordena bien a los clientes, pero su nivel promedio no tiene por qué coincidir con la tasa de incumplimiento que tu institución reconoce. Esto decide con qué transformación se corrige ese nivel.",
           "multiple": false,
           "options": [
@@ -1293,7 +1452,12 @@
       ],
       "missing_sections": [],
       "offered": true,
-      "overrides": [],
+      "overrides": [
+        [
+          "validation.calibration.binomial_by_grade",
+          false
+        ]
+      ],
       "required_decisions": [
         {
           "answer_forms": [
@@ -1473,6 +1637,7 @@
         "calibration",
         "performance",
         "stability",
+        "validation",
         "report",
         "governance"
       ],
@@ -4774,6 +4939,165 @@
           "when": null
         },
         {
+          "help": "La validación formal agrupa sus pruebas en familias, y cada una responde una pregunta distinta sobre el mismo modelo. Puedes pedir las que necesites; al menos una.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Reporta el AUC, el Gini y el KS por muestra. Reutiliza lo que ya calculó la etapa de desempeño, así que no cuesta cómputo extra.",
+              "label": "Si separa a quien incumple de quien no",
+              "motivo": null,
+              "value": "discrimination"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la PD estimada con el incumplimiento observado: por grupos de PD, con un puntaje de error medio y, si tienes grados de rating, grado por grado. Es la familia que esta etapa aporta de nuevo.",
+              "label": "Si la probabilidad que da es la que ocurre",
+              "motivo": null,
+              "value": "calibration"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Trae el PSI que ya calculó la etapa de estabilidad y lo publica con sus bandas dentro del informe de validación.",
+              "label": "Si la población se movió",
+              "motivo": null,
+              "value": "stability"
+            },
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "validation.backtesting.enabled"
+              ],
+              "help": "Contrasta la PD, la severidad y la exposición estimadas por IFRS 9 contra las realizadas. Elegirla sola no basta: hay que activarla y traer las columnas con el resultado realizado.",
+              "label": "Si lo estimado coincidió con lo que pasó",
+              "motivo": "Pedir la familia no enciende el backtesting: mientras «Ejecutar backtesting IFRS 9» siga apagado, la corrida se detiene ahí — o registra el aviso y sigue, si apagas la parada por brechas de dato.",
+              "value": "backtesting"
+            }
+          ],
+          "path": "validation.families",
+          "question": "¿Qué familias de pruebas quieres correr?",
+          "when": null
+        },
+        {
+          "help": "Cada muestra responde una pregunta distinta, y el informe las publica en una fila cada una. Una muestra que tu partición no produzca sale sin evaluar.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sobre la que se ajustó el modelo: es la cota optimista, no el veredicto.",
+              "label": "La muestra de desarrollo",
+              "motivo": null,
+              "value": "desarrollo"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Clientes del mismo período que el modelo no usó para ajustarse: mide si lo aprendido generaliza.",
+              "label": "La muestra de validación",
+              "motivo": null,
+              "value": "holdout"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Un período posterior: es la que interesa a quien va a poner el modelo en producción.",
+              "label": "La muestra fuera de tiempo",
+              "motivo": null,
+              "value": "oot"
+            }
+          ],
+          "path": "validation.discrimination.partitions",
+          "question": "¿Sobre qué muestras quieres reportar la discriminación?",
+          "when": null
+        },
+        {
+          "help": "Las dos comparan los incumplimientos observados de un grado con su PD estimada, y se diferencian en cómo se comportan cuando un grado tiene muy pocos o ningún incumplimiento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sigue dando un resultado utilizable cuando un grado no registró ningún incumplimiento, que es lo habitual en los grados buenos de una cartera minorista. Es la que viene de fábrica.",
+              "label": "La que aguanta un grado sin incumplimientos",
+              "motivo": null,
+              "value": "jeffreys"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La prueba de siempre. Es la que muchas políticas de validación citan por su nombre; con grados sin incumplimientos se vuelve poco informativa.",
+              "label": "La binomial clásica",
+              "motivo": null,
+              "value": "binomial"
+            }
+          ],
+          "path": "validation.calibration.pd_test",
+          "question": "¿Con qué prueba quieres contrastar la PD de cada grado?",
+          "when": null
+        },
+        {
+          "help": "Cada parámetro se contrasta por separado y exige su propia columna con lo que de verdad ocurrió. Elegir sólo los que tienes evita pedir columnas que no tengas.",
+          "multiple": true,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la PD estimada con la proporción de operaciones que de verdad incumplieron. Necesita que tu archivo diga, operación por operación, si incumplió en el período de desempeño.",
+              "label": "La probabilidad de incumplimiento",
+              "motivo": null,
+              "value": "pd"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la severidad estimada con la observada. Necesita que tu archivo traiga la severidad que de verdad se observó en las operaciones que incumplieron.",
+              "label": "La severidad de la pérdida",
+              "motivo": null,
+              "value": "lgd"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Compara la exposición estimada con la que de verdad había al incumplir. Necesita que tu archivo traiga esa exposición realizada.",
+              "label": "La exposición al incumplir",
+              "motivo": null,
+              "value": "ead"
+            }
+          ],
+          "path": "validation.backtesting.parameters",
+          "question": "¿Qué parámetros quieres contrastar contra lo realizado?",
+          "when": null
+        },
+        {
+          "help": "Las mismas dos del contraste por grado, aplicadas aquí al contraste contra el incumplimiento que de verdad ocurrió, segmento por segmento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Sigue dando un resultado utilizable cuando un segmento no registró ningún incumplimiento. Es la que viene de fábrica.",
+              "label": "La que aguanta un segmento sin incumplimientos",
+              "motivo": null,
+              "value": "jeffreys"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La prueba de siempre, la que muchas políticas de validación citan por su nombre.",
+              "label": "La binomial clásica",
+              "motivo": null,
+              "value": "binomial"
+            }
+          ],
+          "path": "validation.backtesting.pd_test",
+          "question": "¿Con qué prueba quieres contrastar la PD contra lo realizado?",
+          "when": null
+        },
+        {
           "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
           "multiple": false,
           "options": [
@@ -5694,7 +6018,12 @@
       ],
       "missing_sections": [],
       "offered": true,
-      "overrides": [],
+      "overrides": [
+        [
+          "validation.calibration.binomial_by_grade",
+          false
+        ]
+      ],
       "required_decisions": [
         {
           "answer_forms": [
@@ -5874,6 +6203,7 @@
         "calibration",
         "performance",
         "stability",
+        "validation",
         "provisioning_internal",
         "report",
         "governance"

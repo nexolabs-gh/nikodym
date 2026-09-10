@@ -232,7 +232,10 @@ describe("efecto medido sobre los ejemplos publicados (y sobre la demo estática
       nombre: "F1 · scorecard",
       preset: presetF1Fixture as unknown as PresetResponse,
       job: "scorecard_pd",
-      secciones: 10,
+      // 10 → 11 con D-SC-6: el trabajo gana «Validación formal», la sección que D-JOB-18 dejó
+      // pendiente. El ejemplo F1 ya traía `validation` encendida en su config, así que hasta
+      // ahora el sidebar la escondía — que es el defecto que el test de más abajo vigila.
+      secciones: 11,
     },
     {
       // 🔴 El caso «ningún trabajo casa» se conserva con un config SINTÉTICO. Hasta D-JUR-9.7 lo
@@ -285,7 +288,7 @@ describe("efecto medido sobre los ejemplos publicados (y sobre la demo estática
 
   it("ningún ejemplo deja el sidebar VACÍO (el único desenlace intolerable)", () => {
     // Un sidebar sin secciones sería un workspace sin formulario y sin salida. `sectionsOfJob`
-    // devuelve las 15 cuando no hay trabajo, así que el piso lo pone el trabajo más pequeño.
+    // devuelve las 16 cuando no hay trabajo, así que el piso lo pone el trabajo más pequeño.
     for (const caso of CASOS) {
       expect(caso.secciones).toBeGreaterThan(0)
     }

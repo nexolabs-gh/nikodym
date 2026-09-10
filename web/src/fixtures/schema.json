@@ -11523,7 +11523,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Nivel de significancia de los contrastes de backtesting; configurable.",
+            "description": "Nivel de significancia de las pruebas de backtesting.",
             "exclusiveMaximum": 0.5,
             "exclusiveMinimum": 0.0,
             "title": "Nivel de significancia",
@@ -11534,7 +11534,7 @@
           },
           "enabled": {
             "default": false,
-            "description": "Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas de resultado realizado, que no todos los modelos del inventario tienen.",
+            "description": "Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La forma exacta de la prueba de severidad y exposición está declarada como brecha del motor: el resultado sale con ese aviso.",
             "title": "Ejecutar backtesting IFRS 9",
             "type": "boolean",
             "ui_group": "Backtesting",
@@ -11543,7 +11543,7 @@
           },
           "one_sided": {
             "default": true,
-            "description": "El interés supervisor es la subestimación del parámetro (ECB); configurable.",
+            "description": "Para la severidad y la exposición: prueba sólo si el parámetro se subestimó, que es lo que le importa al supervisor; apagado, prueba desvíos en los dos sentidos. La prueba de la PD es siempre unilateral y este ajuste no la cambia.",
             "title": "Contraste unilateral (subestimación)",
             "type": "boolean",
             "ui_group": "Backtesting",
@@ -11556,7 +11556,7 @@
               "lgd",
               "ead"
             ],
-            "description": "Parámetros IFRS 9 a contrastar realizado-vs-estimado.",
+            "description": "Qué parámetros se contrastan: la PD, la severidad o la exposición.",
             "items": {
               "enum": [
                 "pd",
@@ -11573,7 +11573,7 @@
           },
           "pd_test": {
             "default": "jeffreys",
-            "description": "jeffreys (ECB feb 2019) o binomial (BCBS WP14) para el backtesting de PD.",
+            "description": "Qué prueba se usa para la PD: la de Jeffreys o la binomial clásica.",
             "enum": [
               "binomial",
               "jeffreys"
@@ -11585,8 +11585,9 @@
             "ui_widget": "selectbox"
           },
           "realised_ead_col": {
+            "column_role": "input",
             "default": "realised_ead",
-            "description": "Columna con la EAD realizada a default del período de desempeño.",
+            "description": "La columna con la exposición que de verdad había al incumplir.",
             "title": "EAD realizada a default",
             "type": "string",
             "ui_group": "Columnas",
@@ -11594,8 +11595,9 @@
             "ui_widget": "text_input"
           },
           "realised_lgd_col": {
+            "column_role": "input",
             "default": "realised_lgd",
-            "description": "Columna con la LGD realizada del período de desempeño.",
+            "description": "La columna con la severidad que de verdad se observó.",
             "title": "LGD realizada",
             "type": "string",
             "ui_group": "Columnas",
@@ -11603,8 +11605,9 @@
             "ui_widget": "text_input"
           },
           "realised_pd_col": {
+            "column_role": "input",
             "default": "realised_default",
-            "description": "Columna con el default efectivo realizado del período de desempeño.",
+            "description": "La columna de tu archivo que dice si la operación incumplió de verdad en el período de desempeño.",
             "title": "Default realizado (0/1)",
             "type": "string",
             "ui_group": "Columnas",
@@ -11613,12 +11616,12 @@
           },
           "segment_col": {
             "default": "portfolio",
-            "description": "Columna de segmento/cartera para agregar el backtesting.",
+            "description": "Columna de segmento del detalle IFRS 9 sobre la que se agrega el backtesting.",
             "title": "Segmento de agregación",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 1,
-            "ui_widget": "text_input"
+            "ui_widget": "hidden"
           }
         },
         "title": "BacktestingValidationConfig",
@@ -11630,7 +11633,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Nivel de significancia estándar de los tests de calibración; configurable.",
+            "description": "Nivel de significancia de las pruebas de calibración. Cinco por ciento es el estándar.",
             "exclusiveMaximum": 0.5,
             "exclusiveMinimum": 0.0,
             "title": "Nivel de significancia",
@@ -11641,7 +11644,7 @@
           },
           "binomial_by_grade": {
             "default": true,
-            "description": "Activa el contraste binomial/Jeffreys de PD por grado de rating.",
+            "description": "Contrasta, grado por grado, si los incumplimientos observados caben en la PD estimada. Exige una columna de grado de rating en tu archivo. Los cortes del semáforo y la convención exacta de la prueba están declarados como brecha del motor: el resultado sale con ese aviso.",
             "title": "Test binomial/Jeffreys por grado",
             "type": "boolean",
             "ui_group": "Calibración",
@@ -11650,7 +11653,7 @@
           },
           "brier": {
             "default": true,
-            "description": "Activa el Brier score (1/N)*suma((p-y)^2) por partición.",
+            "description": "Calcula el puntaje de Brier por partición: el error cuadrático medio entre la PD predicha y lo que ocurrió. Más bajo es mejor.",
             "title": "Calcular Brier score",
             "type": "boolean",
             "ui_group": "Calibración",
@@ -11658,8 +11661,9 @@
             "ui_widget": "checkbox"
           },
           "grade_col": {
+            "column_role": "input",
             "default": "grade",
-            "description": "Columna que identifica el grado de rating para el test binomial por grado.",
+            "description": "La columna de tu archivo con el grado de rating de cada operación.",
             "title": "Columna de grado de rating",
             "type": "string",
             "ui_group": "Columnas",
@@ -11668,7 +11672,7 @@
           },
           "hl_grouping": {
             "default": "deciles",
-            "description": "deciles (default estándar); fixed_bands reservado (exige bandas declaradas).",
+            "description": "Agrupación del Hosmer-Lemeshow; las bandas fijas están reservadas.",
             "enum": [
               "deciles",
               "fixed_bands"
@@ -11677,11 +11681,11 @@
             "type": "string",
             "ui_group": "Calibración",
             "ui_order": 3,
-            "ui_widget": "selectbox"
+            "ui_widget": "hidden"
           },
           "hl_n_groups": {
             "default": 10,
-            "description": "Nº de grupos G del Hosmer-Lemeshow; convención estándar G=10 -> G-2=8 gl.",
+            "description": "En cuántos grupos de PD se parte la cartera para la prueba de Hosmer-Lemeshow. La convención estándar es diez.",
             "maximum": 20,
             "minimum": 5,
             "title": "Nº de grupos HL (deciles)",
@@ -11692,7 +11696,7 @@
           },
           "hosmer_lemeshow": {
             "default": true,
-            "description": "Activa el estadístico Hosmer-Lemeshow por grupos de PD (chi2 con G-2 gl).",
+            "description": "Comprueba con la prueba de Hosmer-Lemeshow que la PD predicha coincide con la observada, por grupos de PD.",
             "title": "Ejecutar Hosmer-Lemeshow",
             "type": "boolean",
             "ui_group": "Calibración",
@@ -11701,35 +11705,36 @@
           },
           "min_rows_per_group": {
             "default": 30,
-            "description": "Grupos HL/grados bajo este mínimo se auditan como not_evaluable, no NaN.",
+            "description": "Mínimo de operaciones para evaluar: bajo ese mínimo no hay prueba y el resultado queda marcado como no evaluado.",
             "minimum": 1,
             "title": "Mínimo técnico por grupo HL/grado",
             "type": "integer",
             "ui_group": "Calibración",
+            "ui_help": "Mínimo de operaciones para evaluar: una partición entera con menos que esto no recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no recibe el test por grado. Quedan marcados como no evaluados en vez de dar un número engañoso. No se aplica a cada grupo de PD dentro de la prueba de Hosmer-Lemeshow.",
             "ui_order": 8,
             "ui_widget": "number_input"
           },
           "partition_column": {
             "default": "partition",
-            "description": "Columna que identifica Desarrollo, Holdout y OOT.",
+            "description": "Columna de partición del artefacto interno de PD calibrada.",
             "title": "Columna partición",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 4,
-            "ui_widget": "text_input"
+            "ui_widget": "hidden"
           },
           "pd_column": {
             "default": "pd_calibrated",
-            "description": "Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado.",
+            "description": "Columna con la PD calibrada del artefacto interno que produce el motor.",
             "title": "Columna PD calibrada",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 3,
-            "ui_widget": "text_input"
+            "ui_widget": "hidden"
           },
           "pd_test": {
             "default": "jeffreys",
-            "description": "jeffreys (ECB feb 2019, robusto con D=0) o binomial (BCBS WP14).",
+            "description": "Qué prueba se usa por grado: la de Jeffreys, que se comporta bien cuando un grado no tiene incumplimientos, o la binomial clásica.",
             "enum": [
               "binomial",
               "jeffreys"
@@ -11742,28 +11747,28 @@
           },
           "target_column": {
             "default": "target",
-            "description": "Columna con el resultado binario (0/1) para la calibración.",
+            "description": "Columna con el resultado binario del artefacto interno de PD calibrada.",
             "title": "Columna target binario",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 2,
-            "ui_widget": "text_input"
+            "ui_widget": "hidden"
           },
           "traffic_light_green_alpha": {
             "default": 0.05,
-            "description": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado.",
+            "description": "Por encima de este p-valor el grado queda en verde; por debajo, en ámbar.",
             "exclusiveMaximum": 1.0,
             "exclusiveMinimum": 0.0,
             "title": "Corte verde/ámbar (p-valor)",
             "type": "number",
             "ui_group": "Semáforo",
-            "ui_help": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default institucional, no un umbral fijado por norma: fíjelo según su política de validación.",
+            "ui_help": "Por encima de este p-valor el grado queda en verde; por debajo, en ámbar. Es un default institucional, no un umbral fijado por norma: fíjelo según su política de validación.",
             "ui_order": 1,
             "ui_widget": "number_input"
           },
           "traffic_light_red_alpha": {
             "default": 0.01,
-            "description": "Corte del semáforo ámbar/rojo sobre el p-valor del test por grado; debe ser más estricto que el corte verde (rojo < verde).",
+            "description": "Por debajo de este p-valor el grado queda en rojo. Tiene que ser menor que el corte del verde.",
             "exclusiveMaximum": 1.0,
             "exclusiveMinimum": 0.0,
             "title": "Corte ámbar/rojo (p-valor)",
@@ -11782,7 +11787,7 @@
         "properties": {
           "consume_performance": {
             "default": true,
-            "description": "Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; con False se calculan aquí con ese mismo motor, nunca con otra fórmula.",
+            "description": "Reutiliza el AUC, el Gini y el KS que ya calculó la etapa de desempeño. Apagado, los vuelve a calcular con el mismo motor, nunca con otra fórmula.",
             "title": "Reusar las métricas de discriminación ya calculadas",
             "type": "boolean",
             "ui_group": "Discriminación",
@@ -11795,7 +11800,7 @@
               "holdout",
               "oot"
             ],
-            "description": "Particiones sobre las que se reporta la discriminación del modelo.",
+            "description": "Sobre qué particiones se reporta la discriminación: desarrollo, holdout y fuera de tiempo.",
             "items": {
               "enum": [
                 "desarrollo",
@@ -11820,16 +11825,16 @@
         "properties": {
           "consume_stability": {
             "default": true,
-            "description": "Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se calcula aquí con ese mismo motor, nunca con otra fórmula.",
+            "description": "Toma el PSI que ya calculó la etapa de estabilidad.",
             "title": "Reusar el PSI ya calculado",
             "type": "boolean",
             "ui_group": "Estabilidad",
             "ui_order": 1,
-            "ui_widget": "checkbox"
+            "ui_widget": "hidden"
           },
           "psi_review_threshold": {
             "default": 0.25,
-            "description": "Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
+            "description": "Desde este PSI la banda es la de redesarrollo. Tiene que ser mayor que el umbral de revisión.",
             "minimum": 0.0,
             "title": "Umbral PSI de redesarrollo",
             "type": "number",
@@ -11839,7 +11844,7 @@
           },
           "psi_stable_threshold": {
             "default": 0.1,
-            "description": "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo inicia la banda de revisión.",
+            "description": "Por debajo de este PSI la población se considera estable; desde este valor entra en la banda de revisión.",
             "minimum": 0.0,
             "title": "Umbral PSI de revisión",
             "type": "number",
@@ -15732,7 +15737,7 @@
               },
               "fail_on_falta_dato": {
                 "default": true,
-                "description": "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como aviso declarado en el resultado.",
+                "description": "Detiene la corrida cuando la validación emite un aviso declarado que le corresponde gobernar a tu institución: la familia de backtesting elegida sin activarla, o el backtesting activo sin las columnas de resultado realizado en tu archivo. Apagado, el aviso queda registrado, esa prueba se omite y la corrida sigue. No afecta a la columna de grado de rating: si falta, la corrida se detiene siempre.",
                 "title": "Fallar ante brechas críticas de dato",
                 "type": "boolean",
                 "ui_group": "General",
@@ -15745,7 +15750,7 @@
                   "calibration",
                   "stability"
                 ],
-                "description": "Familias de validación que se ejecutan. El backtesting queda fuera por defecto: exige los resultados IFRS 9 y las columnas de resultado realizado.",
+                "description": "Qué familias de pruebas corren: discriminación, calibración, estabilidad y backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las columnas con lo que de verdad ocurrió.",
                 "items": {
                   "enum": [
                     "discrimination",
@@ -15772,7 +15777,6 @@
               },
               "stability": {
                 "$ref": "#/$defs/validation__StabilityValidationConfig",
-                "description": "Reporta el PSI tomándolo de la etapa de estabilidad o calculándolo con ese mismo motor, nunca con otra fórmula.",
                 "title": "Estabilidad",
                 "ui_group": "Estabilidad",
                 "ui_order": 1,

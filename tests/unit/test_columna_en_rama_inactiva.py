@@ -64,6 +64,14 @@ _ARGUMENTOS_MINIMOS: dict[str, dict[str, object]] = {
     "InternalLgdBetaRegression": {"covariate_cols": ("mora",)},
     "InternalLgdFractionalResponse": {"covariate_cols": ("mora",)},
     "InternalLgdWorkout": {"recovery_col": "tasa"},
+    # 🔴 `ValidationConfig` declara inerte una SUBSECCIÓN —`backtesting`, porque su familia no
+    # está en `families`— y con los defaults del motor esa subsección ya no declara ninguna
+    # columna: su propio `columnas_inactivas()` las apagó todas por `enabled=False`. Sobre esa
+    # instancia el gate leería «eximirlo no suprime nada», que sería cierto y engañoso a la vez.
+    # El config que importa es justo el que §0-12 describe: la familia fuera y el flag encendido,
+    # que es como queda un config al que le desmarcaron la familia sin apagar nada más. Ahí las
+    # tres columnas realizadas SÍ están declaradas y la poda del padre es la que las calla.
+    "ValidationConfig": {"backtesting": {"enabled": True}},
 }
 
 #: 🔴 El oráculo, ESCRITO A MANO desde el código del motor (`archivo:línea` en cada fila).
@@ -228,6 +236,122 @@ def test_ancla_con_la_subseccion_encendida_la_misma_columna_si_se_acusa() -> Non
     assert _acusa(_config_interno(encendida), FANTASMA), (
         "con `method='pd_lgd'` el motor SÍ abre la columna de recuperación: si el preflight calla "
         "aquí, la poda de subárbol está suprimiendo de más"
+    )
+
+
+#: 🔴 Los cuatro de `validation` (D-SC-7), con la condición leída del motor y no del método.
+#:
+#: Se miden aparte de :data:`CASOS` porque su config no es el de provisiones, y la condición vive
+#: en OTRO sitio en cada uno: el contraste por grado gobierna la columna de grado; el interruptor
+#: del backtesting gobierna las tres realizadas cuando está apagado y `parameters` las gobierna una
+#: a una cuando está encendido. `families` es el tercer nivel y tiene su propio par abajo.
+#:
+#: ⚠️ `fail_on_falta_dato=False` en los casos con backtesting: con la familia elegida y el
+#: interruptor apagado, `_check_validation` levanta antes de que el preflight llegue a mirar nada.
+_CASOS_VALIDATION: tuple[tuple[str, dict[str, object], dict[str, object]], ...] = (
+    (
+        # `_grade_records` (`evaluator.py`) sale por `if not calib.binomial_by_grade` sin abrir el
+        # frame; ninguna otra rama de la calibración mira `grade_col`.
+        "calibration.grade_col",
+        {"calibration": {"binomial_by_grade": False, "grade_col": FANTASMA}},
+        {"calibration": {"binomial_by_grade": True, "grade_col": FANTASMA}},
+    ),
+    (
+        # `_required_realised_columns` sólo pide la columna de cada parámetro ELEGIDO, y sólo si el
+        # backtesting corre. Aquí se apaga con el interruptor.
+        "backtesting.realised_pd_col (interruptor apagado)",
+        {
+            "backtesting": {"enabled": False, "realised_pd_col": FANTASMA},
+            "fail_on_falta_dato": False,
+        },
+        {
+            "families": ["discrimination", "backtesting"],
+            "backtesting": {"enabled": True, "realised_pd_col": FANTASMA},
+        },
+    ),
+    (
+        # Y aquí con `parameters`: un backtesting de PD sola no abre la severidad.
+        "backtesting.realised_lgd_col (parámetro no elegido)",
+        {
+            "families": ["discrimination", "backtesting"],
+            "backtesting": {
+                "enabled": True,
+                "parameters": ["pd"],
+                "realised_lgd_col": FANTASMA,
+            },
+        },
+        {
+            "families": ["discrimination", "backtesting"],
+            "backtesting": {
+                "enabled": True,
+                "parameters": ["pd", "lgd"],
+                "realised_lgd_col": FANTASMA,
+            },
+        },
+    ),
+    (
+        # 🔴 El tercer nivel, y el que estrena la poda de subárbol fuera de provisiones: la familia
+        # deseleccionada apaga la subsección ENTERA aunque sus flags sigan encendidos, que es
+        # exactamente como queda un config al que le desmarcaron la familia.
+        "calibration entera (familia fuera)",
+        {
+            "families": ["discrimination"],
+            "calibration": {"binomial_by_grade": True, "grade_col": FANTASMA},
+        },
+        {
+            "families": ["discrimination", "calibration"],
+            "calibration": {"binomial_by_grade": True, "grade_col": FANTASMA},
+        },
+    ),
+)
+
+
+def _config_validation(valores: dict[str, object]) -> NikodymConfig:
+    """Un config con la sección `validation` escrita tal cual."""
+    cargar_configs_de_dominio()
+    return NikodymConfig.model_validate({"validation": valores})
+
+
+@pytest.mark.parametrize(("campo", "apagada", "encendida"), _CASOS_VALIDATION)
+def test_una_columna_de_validation_con_su_rama_apagada_no_se_acusa(
+    campo: str, apagada: dict[str, object], encendida: dict[str, object]
+) -> None:
+    """Los presets y los dos trabajos del scorecard corren con estas ramas apagadas (D-SC-7)."""
+    del encendida
+    assert not _acusa(_config_validation(apagada), FANTASMA), (
+        f"{campo}: el preflight acusa una columna que la validación no lee con esa configuración"
+    )
+
+
+@pytest.mark.parametrize(("campo", "apagada", "encendida"), _CASOS_VALIDATION)
+def test_ancla_de_validation_con_la_rama_encendida_la_columna_si_se_acusa(
+    campo: str, apagada: dict[str, object], encendida: dict[str, object]
+) -> None:
+    """El control que da sentido al de arriba: encendida, la columna se lee y hay que exigirla."""
+    del apagada
+    assert _acusa(_config_validation(encendida), FANTASMA), (
+        f"{campo}: con su rama ACTIVA la validación sí abre la columna y el preflight la exige"
+    )
+
+
+def test_el_preflight_sigue_viendo_las_columnas_de_data_con_validation_podada() -> None:
+    """🔴 Control positivo de la poda: apagar `validation` no puede enmudecer al resto.
+
+    Una `columnas_inactivas()` demasiado ansiosa —o una poda de subárbol mal colocada— podría
+    dejar callado el preflight entero y los dos tests de arriba seguirían verdes: «no acusa» es su
+    resultado esperado. Aquí se exige que, con TODA la validación podada, un desajuste de otra
+    sección se siga viendo.
+    """
+    cargar_configs_de_dominio()
+    config = NikodymConfig.model_validate(
+        {
+            "validation": {"families": ["discrimination"], "calibration": {"grade_col": FANTASMA}},
+            "binning": {"feature_columns": [FANTASMA]},
+        }
+    )
+    assert _acusa(config, FANTASMA), (
+        "con `validation` podada el preflight dejó de ver una variable declarada en `binning`: la "
+        "poda está suprimiendo mucho más de lo que declara"
     )
 
 

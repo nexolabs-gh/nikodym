@@ -32,7 +32,7 @@ from nikodym.core.config.schema import (
 )
 from nikodym.ui.jobs import decisiones_de, list_jobs
 
-#: Las 15 secciones que el formulario ofrece. Espejo del catálogo del front; el gate de deriva de
+#: Las 16 secciones que el formulario ofrece. Espejo del catálogo del front; el gate de deriva de
 #: esa lista vive en `test_column_roles.py`, y aquí sólo acota el barrido a lo navegable.
 SECCIONES_DEL_FORMULARIO = (
     "data",
@@ -43,6 +43,7 @@ SECCIONES_DEL_FORMULARIO = (
     "calibration",
     "performance",
     "stability",
+    "validation",
     "survival",
     "provisioning_cmf",
     "provisioning_internal",

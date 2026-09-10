@@ -278,6 +278,20 @@ def test_el_footprint_inspeccionable_es_el_que_la_medicion_conto() -> None:
         # ⚠️ `markov`, `forward` y `stress` siguen fuera, y por el mismo criterio derivado: ningún
         # trabajo disponible las usa. No es una lista corta por olvido.
         "survival",
+        # Ampliación de la capa 2 del scorecard completo (2026-09-10, D-SC-6/D-SC-7): `validation`
+        # entra al formulario y CUATRO de sus campos nombran columnas del archivo del usuario —el
+        # grado de rating y las tres realizadas del backtesting—, así que el preflight puede
+        # señalarlas y el formulario tiene dónde llevar al usuario.
+        #
+        # ⚠️ Sus otras cuatro columnas NO declaran rol, y es deliberado: `calibration.target_column`,
+        # `pd_column` y `partition_column` nombran el artefacto que produce el propio motor, y
+        # `backtesting.segment_col` la columna que publica IFRS 9 con nombre fijo. Reclamárselas al
+        # usuario sería el aviso falso que D-SUB evita, y por eso las cuatro son `hidden`.
+        #
+        # 🔴 Y las cuatro con rol sólo se reclaman cuando su rama corre: lo declara
+        # `columnas_inactivas()` en las tres configs de la sección (D-RAM-1). Sin eso, el preflight
+        # habría exigido «grade» con los defaults del preset F1, que lo trae apagado.
+        "validation",
     }
 
 

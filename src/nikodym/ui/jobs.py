@@ -117,13 +117,21 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "calibration",
             "performance",
             "stability",
+            "validation",
             "report",
             "governance",
         ),
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
-        "overrides": (),
+        # 🔴 D-SC-6: el default del motor enciende el contraste de PD por grado, que exige una
+        # columna de grado de rating en el archivo — y un panel de comportamiento no la trae. Con
+        # el default, quien entra por este trabajo y contesta todo lo que se le pide obtiene «El
+        # frame de calibración requiere la columna 'grade'» al penúltimo paso, con todo el cómputo
+        # pagado. Es la misma razón escrita que ya lleva el preset F1, y por eso viaja como
+        # override (D-EJE-2) y no como cambio de default: por código, con una tabla que sí trae
+        # grados, el contraste es correcto y debe seguir viniendo encendido.
+        "overrides": (("validation.calibration.binomial_by_grade", False),),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -287,6 +295,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "calibration",
             "performance",
             "stability",
+            "validation",
             "provisioning_internal",
             "report",
             "governance",
@@ -294,7 +303,9 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
-        "overrides": (),
+        # Misma razón medida que su hermano «Scorecard de comportamiento (PD)»: el contraste por
+        # grado exige una columna de grado de rating que este trabajo no pide en ninguna parte.
+        "overrides": (("validation.calibration.binomial_by_grade", False),),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -411,9 +422,22 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         # Disponible desde D-PUE-11. ⚠️ Alcance declarado: mide y documenta con `performance` y
-        # `stability`. La validación formal —la sección `validation`— necesita además un artefacto
-        # que NO es una tabla, y por HTTP sólo entran tablas (D-PUE-1/D-PUE-12): eso es trabajo
-        # aparte y aquí no se promete.
+        # `stability`. La validación formal —la sección `validation`— **no** entra aquí, y la capa
+        # 2 midió por qué con precisión (§8-4 de la enmienda del scorecard completo):
+        #
+        # * el DAG **sí** resuelve: con la PD por la puerta de artefactos, `check_pipeline` deja
+        #   `['data', 'performance', 'stability', 'validation', 'report']` ejecutable;
+        # * lo que no hay es dónde nombrar las columnas. `_materializar_externos` entrega el
+        #   archivo del usuario **sin renombrar**, y las tres columnas que la calibración lee
+        #   —target, PD y partición— son campos OCULTOS por D-SUB (D-SC-7), porque en todos los
+        #   demás trabajos nombran un artefacto que produce el propio motor. Quien entrara por
+        #   aquí con su PD en una columna llamada de otro modo obtendría «El frame de calibración
+        #   requiere la columna 'pd_calibrated'» al penúltimo paso, sin ningún campo en pantalla
+        #   donde corregirlo.
+        #
+        # Prometerlo así sería un trabajo que nace roto. Entra cuando esos tres campos tengan
+        # superficie —o cuando la puerta de artefactos renombre—, y hasta entonces la validación
+        # formal de un modelo externo se hace por código, como dice su guía.
         "status": _AVAILABLE,
         "unavailable_reason": None,
     },
@@ -1595,6 +1619,237 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "help": (
                         "La misma forma, ubicando el mínimo con una regla aproximada, para cuando "
                         "la búsqueda exacta se hace cara."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+    ),
+    # D-SC-6: los cinco puntos que `validation` aporta al abanico. El sexto campo con más de una
+    # opción —`calibration.hl_grouping`— está exento con su razón en el gate: pasó a `hidden` por
+    # D-SUB y su segundo valor lo rechaza el motor, así que no hay elección que ofrecer.
+    "validation": (
+        {
+            "path": "validation.families",
+            "question": "¿Qué familias de pruebas quieres correr?",
+            "help": (
+                "La validación formal agrupa sus pruebas en familias, y cada una responde una "
+                "pregunta distinta sobre el mismo modelo. Puedes pedir las que necesites; al "
+                "menos una."
+            ),
+            "multiple": True,
+            "options": (
+                {
+                    "value": "discrimination",
+                    "label": "Si separa a quien incumple de quien no",
+                    "help": (
+                        "Reporta el AUC, el Gini y el KS por muestra. Reutiliza lo que ya calculó "
+                        "la etapa de desempeño, así que no cuesta cómputo extra."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "calibration",
+                    "label": "Si la probabilidad que da es la que ocurre",
+                    "help": (
+                        "Compara la PD estimada con el incumplimiento observado: por grupos de "
+                        "PD, con un puntaje de error medio y, si tienes grados de rating, grado "
+                        "por grado. Es la familia que esta etapa aporta de nuevo."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "stability",
+                    "label": "Si la población se movió",
+                    "help": (
+                        "Trae el PSI que ya calculó la etapa de estabilidad y lo publica con sus "
+                        "bandas dentro del informe de validación."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "backtesting",
+                    "label": "Si lo estimado coincidió con lo que pasó",
+                    "help": (
+                        "Contrasta la PD, la severidad y la exposición estimadas por IFRS 9 "
+                        "contra las realizadas. Elegirla sola no basta: hay que activarla y "
+                        "traer las columnas con el resultado realizado."
+                    ),
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Pedir la familia no enciende el backtesting: mientras «Ejecutar "
+                        "backtesting IFRS 9» siga apagado, la corrida se detiene ahí — o "
+                        "registra el aviso y sigue, si apagas la parada por brechas de dato."
+                    ),
+                    "prueba": "validation/config.py:603",
+                    "exige": ("validation.backtesting.enabled",),
+                },
+            ),
+        },
+        {
+            "path": "validation.discrimination.partitions",
+            "question": "¿Sobre qué muestras quieres reportar la discriminación?",
+            "help": (
+                "Cada muestra responde una pregunta distinta, y el informe las publica en una "
+                "fila cada una. Una muestra que tu partición no produzca sale sin evaluar."
+            ),
+            "multiple": True,
+            "options": (
+                {
+                    "value": "desarrollo",
+                    "label": "La muestra de desarrollo",
+                    "help": (
+                        "Sobre la que se ajustó el modelo: es la cota optimista, no el veredicto."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "holdout",
+                    "label": "La muestra de validación",
+                    "help": (
+                        "Clientes del mismo período que el modelo no usó para ajustarse: mide si "
+                        "lo aprendido generaliza."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "oot",
+                    "label": "La muestra fuera de tiempo",
+                    "help": (
+                        "Un período posterior: es la que interesa a quien va a poner el modelo en "
+                        "producción."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+        {
+            "path": "validation.calibration.pd_test",
+            "question": "¿Con qué prueba quieres contrastar la PD de cada grado?",
+            "help": (
+                "Las dos comparan los incumplimientos observados de un grado con su PD estimada, "
+                "y se diferencian en cómo se comportan cuando un grado tiene muy pocos o ningún "
+                "incumplimiento."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "jeffreys",
+                    "label": "La que aguanta un grado sin incumplimientos",
+                    "help": (
+                        "Sigue dando un resultado utilizable cuando un grado no registró ningún "
+                        "incumplimiento, que es lo habitual en los grados buenos de una cartera "
+                        "minorista. Es la que viene de fábrica."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "binomial",
+                    "label": "La binomial clásica",
+                    "help": (
+                        "La prueba de siempre. Es la que muchas políticas de validación citan "
+                        "por su nombre; con grados sin incumplimientos se vuelve poco informativa."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+        {
+            "path": "validation.backtesting.parameters",
+            "question": "¿Qué parámetros quieres contrastar contra lo realizado?",
+            "help": (
+                "Cada parámetro se contrasta por separado y exige su propia columna con lo que de "
+                "verdad ocurrió. Elegir sólo los que tienes evita pedir columnas que no tengas."
+            ),
+            "multiple": True,
+            "options": (
+                {
+                    "value": "pd",
+                    "label": "La probabilidad de incumplimiento",
+                    "help": (
+                        "Compara la PD estimada con la proporción de operaciones que de verdad "
+                        "incumplieron. Necesita que tu archivo diga, operación por operación, si "
+                        "incumplió en el período de desempeño."
+                    ),
+                    # ⚠️ NO es `exige_otro_campo`, y la diferencia está medida: el campo del
+                    # nombre de la columna ya viene relleno, así que no hay hueco que rellenar y
+                    # ningún validador levanta por elegir este parámetro. Lo que puede faltar es
+                    # la COLUMNA en el archivo, y de eso avisan el preflight y —si igual se
+                    # corre— el aviso declarado del evaluador. Rotularla como condicionada
+                    # obligaría a citar un validador que no existe.
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "lgd",
+                    "label": "La severidad de la pérdida",
+                    "help": (
+                        "Compara la severidad estimada con la observada. Necesita que tu archivo "
+                        "traiga la severidad que de verdad se observó en las operaciones que "
+                        "incumplieron."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "ead",
+                    "label": "La exposición al incumplir",
+                    "help": (
+                        "Compara la exposición estimada con la que de verdad había al incumplir. "
+                        "Necesita que tu archivo traiga esa exposición realizada."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+        {
+            "path": "validation.backtesting.pd_test",
+            "question": "¿Con qué prueba quieres contrastar la PD contra lo realizado?",
+            "help": (
+                "Las mismas dos del contraste por grado, aplicadas aquí al contraste contra el "
+                "incumplimiento que de verdad ocurrió, segmento por segmento."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "jeffreys",
+                    "label": "La que aguanta un segmento sin incumplimientos",
+                    "help": (
+                        "Sigue dando un resultado utilizable cuando un segmento no registró "
+                        "ningún incumplimiento. Es la que viene de fábrica."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "binomial",
+                    "label": "La binomial clásica",
+                    "help": (
+                        "La prueba de siempre, la que muchas políticas de validación citan por su "
+                        "nombre."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,
