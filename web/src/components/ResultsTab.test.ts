@@ -431,6 +431,30 @@ describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
     expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(1)
   })
 
+  it("una corrida vieja sin identidad no recibe semáforo: se declara y se conservan las series", () => {
+    // 🔴 Hallazgo de la revisión adversarial de S8. La card legacy trae el peor valor entre score
+    // y PD (0,12, que es el de la PD) con la banda del score (`stable`). El resumen no puede
+    // atribuirlo, así que no lo pinta: lo dice. Sin esto la pantalla publicaría «0,1200 · Estable»,
+    // que es la contradicción que la enmienda del resumen PSI cerró en el informe.
+    const html = render({
+      ...demo,
+      stability: {
+        ...demo.stability!,
+        comparisons: ["dev_vs_holdout"],
+        max_psi_by_comparison: { dev_vs_holdout: 0.12 },
+        psi_metric_by_comparison: null,
+        bands_by_comparison: { dev_vs_holdout: "stable" },
+      },
+    })
+    expect(ocurrencias(html, "Peor PSI entre score y PD")).toBe(0)
+    expect(html).not.toContain("0.1200")
+    expect(html).toContain("no se puede atribuir")
+    expect(html).toContain("Dev vs Holdout")
+    // La sección sigue existiendo con sus series: lo que se omite es el semáforo agregado.
+    expect(html).toContain("Estabilidad del score")
+    expect(html).toContain("PSI del score")
+  })
+
   it("las palabras de las bandas son las aprobadas, y ningún slug llega a la pantalla", () => {
     const html = render(demo)
     expect(html).toContain("Estable")

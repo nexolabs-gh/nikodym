@@ -1715,7 +1715,32 @@ export interface PsiSummaryRow {
 export function psiSummaryRows(
   stability: StabilityResponse | null | undefined,
 ): PsiSummaryRow[] {
-  if (!stability) return []
+  return psiSummaryPartition(stability).rows
+}
+
+/**
+ * Las comparaciones cuyo resumen NO se puede atribuir, con su etiqueta legible.
+ *
+ * 🔴 Son las corridas guardadas por una versión anterior a la enmienda del resumen PSI: publicaban
+ * el máximo entre score y PD como valor, pero la banda **sólo desde el score**
+ * (`nikodym/stability/results.py`, que por eso se salta ahí su propia validación de coherencia), y
+ * `load_results` sirve el JSON persistido sin migrarlo. Con score 0,05 y PD 0,12 esa card dice
+ * «0,1200» y «estable» a la vez. Pintarlas juntas reintroduciría en la pantalla exactamente la
+ * contradicción que la enmienda cerró en el informe, así que el resumen se omite y la sección lo
+ * declara; las series de abajo son correctas y se conservan enteras.
+ */
+export function psiSummaryUnattributed(
+  stability: StabilityResponse | null | undefined,
+): string[] {
+  return psiSummaryPartition(stability).unattributed
+}
+
+/** Reparte las comparaciones entre las atribuibles y las que no. Núcleo de las dos anteriores. */
+function psiSummaryPartition(stability: StabilityResponse | null | undefined): {
+  rows: PsiSummaryRow[]
+  unattributed: string[]
+} {
+  if (!stability) return { rows: [], unattributed: [] }
   const bands = stability.bands_by_comparison ?? {}
   const values = stability.max_psi_by_comparison ?? {}
   const metrics = stability.psi_metric_by_comparison ?? {}
@@ -1723,19 +1748,28 @@ export function psiSummaryRows(
     stability.comparisons.length > 0
       ? stability.comparisons
       : Object.keys(bands).sort()
-  return comparisons
-    .filter((comparison) => comparison in bands)
-    .map((comparison) => {
-      const metric = metrics?.[comparison] ?? null
-      return {
-        comparison,
-        label: comparisonLabel(comparison),
-        metric,
-        metricLabel: psiMetricLabel(metric),
-        value: values[comparison] ?? null,
-        band: bands[comparison],
-      }
+  const rows: PsiSummaryRow[] = []
+  const unattributed: string[] = []
+  for (const comparison of comparisons) {
+    if (!(comparison in bands)) continue
+    const band = bands[comparison]
+    const metric = metrics?.[comparison] ?? null
+    const value = values[comparison] ?? null
+    // Sin identidad, la única tripleta defendible es la no evaluable: no hay valor que atribuir.
+    if (metric === null && band !== "not_evaluable") {
+      unattributed.push(comparisonLabel(comparison))
+      continue
+    }
+    rows.push({
+      comparison,
+      label: comparisonLabel(comparison),
+      metric,
+      metricLabel: psiMetricLabel(metric),
+      value,
+      band,
     })
+  }
+  return { rows, unattributed }
 }
 
 // --- panel de selección (D-SC-10) -------------------------------------------

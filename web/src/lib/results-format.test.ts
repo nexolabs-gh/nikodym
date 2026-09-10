@@ -63,6 +63,7 @@ import {
   ivBandLabel,
   psiMetricLabel,
   psiSummaryRows,
+  psiSummaryUnattributed,
   selectionDecisionRows,
   selectionReasonLabel,
   selectionThresholdRows,
@@ -2557,13 +2558,39 @@ describe("psiSummaryRows (D-SC-12): valor, identidad y banda de la MISMA observa
     expect(fila.band).toBe("not_evaluable")
   })
 
-  it("una card vieja sin identidad publicada sigue dando valor y banda", () => {
-    // `psi_metric_by_comparison` es opcional en el tipo (cards 1.x anteriores a la enmienda).
-    const legacy = { ...divergente, psi_metric_by_comparison: null }
-    const [fila] = psiSummaryRows(legacy)
-    expect(fila.metricLabel).toBeNull()
-    expect(fila.value).toBe(0.12)
-    expect(fila.band).toBe("review")
+  it("una card vieja sin identidad NO publica un semáforo que no puede atribuir", () => {
+    // 🔴 Hallazgo de la revisión adversarial de S8, verificado contra el motor: las cards 1.x
+    // anteriores a la enmienda publicaban el máximo entre score y PD como valor pero la banda
+    // **sólo desde el score** —`stability/results.py` se salta ahí su propia validación de
+    // coherencia por eso mismo— y `load_results` sirve el JSON persistido sin migrarlo. La card de
+    // abajo es exactamente ese caso: 0,12 (que es el PSI de la PD) con banda `stable` (que es la
+    // del score). Pintarlas juntas diría «0,1200 · Estable».
+    const legacy: StabilityResponse = {
+      ...divergente,
+      comparisons: ["dev_vs_holdout"],
+      max_psi_by_comparison: { dev_vs_holdout: 0.12 },
+      psi_metric_by_comparison: null,
+      bands_by_comparison: { dev_vs_holdout: "stable" },
+    }
+    expect(psiSummaryRows(legacy)).toEqual([])
+    expect(psiSummaryUnattributed(legacy)).toEqual(["Dev vs Holdout"])
+  })
+
+  it("la no evaluable sí se conserva sin identidad: no hay valor que atribuir", () => {
+    const sinValor: StabilityResponse = {
+      ...divergente,
+      comparisons: ["dev_vs_holdout"],
+      max_psi_by_comparison: { dev_vs_holdout: null },
+      psi_metric_by_comparison: null,
+      bands_by_comparison: { dev_vs_holdout: "not_evaluable" },
+    }
+    expect(psiSummaryRows(sinValor)).toHaveLength(1)
+    expect(psiSummaryUnattributed(sinValor)).toEqual([])
+  })
+
+  it("una card nueva no deja ninguna comparación sin atribuir", () => {
+    expect(psiSummaryUnattributed(divergente)).toEqual([])
+    expect(psiSummaryUnattributed(null)).toEqual([])
   })
 
   it("sin estabilidad no fabrica filas", () => {

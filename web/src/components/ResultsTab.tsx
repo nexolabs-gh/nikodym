@@ -72,6 +72,7 @@ import {
   provisioningSourceLabel,
   psiBars,
   psiSummaryRows,
+  psiSummaryUnattributed,
   reliabilityCurve,
   scoreHistogram,
   selectionDecisionRows,
@@ -248,6 +249,9 @@ export function ResultsPanel({
   // las claves agregadas de la card, no de las series: viajaban en el payload desde la enmienda del
   // resumen PSI y no se pintaban en ninguna pantalla.
   const psiSummary = psiSummaryRows(stab)
+  // Comparaciones de una corrida vieja cuyo resumen no se puede atribuir a una magnitud: se
+  // declaran en vez de pintarles un semáforo que podría no ser el suyo.
+  const psiSinAtribuir = psiSummaryUnattributed(stab)
   const scorePsi = psiBars(stabMetrics, "score_psi")
   const pdPsi = psiBars(stabMetrics, "pd_psi")
   const csi = csiBars(stabMetrics)
@@ -256,6 +260,7 @@ export function ResultsPanel({
   const hasStability =
     stab !== null &&
     (psiSummary.length > 0 ||
+      psiSinAtribuir.length > 0 ||
       scorePsi.length > 0 ||
       pdPsi.length > 0 ||
       csi.length > 0 ||
@@ -556,6 +561,14 @@ export function ResultsPanel({
                 <PsiSummaryItem key={row.comparison} row={row} />
               ))}
             </dl>
+          ) : null}
+
+          {psiSinAtribuir.length > 0 ? (
+            <p className="text-xs text-amber-200/90">
+              El peor PSI de {psiSinAtribuir.join(" y ")} no se puede atribuir: esta corrida se
+              guardó con una versión anterior que no registraba a cuál de las dos magnitudes
+              corresponde el valor. Las series de abajo están completas.
+            </p>
           ) : null}
 
           <StabilityBandLegend bands={bandsPresent(stabMetrics)} />

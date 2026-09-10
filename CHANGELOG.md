@@ -26,6 +26,10 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   viajaban juntos desde que se corrigió el resumen del informe, y la pantalla mostraba sólo las
   series: había que leer dos gráficos para saber qué decía el semáforo.
 
+  Una corrida **guardada antes** de esa corrección no recibe semáforo agregado: aquellas versiones
+  publicaban el peor valor entre score y PD junto a la banda del score, así que atribuirlo sería
+  inventar. La pantalla lo dice en una línea y conserva las series completas, que sí son correctas.
+
 - **La pestaña Resultados pinta la ficha del modelo.** Cuando la corrida lleva gobernanza, justo
   después de los artefactos de la corrida aparece «Ficha del modelo»: el propósito, los supuestos y
   las limitaciones que declaró la institución, la fecha de emisión y la de próxima revisión, las
