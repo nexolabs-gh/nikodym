@@ -606,7 +606,7 @@ export function ResultsPanel({
                   </thead>
                   <tbody>
                     {edaPoints.map((point) => (
-                      <tr key={point.label} className="border-b border-border">
+                      <tr key={point.key} className="border-b border-border">
                         <td className="py-2 pr-3 text-foreground">{point.label}</td>
                         <NumCell>{formatCount(point.nEligible)}</NumCell>
                         <NumCell>{formatCount(point.nBad)}</NumCell>

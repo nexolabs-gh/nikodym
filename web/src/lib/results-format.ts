@@ -2140,6 +2140,9 @@ export function edaChartKind(eda: EdaResult | null | undefined): "line" | "bar" 
 
 /** Fila de la tasa en el tiempo lista para graficar o tabular. */
 export interface EdaRatePoint {
+  /** Identidad estable de la fila (posición + etiqueta): clave de React y del gráfico. */
+  key: string
+  /** Lo que se lee. Única dentro de la tabla: dos cohortes que se escriban igual se distinguen. */
   label: string
   rate: number | null
   nEligible: number
@@ -2147,15 +2150,38 @@ export interface EdaRatePoint {
   lowConfidence: boolean
 }
 
-/** La tasa por período o cohorte en el orden en que la publicó el motor; vacío sin tabla. */
+/** Cómo se llama, en palabras, el tipo JSON con que viajó una cohorte (para desambiguar). */
+function tipoDeCohorte(period: string | number | null): string {
+  return typeof period === "number" ? "número" : "texto"
+}
+
+/**
+ * La tasa por período o cohorte en el orden en que la publicó el motor; vacío sin tabla.
+ *
+ * 🔴 El motor agrupa de forma tipo-consciente y mantiene separadas la cohorte numérica `2024` y la
+ * textual `"2024"` (hallazgo de la revisión adversarial de S9): `String()` las fundía en una sola
+ * etiqueta, que además hacía de clave de React y de categoría del gráfico. Cuando dos filas se
+ * escriben igual, la etiqueta dice de qué tipo es cada una, y la clave lleva la posición.
+ */
 export function edaRatePoints(eda: EdaResult | null | undefined): EdaRatePoint[] {
-  return (eda?.default_rate ?? []).map((row: EdaPeriodRow) => ({
-    label: row.period === null ? EMPTY : String(row.period),
-    rate: row.default_rate,
-    nEligible: row.n_eligible,
-    nBad: row.n_bad,
-    lowConfidence: row.low_confidence,
-  }))
+  const rows = eda?.default_rate ?? []
+  const crudas = rows.map((row: EdaPeriodRow) => (row.period === null ? EMPTY : String(row.period)))
+  const repetidas = new Set(crudas.filter((label, i) => crudas.indexOf(label) !== i))
+  return rows.map((row: EdaPeriodRow, i: number) => {
+    const cruda = crudas[i]
+    const label =
+      repetidas.has(cruda) && row.period !== null
+        ? `${cruda} (${tipoDeCohorte(row.period)})`
+        : cruda
+    return {
+      key: `${i}:${label}`,
+      label,
+      rate: row.default_rate,
+      nEligible: row.n_eligible,
+      nBad: row.n_bad,
+      lowConfidence: row.low_confidence,
+    }
+  })
 }
 
 /** La señal temporal tal como la dejó el motor: marcada, sin aviso o no evaluable con su causa. */

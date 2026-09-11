@@ -71,6 +71,7 @@ import {
   stabilityThresholdLabels,
   temporalScore,
   variableBinning,
+  edaRatePoints,
 } from "./results-format"
 import type {
   BinningResult,
@@ -2762,5 +2763,49 @@ describe("el vocabulario público es un espejo, no un diccionario propio", () =>
   it("sin identidad publicada, el resumen no fabrica una", () => {
     expect(psiMetricLabel(null)).toBeNull()
     expect(psiMetricLabel(undefined)).toBeNull()
+  })
+})
+
+describe("edaRatePoints: dos cohortes que se escriben igual no se funden (D-SC-5)", () => {
+  // 🔴 El motor separa la cohorte numérica 2024 de la textual "2024" (hallazgo de la revisión
+  // adversarial de S9); `String()` las fundía en una etiqueta, clave y categoría.
+  const eda = {
+    overall_default_rate: 0.1,
+    n_periods: 3,
+    stability_flagged: false,
+    stability_metric_used: "cv" as const,
+    stability_threshold: 0.25,
+    stability_value: null,
+    n_columns_profiled: 0,
+    quality_flag_counts: {},
+    n_figures: 0,
+    axis: "cohort" as const,
+    axis_inferred: false,
+    stability_not_evaluable_reason: "eje_cohorte" as const,
+    default_rate: [
+      { period: 2024, n_total: 10, n_eligible: 10, n_bad: 1, default_rate: 0.1, low_confidence: false },
+      { period: "2024", n_total: 10, n_eligible: 10, n_bad: 2, default_rate: 0.2, low_confidence: false },
+      { period: "2025", n_total: 10, n_eligible: 10, n_bad: 3, default_rate: 0.3, low_confidence: false },
+    ],
+  }
+
+  it("desambigua las etiquetas repetidas con el tipo y deja únicas las claves", () => {
+    const puntos = edaRatePoints(eda)
+    expect(puntos.map((p) => p.label)).toEqual(["2024 (número)", "2024 (texto)", "2025"])
+    expect(new Set(puntos.map((p) => p.key)).size).toBe(3)
+    expect(new Set(puntos.map((p) => p.label)).size).toBe(3)
+  })
+
+  it("sin repeticiones no añade nada a la etiqueta", () => {
+    const puntos = edaRatePoints({ ...eda, default_rate: eda.default_rate.slice(1) })
+    expect(puntos.map((p) => p.label)).toEqual(["2024", "2025"])
+  })
+
+  it("un período ausente se lee como el placeholder y no revienta", () => {
+    const puntos = edaRatePoints({
+      ...eda,
+      default_rate: [{ ...eda.default_rate[0], period: null }],
+    })
+    expect(puntos[0].label).toBe("—")
   })
 })

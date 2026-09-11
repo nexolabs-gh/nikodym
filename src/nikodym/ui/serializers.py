@@ -181,7 +181,7 @@ def serialize_study(
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():
         payload[domain] = (
-            _dump_card(study.artifacts.get(domain, key))
+            _dump_card(domain, study.artifacts.get(domain, key))
             if study.artifacts.has(domain, key)
             else None
         )
@@ -189,29 +189,42 @@ def serialize_study(
     return payload
 
 
-def _dump_card(card: BaseModel) -> dict[str, Any]:
-    """Serializa una card como ``dump_dto``, con los ``NaN`` de sus escalares como ausencia.
+#: Los DOS escalares de la card de ``eda`` cuyo ``NaN`` es una ausencia declarada y no un defecto:
+#: ``stability_value`` no existe cuando la señal temporal no se evaluó —y la card dice por qué en
+#: ``stability_not_evaluable_reason``—, y ``overall_default_rate`` no existe sin operaciones
+#: elegibles. Ningún otro campo, de ninguna otra card, tiene ese permiso.
+_EDA_AUSENCIAS_DECLARADAS: tuple[str, ...] = ("overall_default_rate", "stability_value")
 
-    🔴 ``dump_dto`` **falla** ante un no-finito, y está bien para las cards que no pueden traerlo.
-    La de ``eda`` sí puede: ``stability_value`` es ``NaN`` cuando la señal temporal no se evaluó
-    —eje de cohorte, un solo período, tasa media cero— y ``overall_default_rate`` lo es sin
-    operaciones elegibles. No es un valor inválido sino una ausencia declarada, y la card ya
-    dice por qué (``stability_not_evaluable_reason``), así que viaja como ``null`` con la misma
-    coacción que aplican las tablas (:func:`_to_json_native`). Un ``Inf`` sigue fallando.
+
+def _dump_card(domain: str, card: BaseModel) -> dict[str, Any]:
+    """Serializa la card de un dominio con el guard de finitud de :func:`dump_dto`.
+
+    🔴 Sólo la card de ``eda`` pasa por una coacción, y sólo en sus dos ausencias declaradas
+    (:data:`_EDA_AUSENCIAS_DECLARADAS`). La primera versión de la capa 3 mandaba TODAS las cards
+    por una conversión recursiva ``NaN`` → ``null``, y eso desactivaba la invariante (1) del módulo
+    para binning, calibración, desempeño y provisiones: un no-finito ahí es corrupción numérica y
+    tiene que fallar ruidoso, no publicarse como ausencia. Hallazgo de la revisión adversarial de
+    S9, verificado.
     """
-    dumped = _sustituye_decimales(card.model_dump(mode="json"), card.model_dump(mode="python"))
-    native = _json_native_tree(dumped)
-    _ensure_json_safe(native, context=type(card).__name__)
-    return native  # type: ignore[no-any-return]
-
-
-def _json_native_tree(value: Any) -> Any:
-    """Aplica :func:`_to_json_native` a un árbol de dicts y listas, hoja a hoja."""
-    if isinstance(value, dict):
-        return {str(key): _json_native_tree(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_native_tree(item) for item in value]
-    return _to_json_native(value)
+    if domain != "eda":
+        return dump_dto(card)
+    dumped = card.model_dump(mode="json")
+    for field in _EDA_AUSENCIAS_DECLARADAS:
+        value = dumped.get(field)
+        if isinstance(value, float) and value != value:
+            dumped[field] = None
+    # La regla del motor (D-SC-2) es «hay causa si y sólo si el indicador no es finito»: un valor
+    # ausente SIN causa no es una ausencia declarada sino un contrato roto, y se dice.
+    if (
+        dumped.get("stability_value") is None
+        and dumped.get("stability_not_evaluable_reason") is None
+    ):
+        raise UiSerializationError(
+            "la card de eda publica el indicador de estabilidad sin valor y sin causa de no "
+            "evaluabilidad: el motor promete una causa por cada indicador no finito."
+        )
+    _ensure_json_safe(dumped, context=type(card).__name__)
+    return dumped
 
 
 def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
@@ -334,14 +347,22 @@ def _eda_default_rate(study: Study) -> list[dict[str, Any]] | None:
 
 
 def _period_label(value: Any) -> Any:
-    """Etiqueta JSON de un período o cohorte: texto para ``pd.Period``, ausencia para faltantes."""
+    """Etiqueta JSON de un período o cohorte: nativa si lo es, texto si no, ausencia si falta.
+
+    El eje temporal trae ``pd.Period`` y una cohorte puede ser **cualquier** valor de la columna del
+    usuario: texto, número, o ``pd.Timestamp`` si particionó por una fecha. Los dos últimos no son
+    JSON y el guard los rechazaría —hallazgo de la revisión adversarial de S9, reproducido con una
+    cohorte ``datetime``—, así que viajan como su texto, igual que en las tablas del informe. Un
+    número o un texto viajan tal cual: el front distingue el tipo para no fundir dos cohortes.
+    """
     import pandas as pd  # local: este módulo no arrastra pandas al importarse
 
     if value is None or value is pd.NA or value is pd.NaT:
         return None
-    if isinstance(value, float) and value != value:
-        return None
-    return str(value) if isinstance(value, pd.Period) else value
+    native = _to_json_native(value)
+    if native is None or isinstance(native, (str, int, float, bool)):
+        return native
+    return str(value)
 
 
 def _eda_quality(study: Study) -> list[dict[str, Any]] | None:

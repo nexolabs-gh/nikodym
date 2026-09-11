@@ -149,27 +149,109 @@ def test_sin_eda_la_clave_viaja_nula_y_nunca_ausente(f1_study: Study) -> None:
     assert payload["eda"] is None
 
 
-def test_dump_card_coacciona_el_nan_de_una_card_y_sigue_rechazando_el_infinito() -> None:
-    """La coacción es SÓLO para el `NaN` (ausencia declarada): un `Inf` sigue siendo un defecto."""
+def _eda_card(**cambios: Any) -> Any:
     from nikodym.eda.card import EdaCardSection
 
-    def card(valor: float) -> EdaCardSection:
-        return EdaCardSection(
-            overall_default_rate=0.1,
-            n_periods=1,
-            stability_flagged=False,
-            stability_metric_used="cv",
-            stability_threshold=0.25,
-            stability_value=valor,
-            n_columns_profiled=0,
-            quality_flag_counts={},
-            n_figures=0,
-            stability_not_evaluable_reason="pocos_periodos_evaluables",
-        )
+    base: dict[str, Any] = {
+        "overall_default_rate": 0.1,
+        "n_periods": 1,
+        "stability_flagged": False,
+        "stability_metric_used": "cv",
+        "stability_threshold": 0.25,
+        "stability_value": float("nan"),
+        "n_columns_profiled": 0,
+        "quality_flag_counts": {},
+        "n_figures": 0,
+        "stability_not_evaluable_reason": "pocos_periodos_evaluables",
+    }
+    return EdaCardSection(**{**base, **cambios})
 
-    assert serializers._dump_card(card(float("nan")))["stability_value"] is None
+
+def test_la_coaccion_de_la_card_de_eda_cubre_solo_sus_dos_ausencias_declaradas() -> None:
+    """`NaN` → `null` en `stability_value` y `overall_default_rate`; en cualquier otro campo, y con
+    `Inf`, sigue siendo un defecto que falla ruidoso (invariante (1) del módulo)."""
+    assert serializers._dump_card("eda", _eda_card())["stability_value"] is None
+    assert (
+        serializers._dump_card("eda", _eda_card(overall_default_rate=float("nan")))[
+            "overall_default_rate"
+        ]
+        is None
+    )
     with pytest.raises(UiSerializationError):
-        serializers._dump_card(card(float("inf")))
+        serializers._dump_card("eda", _eda_card(stability_value=float("inf")))
+    with pytest.raises(UiSerializationError):
+        serializers._dump_card("eda", _eda_card(stability_threshold=float("nan")))
+
+
+def test_un_indicador_ausente_sin_causa_es_un_contrato_roto_no_una_ausencia() -> None:
+    """D-SC-2 promete una causa por cada indicador no finito; el serializer lo hace cumplir."""
+    with pytest.raises(UiSerializationError, match="sin causa"):
+        serializers._dump_card("eda", _eda_card(stability_not_evaluable_reason=None))
+
+
+def test_las_cards_de_los_demas_dominios_siguen_rechazando_el_nan() -> None:
+    """🔴 Hallazgo de la revisión adversarial de S9: la primera versión mandaba TODAS las cards por
+    la coacción `NaN` → `null`, y un no-finito en binning o calibración es corrupción numérica que
+    tiene que fallar, no publicarse como ausencia."""
+
+    class CardAjena(BaseModel):
+        model_config = ConfigDict(frozen=True)
+        valor: float
+
+    with pytest.raises(UiSerializationError):
+        serializers._dump_card("binning", CardAjena(valor=float("nan")))
+    assert serializers._dump_card("binning", CardAjena(valor=0.5)) == {"valor": 0.5}
+
+
+def test_una_cohorte_de_tipo_fecha_se_serializa_como_texto(
+    fake_binning_process: object, tmp_path: Path
+) -> None:
+    """🔴 Hallazgo de la revisión adversarial de S9, reproducido: con `axis="cohort"` sobre una
+    columna `datetime` el motor conserva `pd.Timestamp` como período, y el guard lo rechazaba
+    —la corrida terminaba bien y `/api/results` moría—. Viaja como su texto."""
+    del fake_binning_process
+    from nikodym.data.config import ColumnSpec
+    from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
+
+    parquet = tmp_path / "cartera.parquet"
+    frame = pd.read_parquet(_parquet_de_comportamiento(parquet))
+    frame["fecha_cohorte"] = pd.to_datetime(
+        ["2024-01-01"] * 12 + ["2024-04-01"] * 12 + ["2024-07-01"] * 6
+    )
+    frame.to_parquet(parquet)
+    base = full_f1_config(str(parquet))
+    schema = base.data.schema_.model_copy(
+        update={
+            "columns": (
+                *base.data.schema_.columns,
+                ColumnSpec(name="fecha_cohorte", dtype="datetime", nullable=False),
+            )
+        }
+    )
+    config = base.model_copy(
+        update={
+            "data": base.data.model_copy(update={"schema_": schema}),
+            "eda": EdaConfig(
+                default_rate=DefaultRateConfig(
+                    axis="cohort", cohort_col="fecha_cohorte", min_obs_per_period=1
+                ),
+                univariate=UnivariateConfig(columns=("score",), n_quantile_bins=2),
+            ),
+        }
+    )
+    study = nikodym.run(config)
+    assert study.run_context.status == "done", study.run_context.error
+
+    payload = serialize_study(study, governance=None)
+
+    periodos = [fila["period"] for fila in payload["eda"]["default_rate"]]
+    assert periodos == ["2024-01-01 00:00:00", "2024-04-01 00:00:00"]
+    json.dumps(payload, allow_nan=False)
+
+
+def _parquet_de_comportamiento(destino: Path) -> Path:
+    write_behavior_parquet(destino)
+    return destino
 
 
 def test_serialize_study_done_shape_y_cards(f1_study: Study) -> None:

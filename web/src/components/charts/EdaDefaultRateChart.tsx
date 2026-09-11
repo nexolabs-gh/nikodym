@@ -111,7 +111,7 @@ export function EdaDefaultRateChart({
                 connectNulls={false}
                 dot={(props: { cx?: number; cy?: number; payload?: EdaRatePoint }) => (
                   <circle
-                    key={props.payload?.label}
+                    key={props.payload?.key}
                     cx={props.cx}
                     cy={props.cy}
                     r={3.5}
@@ -151,7 +151,7 @@ export function EdaDefaultRateChart({
                 isAnimationActive={false}
               >
                 {data.map((point) => (
-                  <Cell key={point.label} fill={pointColor(point)} />
+                  <Cell key={point.key} fill={pointColor(point)} />
                 ))}
               </Bar>
             </BarChart>
