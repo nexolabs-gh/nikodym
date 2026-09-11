@@ -215,7 +215,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   con su tipo —la numérica `2024`, la decimal `2024.0` y la textual `"2024"` son tres— y JSON
   pierde parte de esa identidad. La respuesta de la interfaz publica ahora, al lado de cada
   período o cohorte, el tipo con que el motor lo distinguió, y el panel lo usa para rotular las
-  que coinciden («2024 (entero)», «2024 (texto)») y para no repetir una clave.
+  que coinciden («2024 (entero)», «2024 (texto)») y para no repetir una clave. Y un entero mayor
+  que el que un navegador puede leer sin pérdida (2⁵³ − 1) viaja como texto, porque dos cohortes
+  vecinas llegarían fundidas en el mismo número; su tipo sigue diciendo que es entero.
 
 - **El estado técnico de la validación se llama igual en la pantalla y en el informe: Pasa,
   Revisar y Falla.** Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el
@@ -332,6 +334,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   partición y el rol TTD—, así que sobre la muestra de desarrollo la partición y el TTD salen
   marcados «casi constante» por construcción. Es el comportamiento del motor desde su primera
   versión; excluirlas es una decisión pendiente.
+
+- Agrupar la tasa de incumplimiento por una cohorte **casi única** —una columna de identificador,
+  por ejemplo— produce una fila por operación: el motor la calcula tal como se pidió, y la respuesta
+  de la interfaz la publica entera, porque la tabla de la tasa viaja completa por contrato. Medido:
+  un millón de cohortes son 135 MB de respuesta y 634 MB de memoria al serializar. Las figuras y el
+  panel ya acotan lo que dibujan; acotar la respuesta, o rechazar ese eje antes de correr, es una
+  decisión pendiente.
 
 - El informe de la demo publicada sigue diciendo «Falla técnica» donde el motor ya escribe
   «Falla»: es un artefacto capturado y se regenera en el paso de recaptura, junto con el resto.

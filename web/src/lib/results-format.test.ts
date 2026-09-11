@@ -2813,6 +2813,18 @@ describe("edaRatePoints: dos cohortes que se escriben igual no se funden (D-SC-5
     expect(new Set(puntos.map((p) => p.key)).size).toBe(2)
   })
 
+  it("dos cohortes enteras vecinas sobre 2^53 llegan distintas porque el serializer las manda como texto", () => {
+    // Lo que pasaría si viajaran como número: JSON.parse las funde (cuarta pasada adversarial).
+    expect(JSON.parse("9007199254740993")).toBe(9007199254740992)
+    const payload = JSON.parse(
+      '[{"period":"9007199254740992","period_type":"int"},{"period":"9007199254740993","period_type":"int"}]',
+    ) as Array<{ period: string; period_type: string }>
+    const filas = payload.map((p) => ({ ...eda.default_rate[0], ...p }))
+    const puntos = edaRatePoints({ ...eda, default_rate: filas })
+    expect(puntos.map((p) => p.label)).toEqual(["9007199254740992", "9007199254740993"])
+    expect(new Set(puntos.map((p) => p.key)).size).toBe(2)
+  })
+
   it("un resultado guardado antes de que viajara el tipo cae al tipo JSON, sin reventar", () => {
     const sinTipo = eda.default_rate.slice(0, 1).map((r) => ({ ...r, period_type: null }))
     const conTexto = { ...eda.default_rate[2], period_type: null }

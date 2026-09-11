@@ -275,6 +275,28 @@ def test_el_tipo_del_periodo_viaja_para_que_el_front_no_funda_dos_cohortes(
     assert serializers._period_type(valor) == esperado
 
 
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        (2**53 - 1, 2**53 - 1),  # el mayor entero seguro de JavaScript viaja como número
+        (2**53, "9007199254740992"),
+        (2**53 + 1, "9007199254740993"),
+        (-(2**53) - 1, "-9007199254740993"),
+        (np.int64(2**53 + 1), "9007199254740993"),
+        (True, True),  # un lógico no es un entero grande
+    ],
+)
+def test_un_entero_fuera_del_rango_seguro_de_javascript_viaja_como_texto(
+    valor: Any, esperado: Any
+) -> None:
+    """🔴 `JSON.parse` funde 2**53 y 2**53+1 en el mismo número: dos cohortes distintas del motor
+    llegarían al panel con la misma etiqueta y tasas distintas (cuarta pasada adversarial de S9).
+    El entero grande viaja como texto y conserva su tipo."""
+    etiqueta = serializers._period_label(valor)
+    assert etiqueta == esperado and type(etiqueta) is type(esperado)
+    assert serializers._period_type(valor) == ("bool" if isinstance(valor, bool) else "int")
+
+
 def _parquet_de_comportamiento(destino: Path) -> Path:
     write_behavior_parquet(destino)
     return destino

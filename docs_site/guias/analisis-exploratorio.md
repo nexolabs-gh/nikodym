@@ -28,7 +28,7 @@ La tasa se agrupa de dos maneras, y eliges cuál:
 | Eje | Qué hace | Qué necesita |
 |---|---|---|
 | **Por la fecha de observación** | Agrupa por mes, trimestre o año y evalúa si la tasa se deteriora en el tiempo | Una columna de fecha en tu archivo |
-| **Por cohorte o añada** | Agrupa por la cohorte de cada operación: la vista por camada | La columna de cohorte, que suele ser la misma con la que particionas |
+| **Por cohorte o añada** | Agrupa por la cohorte de cada operación: la vista por camada | La columna de cohorte, que suele ser la misma con la que particionas. Una cohorte tiene pocos valores —camadas, trimestres, campañas—; un identificador no es una cohorte: el motor calcularía una tasa por operación |
 
 Viene de fábrica **por la fecha de observación**, y no hace falta indicar cuál: si tu archivo trae
 una sola columna de fecha, el motor la usa. Y si no trae ninguna pero particionas por cohorte, el

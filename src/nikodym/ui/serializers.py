@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import warnings
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 from pydantic import BaseModel
@@ -351,6 +351,11 @@ def _eda_default_rate(study: Study) -> list[dict[str, Any]] | None:
     )
 
 
+#: El mayor entero que JavaScript representa sin pérdida (``Number.MAX_SAFE_INTEGER``): un entero
+#: mayor viaja como texto, porque ``JSON.parse`` fundiría dos cohortes vecinas en el mismo número.
+_JS_SAFE_INTEGER: Final = 2**53 - 1
+
+
 def _period_label(value: Any) -> Any:
     """Etiqueta JSON de un período o cohorte: nativa si lo es, texto si no, ausencia si falta.
 
@@ -358,13 +363,18 @@ def _period_label(value: Any) -> Any:
     usuario: texto, número, o ``pd.Timestamp`` si particionó por una fecha. Los dos últimos no son
     JSON y el guard los rechazaría —hallazgo de la revisión adversarial de S9, reproducido con una
     cohorte ``datetime``—, así que viajan como su texto, igual que en las tablas del informe. Un
-    número o un texto viajan tal cual: el front distingue el tipo para no fundir dos cohortes.
+    número o un texto viajan tal cual y el front distingue el tipo para no fundir dos cohortes;
+    la excepción es el entero fuera del rango seguro de JavaScript (``> 2**53 - 1``), que viaja
+    como texto porque el navegador no lo puede leer sin pérdida (cuarta pasada de la revisión
+    adversarial de S9): ``period_type`` sigue diciendo ``int``.
     """
     import pandas as pd  # local: este módulo no arrastra pandas al importarse
 
     if value is None or value is pd.NA or value is pd.NaT:
         return None
     native = _to_json_native(value)
+    if isinstance(native, int) and not isinstance(native, bool) and abs(native) > _JS_SAFE_INTEGER:
+        return str(native)
     if native is None or isinstance(native, (str, int, float, bool)):
         return native
     return str(value)
