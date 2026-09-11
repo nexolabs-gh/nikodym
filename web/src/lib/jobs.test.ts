@@ -662,20 +662,36 @@ describe("el esqueleto recorta los capítulos del informe (D-OBL-11)", () => {
   const CATALOGO_REAL = (FIXTURE_SCHEMA as { effective_defaults?: unknown })
     .effective_defaults as Parameters<typeof jobSkeleton>[2]
 
-  it("un scorecard no exige el capítulo de una sección que no tiene", () => {
-    // El default del motor son OCHO capítulos, entre ellos `eda`, que el trabajo no declara y el
-    // formulario no ofrece. Sin el recorte, el paso `report` moría con `missing_policy: error` y
-    // NINGÚN trabajo llegaba a `done`. Se descubrió corriendo el gate de aceptación, no en la suite.
-    const job = porId("scorecard_pd")
+  it("un trabajo no exige el capítulo de una sección que no tiene", () => {
+    // El default del motor son OCHO capítulos. Hasta D-SC-4 el ejemplo era `eda` en el scorecard,
+    // que el trabajo no declaraba; desde la capa 3 el scorecard SÍ la lleva, así que el caso vivo
+    // es «Validar un modelo existente», que no modela y por tanto no produce `binning`. Sin el
+    // recorte, el paso `report` moría con `missing_policy: error` y NINGÚN trabajo llegaba a
+    // `done`. Se descubrió corriendo el gate de aceptación, no en la suite.
+    const job = porId("validar_modelo")
     const skeleton = jobSkeleton({}, job, CATALOGO_REAL)
     const report = skeleton.report as { sections: { required_sections: string[] } }
+    expect(report.sections.required_sections).not.toContain("binning")
     expect(report.sections.required_sections).not.toContain("eda")
     // Y lo que el trabajo SÍ produce se conserva: recortar no es vaciar.
-    expect(report.sections.required_sections).toContain("binning")
-    expect(report.sections.required_sections).toContain("scorecard")
+    expect(report.sections.required_sections).toContain("performance")
+    expect(report.sections.required_sections).toContain("stability")
     for (const capitulo of report.sections.required_sections) {
       expect(job.sections).toContain(capitulo)
     }
+  })
+
+  it("el scorecard gana el capítulo de EDA al ganar la sección (D-SC-4, D-OBL-11)", () => {
+    // Consecuencia automática que la enmienda promete: sumar `eda` al trabajo suma el capítulo
+    // «Población y calidad de datos» a las requeridas del informe sin tocar el front.
+    const job = porId("scorecard_pd")
+    const skeleton = jobSkeleton({}, job, CATALOGO_REAL)
+    const report = skeleton.report as { sections: { required_sections: string[] } }
+    expect(job.sections).toContain("eda")
+    expect(report.sections.required_sections).toContain("eda")
+    // Y sembrada ENCENDIDA, no latente: el esqueleto trae la sección con sus defaults.
+    expect(skeleton.eda).not.toBeNull()
+    expect(skeleton.eda).toBeDefined()
   })
 
   it("no AÑADE un capítulo que el default no pedía", () => {

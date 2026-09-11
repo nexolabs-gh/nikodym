@@ -85,6 +85,14 @@ export type WidgetKind =
   | "discriminated"
   | "multiselect"
   /**
+   * Lista anulable donde SÓLO `null` significa «todas» (`tuple[str, ...] | None`): la casilla
+   * «Todas las columnas» escribe `null` y, desmarcada, el multiselect escribe la lista — incluida
+   * la lista vacía, que el motor respeta como «ninguna». Es distinto del comodín `"*"` (que es un
+   * valor) y del toggle activar/None genérico, que rotularía «(desactivado)» a lo que en realidad
+   * es «todas». Primer campo con esta semántica: `eda.univariate.columns` (D-SC-1, §0-23).
+   */
+  | "multiselect_or_all"
+  /**
    * Campo escalar que nombra UNA columna del dataset (`column_role: "input"`): se elige de las
    * columnas cargadas, conservando la entrada libre. Es el hermano escalar de `multiselect`.
    */
@@ -134,6 +142,7 @@ const UI_WIDGET_ALIASES: Record<string, WidgetKind> = {
   textarea: "textarea",
   text_area: "textarea",
   multiselect: "multiselect",
+  multiselect_o_todas: "multiselect_or_all",
   json: "json",
   group: "group",
   section: "group",
@@ -897,6 +906,27 @@ export function arrayBranch(
 
 /** Comodín «todas las variables» del config (`Literal["*"]`). */
 export const WILDCARD = "*"
+
+/**
+ * Lo que la casilla «Todas las columnas» ESCRIBE (widget `multiselect_or_all`, D-SC-1).
+ *
+ * Marcada escribe `null` —el único valor con el que el motor entiende «todas» (§0-23)— y
+ * desmarcada escribe la lista vacía, desde la que el usuario elige una a una. Vive aquí, fuera
+ * del widget, por la misma razón que `toggleMultiselect`: vitest corre sin DOM y ésta es la
+ * única forma de probar que marcar/desmarcar escribe exactamente eso y no otra cosa.
+ */
+export function nextMultiselectOrAllValue(all: boolean): unknown[] | null {
+  return all ? null : []
+}
+
+/**
+ * Cómo se LEE un valor del widget `multiselect_or_all`: `null`/ausente es «todas»; una lista —
+ * incluida la vacía, que significa «ninguna»— es la elección explícita.
+ */
+export function multiselectOrAllState(value: unknown): { all: boolean; list: unknown[] } {
+  if (Array.isArray(value)) return { all: false, list: value }
+  return { all: true, list: [] }
+}
 
 /**
  * ¿El campo acepta el comodín `"*"` («todas las variables») además de una lista explícita?

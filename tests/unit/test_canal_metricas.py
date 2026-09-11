@@ -19,6 +19,8 @@ from _ui_f1 import full_f1_config, write_behavior_parquet
 import nikodym
 from nikodym.core.exceptions import ConfigError
 from nikodym.core.study import Study
+from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
+from nikodym.eda.step import EdaStep
 from nikodym.governance.config import GovernanceConfig
 from nikodym.governance.exceptions import GovernanceError
 from nikodym.governance.model_card import ModelCardBuilder
@@ -73,9 +75,18 @@ def _corrida_f1_con_estabilidad(fuente: str) -> Study:
     30 las tres salen ``not_evaluable`` y no aportan clave), y ``stability`` publica ``worst_psi``
     y ``worst_csi_value`` con dos bins por comparación y sin eje temporal —el default ``period``
     exigiría una columna de período que el frame no declara—.
+
+    ``eda`` entra desde la capa 3 del scorecard completo (respuesta 6 de Cami) **con sus
+    defaults de eje**: el frame no tiene columna de fecha y particiona por cohorte, así que el
+    eje se infiere a la cohorte (D-SC-3) y la sección corre sin declarar nada más. Es la misma
+    ruta por la que el esqueleto del trabajo la enciende en la interfaz.
     """
     config = full_f1_config(fuente).model_copy(
         update={
+            "eda": EdaConfig(
+                default_rate=DefaultRateConfig(min_obs_per_period=1),
+                univariate=UnivariateConfig(columns=("score",), n_quantile_bins=2),
+            ),
             "performance": PerformanceConfig(min_rows_per_partition=4),
             "stability": StabilityConfig(psi_bins=2, csi_bins=2, temporal_axis="none"),
         }
@@ -293,8 +304,20 @@ def test_el_oraculo_nombra_exactamente_la_entrada_que_falta(
         (PerformanceStep, "performance", "ks_<particion>"),
         (StabilityStep, "stability", "worst_psi"),
         (StabilityStep, "stability", "worst_csi_value"),
+        (EdaStep, "eda", "overall_default_rate"),
+        (EdaStep, "eda", "n_periods"),
+        (EdaStep, "eda", "stability_flagged"),
     ],
-    ids=["auc", "gini", "ks", "worst_psi", "worst_csi_value"],
+    ids=[
+        "auc",
+        "gini",
+        "ks",
+        "worst_psi",
+        "worst_csi_value",
+        "overall_default_rate",
+        "n_periods",
+        "stability_flagged",
+    ],
 )
 def test_quitar_el_productor_de_una_familia_pone_rojo_a_esa_familia(
     paso: type[Any], dominio: str, declarada: str, fuente_f1: str, monkeypatch: pytest.MonkeyPatch

@@ -1078,87 +1078,87 @@
       "value": "standard"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.analysis_partition",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "desarrollo"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.analysis_partition",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "holdout"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.analysis_partition",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "oot"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.analysis_partition",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "todas"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable_conditioned",
       "path": "eda.default_rate.axis",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "cohort"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable_conditioned",
       "path": "eda.default_rate.axis",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "period"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.default_rate.period_freq",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "M"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.default_rate.period_freq",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "Q"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.default_rate.period_freq",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "Y"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.stability.metric",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "cv"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.stability.metric",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "max_relative_drift"
     },
     {
-      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
-      "classification": "outside_job_form",
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
       "path": "eda.stability.metric",
-      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "trend_slope"
     },
     {

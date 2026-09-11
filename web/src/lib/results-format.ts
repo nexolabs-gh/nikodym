@@ -11,6 +11,11 @@ import type {
   CalibrationResult,
   CmfProvisioningResult,
   DecileRow,
+  EdaAxis,
+  EdaPeriodRow,
+  EdaProfileRow,
+  EdaQualityRow,
+  EdaResult,
   Ifrs9ProvisioningResult,
   InternalProvisioningResult,
   PerformanceResult,
@@ -2075,4 +2080,157 @@ export function gradeCoverage(
   ).size
   if (evaluados === 0 && noEvaluados.length === 0) return null
   return { evaluados, total: evaluados + noEvaluados.length, noEvaluados }
+}
+
+// --- análisis exploratorio (D-SC-5) --------------------------------------------
+//
+// Mismo contrato que los espejos de arriba: cada mapa replica una fuente única de `nikodym.eda` y
+// el gate de Python los compara en los dos sentidos. Ninguna de estas funciones calcula nada: la
+// tasa, la señal temporal y las marcas de calidad son las que publicó el motor, y aquí sólo se
+// traducen y se ordenan.
+
+/** Espejo de `nikodym.eda.default_rate.AXIS_LABELS`: con qué se agrupó la tasa. */
+export const EDA_AXIS_LABELS: Record<string, string> = {
+  period: "por fecha de observación",
+  cohort: "por cohorte",
+} as const
+
+/** Espejo de `nikodym.eda.stability.STABILITY_INDICATOR_LABELS`: el indicador configurado. */
+export const EDA_STABILITY_INDICATOR_LABELS: Record<string, string> = {
+  cv: "variación relativa",
+  max_relative_drift: "peor desvío",
+  trend_slope: "tendencia",
+} as const
+
+/** Espejo de `nikodym.eda.stability.NOT_EVALUABLE_REASON_LABELS`: por qué no se evaluó. */
+export const EDA_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
+  eje_cohorte: "eje de cohorte, sin orden cronológico",
+  pocos_periodos_evaluables: "menos de dos períodos con observaciones suficientes",
+  tasa_media_cero: "sin incumplimientos en los períodos evaluables",
+} as const
+
+/** Espejo de `nikodym.eda.quality.QUALITY_FLAG_LABELS`: las tres marcas de calidad. */
+export const EDA_QUALITY_FLAG_LABELS: Record<string, string> = {
+  near_constant: "casi constante",
+  near_unique: "casi única",
+  high_cardinality: "alta cardinalidad",
+} as const
+
+/** El eje en palabras; fallback al slug (no oculta nada). */
+export function edaAxisLabel(axis: string): string {
+  return EDA_AXIS_LABELS[axis] ?? axis
+}
+
+/** Qué se cuenta en cada fila de la tasa según el eje efectivo: períodos o cohortes. */
+export function edaPeriodNoun(axis: EdaAxis, n: number): string {
+  if (axis === "cohort") return n === 1 ? "cohorte" : "cohortes"
+  return n === 1 ? "período" : "períodos"
+}
+
+/**
+ * Qué figura pinta el panel para la tasa en el tiempo, decidido por el eje EFECTIVO de la card y
+ * no por el config (D-SC-5): una línea sólo tiene sentido sobre un eje con orden cronológico y
+ * con al menos dos períodos —una línea de un punto no es una serie—; sobre cohortes, barras.
+ */
+export function edaChartKind(eda: EdaResult | null | undefined): "line" | "bar" | "none" {
+  if (!eda || (eda.default_rate ?? []).length === 0) return "none"
+  if (eda.axis === "cohort") return "bar"
+  return eda.n_periods >= 2 ? "line" : "none"
+}
+
+/** Fila de la tasa en el tiempo lista para graficar o tabular. */
+export interface EdaRatePoint {
+  label: string
+  rate: number | null
+  nEligible: number
+  nBad: number
+  lowConfidence: boolean
+}
+
+/** La tasa por período o cohorte en el orden en que la publicó el motor; vacío sin tabla. */
+export function edaRatePoints(eda: EdaResult | null | undefined): EdaRatePoint[] {
+  return (eda?.default_rate ?? []).map((row: EdaPeriodRow) => ({
+    label: row.period === null ? EMPTY : String(row.period),
+    rate: row.default_rate,
+    nEligible: row.n_eligible,
+    nBad: row.n_bad,
+    lowConfidence: row.low_confidence,
+  }))
+}
+
+/** La señal temporal tal como la dejó el motor: marcada, sin aviso o no evaluable con su causa. */
+export type EdaStabilitySummary =
+  | { kind: "not_evaluable"; reason: string; indicator: string }
+  | { kind: "flagged" | "ok"; indicator: string; value: number; threshold: number }
+
+/**
+ * Resume la señal de estabilidad temporal. La regla del motor es «hay causa si y sólo si el
+ * indicador no es finito», así que la causa manda: con causa no se pinta un valor que no existe.
+ */
+export function edaStabilitySummary(eda: EdaResult): EdaStabilitySummary {
+  const indicator =
+    EDA_STABILITY_INDICATOR_LABELS[eda.stability_metric_used] ?? eda.stability_metric_used
+  const reason = eda.stability_not_evaluable_reason
+  if (reason !== null || eda.stability_value === null || !Number.isFinite(eda.stability_value)) {
+    return {
+      kind: "not_evaluable",
+      reason: reason === null ? "sin valor publicado" : (EDA_NOT_EVALUABLE_REASON_LABELS[reason] ?? reason),
+      indicator,
+    }
+  }
+  return {
+    kind: eda.stability_flagged ? "flagged" : "ok",
+    indicator,
+    value: eda.stability_value,
+    threshold: eda.stability_threshold,
+  }
+}
+
+/** Fila de la tabla de calidad, con sus marcas ya en palabras. */
+export interface EdaQualityView {
+  col: string
+  dtype: string
+  missingRate: number
+  cardinality: number
+  marks: string[]
+}
+
+/** La calidad por columna en el orden del archivo, con las marcas activas traducidas. */
+export function edaQualityRows(eda: EdaResult | null | undefined): EdaQualityView[] {
+  return (eda?.quality ?? []).map((row: EdaQualityRow) => ({
+    col: row.col,
+    dtype: row.dtype,
+    missingRate: row.missing_rate,
+    cardinality: row.cardinality,
+    marks: (["near_constant", "near_unique", "high_cardinality"] as const)
+      .filter((flag) => row[flag])
+      .map((flag) => EDA_QUALITY_FLAG_LABELS[flag]),
+  }))
+}
+
+/** Un perfil por variable: sus tramos en el orden del motor y, si se pidió, su IV orientativo. */
+export interface EdaProfileView {
+  column: string
+  descriptiveIv: number | null
+  rows: { tramo: string; n: number; coverage: number; rate: number | null }[]
+}
+
+/** Agrupa las filas planas de `eda.univariate` por columna, conservando el orden de perfilado. */
+export function edaProfiles(eda: EdaResult | null | undefined): EdaProfileView[] {
+  const byColumn = new Map<string, EdaProfileView>()
+  for (const row of (eda?.univariate ?? []) as EdaProfileRow[]) {
+    const view = byColumn.get(row.column) ?? {
+      column: row.column,
+      descriptiveIv: row.descriptive_iv,
+      rows: [],
+    }
+    view.rows.push({
+      tramo: row.tramo === null ? EMPTY : String(row.tramo),
+      n: row.n,
+      coverage: row.coverage,
+      rate: row.default_rate,
+    })
+    byColumn.set(row.column, view)
+  }
+  return [...byColumn.values()]
 }

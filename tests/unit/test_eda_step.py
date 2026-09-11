@@ -12,6 +12,16 @@ from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.config import NikodymConfig, ReproConfig
 from nikodym.core.registry import REGISTRY
 from nikodym.core.study import Study
+from nikodym.data.config import (
+    CohortSplitConfig,
+    DataConfig,
+    LoadingConfig,
+    PartitionConfig,
+    Predicate,
+    RandomSplitConfig,
+    Rule,
+    TargetConfig,
+)
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
 from nikodym.data.target import STATUS_COL, LabeledFrame, TargetSummary
 from nikodym.eda.card import EdaCardSection
@@ -282,6 +292,242 @@ def test_columns_none_con_fecha_inferida_excluye_datetime() -> None:
     result = _run_step(_frame(), cfg)
 
     assert tuple(result.univariate.profiles) == ("score", "segment")
+
+
+@pytest.mark.parametrize(
+    ("particion", "esperadas"),
+    [("desarrollo", 6), ("holdout", 3), ("oot", 2), ("todas", 12)],
+)
+def test_analysis_partition_despacha_cada_muestra(particion: str, esperadas: int) -> None:
+    """Oráculo de despacho y de efecto de ``eda.analysis_partition`` (registry D-RDY-ABA-2/3).
+
+    Las cuatro opciones cambian la POBLACIÓN que se describe, y se mide por el total de
+    operaciones que entra a la tasa de incumplimiento: cada muestra su conteo, y «todas» el
+    archivo entero —incluida la operación fuera del modelo, que cuenta pero no entra en la tasa—.
+    """
+    n_rows = 12
+    frame = _frame(n_rows)
+    frame[PARTITION_COL] = pd.Categorical(
+        ["desarrollo"] * 6 + ["holdout"] * 3 + ["oot"] * 2 + ["fuera_de_modelo"],
+        categories=["desarrollo", "holdout", "oot", "fuera_de_modelo"],
+    )
+    cfg = EdaConfig(
+        analysis_partition=particion,  # type: ignore[arg-type]
+        default_rate=DefaultRateConfig(date_col="fecha", min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("score",), n_quantile_bins=2),
+    )
+
+    result = _run_step(frame, cfg)
+
+    assert int(result.default_rate.by_period["n_total"].sum()) == esperadas
+
+
+# ─────────────── D-SC-3: el eje se infiere de lo que el usuario ya declaró ───────────────
+
+
+def _data_config_por_cohorte(*, cohort_col: str = "cohorte") -> DataConfig:
+    """Config de ``data`` mínimo con partición por cohorte, como la siembra el esqueleto."""
+    return DataConfig(
+        load=LoadingConfig(source="cartera.parquet"),
+        target=TargetConfig(
+            bad_rule=Rule(all_of=(Predicate(col="bad_flag", op="==", value=1),)),
+        ),
+        partition=PartitionConfig(
+            strategy=CohortSplitConfig(cohort_col=cohort_col, oot_cohorts=("2024Q2",)),
+            min_bads_per_partition=0,
+        ),
+    )
+
+
+def _data_config_aleatorio() -> DataConfig:
+    """Partición aleatoria: no declara ninguna cohorte que el eje pueda tomar prestada."""
+    return DataConfig(
+        load=LoadingConfig(source="cartera.parquet"),
+        target=TargetConfig(
+            bad_rule=Rule(all_of=(Predicate(col="bad_flag", op="==", value=1),)),
+        ),
+        partition=PartitionConfig(
+            strategy=RandomSplitConfig(),
+            min_bads_per_partition=0,
+        ),
+    )
+
+
+def _frame_sin_fecha(n_rows: int = 12) -> pd.DataFrame:
+    """El frame de la fixture sin su columna datetime, con una cohorte y la columna del target."""
+    frame = _frame(n_rows).drop(columns=["fecha"])
+    return frame.assign(
+        cohorte=[["2024Q1", "2024Q2", "2024Q3"][position % 3] for position in range(n_rows)],
+        bad_flag=frame["target"].astype("int64"),
+    )
+
+
+def _study_con_data(frame: pd.DataFrame, cfg: EdaConfig, data: DataConfig) -> Study:
+    study = Study(NikodymConfig(repro=ReproConfig(seed=ROOT_SEED), data=data, eda=cfg))
+    study.artifacts.set("data", "frame", frame)
+    study.artifacts.set("data", "labels", _labels(frame))
+    study.artifacts.set("data", "splits", _splits(frame))
+    return study
+
+
+def _eda_defaults(**univariate: object) -> EdaConfig:
+    """Los defaults de ``eda`` —``axis="period"``, sin ``date_col``— con perfiles acotados."""
+    return EdaConfig(
+        default_rate=DefaultRateConfig(min_obs_per_period=1),
+        stability=TemporalStabilityConfig(threshold=10.0),
+        univariate=UnivariateConfig(n_quantile_bins=3, **univariate),  # type: ignore[arg-type]
+    )
+
+
+def test_sin_fecha_y_con_particion_por_cohorte_el_eje_se_infiere_a_la_cohorte() -> None:
+    """D-SC-3: sin columna de fecha, el eje pasa a la cohorte con que el usuario particionó.
+
+    🔴 Nació ROJO sobre el árbol anterior: con los defaults de ``eda`` —``axis="period"``,
+    ``date_col=None``— y un archivo sin fecha, ``_infer_date_column`` levantaba «requiere una
+    columna de fecha» y el preset F1 no podía encender la sección (§0-1 de la enmienda). No se
+    inventa un eje: se usa el que ``data.partition.strategy`` ya declaró, y la decisión queda
+    en el trail.
+    """
+    cfg = _eda_defaults(columns=("score",))
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert result.default_rate.axis == "cohort"
+    assert result.axis_inferred is True
+    assert sorted(result.default_rate.by_period["period"]) == ["2024Q1", "2024Q2", "2024Q3"]
+    # La señal temporal no se evalúa sobre cohortes (D-SC-2), y la causa viaja hasta la card.
+    assert result.stability.not_evaluable_reason == "eje_cohorte"
+    card = study.artifacts.get("eda", "eda_card")
+    assert card.axis == "cohort"
+    assert card.axis_inferred is True
+    assert card.stability_not_evaluable_reason == "eje_cohorte"
+    assert card.n_periods == 3
+    decisiones = [
+        event.payload
+        for event in sink.events
+        if event.kind == "decision" and event.payload.get("regla") == "eje_eda_inferido"
+    ]
+    assert decisiones == [
+        {
+            "regla": "eje_eda_inferido",
+            "umbral": "sin columna de fecha y partición por cohorte",
+            "valor": "cohorte",
+            "accion": "usar_cohorte",
+        }
+    ]
+
+
+def test_sin_fecha_ni_cohorte_declarada_sigue_siendo_un_error_anclado_al_campo() -> None:
+    """Sin fecha y sin cohorte no hay eje que tomar prestado: ``EdaError`` con ``loc`` (D-VIS)."""
+    cfg = _eda_defaults(columns=("score",))
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_aleatorio())
+
+    with pytest.raises(EdaError, match="columna de fecha") as capturado:
+        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+
+    assert capturado.value.loc == ("eda", "default_rate", "date_col")
+
+
+def test_sin_config_de_data_tampoco_se_infiere() -> None:
+    """Sin sección ``data`` no hay partición que consultar: error, no adivinanza."""
+    cfg = _eda_defaults(columns=("score",))
+    study = _study_with_data(_frame_sin_fecha(), cfg)
+
+    with pytest.raises(EdaError, match="columna de fecha") as capturado:
+        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+
+    assert capturado.value.loc == ("eda", "default_rate", "date_col")
+
+
+def test_con_fecha_en_el_archivo_el_eje_no_se_infiere() -> None:
+    """Control positivo: con una columna datetime la regla no entra y el eje sigue temporal."""
+    cfg = _eda_defaults(columns=("score",))
+    frame = _frame().assign(cohorte="2024Q1")
+    study = _study_con_data(frame, cfg, _data_config_por_cohorte())
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert result.default_rate.axis == "period"
+    assert result.axis_inferred is False
+    assert study.artifacts.get("eda", "eda_card").axis_inferred is False
+    assert not any(
+        event.payload.get("regla") == "eje_eda_inferido"
+        for event in sink.events
+        if event.kind == "decision"
+    )
+
+
+def test_con_date_col_declarada_y_ausente_no_se_infiere_nada() -> None:
+    """La inferencia sólo entra con ``date_col`` en blanco: una fecha declarada ausente es error."""
+    cfg = EdaConfig(
+        default_rate=DefaultRateConfig(date_col="fecha_que_no_existe", min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("score",)),
+    )
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+
+    with pytest.raises(EdaError, match="fecha_que_no_existe"):
+        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+
+
+def test_con_eje_de_cohorte_explicito_no_hay_inferencia_y_la_card_lo_dice() -> None:
+    """Elegir «por cohorte» a mano deja ``axis_inferred=False``: la card no atribuye una decisión
+    que el motor no tomó."""
+    cfg = EdaConfig(
+        default_rate=DefaultRateConfig(axis="cohort", cohort_col="cohorte", min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("score",)),
+    )
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+
+    result = study._run_one(EdaStep.from_config(cfg))
+    card = study.artifacts.get("eda", "eda_card")
+
+    assert result.default_rate.axis == "cohort"
+    assert result.axis_inferred is False
+    assert card.axis == "cohort"
+    assert card.axis_inferred is False
+    assert card.stability_not_evaluable_reason == "eje_cohorte"
+
+
+def test_la_cohorte_inferida_es_estructural_y_no_se_perfila() -> None:
+    """La columna que hace de eje sale del perfil por variable, igual que una cohorte declarada."""
+    cfg = _eda_defaults(columns=None)
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert "cohorte" not in result.univariate.profiles
+
+
+# ─────────────── §8-8: las columnas que definen el target no se describen contra él ───────────────
+
+
+def test_columns_none_excluye_las_columnas_de_las_reglas_del_target() -> None:
+    """Respuesta 8 de Cami: ``bad_flag`` —la columna que define la etiqueta— sale del perfil por
+    defecto. Describirla «frente al incumplimiento» daba una tasa 0 %/100 % por tramo que no
+    dice nada. Mismo criterio que el binning: sólo las reglas de «malo» y «bueno», que definen la
+    etiqueta; las de exclusión e indeterminación seleccionan la muestra y no se tocan."""
+    cfg = _eda_defaults(columns=None)
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert "bad_flag" not in result.univariate.profiles
+    assert tuple(result.univariate.profiles) == ("score", "segment")
+
+
+def test_columns_explicitas_si_pueden_pedir_la_columna_del_target() -> None:
+    """La exclusión es del alcance POR DEFECTO: quien la pide por su nombre la obtiene."""
+    cfg = _eda_defaults(columns=("bad_flag",))
+    study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
+
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert tuple(result.univariate.profiles) == ("bad_flag",)
 
 
 def test_figures_no_crea_linea_si_default_rate_es_cohorte() -> None:

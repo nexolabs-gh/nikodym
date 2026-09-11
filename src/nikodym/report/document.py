@@ -208,7 +208,13 @@ METHODOLOGY_STEPS: Final[tuple[tuple[str, str], ...]] = (
 # tabla íntegra en dos sitios no añade trazabilidad, añade páginas.
 KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "data": ("data.states", "data.partitions", "data.exclusions"),
-    "eda": ("eda.default_rate", "eda.quality"),
+    # 🔴 Las claves llevan el nombre de la TABLA dentro del artefacto: los artefactos de `eda`
+    # son DTOs que envuelven su frame (`DefaultRateResult.by_period`, `QualityResult.by_column`)
+    # y el builder los aplana con ese sufijo. Hasta la capa 3 del scorecard completo esta lista
+    # decía `eda.default_rate`/`eda.quality`, que no casaban con ninguna tabla del bundle, así que
+    # la subsección «Población y calidad de datos» salía SIN tablas en el cuerpo y las dos iban
+    # al anexo con su clave cruda por título. Medido sobre el informe de una corrida real.
+    "eda": ("eda.default_rate.by_period", "eda.quality.by_column"),
     "binning": ("binning.summary",),
     "selection": ("selection.selection_table", "selection.vif_table"),
     "model": ("model.coefficients", "model.fit_statistics"),
@@ -247,10 +253,8 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "data.states": "Estados de la población",
     "data.partitions": "Particiones de modelamiento",
     "data.exclusions": "Exclusiones aplicadas",
-    "eda.default_rate": "Tasa de incumplimiento observada",
-    "eda.stability": "Estabilidad temporal de las variables (EDA)",
-    "eda.univariate": "Análisis univariado de variables candidatas",
-    "eda.quality": "Calidad de datos por variable",
+    "eda.default_rate.by_period": "Tasa de incumplimiento observada por período o cohorte",
+    "eda.quality.by_column": "Calidad de datos por columna",
     "binning.summary": "Resumen de binning — IV por variable",
     "binning.woe_frame": "Dataset transformado a WoE",
     "selection.selection_table": "Criterios de selección por variable",
@@ -280,6 +284,9 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "provisioning_ifrs9.summary": "Pérdida crediticia esperada (ECL) por etapa",
 }
 _BINNING_TABLE_PREFIX: Final = "binning.tables."
+#: Prefijo de los perfiles por variable del análisis exploratorio (`UnivariateResult.profiles`,
+#: aplanado por el builder con el nombre de la columna descrita).
+_EDA_PROFILE_PREFIX: Final = "eda.univariate.profiles."
 
 
 class ChapterSpec(BaseModel):
@@ -504,4 +511,7 @@ def table_title(key: str, *, internal_grouping: str | None = None) -> str:
     if key.startswith(_BINNING_TABLE_PREFIX):
         variable = key[len(_BINNING_TABLE_PREFIX) :]
         return f"Tabla de binning WoE — variable «{variable}»"
+    if key.startswith(_EDA_PROFILE_PREFIX):
+        variable = key[len(_EDA_PROFILE_PREFIX) :]
+        return f"Perfil frente al incumplimiento — variable «{variable}»"
     return f"Tabla «{key}»"

@@ -334,6 +334,68 @@ def test_ancla_de_validation_con_la_rama_encendida_la_columna_si_se_acusa(
     )
 
 
+# ── D-SC-3 (§0-15): la columna del eje que NO se usa es inerte ──
+
+#: Cada fila: qué campo, la config que APAGA su eje y la que lo ENCIENDE. Leído del motor:
+#: `default_rate.py::_resolve_group_frame` abre `date_col` sólo con `axis="period"` y
+#: `cohort_col` sólo con `axis="cohort"`.
+_CASOS_EDA: tuple[tuple[str, dict[str, object], dict[str, object]], ...] = (
+    (
+        # Una cohorte residual —quedó escrita al cambiar el eje— no se reclama con el eje temporal.
+        "default_rate.cohort_col (eje temporal)",
+        {"default_rate": {"axis": "period", "date_col": "fecha", "cohort_col": FANTASMA}},
+        {"default_rate": {"axis": "cohort", "cohort_col": FANTASMA}},
+    ),
+    (
+        # Y el caso simétrico: una fecha residual no se reclama con el eje de cohorte.
+        "default_rate.date_col (eje de cohorte)",
+        {"default_rate": {"axis": "cohort", "cohort_col": "cartera", "date_col": FANTASMA}},
+        {"default_rate": {"axis": "period", "date_col": FANTASMA}},
+    ),
+)
+
+
+def _config_eda(valores: dict[str, object]) -> NikodymConfig:
+    """Un config con la sección `eda` escrita tal cual."""
+    cargar_configs_de_dominio()
+    return NikodymConfig.model_validate({"eda": valores})
+
+
+@pytest.mark.parametrize(("campo", "apagada", "encendida"), _CASOS_EDA)
+def test_una_columna_del_eje_apagado_de_eda_no_se_acusa(
+    campo: str, apagada: dict[str, object], encendida: dict[str, object]
+) -> None:
+    """El eje que no se usa no abre su columna, así que el preflight no la reclama (D-RAM-1)."""
+    del encendida
+    assert not _acusa(_config_eda(apagada), FANTASMA), (
+        f"{campo}: el preflight acusa la columna de un eje que la tasa no usa"
+    )
+
+
+@pytest.mark.parametrize(("campo", "apagada", "encendida"), _CASOS_EDA)
+def test_ancla_con_el_eje_activo_la_columna_de_eda_si_se_acusa(
+    campo: str, apagada: dict[str, object], encendida: dict[str, object]
+) -> None:
+    """El control que da sentido al de arriba: con su eje activo, la columna se exige."""
+    del apagada
+    assert _acusa(_config_eda(encendida), FANTASMA), (
+        f"{campo}: con su eje ACTIVO la tasa sí abre la columna y el preflight la exige"
+    )
+
+
+def test_con_la_fecha_en_blanco_el_preflight_no_reclama_nada_del_eje() -> None:
+    """Con `date_col` en blanco no hay columna que comprobar: el motor decide en la corrida —la
+    única fecha del archivo, o la cohorte de la partición (D-SC-3)— y lo deja en el trail."""
+    resultado = check_dataset(_config_eda({"default_rate": {"axis": "period"}}), COLUMNAS)
+    assert not any(m.path.startswith("eda.") for m in resultado.mismatches), resultado.mismatches
+
+
+def test_la_lista_de_columnas_a_describir_se_reclama_solo_si_trae_nombres() -> None:
+    """`columns` en blanco es «todas» y no reclama nada; con nombres, cada uno se comprueba."""
+    assert not _acusa(_config_eda({"univariate": {"columns": None}}), FANTASMA)
+    assert _acusa(_config_eda({"univariate": {"columns": ["mora", FANTASMA]}}), FANTASMA)
+
+
 def test_el_preflight_sigue_viendo_las_columnas_de_data_con_validation_podada() -> None:
     """🔴 Control positivo de la poda: apagar `validation` no puede enmudecer al resto.
 

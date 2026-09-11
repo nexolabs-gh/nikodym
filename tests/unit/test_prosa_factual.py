@@ -6,7 +6,13 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from nikodym.data.config import MissingConfig
-from nikodym.report.prose import conclusions_body, executive_view, methodology_body, results_body
+from nikodym.report.prose import (
+    conclusions_body,
+    context_body,
+    executive_view,
+    methodology_body,
+    results_body,
+)
 from nikodym.report.renderer import _band_class
 from nikodym.report.results import ReportInputBundle
 from nikodym.selection.config import SelectionConfig, StabilitySelectionConfig
@@ -243,3 +249,100 @@ def test_resumen_psi_score_y_card_legacy_no_inventan_identidad() -> None:
     assert "corresponde a la PD calibrada" not in score_text
     assert "corresponde al score" not in legacy_text
     assert "corresponde a la PD calibrada" not in legacy_text
+
+
+# ──────── D-SC-5: la prosa de contexto lee la card de EDA y dice lo mismo que el panel ────────
+
+
+def _eda_card(**cambios: Any) -> dict[str, Any]:
+    """La card de la corrida real del esqueleto del scorecard (cohorte inferida), editable."""
+    base: dict[str, Any] = {
+        "overall_default_rate": 0.2289,
+        "n_periods": 5,
+        "stability_flagged": False,
+        "stability_metric_used": "cv",
+        "stability_threshold": 0.25,
+        "stability_value": None,
+        "n_columns_profiled": 6,
+        "quality_flag_counts": {"near_constant": 2, "near_unique": 1, "high_cardinality": 0},
+        "n_figures": 6,
+        "axis": "cohort",
+        "axis_inferred": True,
+        "stability_not_evaluable_reason": "eje_cohorte",
+    }
+    return {**base, **cambios}
+
+
+def _contexto(card: dict[str, Any]) -> str:
+    return " ".join(context_body(_bundle(cards={"eda": card})))
+
+
+def test_la_cohorte_inferida_se_dice_con_el_eje_efectivo_y_su_causa() -> None:
+    """El mismo caso que el panel pinta con barras: agrupada por cohorte, eje tomado de la
+    partición y señal temporal sin evaluar por su causa, sin ningún identificador del motor."""
+    texto = _contexto(_eda_card())
+
+    assert "la tasa se agrupó por cohorte en 5 cohortes" in texto
+    assert "El eje de la tasa lo tomó el motor de la partición por cohorte" in texto
+    assert "no se evaluó: eje de cohorte, sin orden cronológico" in texto
+    assert "El indicador configurado era variación relativa" in texto
+    assert "2 variables con la marca «casi constante»" in texto
+    assert "1 variable con la marca «casi única»" in texto
+    for slug in ("eje_cohorte", "near_constant", "«cv»", "cardinalidad excesiva"):
+        assert slug not in texto, slug
+
+
+def test_un_periodo_unico_no_promete_figura_y_declara_su_causa() -> None:
+    texto = _contexto(
+        _eda_card(
+            axis="period",
+            axis_inferred=False,
+            n_periods=1,
+            stability_not_evaluable_reason="pocos_periodos_evaluables",
+        )
+    )
+
+    assert "en 1 período" in texto
+    assert "no hay serie temporal que graficar" in texto
+    assert "menos de dos períodos con observaciones suficientes" in texto
+    assert "lo tomó el motor" not in texto
+
+
+def test_la_tasa_media_cero_es_la_tercera_causa_y_la_pendiente_no_la_tiene() -> None:
+    con_cv = _contexto(
+        _eda_card(
+            axis="period",
+            axis_inferred=False,
+            n_periods=2,
+            stability_not_evaluable_reason="tasa_media_cero",
+        )
+    )
+    assert "sin incumplimientos en los períodos evaluables" in con_cv
+
+    con_pendiente = _contexto(
+        _eda_card(
+            axis="period",
+            axis_inferred=False,
+            n_periods=2,
+            stability_metric_used="trend_slope",
+            stability_value=0.0,
+            stability_not_evaluable_reason=None,
+        )
+    )
+    assert "no dejó aviso: el indicador (tendencia) vale 0,00" in con_pendiente
+    assert "no se evaluó" not in con_pendiente
+
+
+def test_la_senal_marcada_dice_que_es_un_aviso_de_exploracion() -> None:
+    texto = _contexto(
+        _eda_card(
+            axis="period",
+            axis_inferred=False,
+            stability_flagged=True,
+            stability_metric_used="max_relative_drift",
+            stability_value=0.41,
+            stability_not_evaluable_reason=None,
+        )
+    )
+    assert "quedó marcada: el indicador (peor desvío) alcanza 0,41" in texto
+    assert "Es un aviso de exploración, no una regla" in texto

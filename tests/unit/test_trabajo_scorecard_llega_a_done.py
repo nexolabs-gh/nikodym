@@ -18,6 +18,7 @@ que ya hace el gate del DAG, y es justo lo que no cierra esta clase de defecto.
 from __future__ import annotations
 
 import copy
+import re
 from pathlib import Path
 from typing import Any
 
@@ -124,6 +125,79 @@ def test_la_corrida_publica_la_validacion_formal(corrida: dict[str, Any]) -> Non
     assert validation["calibration"], "la calibración no publicó ninguna fila"
     # El backtesting NO corre en este trabajo (su familia no está activa): tabla vacía, no ausente.
     assert validation["backtesting"] == []
+
+
+def test_la_corrida_publica_el_analisis_exploratorio_con_el_eje_inferido(
+    corrida: dict[str, Any],
+) -> None:
+    """D-SC-3/D-SC-4/D-SC-5 sobre la corrida real: `eda` viene sembrada con sus defaults —eje
+    temporal sin fecha—, el archivo no trae fecha y particiona por cohorte, así que el motor toma la
+    cohorte, la señal temporal queda sin evaluar por su causa y el payload trae la card y las tres
+    tablas que el panel lee. Sin la regla de D-SC-3 esta corrida moría en `eda` pidiendo una fecha
+    (§0-1 de la enmienda)."""
+    eda = _resultados(corrida)["eda"]
+
+    assert eda is not None, "`eda` llegó nula en una corrida que la incluye"
+    assert eda["axis"] == "cohort"
+    assert eda["axis_inferred"] is True
+    assert eda["stability_not_evaluable_reason"] == "eje_cohorte"
+    assert eda["stability_value"] is None
+    assert eda["n_periods"] == 5, "las cinco cohortes de desarrollo (la sexta es la OOT)"
+    assert [fila["period"] for fila in eda["default_rate"]] == [
+        "2023Q1",
+        "2023Q2",
+        "2023Q3",
+        "2023Q4",
+        "2024Q1",
+    ]
+    descritas = {fila["column"] for fila in eda["univariate"]}
+    # §8-8 y D-SC-3: ni la columna que define el target ni la cohorte que hace de eje se describen.
+    assert "bad_flag" not in descritas
+    assert "cohorte" not in descritas
+    assert descritas == {
+        "antiguedad_meses",
+        "deuda_ingreso",
+        "ingreso_mensual",
+        "mora_max_12m",
+        "segmento",
+        "utilizacion_linea",
+    }
+    assert eda["n_columns_profiled"] == len(descritas)
+    assert {fila["col"] for fila in eda["quality"]} >= descritas
+
+
+def test_el_informe_de_la_corrida_trae_la_poblacion_con_sus_tablas(corrida: dict[str, Any]) -> None:
+    """La subsección «Población y calidad de datos» sale con sus dos tablas en el CUERPO y la prosa
+    dice el eje efectivo y su causa; los perfiles por variable van al anexo con título propio.
+
+    🔴 Hasta la capa 3 las claves de `KEY_TABLES` para `eda` no casaban con las del bundle, así que
+    la subsección salía sin tablas y éstas iban al anexo con su clave cruda por título. Medido
+    sobre este mismo informe.
+    """
+    workdir: Path = corrida["workdir"]
+    informes = list(workdir.rglob("report.html"))
+    assert len(informes) == 1, informes
+    html = informes[0].read_text(encoding="utf-8")
+
+    inicio = html.index('data-section-id="context.eda"')
+    fin = html.index("</section>", inicio)
+    subseccion = html[inicio:fin]
+    assert "Tasa de incumplimiento observada por período o cohorte" in subseccion
+    assert "Calidad de datos por columna" in subseccion
+    assert "2023Q1" in subseccion and "2024Q1" in subseccion
+    assert "Tabla «eda." not in html, "una tabla de eda quedó con su clave cruda por título"
+    assert "Perfil frente al incumplimiento — variable «segmento»" in html
+    # La prosa del contexto lee la card: eje efectivo, inferencia y causa, sin identificadores.
+    assert "la tasa se agrupó por cohorte en 5 cohortes" in html
+    assert "El eje de la tasa lo tomó el motor de la partición por cohorte" in html
+    assert "no se evaluó: eje de cohorte, sin orden cronológico" in html
+    # Los identificadores viven en los anexos de auditoría y en las cabeceras de las tablas, que
+    # se copian literalmente del motor; la PROSA del cuerpo habla en palabras.
+    cuerpo = html.split('data-kind="appendix"')[0]
+    parrafos = " ".join(re.findall(r"<p>(.*?)</p>", cuerpo, re.S))
+    assert "eje_cohorte" not in parrafos
+    assert "near_constant" not in parrafos
+    assert "«cv»" not in parrafos
 
 
 def test_sin_grados_en_el_archivo_el_contraste_por_grado_no_corre(corrida: dict[str, Any]) -> None:

@@ -46,6 +46,7 @@ from nikodym.core.dataset_check import (
     _rol,
 )
 from nikodym.data.config import DataConfig
+from nikodym.eda.config import EdaConfig
 from nikodym.performance.config import PerformanceConfig
 from nikodym.scorecard.config import ScorecardConfig
 from nikodym.selection.config import SelectionConfig
@@ -65,6 +66,9 @@ from nikodym.survival.config import SurvivalConfig
 #: meterlas aquí antes de eso obligaría a declarar en bloque lo que todavía no está medido.
 SECCIONES_EN_ALCANCE = (
     DataConfig,
+    # Desde la capa 3 del scorecard completo (D-SC-1): entra al formulario y dos trabajos
+    # disponibles la declaran, y sus dos columnas del eje nombran el archivo del usuario.
+    EdaConfig,
     BinningConfig,
     SelectionConfig,
     ScorecardConfig,
@@ -292,6 +296,12 @@ def test_el_footprint_inspeccionable_es_el_que_la_medicion_conto() -> None:
         # `columnas_inactivas()` en las tres configs de la sección (D-RAM-1). Sin eso, el preflight
         # habría exigido «grade» con los defaults del preset F1, que lo trae apagado.
         "validation",
+        # Capa 3 del scorecard completo (2026-09-11, D-SC-1/D-SC-3): `eda` entra al formulario y
+        # TRES de sus campos nombran columnas del archivo del usuario —la fecha de observación, la
+        # cohorte o añada y las columnas a describir—. Las dos del eje sólo se reclaman cuando su
+        # eje está activo: lo declara `DefaultRateConfig.columnas_inactivas()` (D-RAM-1, §0-15).
+        # La lista de columnas se reclama sólo si viene con nombres: en blanco es «todas».
+        "eda",
     }
 
 

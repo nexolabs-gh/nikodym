@@ -79,6 +79,99 @@ def f1_study(fake_binning_process: object, tmp_path: Path) -> Study:
 # ─────────────────────────────── serialize_study ───────────────────────────────
 
 
+@pytest.fixture
+def f1_con_eda(fake_binning_process: object, tmp_path: Path) -> Study:
+    """``Study`` F1 con ``eda`` en sus defaults de eje: sin fecha y con partición por cohorte, el
+    eje se infiere a la cohorte (D-SC-3) y la señal temporal queda sin evaluar (D-SC-2)."""
+    del fake_binning_process
+    from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
+
+    parquet = tmp_path / "cartera.parquet"
+    write_behavior_parquet(parquet)
+    config = full_f1_config(str(parquet)).model_copy(
+        update={
+            "eda": EdaConfig(
+                default_rate=DefaultRateConfig(min_obs_per_period=1),
+                univariate=UnivariateConfig(columns=("score", "segment"), n_quantile_bins=2),
+            )
+        }
+    )
+    return nikodym.run(config)
+
+
+def test_eda_se_serializa_con_la_card_sus_tres_tablas_y_el_nan_como_ausencia(
+    f1_con_eda: Study,
+) -> None:
+    """D-SC-5: la clave `eda` trae la card entera y las tres tablas agregadas, en JSON estricto.
+
+    🔴 ``stability_value`` es ``NaN`` en el motor cuando la señal no se evaluó, y ``dump_dto``
+    FALLA ante un no-finito: sin la coacción propia de la card, una corrida con ``eda`` sobre
+    cohortes —el caso del esqueleto del scorecard— tumbaba ``/api/results`` entero.
+    """
+    assert f1_con_eda.run_context.status == "done"
+    payload = serialize_study(f1_con_eda, governance=None)
+    eda = payload["eda"]
+
+    assert isinstance(eda, dict)
+    assert eda["axis"] == "cohort"
+    assert eda["axis_inferred"] is True
+    assert eda["stability_not_evaluable_reason"] == "eje_cohorte"
+    assert eda["stability_value"] is None  # NaN del motor → ausencia, nunca cero
+    assert eda["stability_flagged"] is False
+    # Las tres tablas, con las columnas del motor y una fila por tramo en los perfiles.
+    assert [fila["period"] for fila in eda["default_rate"]] == ["dev"]
+    assert set(eda["default_rate"][0]) == {
+        "period",
+        "n_total",
+        "n_eligible",
+        "n_bad",
+        "default_rate",
+        "low_confidence",
+    }
+    assert {fila["col"] for fila in eda["quality"]} >= {"score", "segment", "bad_flag"}
+    assert {fila["column"] for fila in eda["univariate"]} == {"score", "segment"}
+    assert list(eda["univariate"][0]) == [
+        "column",
+        "tramo",
+        "n",
+        "coverage",
+        "default_rate",
+        "descriptive_iv",
+    ]
+    assert all(fila["descriptive_iv"] is None for fila in eda["univariate"])
+    json.dumps(payload, allow_nan=False)
+
+
+def test_sin_eda_la_clave_viaja_nula_y_nunca_ausente(f1_study: Study) -> None:
+    """El contrato del serializer: `null` cuando el dominio no corrió; la clave siempre está."""
+    payload = serialize_study(f1_study, governance=None)
+    assert "eda" in payload
+    assert payload["eda"] is None
+
+
+def test_dump_card_coacciona_el_nan_de_una_card_y_sigue_rechazando_el_infinito() -> None:
+    """La coacción es SÓLO para el `NaN` (ausencia declarada): un `Inf` sigue siendo un defecto."""
+    from nikodym.eda.card import EdaCardSection
+
+    def card(valor: float) -> EdaCardSection:
+        return EdaCardSection(
+            overall_default_rate=0.1,
+            n_periods=1,
+            stability_flagged=False,
+            stability_metric_used="cv",
+            stability_threshold=0.25,
+            stability_value=valor,
+            n_columns_profiled=0,
+            quality_flag_counts={},
+            n_figures=0,
+            stability_not_evaluable_reason="pocos_periodos_evaluables",
+        )
+
+    assert serializers._dump_card(card(float("nan")))["stability_value"] is None
+    with pytest.raises(UiSerializationError):
+        serializers._dump_card(card(float("inf")))
+
+
 def test_serialize_study_done_shape_y_cards(f1_study: Study) -> None:
     """Una corrida F1 finalizada serializa status/run_id, model_card y las 6 cards al shape §6."""
     payload = serialize_study(f1_study, governance=_GOVERNANCE)

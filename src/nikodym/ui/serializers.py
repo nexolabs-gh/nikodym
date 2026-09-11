@@ -45,6 +45,12 @@ __all__ = ["dump_dto", "public_engine_message", "serialize_study", "to_records"]
 # aquí (no se importa ``report``) para conservar la frontera *domain-agnostic* del backend.
 # ``tests/unit/test_ui_serializers.py`` coteja este mapa contra el canónico para detectar deriva.
 _CARD_KEY_BY_DOMAIN: dict[str, str] = {
+    # Análisis exploratorio (SDD-27, D-SC-5): la card trae la tasa global, cuántos períodos o
+    # cohortes la componen, el eje EFECTIVO y si lo infirió el motor, la señal temporal con su
+    # indicador, umbral y valor —o la causa por la que no se evaluó— y los conteos de calidad.
+    # Sus tres tablas son AGREGADAS (una fila por período, por columna y por tramo de las
+    # columnas descritas), nunca el frame.
+    "eda": "eda_card",
     "binning": "binning_card",
     "selection": "selection_card",
     "model": "model_card",
@@ -175,10 +181,37 @@ def serialize_study(
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():
         payload[domain] = (
-            dump_dto(study.artifacts.get(domain, key)) if study.artifacts.has(domain, key) else None
+            _dump_card(study.artifacts.get(domain, key))
+            if study.artifacts.has(domain, key)
+            else None
         )
     _augment_with_rich_artifacts(study, payload)
     return payload
+
+
+def _dump_card(card: BaseModel) -> dict[str, Any]:
+    """Serializa una card como ``dump_dto``, con los ``NaN`` de sus escalares como ausencia.
+
+    🔴 ``dump_dto`` **falla** ante un no-finito, y está bien para las cards que no pueden traerlo.
+    La de ``eda`` sí puede: ``stability_value`` es ``NaN`` cuando la señal temporal no se evaluó
+    —eje de cohorte, un solo período, tasa media cero— y ``overall_default_rate`` lo es sin
+    operaciones elegibles. No es un valor inválido sino una ausencia declarada, y la card ya
+    dice por qué (``stability_not_evaluable_reason``), así que viaja como ``null`` con la misma
+    coacción que aplican las tablas (:func:`_to_json_native`). Un ``Inf`` sigue fallando.
+    """
+    dumped = _sustituye_decimales(card.model_dump(mode="json"), card.model_dump(mode="python"))
+    native = _json_native_tree(dumped)
+    _ensure_json_safe(native, context=type(card).__name__)
+    return native  # type: ignore[no-any-return]
+
+
+def _json_native_tree(value: Any) -> Any:
+    """Aplica :func:`_to_json_native` a un árbol de dicts y listas, hoja a hoja."""
+    if isinstance(value, dict):
+        return {str(key): _json_native_tree(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_native_tree(item) for item in value]
+    return _to_json_native(value)
 
 
 def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
@@ -189,6 +222,15 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
     cuando el dominio corrió (su card es un ``dict``); un artefacto rico concreto ausente entra como
     ``None`` (nunca se fabrica). No hay colisión de nombres con las claves de las cards.
     """
+    if isinstance(payload["eda"], dict):
+        # Las TRES tablas agregadas del análisis exploratorio (D-SC-5): la tasa por período o
+        # cohorte tal cual la publica el motor —con `low_confidence` por fila—, la calidad por
+        # columna con sus tres marcas, y los perfiles por variable REDUCIDOS a una fila por tramo
+        # (columna, tramo, n, cobertura, tasa). Nunca el frame ni las figuras: las figuras son
+        # recetas para el informe y el panel decide qué graficar por el eje efectivo de la card.
+        payload["eda"]["default_rate"] = _eda_default_rate(study)
+        payload["eda"]["quality"] = _eda_quality(study)
+        payload["eda"]["univariate"] = _eda_univariate(study)
     if isinstance(payload["binning"], dict):
         payload["binning"]["tables_by_variable"] = _binning_tables(study)
     if isinstance(payload["selection"], dict):
@@ -276,6 +318,74 @@ def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]]
     if not study.artifacts.has(domain, key):
         return None
     return _frame_records(study.artifacts.get(domain, key))
+
+
+def _eda_default_rate(study: Study) -> list[dict[str, Any]] | None:
+    """La tasa por período o cohorte (``DefaultRateResult.by_period``); ``None`` si falta.
+
+    Los artefactos de ``eda`` son DTOs que envuelven su tabla: se desenvuelven aquí, en la
+    frontera, en vez de pedirle al motor que publique la tabla dos veces. El ``period`` de un eje
+    temporal es un ``pd.Period``: viaja como su texto, igual que en el informe.
+    """
+    if not study.artifacts.has("eda", "default_rate"):
+        return None
+    by_period = study.artifacts.get("eda", "default_rate").by_period
+    return _frame_records(by_period.assign(period=by_period["period"].map(_period_label)))
+
+
+def _period_label(value: Any) -> Any:
+    """Etiqueta JSON de un período o cohorte: texto para ``pd.Period``, ausencia para faltantes."""
+    import pandas as pd  # local: este módulo no arrastra pandas al importarse
+
+    if value is None or value is pd.NA or value is pd.NaT:
+        return None
+    if isinstance(value, float) and value != value:
+        return None
+    return str(value) if isinstance(value, pd.Period) else value
+
+
+def _eda_quality(study: Study) -> list[dict[str, Any]] | None:
+    """La tabla de calidad por columna (``QualityResult.by_column``); ``None`` si falta."""
+    if not study.artifacts.has("eda", "quality"):
+        return None
+    return _frame_records(study.artifacts.get("eda", "quality").by_column)
+
+
+def _eda_univariate(study: Study) -> list[dict[str, Any]] | None:
+    """Los perfiles por variable, una fila por tramo, con la columna delante (D-SC-5).
+
+    ``UnivariateResult.profiles`` es ``{columna: tabla(tramo, n, coverage, default_rate)}`` y
+    se aplana conservando el orden de perfilado y el orden de los tramos, que es el que el motor
+    decidió (numéricos por cuantil, categóricos por nivel con «otros» y «missing» al final). El
+    ``tramo`` de una numérica es un ``pd.Interval``: viaja como su texto, que es como lo publica
+    el informe. El IV descriptivo, si se pidió, va aparte y por columna.
+    """
+    if not study.artifacts.has("eda", "univariate"):
+        return None
+    univariate = study.artifacts.get("eda", "univariate")
+    rows: list[dict[str, Any]] = []
+    for column, profile in univariate.profiles.items():
+        for row in profile.to_dict(orient="records"):
+            rows.append(
+                {
+                    "column": str(column),
+                    "tramo": _tramo_label(row.get("tramo")),
+                    "n": _to_json_native(row.get("n")),
+                    "coverage": _to_json_native(row.get("coverage")),
+                    "default_rate": _to_json_native(row.get("default_rate")),
+                    "descriptive_iv": _to_json_native(univariate.descriptive_iv.get(column)),
+                }
+            )
+    _ensure_json_safe(rows, context="eda.univariate")
+    return rows
+
+
+def _tramo_label(value: Any) -> Any:
+    """Etiqueta JSON de un tramo: intervalos y niveles viajan como texto, salvo faltantes."""
+    native = _to_json_native(value)
+    if native is None or isinstance(native, (str, int, float, bool)):
+        return native
+    return str(value)
 
 
 def _frame_records(frame: pd.DataFrame) -> list[dict[str, Any]]:

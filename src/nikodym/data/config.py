@@ -390,6 +390,14 @@ class Rule(NikodymBaseConfig):
             raise ValueError("una Rule debe declarar al menos un predicado en 'all_of' o 'any_of'.")
         return self
 
+    def columnas(self) -> tuple[str, ...]:
+        """Columnas del archivo que esta regla lee, en orden de declaración y sin repetir."""
+        vistas: list[str] = []
+        for predicado in (*self.all_of, *self.any_of):
+            if predicado.col not in vistas:
+                vistas.append(predicado.col)
+        return tuple(vistas)
+
 
 class ExclusionRule(NikodymBaseConfig):
     """Regla de exclusión estructural con motivo nombrado (se registra en el audit-trail)."""
@@ -479,6 +487,25 @@ class TargetConfig(NikodymBaseConfig):
             "evaluarse. Si la dejas vacía, no se exige maduración temporal.",
         },
     )
+
+    def columnas_que_definen_la_etiqueta(self) -> tuple[str, ...]:
+        """Columnas que leen las reglas de «malo» y «bueno»: las que DEFINEN el target.
+
+        Es el mismo criterio con que el binning excluye candidatas por fuga de información
+        (``binning/step.py::_target_rule_paths_by_column``): ``indeterminate_rule`` y
+        ``exclusion_rules`` seleccionan la muestra, no determinan la etiqueta de las filas que
+        quedan, así que sus columnas no entran. Lo consume ``eda`` para dejar fuera del perfil por
+        defecto la columna que define el incumplimiento (§8-8 del scorecard completo): describir
+        ``bad_flag`` «frente al incumplimiento» daba una tasa 0 %/100 % por tramo que no dice nada.
+        """
+        vistas: list[str] = []
+        for regla in (self.bad_rule, self.good_rule):
+            if regla is None:
+                continue
+            for columna in regla.columnas():
+                if columna not in vistas:
+                    vistas.append(columna)
+        return tuple(vistas)
 
     @model_validator(mode="after")
     def _exclusion_reasons_unicos_y_no_reservados(self) -> TargetConfig:

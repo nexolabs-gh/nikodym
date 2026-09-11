@@ -35,6 +35,17 @@ import pytest
 from pydantic import BaseModel
 
 from nikodym.binning.results import IV_BAND_LABELS, IvBand
+from nikodym.eda.card import EdaCardSection
+from nikodym.eda.default_rate import _RESULT_COLUMNS as _COLUMNAS_TASA
+from nikodym.eda.default_rate import AXIS_LABELS, EdaAxis
+from nikodym.eda.quality import _RESULT_COLUMNS as _COLUMNAS_CALIDAD
+from nikodym.eda.quality import QUALITY_FLAG_LABELS, QualityFlag
+from nikodym.eda.stability import (
+    NOT_EVALUABLE_REASON_LABELS,
+    STABILITY_INDICATOR_LABELS,
+    NotEvaluableReason,
+    StabilityMetric,
+)
 from nikodym.selection.config import (
     CorrelationSelectionConfig,
     SelectionConfig,
@@ -145,6 +156,11 @@ def _titulo_del_formulario(modelo: type[BaseModel], ruta: str) -> str | None:
         (BACKTEST_PARAMETER_LABELS, BacktestParameter, "BACKTEST_PARAMETER_LABELS"),
         (BACKTEST_TEST_LABELS, BacktestTest, "BACKTEST_TEST_LABELS"),
         (PD_TEST_LABELS, PdTest, "PD_TEST_LABELS"),
+        # D-SC-5: los cuatro vocabularios del análisis exploratorio.
+        (AXIS_LABELS, EdaAxis, "AXIS_LABELS"),
+        (STABILITY_INDICATOR_LABELS, StabilityMetric, "STABILITY_INDICATOR_LABELS"),
+        (NOT_EVALUABLE_REASON_LABELS, NotEvaluableReason, "NOT_EVALUABLE_REASON_LABELS"),
+        (QUALITY_FLAG_LABELS, QualityFlag, "QUALITY_FLAG_LABELS"),
     ],
 )
 def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, nombre: str) -> None:
@@ -167,6 +183,10 @@ def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, no
         (DISCRIMINATION_STATUS_LABELS, "DISCRIMINATION_STATUS_LABELS"),
         (DISCRIMINATION_SOURCE_LABELS, "DISCRIMINATION_SOURCE_LABELS"),
         (BACKTEST_PARAMETER_LABELS, "BACKTEST_PARAMETER_LABELS"),
+        (AXIS_LABELS, "AXIS_LABELS"),
+        (STABILITY_INDICATOR_LABELS, "STABILITY_INDICATOR_LABELS"),
+        (NOT_EVALUABLE_REASON_LABELS, "NOT_EVALUABLE_REASON_LABELS"),
+        (QUALITY_FLAG_LABELS, "QUALITY_FLAG_LABELS"),
     ],
 )
 def test_ninguna_palabra_publica_es_un_slug(mapa: dict[str, str], nombre: str) -> None:
@@ -254,6 +274,27 @@ def test_el_front_espeja_el_vocabulario_de_la_validacion(
     assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
 
 
+@pytest.mark.parametrize(
+    ("nombre", "fuente"),
+    [
+        ("EDA_AXIS_LABELS", AXIS_LABELS),
+        ("EDA_STABILITY_INDICATOR_LABELS", STABILITY_INDICATOR_LABELS),
+        ("EDA_NOT_EVALUABLE_REASON_LABELS", NOT_EVALUABLE_REASON_LABELS),
+        ("EDA_QUALITY_FLAG_LABELS", QUALITY_FLAG_LABELS),
+    ],
+)
+def test_el_front_espeja_el_vocabulario_del_analisis_exploratorio(
+    nombre: str, fuente: dict[str, str]
+) -> None:
+    """Los cuatro mapas que el panel «Análisis exploratorio» consume (D-SC-5).
+
+    El eje efectivo, el indicador, la causa de no evaluar y las marcas de calidad: cada uno es un
+    enum distinto del motor, y una palabra cambiada de un solo lado deja la pantalla diciendo
+    algo que el informe no dice —justo la deriva que la capa 1 vino a cerrar—.
+    """
+    assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
+
+
 def test_los_colores_del_estado_tecnico_cubren_las_tres_palabras() -> None:
     """El semáforo del panel no puede tener un estado sin color: se pintaría gris y mentiría.
 
@@ -288,6 +329,10 @@ def test_los_colores_del_estado_tecnico_cubren_las_tres_palabras() -> None:
         (CalibrationTest, "CalibrationTest"),
         (BacktestParameter, "BacktestParameter"),
         (BacktestTest, "BacktestTest"),
+        (EdaAxis, "EdaAxis"),
+        (StabilityMetric, "EdaStabilityIndicator"),
+        (NotEvaluableReason, "EdaNotEvaluableReason"),
+        (QualityFlag, "EdaQualityFlag"),
     ],
 )
 def test_el_tipo_del_front_espeja_el_enum_del_motor(enum: Any, interfaz: str) -> None:
@@ -402,6 +447,53 @@ def test_la_prosa_del_informe_sigue_sin_arrastrar_pandas() -> None:
         "import sys, nikodym.report.prose as p;"
         "assert 'pandas' not in sys.modules, 'prose arrastró pandas al importarse';"
         "assert p._reason_label('low_iv') == 'IV insuficiente';"
+        "assert p._quality_label('near_unique') == 'casi única';"
+        "assert p._eda_axis_label('cohort') == 'por cohorte';"
+        "assert p._eda_reason_label('tasa_media_cero').startswith('sin incumplimientos');"
         "assert 'pandas' in sys.modules, 'el import perezoso no llegó a ejecutarse'"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+# ───────────────── 4. D-SC-5: los tipos del panel de EDA espejan al motor ─────────────────
+
+
+def _claves_de_la_interfaz_ts(nombre: str) -> list[str]:
+    """Las claves de ``export interface <nombre> { ... }`` en ``results-types.ts``, en su orden."""
+    texto = _RESULTS_TYPES.read_text(encoding="utf-8")
+    cuerpo = re.search(rf"^export interface {re.escape(nombre)} \{{\n(.*?)^\}}", texto, re.S | re.M)
+    assert cuerpo is not None, f"results-types.ts no declara `export interface {nombre}`"
+    return re.findall(r"^  ([a-z_0-9]+)\??:", cuerpo.group(1), re.M)
+
+
+def test_el_tipo_eda_result_espeja_la_card_y_sus_tres_tablas() -> None:
+    """Renombrar, añadir o quitar un campo de ``EdaCardSection`` sin tocar el tipo pone rojo.
+
+    Las tres tablas van al final, en el orden en que el serializer las fusiona, y son las únicas
+    claves que la card no declara: cualquier otra diferencia es deriva.
+    """
+    assert _claves_de_la_interfaz_ts("EdaResult") == [
+        *EdaCardSection.model_fields,
+        "default_rate",
+        "quality",
+        "univariate",
+    ]
+
+
+def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -> None:
+    """Las tablas viajan tal cual las publica el motor: mismas columnas, mismo orden."""
+    assert _claves_de_la_interfaz_ts("EdaPeriodRow") == list(_COLUMNAS_TASA)
+    assert _claves_de_la_interfaz_ts("EdaQualityRow") == list(_COLUMNAS_CALIDAD)
+
+
+def test_la_fila_del_perfil_espeja_lo_que_el_serializer_aplana() -> None:
+    """El perfil por variable no es un frame del motor sino la proyección plana del serializer
+    (columna delante, un tramo por fila): el tipo espeja esa proyección, medida sobre su código."""
+    from nikodym.ui import serializers
+
+    fuente = Path(serializers.__file__).read_text(encoding="utf-8")
+    inicio = fuente.index("def _eda_univariate(")
+    cuerpo = fuente[inicio : fuente.index("\n\n\ndef ", inicio)]
+    claves = re.findall(r'^\s+"([a-z_]+)": ', cuerpo, re.M)
+    assert claves, "no se pudieron leer las claves que `_eda_univariate` escribe"
+    assert _claves_de_la_interfaz_ts("EdaProfileRow") == claves

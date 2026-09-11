@@ -93,6 +93,15 @@ export const CONFIG_SECTIONS: ConfigSectionDef[] = [
       "Cómo se interpreta el dataset cargado: esquema, tipos, target, missing y partición.",
   },
   {
+    // Entre «Esquema y target» y «Optimal Binning» porque ése es su lugar en el pipeline: el
+    // análisis exploratorio describe la población ANTES de que el binning la transforme, y es
+    // la sección que el motor tenía desde SDD-27 sin una sola pantalla (D-SC-1).
+    key: "eda",
+    label: "Análisis exploratorio",
+    description:
+      "La cartera antes de modelar: tasa de incumplimiento en el tiempo, perfiles por variable y calidad de datos.",
+  },
+  {
     key: "binning",
     label: "Optimal Binning",
     description: "Binning óptimo (OptBinning): restricciones, monotonía, solver y salida.",

@@ -14,6 +14,7 @@ import {
   ListFilter,
   Play,
   Scale,
+  ScanSearch,
   ShieldCheck,
   Sigma,
   SlidersHorizontal,
@@ -66,6 +67,8 @@ const configValue = (key: string) => `${CONFIG_PREFIX}${key}`
  */
 const SECTION_ICONS: Record<string, LucideIcon> = {
   data: Table2,
+  // Mirar la cartera antes de modelarla (D-SC-1).
+  eda: ScanSearch,
   binning: Boxes,
   selection: ListFilter,
   model: Sigma,

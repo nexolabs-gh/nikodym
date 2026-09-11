@@ -131,6 +131,38 @@ def test_build_eda_card_resume_campos_golden(
         "high_cardinality": 2,
     }
     assert card.n_figures == 2
+    assert card.axis == "period"
+    assert card.axis_inferred is False
+    assert card.stability_not_evaluable_reason is None
+
+
+def test_la_card_copia_el_eje_efectivo_la_inferencia_y_la_causa_del_resultado() -> None:
+    """D-SC-5 (§0-11): la card no lee el config sino el resultado, que es donde vive el eje que
+    de verdad se usó; y la causa de la señal no evaluada viaja tal cual la declaró el analizador."""
+    base = _eda_result()
+    result = base.model_copy(
+        update={
+            "default_rate": base.default_rate.model_copy(update={"axis": "cohort"}),
+            "stability": StabilityResult(
+                cv=float("nan"),
+                max_relative_drift=float("nan"),
+                trend_slope=float("nan"),
+                metric_used="cv",
+                threshold=0.25,
+                flagged=False,
+                not_evaluable_reason="eje_cohorte",
+            ),
+            "axis_inferred": True,
+        }
+    )
+
+    card = EdaStep.from_config(EdaConfig())._build_eda_card(result=result)
+
+    assert card.axis == "cohort"
+    assert card.axis_inferred is True
+    assert card.stability_not_evaluable_reason == "eje_cohorte"
+    assert card.stability_flagged is False
+    assert card.stability_value != card.stability_value  # NaN: el serializer lo publica nulo
 
 
 def test_build_eda_card_sobre_mismo_resultado_es_determinista() -> None:
@@ -156,4 +188,8 @@ def test_build_eda_card_sobre_mismo_resultado_es_determinista() -> None:
             "high_cardinality": 2,
         },
         "n_figures": 2,
+        # Aditivos de D-SC-5: el eje efectivo, si lo infirió el paso y la causa de no evaluar.
+        "axis": "period",
+        "axis_inferred": False,
+        "stability_not_evaluable_reason": None,
     }

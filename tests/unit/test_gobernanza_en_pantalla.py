@@ -157,12 +157,13 @@ def test_governance_es_la_ultima_seccion_del_formulario_y_se_llama_gobernanza() 
 
     Lo que este gate fija es la POSICIÓN —última, detrás de `report`— y el rótulo, no el número:
     la lista crece cuando el formulario gana una sección (14 → 15 con D-GOB-11; 15 → **16** con
-    D-SC-6, que mete «Validación formal» entre estabilidad y survival). El conteo se conserva como
+    D-SC-6, que mete «Validación formal» entre estabilidad y survival; 16 → **17** con D-SC-1,
+    que mete «Análisis exploratorio» entre el esquema y el binning). El conteo se conserva como
     ancla de no vacuidad y se mueve a conciencia; quien lo cambie sin mirar dónde queda la
     gobernanza rompe la promesa de D-GOB-11, que es que sea lo último que se ve.
     """
     secciones = _config_sections_del_front()
-    assert len(secciones) == 16, [k for k, _ in secciones]
+    assert len(secciones) == 17, [k for k, _ in secciones]
     assert secciones[-2][0] == "report", "el informe sigue siendo el último paso del pipeline"
     assert secciones[-1] == ("governance", "Gobernanza")
 

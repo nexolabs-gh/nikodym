@@ -110,6 +110,12 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "sections": (
             "data",
+            # D-SC-4: el análisis exploratorio entra en segunda posición —su lugar en el pipeline—
+            # y SEMBRADO ENCENDIDO, no latente: no tiene ningún dato institucional sin default y,
+            # con la inferencia del eje (D-SC-3), corre con sus defaults sobre una cartera sin
+            # fecha particionada por cohorte, que es exactamente la de la demo. Medido: antes de
+            # esa regla el preset F1 no podía encenderla (§0-1 de la enmienda).
+            "eda",
             "binning",
             "selection",
             "model",
@@ -288,6 +294,8 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "sections": (
             "data",
+            # Misma razón que su hermano «Scorecard de comportamiento (PD)» (D-SC-4).
+            "eda",
             "binning",
             "selection",
             "model",
@@ -915,6 +923,197 @@ _ESTADOS_DE_OPCION = frozenset({_DISPONIBLE, _NO_IMPLEMENTADA, _EXIGE_OTRO_CAMPO
 #: los diez trabajos incluyen `data`, así que declarar por trabajo copiaría el mismo texto ocho
 #: veces y la primera vez que alguien afinara el copy, siete quedarían atrás en silencio.
 _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
+    # D-SC-1/D-SC-3: los cuatro puntos que `eda` aporta al abanico. El quinto campo con un
+    # `Literal` —`type`— tiene un solo valor y no es una elección.
+    "eda": (
+        {
+            "path": "eda.analysis_partition",
+            "question": "¿Sobre qué parte de tu archivo quieres describir la cartera?",
+            "help": (
+                "La descripción se calcula sobre una sola muestra, y de fábrica es la de "
+                "desarrollo, que es donde se ajusta el modelo. Las operaciones fuera del modelo "
+                "se cuentan, pero no entran en la tasa de incumplimiento."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "desarrollo",
+                    "label": "La muestra de desarrollo",
+                    "help": (
+                        "La población sobre la que se ajusta el modelo: es la que conviene "
+                        "conocer antes de modelar, y por eso viene de fábrica."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "holdout",
+                    "label": "La muestra de validación",
+                    "help": (
+                        "Clientes del mismo período que el modelo no usó para ajustarse: sirve "
+                        "para comprobar que se parecen a los de desarrollo."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "oot",
+                    "label": "La muestra fuera de tiempo",
+                    "help": (
+                        "Un período posterior: describe la cartera sobre la que el modelo se va "
+                        "a usar, no aquella con la que se construyó."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "todas",
+                    "label": "Todo el archivo",
+                    "help": (
+                        "Todas las operaciones juntas, sin distinguir muestras. Útil para una "
+                        "primera mirada; para leer el modelo conviene la de desarrollo."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+        {
+            "path": "eda.default_rate.axis",
+            "question": "¿Cómo quieres agrupar la tasa de incumplimiento en el tiempo?",
+            "help": (
+                "Por la fecha en que se observó cada operación, en períodos, o por la cohorte o "
+                "añada a la que pertenece. Con cohortes la señal de deterioro en el tiempo no "
+                "se evalúa: no tienen un orden cronológico que el motor pueda inferir."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "period",
+                    "label": "Por la fecha de observación",
+                    "help": (
+                        "Agrupa por la fecha en que se observó cada operación, por mes, "
+                        "trimestre o año, y permite evaluar si la tasa se deteriora en el "
+                        "tiempo. Es la opción de fábrica."
+                    ),
+                    # ⚠️ Exige una columna de fecha, y la diferencia con la cohorte está medida:
+                    # si no la indicas, el motor usa la única columna de fecha de tu archivo; y
+                    # si no hay ninguna pero particionas por cohorte, el eje pasa a esa cohorte y
+                    # lo deja registrado (D-SC-3). Lo que no puede hacer es inventarla: sin fecha
+                    # y sin cohorte la corrida se detiene en este campo.
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor "
+                        "usa la única columna de fecha que haya; si no hay ninguna y particionas "
+                        "por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni "
+                        "cohorte, la corrida se detiene aquí."
+                    ),
+                    "prueba": "eda/step.py:170",
+                    "exige": ("eda.default_rate.date_col",),
+                },
+                {
+                    "value": "cohort",
+                    "label": "Por cohorte o añada",
+                    "help": (
+                        "Agrupa por la cohorte o añada de cada operación, que es la vista por "
+                        "camada que interesa cuando se compara la calidad de lo que se fue "
+                        "colocando. La señal de deterioro en el tiempo queda sin evaluar."
+                    ),
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Necesita que indiques la columna de cohorte o añada: suele ser la misma "
+                        "con la que particionas tus datos. Sin ella, la corrida se detiene aquí."
+                    ),
+                    "prueba": "eda/default_rate.py:232",
+                    "exige": ("eda.default_rate.cohort_col",),
+                },
+            ),
+        },
+        {
+            "path": "eda.default_rate.period_freq",
+            "question": "¿Cada cuánto quieres agrupar la fecha de observación?",
+            "help": (
+                "Sólo se aplica si agrupas por la fecha de observación. Es la unidad con que se "
+                "parte el tiempo para leer la tasa de incumplimiento y su deterioro."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "M",
+                    "label": "Por mes",
+                    "help": "El detalle más fino; útil con volúmenes altos por mes.",
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "Q",
+                    "label": "Por trimestre",
+                    "help": "Suaviza el ruido mensual y conserva la estacionalidad del año.",
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "Y",
+                    "label": "Por año",
+                    "help": "Una tasa por año: pocos puntos, útil sólo con historia larga.",
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+        {
+            "path": "eda.stability.metric",
+            "question": "¿Con qué indicador quieres medir si la tasa se mueve en el tiempo?",
+            "help": (
+                "Los tres resumen cuánto cambia la tasa de incumplimiento de un período a otro y "
+                "se comparan con el umbral para avisar un posible redesarrollo. Es un aviso de "
+                "exploración: la corrida sigue."
+            ),
+            "multiple": False,
+            "options": (
+                {
+                    "value": "cv",
+                    "label": "La variación relativa",
+                    "help": (
+                        "Cuánto se dispersan las tasas de los períodos alrededor de su media, "
+                        "en proporción a esa media. Es la opción de fábrica."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "max_relative_drift",
+                    "label": "El peor desvío",
+                    "help": (
+                        "El período que más se aleja de la media, en proporción a esa media: "
+                        "detecta un salto aislado que la dispersión promedio diluye."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "trend_slope",
+                    "label": "La tendencia",
+                    "help": (
+                        "La pendiente de la tasa a lo largo de los períodos: detecta un "
+                        "deterioro sostenido aunque cada paso sea pequeño."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+            ),
+        },
+    ),
     "data": (
         {
             "path": "data.load.backend",

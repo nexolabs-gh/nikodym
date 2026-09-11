@@ -5,6 +5,10 @@
 excluyendo los períodos marcados como ``low_confidence``. No ajusta parámetros, no predice y no
 calcula métricas propias de validación de score como PSI, KS, AUC o Gini.
 
+Cuando la señal no se puede evaluar —eje de cohorte, menos de dos períodos con observaciones
+suficientes o tasa media cero con un indicador relativo— el resultado lo **declara** con su causa
+(``StabilityResult.not_evaluable_reason``, D-SC-2) en vez de fallar o callar.
+
 **Estable (SemVer 1.x).**
 """
 
@@ -23,12 +27,46 @@ from nikodym.eda.config import TemporalStabilityConfig
 from nikodym.eda.default_rate import DefaultRateResult
 from nikodym.eda.exceptions import EdaError
 
-__all__ = ["StabilityResult", "TemporalStabilityAnalyzer"]
+__all__ = [
+    "NOT_EVALUABLE_REASON_LABELS",
+    "STABILITY_INDICATOR_LABELS",
+    "NotEvaluableReason",
+    "StabilityMetric",
+    "StabilityResult",
+    "TemporalStabilityAnalyzer",
+]
 
 StabilityMetric = Literal["cv", "max_relative_drift", "trend_slope"]
 
+#: Por qué la señal temporal no se evaluó (D-SC-2). Hay causa **si y sólo si** el indicador
+#: configurado no es finito; ``None`` significa «evaluable», con o sin señal.
+NotEvaluableReason = Literal["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero"]
+
+#: Las palabras públicas de cada causa: una sola fuente para el panel de Resultados y para la
+#: prosa del informe, con espejo gateado en el front (mismo molde que ``BAND_LABELS``).
+NOT_EVALUABLE_REASON_LABELS: Final[dict[str, str]] = {
+    "eje_cohorte": "eje de cohorte, sin orden cronológico",
+    "pocos_periodos_evaluables": "menos de dos períodos con observaciones suficientes",
+    "tasa_media_cero": "sin incumplimientos en los períodos evaluables",
+}
+
+#: Las palabras públicas de los tres indicadores (el ``metric`` del config), para que ni el
+#: panel ni el informe publiquen ``cv`` crudo.
+STABILITY_INDICATOR_LABELS: Final[dict[str, str]] = {
+    "cv": "variación relativa",
+    "max_relative_drift": "peor desvío",
+    "trend_slope": "tendencia",
+}
+
 _REQUIRED_COLUMNS: Final = ("period", "default_rate", "low_confidence")
-_NOT_EVALUABLE_VALUE: Final = "<2 períodos"
+
+#: Lo que la decisión ``no_evaluable`` escribe en ``valor`` por cada causa. El trail es prosa
+#: auditable, así que lleva la causa en palabras; ``StabilityResult`` lleva el identificador.
+_TRAIL_VALUE_BY_REASON: Final[dict[str, str]] = {
+    "eje_cohorte": "eje de cohorte sin cronología",
+    "pocos_periodos_evaluables": "<2 períodos",
+    "tasa_media_cero": "tasa media cero",
+}
 
 
 class StabilityResult(BaseModel):
@@ -42,6 +80,8 @@ class StabilityResult(BaseModel):
     metric_used: StabilityMetric
     threshold: float
     flagged: bool
+    #: Aditivo (D-SC-2): la causa cuando el indicador configurado no es finito, o ``None``.
+    not_evaluable_reason: NotEvaluableReason | None = None
 
 
 class TemporalStabilityAnalyzer(AuditableMixin):
@@ -81,26 +121,27 @@ class TemporalStabilityAnalyzer(AuditableMixin):
         Raises
         ------
         EdaError
-            Si el resultado no usa eje temporal o si ``by_period`` no contiene las columnas
-            mínimas del contrato de B5.2.
+            Si ``by_period`` no contiene las columnas mínimas del contrato de B5.2.
+
+        Notes
+        -----
+        Con ``axis="cohort"`` la señal temporal **no se evalúa y no es un error** (D-SC-2,
+        SDD-27 §8): las cohortes no tienen un orden cronológico que el motor pueda inferir, así
+        que el resultado sale con los tres indicadores ``NaN``, ``flagged=False`` y la causa
+        ``eje_cohorte``, y el trail registra la decisión ``no_evaluable`` —el mismo tratamiento
+        que «menos de dos períodos»—. Hasta la capa 3 del scorecard completo este caso levantaba
+        ``EdaError`` y con él moría la corrida entera de ``eda``, tasa por cohorte incluida.
+
+        La regla que gobierna la causa es una sola, y se prueba en los dos sentidos: hay causa
+        **si y sólo si** el indicador configurado no es finito. «Tasa media cero» (§0-13) sólo
+        aplica a los indicadores relativos —``cv`` y ``max_relative_drift``—; con ``trend_slope``
+        el indicador vale cero, es evaluable y no hay causa.
         """
-        _validate_temporal_axis(default_rate)
+        if default_rate.axis != "period":
+            return self._not_evaluable(audit, reason="eje_cohorte")
         rates = _evaluable_rates(default_rate.by_period.copy(deep=True))
         if len(rates) < 2:
-            self._log_stability_decision(
-                audit,
-                umbral=self.config.threshold,
-                valor=_NOT_EVALUABLE_VALUE,
-                accion="no_evaluable",
-            )
-            return StabilityResult(
-                cv=float("nan"),
-                max_relative_drift=float("nan"),
-                trend_slope=float("nan"),
-                metric_used=self.config.metric,
-                threshold=self.config.threshold,
-                flagged=False,
-            )
+            return self._not_evaluable(audit, reason="pocos_periodos_evaluables")
 
         cv = _coefficient_of_variation(rates)
         max_relative_drift = _max_relative_drift(rates)
@@ -111,7 +152,25 @@ class TemporalStabilityAnalyzer(AuditableMixin):
             max_relative_drift=max_relative_drift,
             trend_slope=trend_slope,
         )
-        flagged = bool(isfinite(metric_value) and metric_value > self.config.threshold)
+        if not isfinite(metric_value):
+            # Sólo llega aquí con tasa media cero sobre un indicador relativo: las tasas son
+            # finitas por construcción (`_evaluable_rates` descarta las no finitas).
+            self._log_stability_decision(
+                audit,
+                umbral=self.config.threshold,
+                valor=_TRAIL_VALUE_BY_REASON["tasa_media_cero"],
+                accion="no_evaluable",
+            )
+            return StabilityResult(
+                cv=cv,
+                max_relative_drift=max_relative_drift,
+                trend_slope=trend_slope,
+                metric_used=self.config.metric,
+                threshold=self.config.threshold,
+                flagged=False,
+                not_evaluable_reason="tasa_media_cero",
+            )
+        flagged = bool(metric_value > self.config.threshold)
         if flagged:
             self._log_stability_decision(
                 audit,
@@ -127,6 +186,26 @@ class TemporalStabilityAnalyzer(AuditableMixin):
             metric_used=self.config.metric,
             threshold=self.config.threshold,
             flagged=flagged,
+        )
+
+    def _not_evaluable(
+        self, audit: AuditSink | None, *, reason: NotEvaluableReason
+    ) -> StabilityResult:
+        """Resultado sin señal evaluable, con su causa declarada y su decisión en el trail."""
+        self._log_stability_decision(
+            audit,
+            umbral=self.config.threshold,
+            valor=_TRAIL_VALUE_BY_REASON[reason],
+            accion="no_evaluable",
+        )
+        return StabilityResult(
+            cv=float("nan"),
+            max_relative_drift=float("nan"),
+            trend_slope=float("nan"),
+            metric_used=self.config.metric,
+            threshold=self.config.threshold,
+            flagged=False,
+            not_evaluable_reason=reason,
         )
 
     def _log_stability_decision(
@@ -156,18 +235,6 @@ def _evaluable_rates(by_period: pd.DataFrame) -> np.ndarray:
     )
     evaluable = rates.loc[~low_confidence].dropna()
     return evaluable.to_numpy(dtype="float64", copy=True)
-
-
-def _validate_temporal_axis(default_rate: DefaultRateResult) -> None:
-    """Rechaza estabilidad temporal sobre cohortes sin cronología inferible."""
-    if default_rate.axis == "period":
-        return
-
-    raise EdaError(
-        'La estabilidad temporal descriptiva solo aplica al eje temporal (axis="period"); '
-        f'se recibió axis="{default_rate.axis}". '
-        "Las cohortes no tienen orden cronológico inferible."
-    )
 
 
 def _validate_by_period_columns(by_period: pd.DataFrame) -> None:

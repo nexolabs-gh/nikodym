@@ -80,7 +80,11 @@ ROOT_SEED = 20_240_629
 # PDF): el único cambio es esa clase en el `figure`.
 # Recalculado al normalizar whitespace final del HTML y reemplazar el título fijo de deciles por
 # el título factual de tramos efectivos.
-GOLDEN_STEP_HTML_SHA256 = "5ecd8ea7c82725cfc8f8100ea4ac14908c1ab31d53e92a66cb99be498302eaf9"
+# Recalculado el 2026-09-11 (capa 3 del scorecard completo, D-SC-5): la prosa de calidad de datos
+# lee las palabras de su fuente única en `nikodym.eda` y «cardinalidad excesiva» pasa a «alta
+# cardinalidad», la misma que pinta el panel. Medido con `diff` del HTML entre el árbol anterior
+# (`e56eec8`, por `git archive`) y éste: cambia **exactamente una línea**, ese párrafo.
+GOLDEN_STEP_HTML_SHA256 = "947ddd7bf0fbbc4fac9d5a61316def4a6f8fc26aae297675fee4fceed21a537e"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

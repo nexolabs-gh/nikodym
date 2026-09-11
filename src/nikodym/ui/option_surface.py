@@ -167,10 +167,8 @@ _DETAIL_POLICIES: dict[str, tuple[str, ...]] = {
 }
 
 _OUTSIDE_JOB_FORM_POLICIES: dict[str, tuple[str, ...]] = {
-    "eda.analysis_partition": ("desarrollo", "holdout", "oot", "todas"),
-    "eda.default_rate.axis": ("cohort", "period"),
-    "eda.default_rate.period_freq": ("M", "Q", "Y"),
-    "eda.stability.metric": ("cv", "max_relative_drift", "trend_slope"),
+    # D-SC-1: las cuatro opciones de `eda` salieron de aquí al entrar la sección al formulario
+    # —ahora las clasifica el catálogo del abanico—, igual que las de `validation` en D-SC-6.
     "explain.contribution_space": ("log_odds", "probability"),
     "explain.explainer.feature_perturbation": ("interventional", "tree_path_dependent"),
     "explain.explainer.ml_explainer": ("auto", "kernel", "linear", "tree"),

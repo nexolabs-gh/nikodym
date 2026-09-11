@@ -36,6 +36,7 @@ from nikodym.ui.jobs import decisiones_de, list_jobs
 #: esa lista vive en `test_column_roles.py`, y aquí sólo acota el barrido a lo navegable.
 SECCIONES_DEL_FORMULARIO = (
     "data",
+    "eda",
     "binning",
     "selection",
     "model",
@@ -52,6 +53,14 @@ SECCIONES_DEL_FORMULARIO = (
     "report",
     "governance",
 )
+
+
+def test_el_espejo_de_secciones_es_el_mismo_que_el_del_gate_de_copy() -> None:
+    """Mismo motivo que en `test_effective_defaults`: un espejo a mano sin comparar se queda
+    viejo en silencio, y aquí acotaría el barrido de decisiones a menos secciones de las que hay."""
+    from test_copy_del_formulario import SECCIONES_DEL_FORMULARIO as DEL_GATE_DE_COPY
+
+    assert SECCIONES_DEL_FORMULARIO == DEL_GATE_DE_COPY
 
 
 def _hojas_obligatorias(cls: type[BaseModel], prefijo: tuple[str, ...]) -> list[str]:

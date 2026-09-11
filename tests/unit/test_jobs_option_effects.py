@@ -56,10 +56,10 @@ def _oracle_cases() -> dict[str, tuple[str, ...]]:
     return cases
 
 
-def test_registry_reconcilia_exactamente_los_74_paths_sin_fallback() -> None:
+def test_registry_reconcilia_exactamente_los_78_paths_sin_fallback() -> None:
     registry = _registry()
     catalog = {str(choice["path"]) for choice in _choices()}
-    assert len(catalog) == 74
+    assert len(catalog) == 78
     assert set(registry) == catalog
 
 
@@ -77,7 +77,7 @@ def test_cada_suite_resuelve_tests_reales_del_motor() -> None:
             )
 
 
-def test_los_217_pares_soportados_declaran_el_id_estable_del_registry() -> None:
+def test_los_229_pares_soportados_declaran_el_id_estable_del_registry() -> None:
     registry = _registry()
     cases = _oracle_cases()
     supported = 0
@@ -99,8 +99,8 @@ def test_los_217_pares_soportados_declaran_el_id_estable_del_registry() -> None:
                 assert option["dispatcher_oracle"] is None
                 assert option["effect_oracle"] is None
         assert tuple(enabled_values) == registry[path].values
-    assert supported == 217
-    assert len(cases) == 434
+    assert supported == 229
+    assert len(cases) == 458
 
 
 def test_el_registry_no_puede_ecoar_metadata_de_config() -> None:
@@ -123,7 +123,7 @@ def test_dispatch_y_efecto_tienen_evidencia_declarada_por_separado() -> None:
 
 def test_cada_id_path_value_resuelve_a_node_ids_exactos() -> None:
     cases = _oracle_cases()
-    assert len(cases) == 434
+    assert len(cases) == 458
     for oracle_id, nodes in cases.items():
         assert oracle_id.startswith(("option-dispatch:", "option-effect:"))
         assert all("::test_" in node for node in nodes)
@@ -142,4 +142,4 @@ def test_los_ids_de_oraculo_son_unicos_por_cada_par_soportado() -> None:
             assert effect not in effects
             dispatchers.add(dispatcher)
             effects.add(effect)
-    assert len(dispatchers) == len(effects) == 217
+    assert len(dispatchers) == len(effects) == 229

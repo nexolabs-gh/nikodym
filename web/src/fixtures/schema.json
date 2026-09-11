@@ -5979,18 +5979,18 @@
       },
       "eda__DefaultRateConfig": {
         "additionalProperties": false,
-        "description": "Configuración de tasa de default por período o cohorte.",
+        "description": "Configuración de tasa de incumplimiento por período o cohorte.",
         "properties": {
           "axis": {
             "default": "period",
-            "description": "'period' discretiza una fecha; 'cohort' usa una columna de añada/vintage.",
+            "description": "Cómo se agrupa la tasa de incumplimiento en el tiempo: por la fecha de observación, en períodos, o por cohorte o añada. Si eliges fecha y no indicas cuál, el motor usa la única columna de fecha de tu archivo; si no hay ninguna y particionas por cohorte, usa esa cohorte y lo deja registrado. Con cohortes la señal de deterioro en el tiempo no se evalúa: no tienen un orden cronológico que el motor pueda inferir.",
             "enum": [
               "period",
               "cohort"
             ],
-            "title": "Eje de agregación",
+            "title": "Cómo se agrupa en el tiempo",
             "type": "string",
-            "ui_group": "Tasa de default",
+            "ui_group": "Tasa de incumplimiento",
             "ui_order": 1,
             "ui_widget": "selectbox"
           },
@@ -6003,10 +6003,11 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
-            "description": "Categórica de añada/vintage; misma noción que data.partition.cohort_col.",
-            "title": "Columna de cohorte (eje cohort)",
-            "ui_group": "Tasa de default",
+            "description": "La columna con la cohorte o añada de cada operación. Suele ser la misma con la que particionas tus datos.",
+            "title": "Columna de cohorte o añada",
+            "ui_group": "Tasa de incumplimiento",
             "ui_order": 4,
             "ui_widget": "text_input"
           },
@@ -6019,34 +6020,35 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
-            "description": "Fecha de observación que se agrupa en períodos; la columna debe ser de tipo fecha y la corrida se detiene si no lo es.",
-            "title": "Columna de fecha (eje period)",
-            "ui_group": "Tasa de default",
+            "description": "La columna con la fecha de observación de cada operación. Tiene que ser de tipo fecha en tu esquema; si no lo es, la corrida se detiene antes de calcular.",
+            "title": "Columna de fecha de observación",
+            "ui_group": "Tasa de incumplimiento",
             "ui_order": 2,
             "ui_widget": "text_input"
           },
           "min_obs_per_period": {
             "default": 50,
-            "description": "Períodos con menos elegibles se marcan como poco fiables en la tabla (no se eliminan).",
+            "description": "Un período con menos operaciones elegibles que esto se marca como poco fiable en la tabla. No se elimina: se ve, marcado.",
             "minimum": 1,
-            "title": "Mínimo de observaciones por período",
+            "title": "Mínimo de operaciones por período",
             "type": "integer",
-            "ui_group": "Tasa de default",
+            "ui_group": "Tasa de incumplimiento",
             "ui_order": 5,
             "ui_widget": "number_input"
           },
           "period_freq": {
             "default": "M",
-            "description": "Mensual/Trimestral/Anual para discretizar date_col.",
+            "description": "Cada cuánto se agrupa la fecha: por mes, por trimestre o por año.",
             "enum": [
               "M",
               "Q",
               "Y"
             ],
-            "title": "Frecuencia del período",
+            "title": "Cada cuánto se agrupa",
             "type": "string",
-            "ui_group": "Tasa de default",
+            "ui_group": "Tasa de incumplimiento",
             "ui_order": 3,
             "ui_widget": "selectbox"
           }
@@ -6060,9 +6062,9 @@
         "properties": {
           "high_cardinality_threshold": {
             "default": 50,
-            "description": "Categóricas con más niveles se marcan high_cardinality (solo reporte).",
+            "description": "Una variable categórica con más valores distintos que esto se marca como de alta cardinalidad. Sólo se reporta.",
             "minimum": 2,
-            "title": "Umbral de alta cardinalidad (categóricas)",
+            "title": "Umbral de alta cardinalidad",
             "type": "integer",
             "ui_group": "Calidad de datos",
             "ui_order": 2,
@@ -6070,10 +6072,10 @@
           },
           "near_constant_threshold": {
             "default": 0.99,
-            "description": "Si un valor concentra >= este % de filas no nulas, se marca near_constant.",
+            "description": "Si un solo valor concentra al menos esta proporción de las filas con dato, la columna se marca como casi constante. Sólo se reporta.",
             "maximum": 1.0,
             "minimum": 0.5,
-            "title": "Umbral casi-constante",
+            "title": "Umbral de columna casi constante",
             "type": "number",
             "ui_group": "Calidad de datos",
             "ui_order": 1,
@@ -6089,8 +6091,8 @@
         "properties": {
           "enabled": {
             "default": false,
-            "description": "Calcula los perfiles y figuras sobre una muestra. La tasa de default por período se calcula siempre sobre el total, nunca sobre la muestra.",
-            "title": "Muestrear para los perfiles univariados",
+            "description": "Calcula los perfiles por variable y sus figuras sobre una muestra, para archivos grandes. La tasa de incumplimiento por período se calcula siempre sobre el total.",
+            "title": "Muestrear para los perfiles por variable",
             "type": "boolean",
             "ui_group": "Muestreo",
             "ui_order": 1,
@@ -6098,7 +6100,7 @@
           },
           "max_rows": {
             "default": 500000,
-            "description": "Límite de filas para perfiles univariados cuando el muestreo está activo.",
+            "description": "Cuántas filas entran a la muestra cuando el muestreo está activo.",
             "minimum": 1000,
             "title": "Máximo de filas en la muestra",
             "type": "integer",
@@ -6116,7 +6118,7 @@
         "properties": {
           "metric": {
             "default": "cv",
-            "description": "Indicador comparado contra el umbral para señalar redesarrollo.",
+            "description": "Con qué indicador se mide cuánto se mueve la tasa de incumplimiento entre períodos: variación relativa, peor desvío o tendencia. Se compara con el umbral para avisar un posible redesarrollo.",
             "enum": [
               "cv",
               "max_relative_drift",
@@ -6130,9 +6132,9 @@
           },
           "threshold": {
             "default": 0.25,
-            "description": "Por encima del umbral se registra una decisión señalando posible redesarrollo; la corrida continúa.",
+            "description": "Por encima de este valor se registra un aviso de posible redesarrollo. Es un umbral de exploración, no una regla: la corrida sigue.",
             "minimum": 0.0,
-            "title": "Umbral del indicador",
+            "title": "Umbral de aviso",
             "type": "number",
             "ui_group": "Estabilidad temporal",
             "ui_order": 2,
@@ -6144,7 +6146,7 @@
       },
       "eda__UnivariateConfig": {
         "additionalProperties": false,
-        "description": "Configuración de perfiles univariados descriptivos.",
+        "description": "Configuración de perfiles descriptivos por variable.",
         "properties": {
           "columns": {
             "anyOf": [
@@ -6158,41 +6160,42 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
-            "description": "Vacío = todas las columnas no estructurales (excluye target, estado, partición, fecha y cohorte). Define el alcance del perfil, no qué variables entran al modelo.",
-            "title": "Columnas a perfilar",
-            "ui_group": "Perfiles univariados",
+            "description": "Qué columnas describir frente al incumplimiento. Con «Todas las columnas» se describen todas las de tu archivo salvo las estructurales (target, estado, partición, fecha y cohorte) y las que definen el incumplimiento; si eliges columnas, sólo ésas, y una selección vacía no describe ninguna. Define qué se describe, no qué entra al modelo.",
+            "title": "Columnas a describir",
+            "ui_group": "Perfiles por variable",
             "ui_order": 4,
-            "ui_widget": "multiselect"
+            "ui_widget": "multiselect_o_todas"
           },
           "compute_descriptive_iv": {
             "default": false,
-            "description": "Diagnóstico rápido etiquetado 'pre-binning'; no es el IV final del binning.",
-            "title": "Calcular IV univariado descriptivo (pre-binning)",
+            "description": "Calcula un poder predictivo orientativo por variable sobre estos tramos. No es el IV que decide el modelo: ése lo calcula el binning.",
+            "title": "Calcular un poder predictivo orientativo",
             "type": "boolean",
-            "ui_group": "Perfiles univariados",
+            "ui_group": "Perfiles por variable",
             "ui_order": 3,
             "ui_widget": "checkbox"
           },
           "n_quantile_bins": {
             "default": 10,
-            "description": "Troceo descriptivo del perfil; no es el binning que alimenta el modelo.",
+            "description": "En cuántos tramos se parte cada variable numérica para ver su tasa de incumplimiento. Es sólo para describir; no es el binning que entra al modelo.",
             "maximum": 50,
             "minimum": 2,
-            "title": "Tramos por cuantiles (numéricas, descriptivo)",
+            "title": "Tramos por variable numérica",
             "type": "integer",
-            "ui_group": "Perfiles univariados",
+            "ui_group": "Perfiles por variable",
             "ui_order": 1,
             "ui_widget": "slider"
           },
           "rare_level_threshold": {
             "default": 0.01,
-            "description": "Niveles con frecuencia menor se agrupan en '_otros_' solo para la tabla descriptiva.",
+            "description": "Los valores de una variable categórica con menos frecuencia que esto se agrupan bajo «otros», sólo para la tabla.",
             "maximum": 0.5,
             "minimum": 0.0,
-            "title": "Umbral de nivel raro (categóricas)",
+            "title": "Frecuencia mínima de un valor categórico",
             "type": "number",
-            "ui_group": "Perfiles univariados",
+            "ui_group": "Perfiles por variable",
             "ui_order": 2,
             "ui_widget": "number_input"
           }
@@ -12646,18 +12649,18 @@
         "anyOf": [
           {
             "additionalProperties": false,
-            "description": "Perfila la cartera antes de modelar: variables, calidad de datos y tasa de default.",
+            "description": "Describe la cartera antes de modelar: tasa de incumplimiento, perfiles y calidad de datos.",
             "properties": {
               "analysis_partition": {
                 "default": "desarrollo",
-                "description": "Población base del análisis (default: Desarrollo, donde se ajusta el modelo). Los 'fuera_de_modelo' nunca entran al denominador de default_rate.",
+                "description": "Sobre qué parte de tu archivo se describe la cartera. De fábrica, la partición de desarrollo, que es donde se ajusta el modelo. Las operaciones fuera del modelo se cuentan, pero no entran en la tasa de incumplimiento.",
                 "enum": [
                   "desarrollo",
                   "holdout",
                   "oot",
                   "todas"
                 ],
-                "title": "Partición a describir",
+                "title": "Población a describir",
                 "type": "string",
                 "ui_group": "General",
                 "ui_order": 1,
@@ -12665,15 +12668,15 @@
               },
               "default_rate": {
                 "$ref": "#/$defs/eda__DefaultRateConfig",
-                "description": "Parámetros de agregación de la tasa de default descriptiva.",
-                "title": "Tasa de default",
-                "ui_group": "Tasa de default",
+                "description": "Cómo se agrupa la tasa de incumplimiento observada en el tiempo.",
+                "title": "Tasa de incumplimiento",
+                "ui_group": "Tasa de incumplimiento",
                 "ui_order": 2,
                 "ui_widget": "section"
               },
               "quality": {
                 "$ref": "#/$defs/eda__QualityConfig",
-                "description": "Parámetros de diagnóstico descriptivo de calidad de columnas.",
+                "description": "Umbrales de las marcas de calidad por columna; sólo se reportan.",
                 "title": "Calidad de datos",
                 "ui_group": "Calidad de datos",
                 "ui_order": 5,
@@ -12681,7 +12684,7 @@
               },
               "sampling": {
                 "$ref": "#/$defs/eda__SamplingConfig",
-                "description": "Muestreo opcional de los perfiles cuando el dataset es muy grande.",
+                "description": "Muestreo opcional de los perfiles cuando el archivo es muy grande.",
                 "title": "Muestreo",
                 "ui_group": "Muestreo",
                 "ui_order": 6,
@@ -12689,7 +12692,7 @@
               },
               "stability": {
                 "$ref": "#/$defs/eda__TemporalStabilityConfig",
-                "description": "Parámetros del diagnóstico descriptivo de estabilidad temporal.",
+                "description": "Con qué indicador y umbral se avisa un deterioro de la tasa en el tiempo.",
                 "title": "Estabilidad temporal",
                 "ui_group": "Estabilidad temporal",
                 "ui_order": 3,
@@ -12707,9 +12710,9 @@
               },
               "univariate": {
                 "$ref": "#/$defs/eda__UnivariateConfig",
-                "description": "Parámetros de perfiles feature-target descriptivos.",
-                "title": "Perfiles univariados",
-                "ui_group": "Perfiles univariados",
+                "description": "Qué columnas se describen frente al incumplimiento y en cuántos tramos.",
+                "title": "Perfiles por variable",
+                "ui_group": "Perfiles por variable",
                 "ui_order": 4,
                 "ui_widget": "section"
               }

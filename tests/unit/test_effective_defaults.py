@@ -89,7 +89,16 @@ from nikodym.ui.routes import schema_payload
 #: ``stability.consume_stability`` y ``backtesting.segment_col``— más ``schema_version`` y
 #: ``type``, que ya eran ``hidden``. Descriptores y ``$defs`` tampoco se mueven aquí, y por la
 #: misma razón que en ``governance``: el catálogo ya publicaba la sección.
-HOJAS_DEL_FORMULARIO = 554
+#:
+#: 554 → 571 el 2026-09-11 con D-SC-1: ``eda`` entra a ``CONFIG_SECTIONS`` (16 → 17) y por tanto
+#: a este barrido. Baseline por ``git archive HEAD`` de ``e56eec8`` a un directorio aparte,
+#: importando ``nikodym`` desde allí (verificado por ``__file__``): **0 desapariciones y 17
+#: apariciones**, todas bajo ``eda.``: los 16 campos visibles —``analysis_partition``, los cinco
+#: de ``default_rate``, los dos de ``stability``, los cuatro de ``univariate``, los dos de
+#: ``quality`` y los dos de ``sampling``— más ``univariate.columns[]``, la fila de su lista. El
+#: único que falta es ``type``, que ya era ``hidden``. Descriptores y ``$defs`` no se mueven: el
+#: catálogo ya publicaba la sección.
+HOJAS_DEL_FORMULARIO = 571
 
 #: Hojas que el barrido de PARIDAD contra el catálogo de defaults efectivos resuelve.
 #:
@@ -113,7 +122,11 @@ HOJAS_DEL_FORMULARIO = 554
 #: tiene uniones discriminadas, así que las dos cifras vuelven a subir lo mismo. Las 27 rutas
 #: resuelven con default efectivo —ninguna es una decisión obligatoria—, que es exactamente por lo
 #: que ``_DECISIONES_POR_SECCION`` no gana ninguna entrada con esta sección.
-HOJAS_CON_DEFAULT_EFECTIVO = 437
+#:
+#: 437 → 454 el 2026-09-11 con D-SC-1, por los mismos 17 nodos de ``eda``: tampoco tiene uniones
+#: discriminadas ni decisiones obligatorias —el eje de la tasa se **infiere** (D-SC-3) en vez de
+#: preguntarse—, así que las dos cifras suben lo mismo y ``_DECISIONES_POR_SECCION`` sigue igual.
+HOJAS_CON_DEFAULT_EFECTIVO = 454
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -206,6 +219,7 @@ DESCRIPTORES_TOTALES = 1076
 #: mapa expandible, no en el de dominios, así que los barridos de abajo preguntan por la unión.
 SECCIONES_ESPERADAS = (
     "data",
+    "eda",
     "binning",
     "selection",
     "model",
@@ -797,6 +811,7 @@ def _hojas_del_formulario() -> list[tuple[str, list[str]]]:
 #: recorrido convertiría el gate en una tautología, que es el defecto que ya se pagó una vez.
 ANCLAS_POR_SECCION: dict[str, str] = {
     "data": "data.schema.columns[].name",
+    "eda": "eda.default_rate.axis",
     "binning": "binning.feature_columns[]",
     "selection": "selection.vif.threshold",
     "model": "model.stepwise.enabled",
@@ -815,8 +830,16 @@ ANCLAS_POR_SECCION: dict[str, str] = {
 }
 
 
+def test_el_espejo_de_secciones_es_el_mismo_que_el_del_gate_de_copy() -> None:
+    """Los dos espejos escritos a mano tienen que decir lo mismo; el de copy se compara con el
+    front. Sin esto, una sección nueva podía quedar fuera de este barrido en silencio."""
+    from test_copy_del_formulario import SECCIONES_DEL_FORMULARIO
+
+    assert SECCIONES_ESPERADAS == SECCIONES_DEL_FORMULARIO
+
+
 def test_el_catalogo_recorre_las_hojas_del_formulario() -> None:
-    """Golden de cobertura: los nodos visibles y un ancla nombrada por cada una de las 16 secciones.
+    """Golden de cobertura: los nodos visibles y un ancla nombrada por cada una de las 17 secciones.
 
     Cambiar la cifra es legítimo cuando el formulario crece o encoge; hacerlo sin actualizar este
     golden y sus anclas, no. La razón está pagada: un gate que recorre cero campos da verde.

@@ -52,6 +52,8 @@ import {
   listItems,
   moveListItem,
   multiselectOptions,
+  multiselectOrAllState,
+  nextMultiselectOrAllValue,
   optionsWithDraft,
   numericBounds,
   optionsFromDataset,
@@ -202,9 +204,11 @@ export function FieldRenderer(props: FieldRendererProps) {
   if (kind === "hidden") return null
 
   // Sección opcional `X | None`: se antepone el toggle activar/None (SDD §5). La unión
-  // discriminada tiene su propio flujo (Select de variante) y no se trata como nullable.
+  // discriminada tiene su propio flujo (Select de variante) y no se trata como nullable. Tampoco
+  // la lista «todas o una lista» (`multiselect_or_all`): ahí `null` no es «desactivado» sino
+  // «todas las columnas», y el toggle genérico rotularía justo lo contrario (D-SC-1).
   const { schema: base, nullable } = unwrapNullable(resolveRef(schema, defs))
-  if (nullable && kind !== "discriminated") {
+  if (nullable && kind !== "discriminated" && kind !== "multiselect_or_all") {
     return <NullableField {...props} baseSchema={base} depth={depth} />
   }
 
@@ -276,6 +280,8 @@ function WidgetSwitch(
       return <DiscriminatedField {...props} />
     case "multiselect":
       return <MultiselectField {...props} />
+    case "multiselect_or_all":
+      return <MultiselectField {...props} nullMeansAll />
     case "list":
       return <ListField {...props} />
     default:
@@ -976,8 +982,13 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
  *
  * Si el campo admite el comodín `"*"` (`tuple[str, ...] | Literal["*"]`) antepone un switch
  * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
+ *
+ * Con `nullMeansAll` (widget `multiselect_or_all`, D-SC-1) el switch «todas» es la casilla
+ * «Todas las columnas» y escribe `null`, que es el único valor con el que el motor entiende
+ * «todas» (§0-23): vaciar la lista escribe `[]`, y el motor lo respeta como «ninguna». Sin este
+ * modo, quien desmarcara todo perdería los perfiles creyendo que se describen todas.
  */
-function MultiselectField(props: FieldRendererProps) {
+function MultiselectField(props: FieldRendererProps & { nullMeansAll?: boolean }) {
   const {
     name,
     schema,
@@ -988,6 +999,7 @@ function MultiselectField(props: FieldRendererProps) {
     datasetIndexColumns,
     datasetColumnValues,
     siblingValues,
+    nullMeansAll = false,
   } = props
   const etiquetaLista = fieldLabel(name, schema)
   const [draft, setDraft] = useState("")
@@ -1004,6 +1016,7 @@ function MultiselectField(props: FieldRendererProps) {
   // `props.value` (lo almacenado) — o quitar un chip de una lista virtual escribiría `[]`.
   const value = currentValue(props)
   const isWildcard = value === WILDCARD
+  const isAllByNull = nullMeansAll && multiselectOrAllState(value).all
   const current = Array.isArray(value) ? value : []
   const selected = new Set(current)
   const base = path.join(".")
@@ -1054,10 +1067,30 @@ function MultiselectField(props: FieldRendererProps) {
         </div>
       ) : null}
 
+      {nullMeansAll ? (
+        <div className="flex items-center gap-2 border-b border-border pb-2">
+          <Switch
+            id={`${base}.__todas`}
+            data-multiselect-all={base}
+            checked={isAllByNull}
+            onCheckedChange={(next) => onChange(path, nextMultiselectOrAllValue(next))}
+            aria-label="Todas las columnas"
+          />
+          <Label htmlFor={`${base}.__todas`} className="text-sm text-foreground/90">
+            Todas las columnas
+          </Label>
+        </div>
+      ) : null}
+
       {isWildcard ? (
         <p className="text-xs text-muted-foreground">
           Se usarán todas las variables disponibles. Apaga el interruptor para elegirlas una a
           una.
+        </p>
+      ) : isAllByNull ? (
+        <p className="text-xs text-muted-foreground">
+          Se describen todas las columnas de tu archivo, salvo las estructurales y las que
+          definen el incumplimiento. Apaga el interruptor para elegirlas una a una.
         </p>
       ) : (
         <>

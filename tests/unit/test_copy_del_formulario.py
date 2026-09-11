@@ -36,6 +36,7 @@ from nikodym.ui.routes import schema_payload
 #: (`web/src/lib/schema.ts`); el gate de deriva de ese catálogo vive en `test_column_roles.py`.
 SECCIONES_DEL_FORMULARIO = (
     "data",
+    "eda",
     "binning",
     "selection",
     "model",
@@ -141,6 +142,29 @@ def _campos_visibles() -> list[tuple[str, dict[str, Any]]]:
         if nodo is not None:
             recorrer(nodo, seccion)
     return campos
+
+
+def test_las_secciones_del_barrido_son_las_que_el_formulario_ofrece() -> None:
+    """El espejo escrito a mano se compara con el catálogo del front, en los dos sentidos.
+
+    🔴 Hasta la capa 3 del scorecard completo (2026-09-11) nadie lo comparaba: este archivo,
+    `test_effective_defaults.py` y `test_jobs_decisiones.py` copian `CONFIG_SECTIONS` a mano, y
+    una sección nueva que entrara al formulario sin sumarse aquí dejaba **su copy sin gate** en
+    silencio —el barrido no la recorría, así que ni un literal Python ni una marca interna en sus
+    tooltips ponían rojo—. Es la clase de censo que S8 anotó como «ninguno lo dice hasta la suite
+    entera», y ahora lo dice este test, con el orden incluido.
+    """
+    from test_column_roles import _SCHEMA_TS
+
+    texto = _SCHEMA_TS.read_text(encoding="utf-8")
+    _, _, resto = texto.partition("export const CONFIG_SECTIONS")
+    bloque, _, _ = resto.partition("\n]")
+    del_front = re.findall(r'key:\s*"([a-z_0-9]+)"', bloque)
+    assert del_front, "no se pudo leer CONFIG_SECTIONS de schema.ts"
+    assert list(SECCIONES_DEL_FORMULARIO) == del_front, (
+        "el espejo de secciones de este gate no coincide con `CONFIG_SECTIONS` del front: una "
+        "sección que entre al formulario sin sumarse aquí se queda sin gate de copy"
+    )
 
 
 def test_el_barrido_ve_el_formulario_completo() -> None:

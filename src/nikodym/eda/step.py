@@ -14,7 +14,8 @@ punto puede reemplazarse de forma aditiva.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Final, get_args
 
 import numpy as np
 import pandas as pd
@@ -22,14 +23,15 @@ from pydantic import BaseModel, ConfigDict
 
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.data.config import CohortSplitConfig, TargetConfig
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
 from nikodym.eda.card import EdaCardSection
-from nikodym.eda.config import EdaConfig
-from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
+from nikodym.eda.config import DefaultRateConfig, EdaConfig
+from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult, datetime_columns
 from nikodym.eda.exceptions import EdaError
 from nikodym.eda.figures import FigureSpec, _build_figure_specs
-from nikodym.eda.quality import DataQualityProfiler, QualityResult
+from nikodym.eda.quality import DataQualityProfiler, QualityFlag, QualityResult
 from nikodym.eda.stability import StabilityResult, TemporalStabilityAnalyzer
 from nikodym.eda.univariate import UnivariateProfiler, UnivariateResult
 
@@ -47,15 +49,19 @@ EDA_ARTIFACTS: Final[tuple[str, ...]] = (
     "figures",
     "eda_card",
 )
-_QUALITY_FLAG_COLUMNS: Final[tuple[str, ...]] = (
-    "near_constant",
-    "near_unique",
-    "high_cardinality",
-)
+_QUALITY_FLAG_COLUMNS: Final[tuple[str, ...]] = get_args(QualityFlag)
+
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+_LOC_SECCION: tuple[str, ...] = ("eda",)
 
 
 class EdaResult(BaseModel):
-    """Resultado agregado de ``EdaStep`` con los cinco sub-resultados EDA."""
+    """Resultado agregado de ``EdaStep`` con los cinco sub-resultados EDA.
+
+    ``axis_inferred`` es aditivo (D-SC-3): ``True`` cuando el eje de la tasa de incumplimiento no
+    lo eligió el config sino el paso, tomando la cohorte con que el usuario particionó. El eje
+    efectivo vive en ``default_rate.axis``.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
@@ -64,6 +70,7 @@ class EdaResult(BaseModel):
     univariate: UnivariateResult
     quality: QualityResult
     figures: tuple[FigureSpec, ...]
+    axis_inferred: bool = False
 
 
 @register("standard", domain="eda")
@@ -96,14 +103,17 @@ class EdaStep(AuditableMixin):
         frame_part = self._partition_frame(study, frame)
         profile_frame = self._sample_if_needed(frame_part, rng)
         target_col = labels.target_col
+        default_rate_config, axis_inferred = self._resolve_axis(study, frame_part)
         columns = _resolve_univariate_columns(
             frame_part,
             target_col,
             labels.status_col,
             self.config,
+            default_rate_config=default_rate_config,
+            label_columns=_label_defining_columns(study),
         )
 
-        default_rate = DefaultRateAnalyzer.from_config(self.config.default_rate).compute(
+        default_rate = DefaultRateAnalyzer.from_config(default_rate_config).compute(
             frame_part,
             target_col=target_col,
             audit=self._audit,
@@ -129,10 +139,63 @@ class EdaStep(AuditableMixin):
             univariate=univariate,
             quality=quality,
             figures=figures,
+            axis_inferred=axis_inferred,
         )
         eda_card = self._build_eda_card(result=result)
         self._publish_artifacts(study, result, eda_card)
         return result
+
+    def _resolve_axis(
+        self, study: Study, frame_part: pd.DataFrame
+    ) -> tuple[DefaultRateConfig, bool]:
+        """El config de la tasa que de verdad corre, y si el eje lo decidió el paso (D-SC-3).
+
+        Regla nueva de SDD-27 §7.2/§8, del mismo tipo que la inferencia de ``date_col`` que ya
+        existe («la única columna datetime»): con ``axis="period"`` y ``date_col`` en blanco, si el
+        frame **no tiene ninguna columna de fecha** y el usuario particionó **por cohorte**, el eje
+        pasa a esa cohorte —``data.partition.strategy.cohort_col``— y la decisión queda en el trail.
+        No se inventa un eje: se usa el que el usuario ya declaró para particionar. Es lo que deja
+        correr ``eda`` con sus defaults sobre una cartera sin fecha, que era el caso del preset F1
+        (§0-1 del scorecard completo).
+
+        Sin fecha y sin cohorte declarada el error es el de siempre, ahora **anclado al campo**
+        (D-VIS): ``eda.default_rate.date_col``. Una fecha declarada que falte, o más de una columna
+        datetime, siguen siendo asunto del analizador, que ya los rechaza con su mensaje.
+        """
+        config = self.config.default_rate
+        if config.axis != "period" or config.date_col is not None or datetime_columns(frame_part):
+            return config, False
+        cohort_col = _declared_cohort_column(study)
+        if cohort_col is None:
+            raise EdaError(
+                "La tasa de default por período requiere una columna de fecha, y el archivo no "
+                "trae ninguna; declárela en eda.default_rate.date_col, o particiona por cohorte "
+                "para que el eje la tome de ahí, o usa axis='cohort'.",
+                loc=(*_LOC_SECCION, "default_rate", "date_col"),
+            )
+        self.log_decision(
+            regla="eje_eda_inferido",
+            umbral="sin columna de fecha y partición por cohorte",
+            valor=cohort_col,
+            accion="usar_cohorte",
+        )
+        return config.model_copy(update={"axis": "cohort", "cohort_col": cohort_col}), True
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4, respuesta 6).
+
+        Proyección directa de la card: la tasa de incumplimiento observada, cuántos períodos o
+        cohortes la componen y si la señal temporal quedó marcada. ``stability_flagged`` viaja como
+        ``1.0``/``0.0`` porque el canal sólo admite ``float`` finito (D-GOB-2) y un ``bool`` lo
+        rechaza como contrato roto; ``NaN`` en la tasa —sin elegibles— se omite, no se rellena.
+        """
+        card = card_publicada(study, "eda", "eda_card")
+        flagged = campo_de_card(card, "stability_flagged")
+        return {
+            "overall_default_rate": campo_de_card(card, "overall_default_rate"),
+            "n_periods": campo_de_card(card, "n_periods"),
+            "stability_flagged": None if flagged is None else float(bool(flagged)),
+        }
 
     def _partition_frame(self, study: Study, frame: pd.DataFrame) -> pd.DataFrame:
         """Selecciona la partición configurada usando el contrato actual de SDD-02."""
@@ -189,6 +252,9 @@ class EdaStep(AuditableMixin):
                 flag: int(by_column[flag].sum()) for flag in _QUALITY_FLAG_COLUMNS
             },
             n_figures=len(result.figures),
+            axis=result.default_rate.axis,
+            axis_inferred=result.axis_inferred,
+            stability_not_evaluable_reason=result.stability.not_evaluable_reason,
         )
 
     def _publish_artifacts(self, study: Study, result: EdaResult, eda_card: EdaCardSection) -> None:
@@ -222,12 +288,25 @@ def _resolve_univariate_columns(
     target_col: str,
     status_col: str,
     config: EdaConfig,
+    *,
+    default_rate_config: DefaultRateConfig | None = None,
+    label_columns: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
-    """Resuelve features para perfiles; respeta ``UnivariateConfig.columns`` si viene definida."""
+    """Resuelve features para perfiles; respeta ``UnivariateConfig.columns`` si viene definida.
+
+    Sólo ``None`` significa «todas» (§0-23): una tupla vacía se respeta y produce cero perfiles.
+    """
     if config.univariate.columns is not None:
         return config.univariate.columns
 
-    structural = _structural_columns(frame, target_col, status_col, config)
+    structural = _structural_columns(
+        frame,
+        target_col,
+        status_col,
+        config,
+        default_rate_config=default_rate_config,
+        label_columns=label_columns,
+    )
     return tuple(str(column) for column in frame.columns if str(column) not in structural)
 
 
@@ -236,18 +315,61 @@ def _structural_columns(
     target_col: str,
     status_col: str,
     config: EdaConfig,
+    *,
+    default_rate_config: DefaultRateConfig | None = None,
+    label_columns: tuple[str, ...] = (),
 ) -> set[str]:
-    """Columnas producidas por ``data`` que EDA no trata como features."""
-    columns = {target_col, status_col, PARTITION_COL, TTD_COL}
-    if config.default_rate.date_col is not None:
-        columns.add(config.default_rate.date_col)
-    if config.default_rate.cohort_col is not None:
-        columns.add(config.default_rate.cohort_col)
+    """Columnas que EDA no trata como features cuando el alcance es «todas» (``columns=None``).
+
+    Tres familias: las que produce ``data`` (target, estado, partición, TTD), las del eje de la
+    tasa —la fecha o la cohorte **efectivas**, incluida la cohorte inferida por D-SC-3, y toda
+    columna datetime— y, desde la capa 3 del scorecard completo (§8-8, respuesta 8 de Cami), las
+    que **definen la etiqueta**: describir ``bad_flag`` frente al incumplimiento daba una tasa
+    0 %/100 % por tramo. Quien las pida por su nombre en ``columns`` las obtiene igual.
+    """
+    axis_config = config.default_rate if default_rate_config is None else default_rate_config
+    columns = {target_col, status_col, PARTITION_COL, TTD_COL, *label_columns}
+    if axis_config.date_col is not None:
+        columns.add(axis_config.date_col)
+    if axis_config.cohort_col is not None:
+        columns.add(axis_config.cohort_col)
     # DECISIÓN AUTÓNOMA (frontera, revisión de Cami): si date_col se infiere, se excluyen todas
     # las columnas datetime para no perfilar accidentalmente la fecha estructural como feature.
-    columns.update(
-        str(column)
-        for column in frame.columns
-        if pd.api.types.is_datetime64_any_dtype(frame[column].dtype)
-    )
+    columns.update(datetime_columns(frame))
     return columns
+
+
+def _declared_cohort_column(study: Study) -> str | None:
+    """La cohorte con que el usuario particionó, o ``None`` si no particionó por cohorte.
+
+    Se lee del config y no del artefacto de particiones: ``PartitionResult`` publica la
+    estrategia usada pero no su columna. Se aceptan la forma tipada y el *blob* opaco del núcleo
+    liviano, que es como puede viajar ``data`` antes de que su capa se importe.
+    """
+    strategy = _partition_strategy(study)
+    if isinstance(strategy, CohortSplitConfig):
+        return strategy.cohort_col
+    if isinstance(strategy, Mapping) and strategy.get("type") == "cohort":
+        cohort_col = strategy.get("cohort_col")
+        return cohort_col if isinstance(cohort_col, str) and cohort_col else None
+    return None
+
+
+def _partition_strategy(study: Study) -> object:
+    data = study.config.data
+    if isinstance(data, Mapping):
+        partition = data.get("partition")
+        return partition.get("strategy") if isinstance(partition, Mapping) else None
+    partition = getattr(data, "partition", None)
+    return getattr(partition, "strategy", None)
+
+
+def _label_defining_columns(study: Study) -> tuple[str, ...]:
+    """Las columnas de las reglas de «malo» y «bueno», leídas de ``data.target`` si está tipada."""
+    data = study.config.data
+    target = data.get("target") if isinstance(data, Mapping) else getattr(data, "target", None)
+    if isinstance(target, TargetConfig):
+        return target.columnas_que_definen_la_etiqueta()
+    if isinstance(target, Mapping):
+        return TargetConfig.model_validate(target).columnas_que_definen_la_etiqueta()
+    return ()

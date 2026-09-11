@@ -155,6 +155,35 @@ def test_n_eligible_cero_produce_nan_sin_excepcion() -> None:
     assert bool(result.by_period.loc[0, "low_confidence"])
 
 
+@pytest.mark.parametrize(
+    ("freq", "periodos"),
+    [
+        ("M", ["2024-01", "2024-02", "2025-01"]),
+        ("Q", ["2024Q1", "2025Q1"]),
+        ("Y", ["2024", "2025"]),
+    ],
+)
+def test_period_freq_despacha_mes_trimestre_y_anio(freq: str, periodos: list[str]) -> None:
+    """Oráculo de despacho y de efecto de ``eda.default_rate.period_freq`` (registry D-RDY-ABA-2/3).
+
+    Las mismas tres fechas se agrupan en tres meses, dos trimestres o dos años según la opción:
+    el efecto es el número de filas de la tabla y la etiqueta de cada período.
+    """
+    frame = pd.DataFrame(
+        {
+            "fecha": pd.to_datetime(["2024-01-15", "2024-02-15", "2025-01-15"]),
+            "target": pd.Series([1, 0, 1], dtype="Int8"),
+        },
+        index=pd.Index(["a", "b", "c"], name="id"),
+    )
+
+    result = DefaultRateAnalyzer(
+        DefaultRateConfig(date_col="fecha", period_freq=freq, min_obs_per_period=1)  # type: ignore[arg-type]
+    ).compute(frame, target_col="target")
+
+    assert [str(periodo) for periodo in result.by_period["period"]] == periodos
+
+
 def test_axis_period_infiere_unica_columna_datetime() -> None:
     df = _frame_from_targets([1, 0], ["2024-01-01", "2024-02-01"]).rename(
         columns={"fecha": "observation_date"}

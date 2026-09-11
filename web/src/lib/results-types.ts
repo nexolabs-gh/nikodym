@@ -203,6 +203,83 @@ export interface SelectionResult {
   dependency_versions?: Record<string, string>
 }
 
+// --- eda ---------------------------------------------------------------------
+
+/**
+ * Eje EFECTIVO con que se agrupó la tasa de incumplimiento (`EdaAxis` del backend). Con la
+ * inferencia de D-SC-3 puede ser `cohort` aunque el config diga `period`: por eso el panel decide
+ * la figura por este campo y nunca por el config.
+ */
+export type EdaAxis = "period" | "cohort"
+
+/** Indicador de estabilidad temporal configurado (`StabilityMetric` del backend). */
+export type EdaStabilityIndicator = "cv" | "max_relative_drift" | "trend_slope"
+
+/** Por qué la señal temporal no se evaluó (`NotEvaluableReason` del backend); `null` si sí. */
+export type EdaNotEvaluableReason =
+  | "eje_cohorte"
+  | "pocos_periodos_evaluables"
+  | "tasa_media_cero"
+
+/** Las tres marcas booleanas de la tabla de calidad (`QualityFlag` del backend). */
+export type EdaQualityFlag = "near_constant" | "near_unique" | "high_cardinality"
+
+/** Fila de `eda.default_rate`: la tasa de un período o cohorte (`DefaultRateResult.by_period`). */
+export interface EdaPeriodRow {
+  period: string | number | null
+  n_total: number
+  n_eligible: number
+  n_bad: number
+  default_rate: number | null
+  low_confidence: boolean
+}
+
+/** Fila de `eda.quality`: una columna del archivo con sus marcas (`QualityResult.by_column`). */
+export interface EdaQualityRow {
+  col: string
+  dtype: string
+  missing_rate: number
+  cardinality: number
+  near_constant: boolean
+  near_unique: boolean
+  high_cardinality: boolean
+}
+
+/** Fila de `eda.univariate`: un tramo de una columna descrita, con su tasa de incumplimiento. */
+export interface EdaProfileRow {
+  column: string
+  tramo: string | number | null
+  n: number
+  coverage: number
+  default_rate: number | null
+  descriptive_iv: number | null
+}
+
+/**
+ * Sección de análisis exploratorio (`EdaCardSection` + sus tres tablas agregadas, D-SC-5).
+ *
+ * `stability_value` y `overall_default_rate` llegan `null` cuando el motor no pudo calcularlos
+ * —la causa viaja en `stability_not_evaluable_reason`—: el serializer los publica como ausencia,
+ * nunca como cero.
+ */
+export interface EdaResult {
+  overall_default_rate: number | null
+  n_periods: number
+  stability_flagged: boolean
+  stability_metric_used: EdaStabilityIndicator
+  stability_threshold: number
+  stability_value: number | null
+  n_columns_profiled: number
+  quality_flag_counts: Record<string, number>
+  n_figures: number
+  axis: EdaAxis
+  axis_inferred: boolean
+  stability_not_evaluable_reason: EdaNotEvaluableReason | null
+  default_rate?: EdaPeriodRow[] | null
+  quality?: EdaQualityRow[] | null
+  univariate?: EdaProfileRow[] | null
+}
+
 // --- validation -------------------------------------------------------------
 
 /**
@@ -1021,6 +1098,12 @@ export interface ResultsResponse {
   model_card: ModelCard | null
   /** Procedencia de ESTA corrida. Ausente en payloads viejos; `null` si no llegó a congelarse. */
   lineage?: RunLineage | null
+  /**
+   * Análisis exploratorio (SDD-27, D-SC-5). `null` cuando el dominio no corrió; ausente en los
+   * payloads anteriores a la capa 3 —la demo publicada entre ellos—, así que el panel se guarda
+   * por presencia.
+   */
+  eda?: EdaResult | null
   binning?: BinningResult
   selection?: SelectionResult
   model?: ModelResult

@@ -391,52 +391,7 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
             paragraphs.append(f"La columna objetivo de esta corrida es «{target_col}».")
 
     if eda is not None:
-        rate = _float(eda.get("overall_default_rate"))
-        periods = _int(eda.get("n_periods"))
-        columns = _int(eda.get("n_columns_profiled"))
-        frases: list[str] = []
-        if rate is not None:
-            frases.append(
-                f"La tasa de incumplimiento observada en la población analizada es de {_pct(rate)}"
-            )
-        if periods is not None:
-            frases.append(
-                f"la ventana de análisis abarca {periods} {_plural(periods, 'período', 'períodos')}"
-            )
-        if columns is not None:
-            frases.append(
-                f"se perfilaron {columns} {_plural(columns, 'variable', 'variables')} candidatas"
-            )
-        if frases:
-            paragraphs.append(f"{_enumerar(frases)}.")
-
-        flags = _mapping(eda.get("quality_flag_counts"))
-        alertas = tuple(
-            f"{_int(count)} {_quality_label(str(flag))}"
-            for flag, count in sorted(flags.items(), key=lambda item: str(item[0]))
-            if _int(count)
-        )
-        if alertas:
-            paragraphs.append(
-                f"El perfilado de calidad de datos levantó alertas sobre {_enumerar(alertas)}. "
-                "El detalle por variable está en el Anexo B."
-            )
-        else:
-            paragraphs.append(
-                "El perfilado de calidad de datos no levantó alertas de variables casi "
-                "constantes, casi únicas ni de cardinalidad excesiva."
-            )
-
-        if _bool(eda.get("stability_flagged")):
-            metric = _text(eda.get("stability_metric_used"))
-            value = _float(eda.get("stability_value"))
-            threshold = _float(eda.get("stability_threshold"))
-            if metric is not None and value is not None and threshold is not None:
-                paragraphs.append(
-                    f"La estabilidad temporal de la tasa de incumplimiento quedó marcada: el "
-                    f"indicador «{metric}» alcanza {_num(value)} frente al umbral configurado de "
-                    f"{_num(threshold)}. Este punto debe explicarse en el bloque de contexto."
-                )
+        paragraphs.extend(_eda_context(eda))
 
     target = _mapping(data_params.get("target"))
     target_col = _text(target.get("target_col"))
@@ -1249,6 +1204,125 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
     return (f"{description} Filas evaluadas: {_miles(rows)}.",)
 
 
+def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
+    """Lo que el análisis exploratorio dice de la población, leído de su card (D-SC-5).
+
+    Lee los mismos campos que el panel de Resultados y dice lo mismo: el eje **efectivo** con que
+    se agrupó la tasa —y si lo tomó el motor de la partición por cohorte (D-SC-3)—, la señal de
+    estabilidad temporal con su indicador en palabras, o la causa por la que no se evaluó
+    (D-SC-2), y las marcas de calidad con su fuente única. Ningún identificador del motor llega
+    a la prosa: ``cv``, ``eje_cohorte`` o ``near_constant`` se traducen en su dominio.
+    """
+    paragraphs: list[str] = []
+    rate = _float(eda.get("overall_default_rate"))
+    periods = _int(eda.get("n_periods"))
+    columns = _int(eda.get("n_columns_profiled"))
+    axis = _text(eda.get("axis")) or "period"
+    frases: list[str] = []
+    if rate is not None:
+        frases.append(
+            f"La tasa de incumplimiento observada en la población analizada es de {_pct(rate)}"
+        )
+    if periods is not None:
+        unidad = (
+            _plural(periods, "cohorte", "cohortes")
+            if axis == "cohort"
+            else _plural(periods, "período", "períodos")
+        )
+        frases.append(f"la tasa se agrupó {_eda_axis_label(axis)} en {periods} {unidad}")
+    if columns is not None:
+        frases.append(
+            f"se describieron {columns} {_plural(columns, 'variable', 'variables')} frente al "
+            "incumplimiento"
+        )
+    if frases:
+        paragraphs.append(f"{_enumerar(frases)}.")
+
+    if _bool(eda.get("axis_inferred")):
+        paragraphs.append(
+            "El eje de la tasa lo tomó el motor de la partición por cohorte: el archivo no trae "
+            "una columna de fecha, así que la tasa se agrupó por la misma cohorte con la que se "
+            "particionaron los datos. La decisión consta en el trail de la corrida."
+        )
+    if periods is not None and periods < 2 and axis != "cohort":
+        paragraphs.append(
+            "Con un solo período con observaciones no hay serie temporal que graficar: la tasa se "
+            "reproduce en la tabla y no como figura."
+        )
+
+    flags = _mapping(eda.get("quality_flag_counts"))
+    alertas = tuple(
+        f"{_int(count)} {_plural(_int(count) or 0, 'variable', 'variables')} con la marca "
+        f"«{_quality_label(str(flag))}»"
+        for flag, count in sorted(flags.items(), key=lambda item: str(item[0]))
+        if _int(count)
+    )
+    if alertas:
+        paragraphs.append(
+            f"El perfilado de calidad de datos levantó alertas sobre {_enumerar(alertas)}. "
+            "El detalle por variable está en el Anexo B."
+        )
+    else:
+        paragraphs.append(
+            "El perfilado de calidad de datos no levantó alertas de variables casi constantes, "
+            "casi únicas ni de alta cardinalidad."
+        )
+
+    metric = _text(eda.get("stability_metric_used"))
+    if metric is None:
+        # Una card sin indicador declarado —anterior a la capa 3, o sintética— no describe la
+        # señal temporal: no se afirma nada sobre lo que no se publicó.
+        return tuple(paragraphs)
+    indicador = _eda_indicator_label(metric)
+    reason = _text(eda.get("stability_not_evaluable_reason"))
+    value = _float(eda.get("stability_value"))
+    threshold = _float(eda.get("stability_threshold"))
+    if reason is not None or value is None:
+        causa = _eda_reason_label(reason) if reason is not None else "sin valor publicado"
+        paragraphs.append(
+            f"La estabilidad temporal de la tasa de incumplimiento no se evaluó: {causa}. El "
+            f"indicador configurado era {indicador}."
+        )
+    elif _bool(eda.get("stability_flagged")) and threshold is not None:
+        paragraphs.append(
+            f"La estabilidad temporal de la tasa de incumplimiento quedó marcada: el indicador "
+            f"({indicador}) alcanza {_num(value)} frente al umbral configurado de "
+            f"{_num(threshold)}. Es un aviso de exploración, no una regla: la corrida siguió, y "
+            "este punto debe explicarse en el bloque de contexto."
+        )
+    elif threshold is not None:
+        paragraphs.append(
+            f"La estabilidad temporal de la tasa de incumplimiento no dejó aviso: el indicador "
+            f"({indicador}) vale {_num(value)} frente al umbral configurado de {_num(threshold)}."
+        )
+    return tuple(paragraphs)
+
+
+def _eda_axis_label(axis: str) -> str:
+    """Rótulo público del eje de la tasa, leído de su fuente única (D-SC-5).
+
+    Import dentro de la función por la misma razón que ``_reason_label``: ``nikodym.eda``
+    importa ``pandas`` al cargarse y este módulo se mantiene liviano.
+    """
+    from nikodym.eda.default_rate import AXIS_LABELS
+
+    return AXIS_LABELS.get(axis, axis)
+
+
+def _eda_indicator_label(metric: str) -> str:
+    """Rótulo público del indicador de estabilidad temporal (fuente única en ``nikodym.eda``)."""
+    from nikodym.eda.stability import STABILITY_INDICATOR_LABELS
+
+    return STABILITY_INDICATOR_LABELS.get(metric, metric)
+
+
+def _eda_reason_label(reason: str) -> str:
+    """Rótulo público de la causa de no evaluar la señal temporal (fuente en ``nikodym.eda``)."""
+    from nikodym.eda.stability import NOT_EVALUABLE_REASON_LABELS
+
+    return NOT_EVALUABLE_REASON_LABELS.get(reason, reason)
+
+
 def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Población: qué muestran las tablas de tasa de incumplimiento y calidad."""
     card = _card(bundle, "eda")
@@ -1257,8 +1331,8 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
     figures = _int(card.get("n_figures"))
     if figures:
         return (
-            f"El EDA publicó {figures} {_plural(figures, 'figura', 'figuras')} y las tablas de "
-            "tasa de incumplimiento y calidad que se reproducen a continuación.",
+            f"El análisis exploratorio publicó {figures} {_plural(figures, 'figura', 'figuras')} "
+            "y las tablas de tasa de incumplimiento y calidad que se reproducen a continuación.",
         )
     return ()
 
@@ -2646,11 +2720,15 @@ def _comparison_label(comparison: str) -> str:
 
 
 def _quality_label(flag: str) -> str:
-    return {
-        "near_constant": "variables casi constantes",
-        "near_unique": "variables casi únicas",
-        "high_cardinality": "variables de cardinalidad excesiva",
-    }.get(flag, f"variables con la marca «{flag}»")
+    """Rótulo público de una marca de calidad, leído de su fuente única (D-SC-5).
+
+    Import dentro de la función por la misma razón que ``_reason_label``: ``nikodym.eda``
+    importa ``pandas`` al cargarse. Hasta la capa 3 este mapa vivía aquí con su propio
+    vocabulario («cardinalidad excesiva» donde el panel dice «alta cardinalidad»).
+    """
+    from nikodym.eda.quality import QUALITY_FLAG_LABELS
+
+    return QUALITY_FLAG_LABELS.get(flag, flag)
 
 
 def _reason_label(reason: str) -> str:

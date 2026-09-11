@@ -14,7 +14,7 @@ el umbral existente ``near_constant_threshold`` sobre los valores no nulos:
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Literal
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,19 @@ from nikodym.core.audit import AuditSink
 from nikodym.eda.config import QualityConfig
 from nikodym.eda.default_rate import _validate_non_empty_frame, _validate_unique_index
 
-__all__ = ["DataQualityProfiler", "QualityResult"]
+__all__ = ["QUALITY_FLAG_LABELS", "DataQualityProfiler", "QualityFlag", "QualityResult"]
+
+#: Las tres marcas booleanas de la tabla por columna. ``missing_rate`` no es una marca sino una
+#: magnitud continua, y por eso no está aquí ni en los conteos de la card.
+QualityFlag = Literal["near_constant", "near_unique", "high_cardinality"]
+
+#: Las palabras públicas de cada marca: una sola fuente para el panel y la prosa del informe, con
+#: espejo gateado en el front (D-SC-5; mismo molde que ``BAND_LABELS``).
+QUALITY_FLAG_LABELS: Final[dict[str, str]] = {
+    "near_constant": "casi constante",
+    "near_unique": "casi única",
+    "high_cardinality": "alta cardinalidad",
+}
 
 _RESULT_COLUMNS: Final = (
     "col",

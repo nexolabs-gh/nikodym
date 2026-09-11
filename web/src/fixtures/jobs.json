@@ -13,6 +13,142 @@
       ],
       "methodology_choices": [
         {
+          "help": "La descripción se calcula sobre una sola muestra, y de fábrica es la de desarrollo, que es donde se ajusta el modelo. Las operaciones fuera del modelo se cuentan, pero no entran en la tasa de incumplimiento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La población sobre la que se ajusta el modelo: es la que conviene conocer antes de modelar, y por eso viene de fábrica.",
+              "label": "La muestra de desarrollo",
+              "motivo": null,
+              "value": "desarrollo"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Clientes del mismo período que el modelo no usó para ajustarse: sirve para comprobar que se parecen a los de desarrollo.",
+              "label": "La muestra de validación",
+              "motivo": null,
+              "value": "holdout"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Un período posterior: describe la cartera sobre la que el modelo se va a usar, no aquella con la que se construyó.",
+              "label": "La muestra fuera de tiempo",
+              "motivo": null,
+              "value": "oot"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Todas las operaciones juntas, sin distinguir muestras. Útil para una primera mirada; para leer el modelo conviene la de desarrollo.",
+              "label": "Todo el archivo",
+              "motivo": null,
+              "value": "todas"
+            }
+          ],
+          "path": "eda.analysis_partition",
+          "question": "¿Sobre qué parte de tu archivo quieres describir la cartera?",
+          "when": null
+        },
+        {
+          "help": "Por la fecha en que se observó cada operación, en períodos, o por la cohorte o añada a la que pertenece. Con cohortes la señal de deterioro en el tiempo no se evalúa: no tienen un orden cronológico que el motor pueda inferir.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "eda.default_rate.date_col"
+              ],
+              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica.",
+              "label": "Por la fecha de observación",
+              "motivo": "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor usa la única columna de fecha que haya; si no hay ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la corrida se detiene aquí.",
+              "value": "period"
+            },
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "eda.default_rate.cohort_col"
+              ],
+              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar.",
+              "label": "Por cohorte o añada",
+              "motivo": "Necesita que indiques la columna de cohorte o añada: suele ser la misma con la que particionas tus datos. Sin ella, la corrida se detiene aquí.",
+              "value": "cohort"
+            }
+          ],
+          "path": "eda.default_rate.axis",
+          "question": "¿Cómo quieres agrupar la tasa de incumplimiento en el tiempo?",
+          "when": null
+        },
+        {
+          "help": "Sólo se aplica si agrupas por la fecha de observación. Es la unidad con que se parte el tiempo para leer la tasa de incumplimiento y su deterioro.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "El detalle más fino; útil con volúmenes altos por mes.",
+              "label": "Por mes",
+              "motivo": null,
+              "value": "M"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Suaviza el ruido mensual y conserva la estacionalidad del año.",
+              "label": "Por trimestre",
+              "motivo": null,
+              "value": "Q"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Una tasa por año: pocos puntos, útil sólo con historia larga.",
+              "label": "Por año",
+              "motivo": null,
+              "value": "Y"
+            }
+          ],
+          "path": "eda.default_rate.period_freq",
+          "question": "¿Cada cuánto quieres agrupar la fecha de observación?",
+          "when": null
+        },
+        {
+          "help": "Los tres resumen cuánto cambia la tasa de incumplimiento de un período a otro y se comparan con el umbral para avisar un posible redesarrollo. Es un aviso de exploración: la corrida sigue.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Cuánto se dispersan las tasas de los períodos alrededor de su media, en proporción a esa media. Es la opción de fábrica.",
+              "label": "La variación relativa",
+              "motivo": null,
+              "value": "cv"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "El período que más se aleja de la media, en proporción a esa media: detecta un salto aislado que la dispersión promedio diluye.",
+              "label": "El peor desvío",
+              "motivo": null,
+              "value": "max_relative_drift"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La pendiente de la tasa a lo largo de los períodos: detecta un deterioro sostenido aunque cada paso sea pequeño.",
+              "label": "La tendencia",
+              "motivo": null,
+              "value": "trend_slope"
+            }
+          ],
+          "path": "eda.stability.metric",
+          "question": "¿Con qué indicador quieres medir si la tasa se mueve en el tiempo?",
+          "when": null
+        },
+        {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
           "multiple": false,
           "options": [
@@ -1630,6 +1766,7 @@
       ],
       "sections": [
         "data",
+        "eda",
         "binning",
         "selection",
         "model",
@@ -4405,6 +4542,142 @@
       ],
       "methodology_choices": [
         {
+          "help": "La descripción se calcula sobre una sola muestra, y de fábrica es la de desarrollo, que es donde se ajusta el modelo. Las operaciones fuera del modelo se cuentan, pero no entran en la tasa de incumplimiento.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La población sobre la que se ajusta el modelo: es la que conviene conocer antes de modelar, y por eso viene de fábrica.",
+              "label": "La muestra de desarrollo",
+              "motivo": null,
+              "value": "desarrollo"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Clientes del mismo período que el modelo no usó para ajustarse: sirve para comprobar que se parecen a los de desarrollo.",
+              "label": "La muestra de validación",
+              "motivo": null,
+              "value": "holdout"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Un período posterior: describe la cartera sobre la que el modelo se va a usar, no aquella con la que se construyó.",
+              "label": "La muestra fuera de tiempo",
+              "motivo": null,
+              "value": "oot"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Todas las operaciones juntas, sin distinguir muestras. Útil para una primera mirada; para leer el modelo conviene la de desarrollo.",
+              "label": "Todo el archivo",
+              "motivo": null,
+              "value": "todas"
+            }
+          ],
+          "path": "eda.analysis_partition",
+          "question": "¿Sobre qué parte de tu archivo quieres describir la cartera?",
+          "when": null
+        },
+        {
+          "help": "Por la fecha en que se observó cada operación, en períodos, o por la cohorte o añada a la que pertenece. Con cohortes la señal de deterioro en el tiempo no se evalúa: no tienen un orden cronológico que el motor pueda inferir.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "eda.default_rate.date_col"
+              ],
+              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica.",
+              "label": "Por la fecha de observación",
+              "motivo": "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor usa la única columna de fecha que haya; si no hay ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la corrida se detiene aquí.",
+              "value": "period"
+            },
+            {
+              "estado": "exige_otro_campo",
+              "exige": [
+                "eda.default_rate.cohort_col"
+              ],
+              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar.",
+              "label": "Por cohorte o añada",
+              "motivo": "Necesita que indiques la columna de cohorte o añada: suele ser la misma con la que particionas tus datos. Sin ella, la corrida se detiene aquí.",
+              "value": "cohort"
+            }
+          ],
+          "path": "eda.default_rate.axis",
+          "question": "¿Cómo quieres agrupar la tasa de incumplimiento en el tiempo?",
+          "when": null
+        },
+        {
+          "help": "Sólo se aplica si agrupas por la fecha de observación. Es la unidad con que se parte el tiempo para leer la tasa de incumplimiento y su deterioro.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "El detalle más fino; útil con volúmenes altos por mes.",
+              "label": "Por mes",
+              "motivo": null,
+              "value": "M"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Suaviza el ruido mensual y conserva la estacionalidad del año.",
+              "label": "Por trimestre",
+              "motivo": null,
+              "value": "Q"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Una tasa por año: pocos puntos, útil sólo con historia larga.",
+              "label": "Por año",
+              "motivo": null,
+              "value": "Y"
+            }
+          ],
+          "path": "eda.default_rate.period_freq",
+          "question": "¿Cada cuánto quieres agrupar la fecha de observación?",
+          "when": null
+        },
+        {
+          "help": "Los tres resumen cuánto cambia la tasa de incumplimiento de un período a otro y se comparan con el umbral para avisar un posible redesarrollo. Es un aviso de exploración: la corrida sigue.",
+          "multiple": false,
+          "options": [
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "Cuánto se dispersan las tasas de los períodos alrededor de su media, en proporción a esa media. Es la opción de fábrica.",
+              "label": "La variación relativa",
+              "motivo": null,
+              "value": "cv"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "El período que más se aleja de la media, en proporción a esa media: detecta un salto aislado que la dispersión promedio diluye.",
+              "label": "El peor desvío",
+              "motivo": null,
+              "value": "max_relative_drift"
+            },
+            {
+              "estado": "disponible",
+              "exige": [],
+              "help": "La pendiente de la tasa a lo largo de los períodos: detecta un deterioro sostenido aunque cada paso sea pequeño.",
+              "label": "La tendencia",
+              "motivo": null,
+              "value": "trend_slope"
+            }
+          ],
+          "path": "eda.stability.metric",
+          "question": "¿Con qué indicador quieres medir si la tasa se mueve en el tiempo?",
+          "when": null
+        },
+        {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
           "multiple": false,
           "options": [
@@ -6196,6 +6469,7 @@
       ],
       "sections": [
         "data",
+        "eda",
         "binning",
         "selection",
         "model",

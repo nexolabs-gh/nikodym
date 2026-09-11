@@ -18,6 +18,7 @@ from nikodym.core.config import NikodymConfig
 from nikodym.core.config.schema import cargar_configs_expandibles
 from nikodym.core.dataset_check import METODO_REQUISITOS, check_dataset
 from nikodym.data.config import TemporalSplitConfig
+from nikodym.eda.config import DefaultRateConfig
 from nikodym.performance.config import PerformanceConfig
 from nikodym.stability.config import TEMPORAL_CANDIDATE_NAMES, StabilityConfig
 from nikodym.survival.config import SurvivalConfig
@@ -380,14 +381,45 @@ def test_el_alcance_derivado_no_es_vacuo() -> None:
         PerformanceConfig(),
         ValidationConfig(),
         TemporalSplitConfig(date_col="fecha", oot_from="2024-07-01"),
+        DefaultRateConfig(axis="cohort"),
     ],
-    ids=["stability", "performance", "validation", "temporal_split"],
+    ids=["stability", "performance", "validation", "temporal_split", "eda_default_rate"],
 )
 def test_el_protocolo_acepta_columnas_desconocidas(config: BaseModel) -> None:
     """Toda implementación tolera `columnas=None` sin reventar (contrato de D-INV-4)."""
     requisitos = config.requisitos_incumplidos(None)  # type: ignore[attr-defined]
 
     assert isinstance(requisitos, tuple)
+
+
+# ── `eda`: el eje de cohorte sin su columna (capa 3 del scorecard completo, D-SC-3) ──────────
+
+
+def test_eje_de_cohorte_sin_columna_avisa_antes_de_pagar_la_corrida() -> None:
+    """`_cohort_values` levanta en el paso, con `data` ya pagado; el preflight lo dice antes."""
+    config = NikodymConfig.model_validate({"eda": {"default_rate": {"axis": "cohort"}}})
+
+    resultado = check_dataset(config, frozenset({"mora", "cohorte"}))
+
+    rutas = [m.path for m in resultado.mismatches if m.kind == "unmet_requirement"]
+    assert rutas == ["eda.default_rate.cohort_col"]
+    assert "por cohorte" in resultado.mismatches[0].message
+
+
+def test_eje_de_cohorte_con_su_columna_no_avisa() -> None:
+    """La dirección positiva: con la columna, la única exigencia es que exista en el archivo."""
+    config = NikodymConfig.model_validate(
+        {"eda": {"default_rate": {"axis": "cohort", "cohort_col": "cohorte"}}}
+    )
+    assert not check_dataset(config, frozenset({"mora", "cohorte"})).mismatches
+
+
+def test_el_eje_temporal_sin_fecha_no_afirma_nada_desde_los_nombres() -> None:
+    """D-INV-4: el preflight recibe nombres, no tipos, y la partición por cohorte vive en otra
+    sección; afirmar «no tienes fecha» sería el falso positivo más caro. Se deja medido."""
+    config = NikodymConfig.model_validate({"eda": {"default_rate": {"axis": "period"}}})
+    assert not check_dataset(config, frozenset({"mora"})).mismatches
+    assert DefaultRateConfig().requisitos_incumplidos(None) == ()
 
 
 # ── `survival`: grilla temporal e intervalos de KM (D-INV-1, ampliación del 2026-08-03) ──────

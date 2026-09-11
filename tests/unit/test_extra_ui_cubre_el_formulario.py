@@ -31,6 +31,9 @@ _SCHEMA_TS = _RAIZ / "web" / "src" / "lib" / "schema.ts"
 #: `provisioning*` comparte el motor de `provisioning/`, que sólo declara `scoring`.
 EXTRA_POR_SECCION = {
     "data": None,  # el núcleo lee CSV/Parquet; `excel` (xlsx) ya viaja en `[ui]`
+    # `eda` corre sobre pandas y numpy, que son dependencias base: no importa ningún motor
+    # opcional ni emite «instale nikodym[...]» (medido sobre `src/nikodym/eda/`).
+    "eda": None,
     "binning": "scoring",
     "selection": "scoring",
     "model": "scoring",

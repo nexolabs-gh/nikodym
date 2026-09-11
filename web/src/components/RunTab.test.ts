@@ -235,7 +235,8 @@ describe("efecto medido sobre los ejemplos publicados (y sobre la demo estática
       // 10 → 11 con D-SC-6: el trabajo gana «Validación formal», la sección que D-JOB-18 dejó
       // pendiente. El ejemplo F1 ya traía `validation` encendida en su config, así que hasta
       // ahora el sidebar la escondía — que es el defecto que el test de más abajo vigila.
-      secciones: 11,
+      // 11 → 12 con D-SC-4: el análisis exploratorio entra a los dos trabajos del scorecard.
+      secciones: 12,
     },
     {
       // 🔴 El caso «ningún trabajo casa» se conserva con un config SINTÉTICO. Hasta D-JUR-9.7 lo

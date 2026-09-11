@@ -49,6 +49,8 @@ import {
   toggleMultiselect,
   unwrapNullable,
   variantDefaults,
+  multiselectOrAllState,
+  nextMultiselectOrAllValue,
 } from "./form-engine"
 
 // Réplica del shape real de una unión discriminada (SDD §5, fixtures/schema.json):
@@ -1033,8 +1035,13 @@ describe("todo campo con `column_role` conserva su rol al llegar al widget", () 
     )
     expect(listas.length).toBeGreaterThanOrEqual(4)
 
+    // `multiselect_or_all` es el mismo control con la casilla «Todas las columnas» delante
+    // (D-SC-1): sigue eligiéndose con checkboxes, que es lo que este gate defiende.
     const alEditorJson = listas
-      .filter(({ schema }) => resolveWidget(schema, { defs }) !== "multiselect")
+      .filter(
+        ({ schema }) =>
+          !["multiselect", "multiselect_or_all"].includes(resolveWidget(schema, { defs })),
+      )
       .map(({ ruta }) => ruta)
 
     expect(
@@ -1713,5 +1720,53 @@ describe("guardrail estático: el selector genérico respeta opciones no impleme
     expect(roto).not.toContain(
       "disabled={disabledEnumValue(path, option, props.disabledEnumValues)}",
     )
+  })
+})
+
+describe("«Todas las columnas» escribe `null` y sólo `null` significa todas (D-SC-1, §0-23)", () => {
+  // El motor infiere «todas» sólo con `columns=None`; una lista vacía se respeta y produce cero
+  // perfiles. Vaciar un multiselect corriente escribe `[]`, así que quien desmarcara todo perdía
+  // los perfiles creyendo que se describen todas. Ésta es la secuencia que §6 de la enmienda pide.
+  const OPCIONES = ["a", "b", "c"]
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+
+  it("marcar la casilla escribe `null`, no una lista", () => {
+    expect(nextMultiselectOrAllValue(true)).toBeNull()
+  })
+
+  it("desmarcar y elegir dos escribe exactamente esas dos", () => {
+    const vacia = nextMultiselectOrAllValue(false)
+    expect(vacia).toEqual([])
+    const conA = toggleMultiselect(vacia, "a", true, OPCIONES)
+    const conAyB = toggleMultiselect(conA, "b", true, OPCIONES)
+    expect(conAyB).toEqual(["a", "b"])
+  })
+
+  it("vaciar la lista escribe `[]` —«ninguna»—, que NO es lo mismo que todas", () => {
+    const sinNada = toggleMultiselect(["a"], "a", false, OPCIONES)
+    expect(sinNada).toEqual([])
+    expect(multiselectOrAllState(sinNada)).toEqual({ all: false, list: [] })
+  })
+
+  it("volver a marcar escribe `null` y el widget lo lee como «todas»", () => {
+    expect(nextMultiselectOrAllValue(true)).toBeNull()
+    expect(multiselectOrAllState(null)).toEqual({ all: true, list: [] })
+    expect(multiselectOrAllState(undefined)).toEqual({ all: true, list: [] })
+    expect(multiselectOrAllState(["a", "b"])).toEqual({ all: false, list: ["a", "b"] })
+  })
+
+  it("`eda.univariate.columns` resuelve a ese widget y no al toggle activar/None genérico", () => {
+    const columns = (defs["eda__UnivariateConfig"]?.properties ?? {})["columns"]
+    expect(columns, "el schema empaquetado perdió eda.univariate.columns").toBeDefined()
+    expect(resolveWidget(columns, { defs })).toBe("multiselect_or_all")
+    // Y sigue siendo una lista de columnas del archivo: sus opciones salen del dataset.
+    expect(columnRole(columns, defs)).toBe("input")
+  })
+
+  it("guardrail del cableado: el widget escribe con el helper y esquiva el toggle genérico", () => {
+    // Sin DOM no se puede pulsar el interruptor; se ata el fuente a los dos hechos que importan.
+    expect(fieldRendererSource).toContain('kind !== "multiselect_or_all"')
+    expect(fieldRendererSource).toContain("nextMultiselectOrAllValue(next)")
+    expect(fieldRendererSource).toContain("Todas las columnas")
   })
 })

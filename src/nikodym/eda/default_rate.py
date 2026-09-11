@@ -20,7 +20,21 @@ from nikodym.core.audit import AuditSink
 from nikodym.eda.config import DefaultRateConfig
 from nikodym.eda.exceptions import EdaError
 
-__all__ = ["DefaultRateAnalyzer", "DefaultRateResult"]
+__all__ = ["AXIS_LABELS", "DefaultRateAnalyzer", "DefaultRateResult", "EdaAxis"]
+
+#: Los dos ejes con que se agrupa la tasa de incumplimiento; es la anotación de ``axis`` en el
+#: config y en el resultado, para que ninguno de los dos pueda ganar un valor sin el otro.
+EdaAxis = Literal["period", "cohort"]
+
+#: Las palabras públicas de cada eje: el panel y el informe dicen «por fecha de observación» o
+#: «por cohorte», nunca ``period``/``cohort`` crudos (D-SC-5; mismo molde que ``BAND_LABELS``).
+AXIS_LABELS: Final[dict[str, str]] = {
+    "period": "por fecha de observación",
+    "cohort": "por cohorte",
+}
+
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+_LOC_SECCION: tuple[str, ...] = ("eda",)
 
 _GROUP_COL: Final = "__nikodym_eda_period"
 _ELIGIBLE_COL: Final = "__nikodym_eda_eligible"
@@ -41,7 +55,7 @@ class DefaultRateResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     by_period: pd.DataFrame
-    axis: Literal["period", "cohort"]
+    axis: EdaAxis
     overall_rate: float
 
 
@@ -176,19 +190,25 @@ def _period_values(frame: pd.DataFrame, config: DefaultRateConfig) -> pd.Series:
     return cast(pd.Series, periods)
 
 
-def _infer_date_column(frame: pd.DataFrame) -> str:
-    """Infiere la única columna datetime; falla si falta o si hay ambigüedad."""
-    date_columns = [
+def datetime_columns(frame: pd.DataFrame) -> tuple[str, ...]:
+    """Las columnas ``datetime`` del frame, en su orden: la única base de la inferencia de fecha."""
+    return tuple(
         str(column)
         for column in frame.columns
         if pd.api.types.is_datetime64_any_dtype(frame[column].dtype)
-    ]
+    )
+
+
+def _infer_date_column(frame: pd.DataFrame) -> str:
+    """Infiere la única columna datetime; falla si falta o si hay ambigüedad."""
+    date_columns = list(datetime_columns(frame))
     if len(date_columns) == 1:
         return date_columns[0]
     if not date_columns:
         raise EdaError(
             "La tasa de default por período requiere una columna de fecha; declárela en "
-            "eda.default_rate.date_col o use axis='cohort'."
+            "eda.default_rate.date_col o use axis='cohort'.",
+            loc=(*_LOC_SECCION, "default_rate", "date_col"),
         )
     joined = ", ".join(f"'{column}'" for column in date_columns)
     raise EdaError(
@@ -235,7 +255,7 @@ def _bad_mask(target: pd.Series) -> pd.Series:
 def _aggregate_default_rate(
     frame: pd.DataFrame,
     *,
-    axis: Literal["period", "cohort"],
+    axis: EdaAxis,
     min_obs_per_period: int,
 ) -> pd.DataFrame:
     """Agrega conteos y tasas por eje, con orden determinista."""
@@ -261,7 +281,7 @@ def _default_rate_series(result: pd.DataFrame) -> pd.Series:
     return (result["n_bad"].astype("float64") / denominators).astype("float64")
 
 
-def _sort_result(result: pd.DataFrame, axis: Literal["period", "cohort"]) -> pd.DataFrame:
+def _sort_result(result: pd.DataFrame, axis: EdaAxis) -> pd.DataFrame:
     """Ordena períodos reales por valor temporal y cohortes por etiqueta estable."""
     if axis == "period":
         return result.sort_values("period", kind="mergesort", na_position="last")

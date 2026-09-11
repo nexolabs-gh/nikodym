@@ -43,6 +43,9 @@ PARTITION_PLACEHOLDER: Final = "<particion>"
 
 DECLARED_METRICS: Final[dict[str, tuple[str, ...]]] = {
     "data": ("n_rows", "n_features", "bad_rate"),
+    # Respuesta 6 de Cami (2026-09-09, scorecard completo): tres escalares con productor, leídos
+    # de la card. `stability_flagged` viaja como 1.0/0.0 porque el canal sólo admite float finito.
+    "eda": ("overall_default_rate", "n_periods", "stability_flagged"),
     "binning": ("n_variables_binned", "n_variables_skipped"),
     "selection": ("n_candidates", "n_selected", "max_abs_correlation_after_selection"),
     "model": ("n_final_features",),
@@ -62,10 +65,6 @@ DECLARED_METRICS: Final[dict[str, tuple[str, ...]]] = {
 """Métricas que cada dominio publica, SIN el prefijo de dominio (lo pone ``core``)."""
 
 DOMAINS_WITHOUT_METRICS: Final[dict[str, str]] = {
-    "eda": (
-        "Exploratorio: describe el frame de entrada y no produce un juicio del modelo. Su SDD "
-        "declarará su lista cuando se aborde."
-    ),
     "markov": "Fuera de F1; su SDD declara su lista cuando se aborde.",
     "tuning": "Fuera de F1; su SDD declara su lista cuando se aborde.",
     "ml": "Fuera de F1; su SDD declara su lista cuando se aborde.",

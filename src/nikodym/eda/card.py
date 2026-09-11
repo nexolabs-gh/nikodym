@@ -16,13 +16,23 @@ Decisiones para revisión de Cami:
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 __all__ = ["EdaCardSection"]
 
 
 class EdaCardSection(BaseModel):
-    """Resumen auditable del EDA para el model card y el reporte."""
+    """Resumen auditable del EDA para el model card y el reporte.
+
+    Los tres campos con default son aditivos (D-SC-5, §0-11 del scorecard completo): ``axis`` es
+    el eje **efectivo** —el que ``DefaultRateResult`` usó, que con la inferencia de D-SC-3 puede
+    ser la cohorte aunque el config diga ``period``—, ``axis_inferred`` dice si fue el motor quien
+    lo decidió, y ``stability_not_evaluable_reason`` es la causa por la que la señal temporal no
+    se evaluó, o ``None`` si se evaluó. Los tres viajan hasta el panel y la prosa del informe,
+    que sin ellos leían ``stability_value = NaN`` sin poder decir por qué.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -35,3 +45,8 @@ class EdaCardSection(BaseModel):
     n_columns_profiled: int
     quality_flag_counts: dict[str, int]
     n_figures: int
+    axis: Literal["period", "cohort"] = "period"
+    axis_inferred: bool = False
+    stability_not_evaluable_reason: (
+        Literal["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero"] | None
+    ) = None
