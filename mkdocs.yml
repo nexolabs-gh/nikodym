@@ -58,6 +58,7 @@ nav:
   - Tutorial: tutorial.md
   - Conceptos: concepts.md
   - Guías:
+      - Análisis exploratorio: guias/analisis-exploratorio.md
       - Binning y selección: guias/binning-seleccion.md
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md

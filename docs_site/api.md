@@ -139,7 +139,34 @@ Carga, validación de esquema, definición del *target*, particionado y hashing 
 
 ## Análisis exploratorio (EDA)
 
-Perfilado univariado, calidad de datos, tasa de *default* y estabilidad temporal previa al modelado.
+Perfiles por variable, calidad de datos, tasa de incumplimiento en el tiempo y su estabilidad
+temporal, antes de modelar. Cómo se lee cada pieza —y qué hace el motor cuando el archivo no trae
+fecha— está en la guía [Análisis exploratorio](guias/analisis-exploratorio.md).
+
+### Eje, indicador, causas y marcas
+
+En los resultados —JSON, tablas, model card— cada uno viaja como su **identificador**; en la
+pantalla, en el informe y en las guías se lee como su **palabra**. Son el mismo dato, y cada
+correspondencia tiene una sola fuente en `nikodym.eda`.
+
+| Identificador | Palabra | Qué es | Fuente |
+|---|---|---|---|
+| `period` | por fecha de observación | Eje **efectivo** de la tasa (`axis` de la card) | `nikodym.eda.default_rate.AXIS_LABELS` |
+| `cohort` | por cohorte | Ídem; puede ser el efectivo aunque el config diga `period` (`axis_inferred`) | ídem |
+| `cv` | variación relativa | Indicador de estabilidad temporal | `nikodym.eda.stability.STABILITY_INDICATOR_LABELS` |
+| `max_relative_drift` | peor desvío | Ídem | ídem |
+| `trend_slope` | tendencia | Ídem | ídem |
+| `eje_cohorte` | eje de cohorte, sin orden cronológico | Causa de no evaluar la señal (`stability_not_evaluable_reason`) | `nikodym.eda.stability.NOT_EVALUABLE_REASON_LABELS` |
+| `pocos_periodos_evaluables` | menos de dos períodos con observaciones suficientes | Ídem | ídem |
+| `tasa_media_cero` | sin incumplimientos en los períodos evaluables | Ídem; sólo con un indicador relativo | ídem |
+| `near_constant` | casi constante | Marca de calidad por columna | `nikodym.eda.quality.QUALITY_FLAG_LABELS` |
+| `near_unique` | casi única | Ídem | ídem |
+| `high_cardinality` | alta cardinalidad | Ídem | ídem |
+
+La regla que gobierna la causa es una sola: hay causa **si y sólo si** el indicador configurado no
+es finito; entonces `stability_value` viaja como `null` y `stability_flagged` es `false`. Cuando
+el archivo no trae columna de fecha y la partición es por cohorte, el eje se **infiere** a esa
+cohorte y la decisión `eje_eda_inferido` queda en el trail de la corrida.
 
 ::: nikodym.eda.config.EdaConfig
     options:

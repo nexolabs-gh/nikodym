@@ -19,8 +19,10 @@ import { ResultsPanel, type ResultsPanelProps } from "@/components/ResultsTab"
 import resultsTabSource from "@/components/ResultsTab.tsx?raw"
 import demoF1 from "@/fixtures/demo/results-f1.json"
 import demoF4 from "@/fixtures/demo/results-ifrs9.json"
+import { EDA_SCORECARD_REAL } from "@/lib/eda.fixture"
 import { MODEL_CARD_F1 } from "@/lib/model-card.fixture"
 import type {
+  EdaResult,
   ModelCard,
   ResultsResponse,
   ValidationCalibrationRow,
@@ -679,5 +681,164 @@ describe("cobertura por grado (§0-20): la tabla sola escondería media cartera"
     const html = render(conGrados([], []))
     expect(html).not.toContain("evaluados")
     expect(html).not.toContain("Grados no evaluados")
+  })
+})
+
+describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con sus rótulos", () => {
+  const TITULO_EDA = "Análisis exploratorio"
+  const conEda = (eda: EdaResult | null): ResultsResponse => ({ ...minima(null), eda })
+  const base = EDA_SCORECARD_REAL
+
+  it("cohorte inferida: barras, no línea, y la nota de que el eje salió de la partición", () => {
+    // La corrida real: config `period` sin fecha → el motor tomó la cohorte (D-SC-3).
+    expect(base.axis).toBe("cohort")
+    expect(base.axis_inferred).toBe(true)
+    const html = render(conEda(base))
+    expect(ocurrencias(html, TITULO_EDA)).toBe(1)
+    expect(html).toContain('data-eda-chart="bar"')
+    expect(html).not.toContain('data-eda-chart="line"')
+    expect(html).toContain("Eje tomado de la partición por cohorte")
+    expect(html).toContain("Agrupada por cohorte")
+    expect(html).toContain("5 cohortes")
+    // La señal temporal no se evalúa sobre cohortes, y se dice con su causa, sin inventar valor.
+    expect(html).toContain("No evaluable: eje de cohorte, sin orden cronológico")
+    expect(html).not.toContain("NaN")
+  })
+
+  it("🔴 control negativo del §6: la figura se decide por el eje EFECTIVO, no por el del config", () => {
+    // Misma corrida, misma card, pero con el eje efectivo `period` y dos períodos: línea. Si el
+    // panel decidiera por el config —que dice `period` en los dos casos— pintaría una línea sobre
+    // las cohortes de arriba, y este par de aserciones lo delataría.
+    const html = render(conEda({ ...base, axis: "period", axis_inferred: false }))
+    expect(html).toContain('data-eda-chart="line"')
+    expect(html).not.toContain("Eje tomado de la partición por cohorte")
+    expect(html).toContain("Agrupada por fecha de observación")
+    expect(html).toContain("5 períodos")
+  })
+
+  it("período único: sin figura de un punto, y se dice", () => {
+    const unPeriodo: EdaResult = {
+      ...base,
+      axis: "period",
+      axis_inferred: false,
+      n_periods: 1,
+      default_rate: base.default_rate?.slice(0, 1) ?? null,
+      stability_not_evaluable_reason: "pocos_periodos_evaluables",
+    }
+    const html = render(conEda(unPeriodo))
+    expect(html).not.toContain("data-eda-chart")
+    expect(html).toContain("Un solo período con observaciones: la tasa en el tiempo no se grafica")
+    expect(html).toContain("1 período")
+    expect(html).toContain(
+      "No evaluable: menos de dos períodos con observaciones suficientes",
+    )
+  })
+
+  it("varios períodos con menos de dos suficientes: misma causa, y las filas poco fiables marcadas", () => {
+    const filas = (base.default_rate ?? []).map((row, i) => ({ ...row, low_confidence: i > 0 }))
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        default_rate: filas,
+        stability_not_evaluable_reason: "pocos_periodos_evaluables",
+      }),
+    )
+    expect(html).toContain("No evaluable: menos de dos períodos con observaciones suficientes")
+    expect(ocurrencias(html, "Poco fiable: bajo el mínimo")).toBe(filas.length - 1)
+    expect(ocurrencias(html, ">Suficiente<")).toBe(1)
+  })
+
+  it("dos períodos suficientes sin incumplimientos: causa «tasa media cero» con un indicador relativo", () => {
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        n_periods: 2,
+        stability_metric_used: "cv",
+        stability_value: null,
+        stability_not_evaluable_reason: "tasa_media_cero",
+      }),
+    )
+    expect(html).toContain("No evaluable: sin incumplimientos en los períodos evaluables")
+    expect(html).toContain("El indicador configurado es variación relativa")
+  })
+
+  it("con la pendiente el mismo caso es evaluable: valor cero, sin causa y sin aviso", () => {
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        stability_metric_used: "trend_slope",
+        stability_value: 0,
+        stability_not_evaluable_reason: null,
+      }),
+    )
+    expect(html).toContain("Sin aviso: tendencia")
+    expect(html).not.toContain("No evaluable")
+  })
+
+  it("una señal marcada dice que es un aviso de exploración y publica valor y umbral", () => {
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        stability_flagged: true,
+        stability_metric_used: "max_relative_drift",
+        stability_value: 0.41,
+        stability_threshold: 0.25,
+        stability_not_evaluable_reason: null,
+      }),
+    )
+    expect(html).toContain("Aviso de posible redesarrollo: peor desvío")
+    expect(html).toContain("0.4100")
+    expect(html).toContain("0.2500")
+  })
+
+  it("las marcas de calidad salen en palabras y las columnas descritas en su desplegable", () => {
+    const html = render(conEda(base))
+    expect(html).toContain("casi constante")
+    expect(html).toContain("casi única")
+    expect(html).not.toContain("near_constant")
+    expect(html).not.toContain("near_unique")
+    expect(html).not.toContain("high_cardinality")
+    for (const columna of new Set((base.univariate ?? []).map((r) => r.column))) {
+      expect(html).toContain(columna)
+    }
+    // Las columnas que definen el target y la cohorte-eje no se describieron (§8-8, D-SC-3).
+    expect((base.univariate ?? []).some((r) => r.column === "bad_flag")).toBe(false)
+    expect((base.univariate ?? []).some((r) => r.column === "cohorte")).toBe(false)
+  })
+
+  it("ningún slug del motor llega a la pantalla", () => {
+    const html = render(conEda(base))
+    for (const slug of ["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero", ">cv<"]) {
+      expect(html, slug).not.toContain(slug)
+    }
+  })
+
+  it("va primero entre los analíticos: antes de «Discriminación»", () => {
+    const f1 = demoF1 as unknown as ResultsResponse
+    const html = render({ ...f1, eda: base })
+    const posEda = html.indexOf(TITULO_EDA)
+    const posDiscriminacion = html.indexOf(">Discriminación<")
+    expect(posEda).toBeGreaterThan(-1)
+    expect(posDiscriminacion).toBeGreaterThan(posEda)
+  })
+
+  it("sin `eda` el bloque entero desaparece, ni vacío ni fabricado", () => {
+    for (const eda of [null, undefined]) {
+      const html = render({ ...minima(null), eda })
+      expect(html).not.toContain(TITULO_EDA)
+      expect(html).not.toContain("data-eda-chart")
+    }
+    // Las corridas de la demo se capturaron antes de esta clave y siguen renderizando.
+    for (const [nombre, demo] of DEMOS) {
+      expect(render(demo), nombre).not.toContain(TITULO_EDA)
+    }
   })
 })

@@ -191,19 +191,26 @@ Los trabajos del catálogo, en el orden en que aparecen:
 <!-- catalogo-trabajos:start -->
 | Trabajo | Qué corre |
 |---|---|
-| **Scorecard de comportamiento (PD)** | El pipeline F1 completo: binning, selección, modelo, scorecard, calibración, desempeño, estabilidad, validación formal e informe. |
+| **Scorecard de comportamiento (PD)** | El pipeline F1 completo: análisis exploratorio, binning, selección, modelo, scorecard, calibración, desempeño, estabilidad, validación formal e informe. |
 | **PD lifetime (curvas de supervivencia)** | Curvas de supervivencia sobre datos censurados y su estructura temporal de PD. |
 | **Provisiones IFRS 9 / ECL** | Pérdida esperada de tres etapas: PD lifetime, LGD, EAD, staging por SICR y descuento a la tasa efectiva. |
 | **Provisión interna / LGD** | Provisión por el método interno sobre grupos homogéneos, a partir de la PD calibrada que traes como tabla. |
-| **PD + LGD en una corrida** | El scorecard completo —validación formal incluida— y la provisión interna en una sola corrida y un solo informe. |
+| **PD + LGD en una corrida** | El scorecard completo —análisis exploratorio y validación formal incluidos— y la provisión interna en una sola corrida y un solo informe. |
 | **Validar un modelo existente** | Tu scorecard y tu PD, medidos y documentados: discriminación, calibración y estabilidad, sin volver a modelar. |
 | **Severidad modelada o calculada** | La LGD modelada con las variables de tu archivo, o calculada descontando lo que ya recuperaste. |
 | **Stress testing** | Escenarios adversos y shocks macro sobre la cartera. Hoy sólo por código: el motor corre desde Python y todavía no tiene pantalla. |
 <!-- catalogo-trabajos:end -->
 
-Los dos trabajos del scorecard incluyen además la sección **Validación formal**, que documenta el
-modelo con pruebas de discriminación, calibración y estabilidad y publica su estado técnico en
-Resultados y en el informe; qué prueba cada familia y qué hace un validador con el resultado está en
+Los dos trabajos del scorecard abren con la sección **Análisis exploratorio**, que describe la
+cartera antes de modelarla —la tasa de incumplimiento en el tiempo, un perfil por variable y las
+marcas de calidad del archivo— y la pinta primero en Resultados; viene encendida con sus valores de
+fábrica y, si tu archivo no trae fecha, agrupa la tasa por la cohorte con la que particionas. Qué
+muestra y qué hace el motor con la señal temporal está en
+[Análisis exploratorio](guias/analisis-exploratorio.md).
+
+Incluyen además la sección **Validación formal**, que documenta el modelo con pruebas de
+discriminación, calibración y estabilidad y publica su estado técnico en Resultados y en el informe;
+qué prueba cada familia y qué hace un validador con el resultado está en
 [Validación formal](guias/validacion-formal.md).
 
 Todos comparten la sección **Gobernanza**, que llega apagada: encenderla pide el propósito del

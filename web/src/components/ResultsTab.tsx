@@ -5,6 +5,7 @@ import { CalibrationReliabilityChart } from "@/components/charts/CalibrationReli
 import { CmfCategoryChart } from "@/components/charts/CmfCategoryChart"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
+import { EdaDefaultRateChart } from "@/components/charts/EdaDefaultRateChart"
 import { GainsChart } from "@/components/charts/GainsChart"
 import { Ifrs9StagingChart } from "@/components/charts/Ifrs9StagingChart"
 import { Ifrs9TermStructureChart } from "@/components/charts/Ifrs9TermStructureChart"
@@ -50,6 +51,13 @@ import {
   csiBars,
   csiComparisonLabel,
   discriminantRows,
+  edaAxisLabel,
+  edaChartKind,
+  edaPeriodNoun,
+  edaProfiles,
+  edaQualityRows,
+  edaRatePoints,
+  edaStabilitySummary,
   formatAmount,
   formatBool,
   formatClp,
@@ -214,6 +222,14 @@ export function ResultsPanel({
   const runId = results.run_id || lastRun?.runId || null
 
   // Solo derivación/selección de artefactos ya calculados (helpers puros).
+  // Análisis exploratorio (D-SC-5): la población sobre la que todo lo demás se lee. Guard por
+  // presencia: la demo publicada se capturó antes de que el serializer emitiera esta clave.
+  const eda = results.eda ?? null
+  const edaKind = edaChartKind(eda)
+  const edaPoints = edaRatePoints(eda)
+  const edaStability = eda ? edaStabilitySummary(eda) : null
+  const edaQuality = edaQualityRows(eda)
+  const edaProfileViews = edaProfiles(eda)
   const rows = discriminantRows(results.performance)
   const ivRows = sortByIv(results.binning?.iv_by_variable)
 
@@ -506,6 +522,225 @@ export function ResultsPanel({
             </ResultsSection>
           ) : null}
         </>
+      ) : null}
+
+      {/* 0. Análisis exploratorio (D-SC-5): PRIMERO entre los analíticos porque es la población
+          sobre la que todo lo demás se lee. La figura la decide el eje EFECTIVO de la card, no el
+          config: con la inferencia de D-SC-3 pueden diferir, y pintar una línea sobre cohortes
+          sería inventarles un orden. Guard por presencia: sin `eda` no hay bloque. */}
+      {eda ? (
+        <ResultsSection
+          title="Análisis exploratorio"
+          description="La cartera antes de modelar: la tasa de incumplimiento observada, cómo se mueve en el tiempo, qué columnas se describieron y qué marcas de calidad levantó el archivo."
+        >
+          <dl className="grid gap-2 sm:grid-cols-3">
+            <DefItem
+              label="Tasa de incumplimiento"
+              value={
+                eda.overall_default_rate === null
+                  ? "Sin operaciones elegibles"
+                  : formatPercent(eda.overall_default_rate, 2)
+              }
+              mono={eda.overall_default_rate !== null}
+            />
+            <DefItem
+              label={`Agrupada ${edaAxisLabel(eda.axis)}`}
+              value={`${formatCount(eda.n_periods)} ${edaPeriodNoun(eda.axis, eda.n_periods)}`}
+              mono={false}
+            />
+            <DefItem
+              label="Columnas descritas"
+              value={formatCount(eda.n_columns_profiled)}
+            />
+          </dl>
+
+          {/* 🔴 El eje inferido se DICE (D-SC-3): el usuario pidió fecha, no la había, y el motor
+              agrupó por la cohorte con que particionó. La decisión también está en el trail. */}
+          {eda.axis_inferred ? (
+            <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Eje tomado de la partición por cohorte: el archivo no trae una columna de fecha, así
+              que la tasa se agrupó por la misma cohorte con la que se particionaron los datos. La
+              decisión queda registrada en el trail de la corrida.
+            </p>
+          ) : null}
+
+          {edaKind === "none" && edaPoints.length > 0 ? (
+            // Una línea de un punto no es una serie (D-SC-5 b): la tabla la muestra y se dice.
+            <p className="text-xs text-muted-foreground">
+              Un solo período con observaciones: la tasa en el tiempo no se grafica; la tabla de
+              abajo la muestra.
+            </p>
+          ) : null}
+          {edaKind !== "none" ? (
+            <Subchart
+              title={
+                edaKind === "line"
+                  ? "Tasa de incumplimiento por período"
+                  : "Tasa de incumplimiento por cohorte"
+              }
+            >
+              <EdaDefaultRateChart kind={edaKind} points={edaPoints} />
+            </Subchart>
+          ) : null}
+
+          {edaPoints.length > 0 ? (
+            <details className="group mt-2">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
+                <span className="text-muted-foreground transition-transform group-open:rotate-90">
+                  ›
+                </span>
+                Ver la tasa {edaAxisLabel(eda.axis)}
+              </summary>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">
+                        {eda.axis === "cohort" ? "Cohorte" : "Período"}
+                      </th>
+                      <NumHead>Elegibles</NumHead>
+                      <NumHead>Incumplidas</NumHead>
+                      <NumHead>Tasa</NumHead>
+                      <th className="py-2 pl-3 font-medium">Fiabilidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {edaPoints.map((point) => (
+                      <tr key={point.label} className="border-b border-border">
+                        <td className="py-2 pr-3 text-foreground">{point.label}</td>
+                        <NumCell>{formatCount(point.nEligible)}</NumCell>
+                        <NumCell>{formatCount(point.nBad)}</NumCell>
+                        <NumCell>
+                          {point.rate === null ? EMPTY : formatPercent(point.rate, 2)}
+                        </NumCell>
+                        <td className="py-2 pl-3 text-xs text-muted-foreground">
+                          {point.lowConfidence ? "Poco fiable: bajo el mínimo" : "Suficiente"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
+
+          {/* La señal temporal, o su causa. La regla del motor es «hay causa si y sólo si el
+              indicador no es finito», así que con causa no se pinta un valor que no existe. */}
+          {edaStability ? (
+            <div className="space-y-0.5">
+              <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                Estabilidad temporal de la tasa
+              </p>
+              {edaStability.kind === "not_evaluable" ? (
+                <p className="text-sm text-foreground/90">
+                  No evaluable: {edaStability.reason}. El indicador configurado es{" "}
+                  {edaStability.indicator}.
+                </p>
+              ) : (
+                <p className="text-sm text-foreground/90">
+                  {edaStability.kind === "flagged"
+                    ? "Aviso de posible redesarrollo"
+                    : "Sin aviso"}
+                  : {edaStability.indicator}{" "}
+                  <span className="font-mono tabular-nums">
+                    {formatMetric(edaStability.value)}
+                  </span>{" "}
+                  frente al umbral{" "}
+                  <span className="font-mono tabular-nums">
+                    {formatMetric(edaStability.threshold)}
+                  </span>
+                  . Es un umbral de exploración: la corrida sigue igual.
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          {/* Calidad por columna: las tres marcas en palabras. Sólo se reportan. */}
+          {edaQuality.length > 0 ? (
+            <Subchart title="Calidad de datos por columna">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Columna</th>
+                      <th className="py-2 pr-3 font-medium">Tipo</th>
+                      <NumHead>Faltantes</NumHead>
+                      <NumHead>Valores distintos</NumHead>
+                      <th className="py-2 pl-3 font-medium">Marcas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {edaQuality.map((row) => (
+                      <tr key={row.col} className="border-b border-border">
+                        <td className="py-2 pr-3 font-mono text-xs text-foreground">{row.col}</td>
+                        <td className="py-2 pr-3 font-mono text-xs text-muted-foreground">
+                          {row.dtype}
+                        </td>
+                        <NumCell>{formatPercent(row.missingRate, 1)}</NumCell>
+                        <NumCell>{formatCount(row.cardinality)}</NumCell>
+                        <td className="py-2 pl-3 text-xs text-muted-foreground">
+                          {row.marks.length > 0 ? row.marks.join(" · ") : EMPTY}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Subchart>
+          ) : null}
+
+          {/* Perfiles por variable: un desplegable por columna descrita, con sus tramos. */}
+          {edaProfileViews.length > 0 ? (
+            <Subchart title="Perfiles por variable">
+              <div className="space-y-1">
+                {edaProfileViews.map((profile) => (
+                  <details key={profile.column} className="group">
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
+                      <span className="text-muted-foreground transition-transform group-open:rotate-90">
+                        ›
+                      </span>
+                      <span className="font-mono text-foreground">{profile.column}</span>
+                      {profile.descriptiveIv !== null ? (
+                        <span className="ml-2">
+                          poder predictivo orientativo{" "}
+                          <span className="font-mono tabular-nums">
+                            {formatMetric(profile.descriptiveIv)}
+                          </span>
+                        </span>
+                      ) : null}
+                    </summary>
+                    <div className="mt-2 overflow-x-auto pl-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                            <th className="py-2 pr-3 font-medium">Tramo</th>
+                            <NumHead>Operaciones</NumHead>
+                            <NumHead>Cobertura</NumHead>
+                            <NumHead>Tasa</NumHead>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {profile.rows.map((row) => (
+                            <tr key={row.tramo} className="border-b border-border">
+                              <td className="py-2 pr-3 font-mono text-xs text-foreground">
+                                {row.tramo}
+                              </td>
+                              <NumCell>{formatCount(row.n)}</NumCell>
+                              <NumCell>{formatPercent(row.coverage, 1)}</NumCell>
+                              <NumCell>
+                                {row.rate === null ? EMPTY : formatPercent(row.rate, 2)}
+                              </NumCell>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </Subchart>
+          ) : null}
+        </ResultsSection>
       ) : null}
 
       {/* a. Discriminación: chart de barras AUC/Gini/KS por partición; valores exactos en detalle. */}

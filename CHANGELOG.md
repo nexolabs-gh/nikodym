@@ -9,6 +9,36 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **El análisis exploratorio entra al formulario, a los dos trabajos del scorecard y a la pestaña
+  Resultados.** La sección existía en el motor desde el principio y no tenía una sola pantalla: no
+  se podía encender desde la interfaz ni, hasta ahora, correr con sus valores de fábrica sobre una
+  cartera sin columna de fecha. Ahora «Análisis exploratorio» está en el formulario —entre «Esquema
+  y target» y «Optimal Binning», que es su lugar en el pipeline— y viene **encendida** en «Scorecard
+  de comportamiento (PD)» y «PD + LGD en una corrida»; su resultado se pinta primero entre los
+  paneles de Resultados: la tasa de incumplimiento global y en el tiempo —una línea si se agrupó por
+  fecha, barras si por cohorte, y ninguna figura cuando hay un solo período—, la señal de
+  estabilidad temporal o la causa por la que no se evaluó, la calidad de datos por columna con sus
+  marcas en palabras y un desplegable por variable descrita. Sin `eda` en la respuesta, el bloque
+  no se renderiza. La respuesta de la interfaz publica la card y tres tablas agregadas (tasa por
+  período o cohorte, calidad por columna y perfiles por tramo), nunca el frame. Y el preflight
+  avisa antes de correr si se agrupa por cohorte sin decir qué columna la trae.
+
+- **La casilla «Todas las columnas».** Es el primer control del formulario donde «en blanco» y
+  «lista vacía» significan cosas distintas: el motor describe todas las columnas sólo con la lista
+  sin definir, y respeta una lista vacía como «ninguna». Un multiselect corriente escribía la lista
+  vacía al desmarcar todo, así que quien lo hiciera perdía los perfiles creyendo que se describían
+  todas. La casilla escribe «sin lista»; desmarcada, se eligen una a una.
+
+- **Guía nueva: «Análisis exploratorio».** Sobre qué población se describe, los dos ejes de la
+  tasa y qué hace el motor cuando el archivo no trae fecha, las tres causas por las que la señal
+  temporal no se evalúa, los perfiles por variable y las marcas de calidad, con los números de una
+  corrida real. La referencia de la API publica la correspondencia entre cada identificador y su
+  palabra, y el ejemplo por código se ejecuta en un test.
+
+- **El análisis exploratorio publica sus métricas al canal del model card**: la tasa de
+  incumplimiento observada, cuántos períodos o cohortes la componen y si la señal temporal quedó
+  marcada. Hasta ahora era el único dominio del scorecard que declaraba no publicar ninguna.
+
 - **La validación formal entra al formulario y a la pestaña Resultados.** Era la única sección del
   pipeline del scorecard que existía en el motor, corría en los ejemplos y salía en el informe, pero
   que quien entraba por la interfaz no podía ni ver ni tocar. Ahora «Validación formal» está en el
@@ -128,6 +158,47 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Cambiado
 
+- **Agrupar la tasa de incumplimiento por cohorte ya no aborta la corrida del análisis
+  exploratorio.** Con el eje de cohorte el motor levantaba un error —«solo aplica al eje
+  temporal»— y con él se perdían la tasa por cohorte, los perfiles y la calidad de datos que sí
+  estaban calculados. Ahora la señal de estabilidad temporal se declara **no evaluable**, con su
+  causa, y todo lo demás se publica: las cohortes no tienen un orden cronológico que el motor
+  pueda inferir, así que sobre ellas no hay deterioro en el tiempo que medir. Es aditivo: ninguna
+  corrida que hoy termina cambia de resultado. La causa viaja en el resultado
+  (`not_evaluable_reason`: eje de cohorte, menos de dos períodos con observaciones suficientes, o
+  tasa media cero con un indicador relativo) y la regla es una sola —hay causa si y sólo si el
+  indicador configurado no es finito—; la tercera causa antes salía en silencio.
+
+- **Sin columna de fecha, el eje de la tasa se toma de la partición por cohorte.** Con el eje
+  temporal de fábrica y sin fecha declarada, el motor usaba la única columna de fecha del archivo o
+  fallaba. Si no hay ninguna y los datos se particionan por cohorte, ahora agrupa por esa misma
+  cohorte y lo registra como decisión auditable (`eje_eda_inferido`): no se inventa un eje, se usa
+  el que ya se declaró para particionar. Es lo que permite que la sección corra con sus valores de
+  fábrica sobre las carteras de ejemplo, que no traen fecha. Sin fecha y sin cohorte el error es el
+  de siempre, ahora anclado al campo de la fecha. El resumen del análisis publica el eje
+  **efectivo** y si lo eligió el motor, y la pantalla y el informe lo dicen.
+
+- **Las columnas que definen el incumplimiento salen del perfil por variable de fábrica.**
+  Describir «frente al incumplimiento» la columna con la que se construyó el target daba una tasa
+  de 0 % o 100 % por tramo que no dice nada. Con «Todas las columnas», el perfil excluye ahora las
+  columnas que leen las reglas de «malo» y «bueno» —el mismo criterio con que el binning descarta
+  candidatas por fuga— además de las estructurales; quien las pida por su nombre las obtiene igual.
+  Cambia el resultado de una configuración de fábrica sobre un dominio estable, y por eso se
+  declara aquí.
+
+- **Las palabras del análisis exploratorio tienen una sola fuente.** El eje («por fecha de
+  observación», «por cohorte»), los tres indicadores («variación relativa», «peor desvío»,
+  «tendencia»), las tres causas y las tres marcas de calidad («casi constante», «casi única», «alta
+  cardinalidad») viven en `nikodym.eda`, el informe las consume y la pantalla las replica con un
+  gate en los dos sentidos. De paso, la prosa del informe decía «cardinalidad excesiva» donde la
+  pantalla dice «alta cardinalidad», y nombraba el indicador con su identificador (`cv`).
+
+- **La subsección «Población y calidad de datos» del informe trae sus tablas en el cuerpo.** Las
+  claves con que el documento pedía la tasa por período y la calidad por columna no casaban con las
+  que el motor publica, así que la subsección salía sin tablas y éstas iban al anexo con su clave
+  interna por título. Ahora las dos van en el cuerpo con título propio, y los perfiles por variable
+  al anexo, uno por columna descrita, también con título.
+
 - **El estado técnico de la validación se llama igual en la pantalla y en el informe: Pasa,
   Revisar y Falla.** Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el
   vocabulario que la prosa del informe usaba en solitario porque no había panel con el que
@@ -237,6 +308,12 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   inspeccionable. No se notaba porque ningún ejemplo de fábrica traía la auditoría encendida.
 
 ### Sabido
+
+- La tabla de calidad de datos del análisis exploratorio describe **todas** las columnas del frame
+  que llega al paso, incluidas las que produce el propio motor —el target derivado, el estado, la
+  partición y el rol TTD—, así que sobre la muestra de desarrollo la partición y el TTD salen
+  marcados «casi constante» por construcción. Es el comportamiento del motor desde su primera
+  versión; excluirlas es una decisión pendiente.
 
 - El informe de la demo publicada sigue diciendo «Falla técnica» donde el motor ya escribe
   «Falla»: es un artefacto capturado y se regenera en el paso de recaptura, junto con el resto.
