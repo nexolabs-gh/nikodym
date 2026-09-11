@@ -76,6 +76,18 @@ _EDA_LOW_CONFIDENCE_COLOR = "#9aa0a6"
 # motor (por IV descriptivo si se calculó, si no por orden de perfilado); el resto va en tablas.
 _MAX_EDA_PROFILE_PANELS = 12
 _EDA_PROFILE_COLUMNS_PER_ROW = 3
+# Cap explícito de barras de la tasa por cohorte: el eje de cohorte acepta cualquier columna del
+# usuario y una casi única daría una barra por fila (hallazgo de la revisión adversarial de S9).
+# Se dibujan las primeras en el orden del motor y el título lo dice; la tabla trae todas.
+_MAX_EDA_RATE_BARS = 60
+# Rótulos del eje X como máximo por figura: con más categorías se rotulan sólo algunas,
+# equiespaciadas, y las demás quedan como marcas sin texto (la tabla trae los literales).
+_MAX_EDA_TICK_LABELS = 24
+# Marca de una tasa AUSENTE (ningún caso elegible en la cohorte, el período o el tramo): una cruz
+# gris en la base, nunca una barra de altura cero, que se leería como un 0 % real.
+_EDA_ABSENT_MARKER = "x"
+_EDA_ABSENT_LABEL = "Sin tasa (ningún caso elegible)"
+_EDA_LOW_CONFIDENCE_LABEL = "Poco fiable (bajo el mínimo)"
 
 _MISSING_MATPLOTLIB = (
     "matplotlib no está disponible; instale nikodym[report] para generar los gráficos del reporte."
@@ -628,6 +640,10 @@ def render_eda_default_rate(
             "render_eda_default_rate: una línea exige al menos dos períodos; con uno solo la tasa "
             "se reproduce en la tabla."
         )
+    n_total = len(records)
+    if axis == "cohort" and n_total > _MAX_EDA_RATE_BARS:
+        records = records[:_MAX_EDA_RATE_BARS]
+        title = f"{title} (primeras {len(records)} de {n_total} cohortes)"
 
     labels = [str(record["period"]) for record in records]
     rates = [_optional_float(record["default_rate"]) for record in records]
@@ -637,13 +653,22 @@ def render_eda_default_rate(
     figure = _new_figure((6.5, 4.0), dpi=100)
     axes = figure.subplots()
     if axis == "cohort":
-        heights = [0.0 if rate is None else rate for rate in rates]
-        colors = [_EDA_LOW_CONFIDENCE_COLOR if flag else _EDA_RATE_COLOR for flag in low_confidence]
-        axes.bar(positions, heights, width=0.6, color=colors)
+        present = [
+            (pos, rate, flag)
+            for pos, rate, flag in zip(positions, rates, low_confidence, strict=True)
+            if rate is not None
+        ]
+        axes.bar(
+            [pos for pos, _, _ in present],
+            [rate for _, rate, _ in present],
+            width=0.6,
+            color=[
+                _EDA_LOW_CONFIDENCE_COLOR if flag else _EDA_RATE_COLOR for _, _, flag in present
+            ],
+        )
     else:
-        xs = [pos for pos, rate in zip(positions, rates, strict=True) if rate is not None]
-        ys = [rate for rate in rates if rate is not None]
-        axes.plot(xs, ys, color=_EDA_RATE_COLOR, linewidth=1.6)
+        for xs, ys in _segments_without_gaps(positions, rates):
+            axes.plot(xs, ys, color=_EDA_RATE_COLOR, linewidth=1.6)
         for pos, rate, flag in zip(positions, rates, low_confidence, strict=True):
             if rate is None:
                 continue
@@ -654,27 +679,116 @@ def render_eda_default_rate(
                 markersize=5.0,
                 color=_EDA_LOW_CONFIDENCE_COLOR if flag else _EDA_RATE_COLOR,
             )
-    axes.set_xticks(positions)
-    axes.set_xticklabels(
-        labels, rotation=45 if len(labels) > 8 else 0, ha="right" if len(labels) > 8 else "center"
-    )
+    absent = [pos for pos, rate in zip(positions, rates, strict=True) if rate is None]
+    _mark_absent(axes, absent)
+    _set_thinned_xticks(axes, positions, labels, rotation=45 if len(labels) > 8 else 0)
     # Aire arriba para que la leyenda no pise las barras o los puntos más altos.
     top = max((rate for rate in rates if rate is not None), default=0.0)
-    axes.set_ylim(0.0, top * (1.35 if any(low_confidence) else 1.15) if top > 0.0 else 1.0)
+    with_legend = any(low_confidence) or bool(absent)
+    axes.set_ylim(0.0, top * (1.35 if with_legend else 1.15) if top > 0.0 else 1.0)
     axes.set_ylabel("Tasa de incumplimiento")
     axes.yaxis.set_major_formatter(_numeric_formatter(3))
     axes.grid(True, axis="y", linewidth=0.4, alpha=0.4)
-    if any(low_confidence):
-        from matplotlib.patches import Patch
-
-        axes.legend(
-            handles=[Patch(color=_EDA_LOW_CONFIDENCE_COLOR, label="Poco fiable (bajo el mínimo)")],
-            loc="upper right",
-            frameon=False,
-        )
+    _eda_legend(axes, low_confidence=any(low_confidence), absent=bool(absent))
     axes.set_title(title)
     figure.tight_layout()
     return _render(figure, title, fmt)
+
+
+def _segments_without_gaps(
+    positions: list[int], rates: list[float | None]
+) -> list[tuple[list[int], list[float]]]:
+    """Trozos consecutivos con tasa: la línea se CORTA en un período sin tasa, no lo puentea.
+
+    Unir los vecinos de un período ausente dibujaría una tasa interpolada que el motor no calculó
+    (hallazgo de la revisión adversarial de S9). Cada trozo es ``(xs, ys)``, en orden.
+    """
+    segments: list[tuple[list[int], list[float]]] = []
+    xs: list[int] = []
+    ys: list[float] = []
+    for pos, rate in zip(positions, rates, strict=True):
+        if rate is None:
+            if xs:
+                segments.append((xs, ys))
+                xs, ys = [], []
+            continue
+        xs.append(pos)
+        ys.append(rate)
+    if xs:
+        segments.append((xs, ys))
+    return segments
+
+
+def _mark_absent(axes: Any, positions: list[int]) -> None:
+    """Una cruz gris en la base por cada categoría SIN tasa: se ve que falta, no que es cero."""
+    if positions:
+        axes.plot(
+            positions,
+            [0.0] * len(positions),
+            linestyle="none",
+            marker=_EDA_ABSENT_MARKER,
+            markersize=6.0,
+            markeredgewidth=1.4,
+            color=_EDA_LOW_CONFIDENCE_COLOR,
+            clip_on=False,
+        )
+
+
+def _set_thinned_xticks(
+    axes: Any,
+    positions: list[int],
+    labels: list[str],
+    *,
+    rotation: int,
+    fontsize: float | None = None,
+) -> None:
+    """Rotula a lo sumo :data:`_MAX_EDA_TICK_LABELS` marcas equiespaciadas; el resto, sin texto."""
+    step = max(1, -(-len(positions) // _MAX_EDA_TICK_LABELS))
+    shown = [label if index % step == 0 else "" for index, label in enumerate(labels)]
+    axes.set_xticks(positions)
+    kwargs: dict[str, Any] = {"rotation": rotation, "ha": "right" if rotation else "center"}
+    if fontsize is not None:
+        kwargs["fontsize"] = fontsize
+    axes.set_xticklabels(shown, **kwargs)
+
+
+def _eda_legend(
+    target: Any,
+    *,
+    low_confidence: bool,
+    absent: bool,
+    fontsize: float | None = None,
+    loc: str = "upper right",
+) -> None:
+    """La leyenda dice qué significa el gris y qué significa la cruz, sólo cuando aparecen.
+
+    ``target`` es un ``Axes`` o la ``Figure`` entera (una rejilla lleva una sola leyenda).
+    """
+    if not (low_confidence or absent):
+        return
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    handles: list[Any] = []
+    if low_confidence:
+        handles.append(Patch(color=_EDA_LOW_CONFIDENCE_COLOR, label=_EDA_LOW_CONFIDENCE_LABEL))
+    if absent:
+        handles.append(
+            Line2D(
+                [],
+                [],
+                linestyle="none",
+                marker=_EDA_ABSENT_MARKER,
+                markersize=6.0,
+                markeredgewidth=1.4,
+                color=_EDA_LOW_CONFIDENCE_COLOR,
+                label=_EDA_ABSENT_LABEL,
+            )
+        )
+    kwargs: dict[str, Any] = {"loc": loc, "frameon": False}
+    if fontsize is not None:
+        kwargs["fontsize"] = fontsize
+    target.legend(handles=handles, **kwargs)
 
 
 def render_eda_profiles(
@@ -700,21 +814,30 @@ def render_eda_profiles(
 
     figure = _new_figure((2.6 * n_cols + 0.8, 2.4 * n_rows + 0.8), dpi=100)
     grid = figure.subplots(n_rows, n_cols, squeeze=False)
+    any_absent = False
     for index, (name, frame) in enumerate(shown):
         _require_columns(frame, frozenset(("tramo", "default_rate")), what="render_eda_profiles")
         records = _frame_records(frame, ("tramo", "default_rate"))
         axes = grid[index // n_cols][index % n_cols]
         positions = list(range(len(records)))
-        heights = [
-            0.0 if _is_missing(record["default_rate"]) else _as_float(record["default_rate"])
-            for record in records
+        rates = [_optional_float(record["default_rate"]) for record in records]
+        present = [
+            (pos, rate) for pos, rate in zip(positions, rates, strict=True) if rate is not None
         ]
-        axes.bar(positions, heights, width=0.7, color=_EDA_RATE_COLOR)
-        axes.set_xticks(positions)
-        axes.set_xticklabels(
+        axes.bar(
+            [pos for pos, _ in present],
+            [rate for _, rate in present],
+            width=0.7,
+            color=_EDA_RATE_COLOR,
+        )
+        absent = [pos for pos, rate in zip(positions, rates, strict=True) if rate is None]
+        _mark_absent(axes, absent)
+        any_absent = any_absent or bool(absent)
+        _set_thinned_xticks(
+            axes,
+            positions,
             [_short_label(str(record["tramo"])) for record in records],
             rotation=60,
-            ha="right",
             fontsize=6,
         )
         axes.tick_params(axis="y", labelsize=7)
@@ -727,7 +850,13 @@ def render_eda_profiles(
     if len(items) > len(shown):
         title = f"{title} (primeras {len(shown)} de {len(items)} variables)"
     figure.suptitle(title, fontsize=10)
-    figure.tight_layout()
+    if any_absent:
+        # Una sola leyenda para la rejilla, bajo los paneles y con su sitio reservado: la cruz
+        # significa lo mismo en todos.
+        figure.tight_layout(rect=(0.0, 0.05, 1.0, 1.0))
+        _eda_legend(figure, low_confidence=False, absent=True, fontsize=7.0, loc="lower center")
+    else:
+        figure.tight_layout()
     return _render(figure, title, fmt)
 
 

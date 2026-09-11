@@ -480,6 +480,17 @@ def test_el_tipo_eda_result_espeja_la_card_y_sus_tres_tablas() -> None:
     ]
 
 
+def test_el_tope_de_barras_por_cohorte_es_el_mismo_en_el_informe_y_en_la_pantalla() -> None:
+    """El eje de cohorte acepta cualquier columna: el informe y el panel grafican como máximo el
+    mismo número de cohortes, en el orden del motor, y lo dicen (3.ª pasada adversarial de S9)."""
+    from nikodym.report import charts
+
+    fuente = _RESULTS_FORMAT.read_text(encoding="utf-8")
+    tope_ts = re.search(r"^export const EDA_MAX_RATE_BARS = (\d+)$", fuente, re.M)
+    assert tope_ts is not None, "results-format.ts no declara `EDA_MAX_RATE_BARS`"
+    assert int(tope_ts.group(1)) == charts._MAX_EDA_RATE_BARS
+
+
 def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -> None:
     """Las tablas viajan tal cual las publica el motor: mismas columnas, mismo orden.
 

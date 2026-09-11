@@ -204,7 +204,12 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   de cada variable descrita, hasta doce paneles y el título dice cuántas quedaron fuera. En
   HTML/QMD salen como SVG y en Word como PNG, como el resto de los gráficos, y la prosa dice lo que
   el documento reproduce. El anexo de tablas deja de traer el recuadro vacío que rotulaba esas
-  recetas con su clave interna.
+  recetas con su clave interna. Una cohorte, un período o un tramo **sin casos elegibles** no tiene
+  tasa, y ni la figura ni el panel lo dibujan como un 0 %: la figura pone una cruz en la base y la
+  leyenda lo dice, la línea se corta en ese período en vez de puentearlo, y el panel deja el hueco
+  y lo dice. Y como el eje de cohorte acepta cualquier columna, la figura y el panel grafican como
+  máximo 60 cohortes —las primeras en el orden del motor, y el título lo dice— y la tabla trae
+  todas; con muchos períodos, el eje rotula sólo algunas marcas para que se lean.
 
 - **Dos cohortes que se escriben igual no se funden en la pantalla.** El motor agrupa las cohortes
   con su tipo —la numérica `2024`, la decimal `2024.0` y la textual `"2024"` son tres— y JSON

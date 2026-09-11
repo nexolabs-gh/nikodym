@@ -2138,6 +2138,13 @@ export function edaChartKind(eda: EdaResult | null | undefined): "line" | "bar" 
   return eda.n_periods >= 2 ? "line" : "none"
 }
 
+/**
+ * Barras de la tasa por cohorte que se grafican como máximo (espejo de
+ * `nikodym.report.charts._MAX_EDA_RATE_BARS`, con gate): el eje de cohorte acepta cualquier columna
+ * y una casi única daría una barra por fila. La tabla trae todas; el gráfico, las primeras.
+ */
+export const EDA_MAX_RATE_BARS = 60
+
 /** Fila de la tasa en el tiempo lista para graficar o tabular. */
 export interface EdaRatePoint {
   /** Identidad estable de la fila (posición + etiqueta): clave de React y del gráfico. */

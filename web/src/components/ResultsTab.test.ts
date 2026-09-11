@@ -814,6 +814,43 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     expect((base.univariate ?? []).some((r) => r.column === "cohorte")).toBe(false)
   })
 
+  it("🔴 una cohorte sin casos elegibles no se dibuja como 0 %: la leyenda dice que no hay tasa", () => {
+    // Tercera pasada adversarial de S9: `rate: null` no es cero. El gráfico no la dibuja
+    // (recharts omite `undefined`) y lo dice; una tasa real de 0 no lleva esa leyenda.
+    const filas = (base.default_rate ?? []).map((row, i) =>
+      i === 1 ? { ...row, default_rate: null, n_eligible: 0, n_bad: 0, low_confidence: true } : row,
+    )
+    const conAusencia = render(conEda({ ...base, default_rate: filas }))
+    expect(conAusencia).toContain("Sin tasa (ningún caso elegible): no se dibuja")
+    const conCero = render(
+      conEda({
+        ...base,
+        default_rate: (base.default_rate ?? []).map((row, i) =>
+          i === 1 ? { ...row, default_rate: 0, n_bad: 0 } : row,
+        ),
+      }),
+    )
+    expect(conCero).not.toContain("Sin tasa (ningún caso elegible)")
+  })
+
+  it("🔴 con más cohortes que barras se grafican las primeras, se dice, y la tabla trae todas", () => {
+    const n = 200
+    const filas = Array.from({ length: n }, (_, i) => ({
+      period: `c${String(i).padStart(3, "0")}`,
+      n_total: 100,
+      n_eligible: 100,
+      n_bad: 10,
+      default_rate: 0.1,
+      low_confidence: false,
+      period_type: "str",
+    }))
+    const html = render(conEda({ ...base, n_periods: n, default_rate: filas }))
+    expect(html).toContain("Se grafican las primeras 60 de 200 cohortes")
+    expect(html).toContain("c199")
+    const pocas = render(conEda(base))
+    expect(pocas).not.toContain("Se grafican las primeras")
+  })
+
   it("ningún slug del motor llega a la pantalla", () => {
     const html = render(conEda(base))
     for (const slug of ["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero", ">cv<"]) {

@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts"
 
-import { EMPTY, formatCount, formatPercent } from "@/lib/results-format"
+import { EDA_MAX_RATE_BARS, EMPTY, formatCount, formatPercent } from "@/lib/results-format"
 import type { EdaRatePoint } from "@/lib/results-format"
 
 import { AXIS_LINE, AXIS_TICK, BAR_PRIMARY, BRAND, CURSOR_FILL, GRID_STROKE } from "./chart-theme"
@@ -68,7 +68,10 @@ function pointColor(point: EdaRatePoint): string {
  * (`axis="period"`) y BARRAS sobre cohortes, decidido por el eje EFECTIVO de la card y no por el
  * config — con la inferencia de D-SC-3 pueden diferir—. Sólo grafica `eda.default_rate` ya
  * normalizado por `edaRatePoints`; CERO cálculo. Los períodos de baja confianza se pintan tenues
- * y lo dicen en el tooltip: se ven, marcados, como en la tabla del motor.
+ * y lo dicen en el tooltip: se ven, marcados, como en la tabla del motor. Una tasa AUSENTE (ningún
+ * caso elegible) no se dibuja —ni barra ni punto, y la línea se corta— y la leyenda lo dice, igual
+ * que la figura del informe. Sobre cohortes se grafican como máximo `EDA_MAX_RATE_BARS`, en el
+ * orden del motor, y se dice; la tabla trae todas.
  */
 export function EdaDefaultRateChart({
   kind,
@@ -78,10 +81,17 @@ export function EdaDefaultRateChart({
   points: EdaRatePoint[]
 }) {
   if (points.length === 0) return null
-  const data = points.map((p) => ({ ...p, rateOrNull: p.rate ?? undefined }))
+  const shown = kind === "bar" ? points.slice(0, EDA_MAX_RATE_BARS) : points
+  const data = shown.map((p) => ({ ...p, rateOrNull: p.rate ?? undefined }))
 
   return (
     <div className="space-y-2" data-eda-chart={kind}>
+      {points.length > shown.length ? (
+        <p className="text-xs text-muted-foreground">
+          Se grafican las primeras {formatCount(shown.length)} de {formatCount(points.length)}{" "}
+          cohortes, en el orden del motor; la tabla de abajo trae todas.
+        </p>
+      ) : null}
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           {kind === "line" ? (
@@ -169,7 +179,7 @@ export function EdaDefaultRateChart({
           />
           {kind === "line" ? "Tasa por período" : "Tasa por cohorte"}
         </span>
-        {points.some((p) => p.lowConfidence) ? (
+        {shown.some((p) => p.lowConfidence) ? (
           <span className="flex items-center gap-1.5">
             <span
               className="size-2 rounded-[2px]"
@@ -177,6 +187,14 @@ export function EdaDefaultRateChart({
               aria-hidden="true"
             />
             Poco fiable (menos operaciones que el mínimo)
+          </span>
+        ) : null}
+        {shown.some((p) => p.rate === null) ? (
+          <span className="flex items-center gap-1.5">
+            <span className="font-mono leading-none" style={{ color: BRAND.gray }} aria-hidden="true">
+              ×
+            </span>
+            Sin tasa (ningún caso elegible): no se dibuja
           </span>
         ) : null}
       </div>

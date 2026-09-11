@@ -131,9 +131,12 @@ estabilidad o su causa, la tabla de calidad con sus marcas y un desplegable por 
 En el informe, la subsección **Población y calidad de datos** del capítulo de contexto reproduce la
 tasa por período o cohorte —graficada con el mismo criterio que la pantalla, y en su tabla— y la
 calidad por columna, más una figura con la tasa por tramo de cada variable descrita (hasta doce
-paneles; si hay más variables, el título dice cuántas quedaron fuera). La prosa dice el eje
-efectivo, si el motor lo tomó de la partición y por qué la señal temporal no se evaluó cuando no se
-evaluó. Los perfiles por variable van al anexo de tablas, uno por columna descrita.
+paneles; si hay más variables, el título dice cuántas quedaron fuera). Una cohorte, un período o un
+tramo sin casos elegibles no tiene tasa y no se dibuja como un 0 %: la figura lo marca con una cruz
+y lo dice en la leyenda; sobre cohortes se grafican como máximo sesenta, en el orden del motor, y la
+tabla trae todas. La prosa dice el eje efectivo, si el motor lo tomó de la partición y por qué la
+señal temporal no se evaluó cuando no se evaluó. Los perfiles por variable van al anexo de tablas,
+uno por columna descrita.
 
 ## 6. Por código
 

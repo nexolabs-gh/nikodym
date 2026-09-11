@@ -548,3 +548,119 @@ def test_eda_charts_tambien_salen_en_png_para_word() -> None:
     assert isinstance(png, bytes) and png.startswith(b"\x89PNG")
     png = charts.render_eda_profiles(_eda_profiles(), title="P", fmt="png")
     assert isinstance(png, bytes) and png.startswith(b"\x89PNG")
+
+
+# ── tercera pasada de la revisión adversarial de S9: ausencias y cardinalidad ──
+
+
+def _eda_by_period_con_tasa(n: int, *, rate_at_1: float | None, axis_labels: bool) -> pd.DataFrame:
+    """La tabla de la tasa con la segunda fila en ``rate_at_1`` (``None`` = sin casos elegibles)."""
+    frame = _eda_by_period(n, axis_labels=axis_labels)
+    frame.loc[1, "default_rate"] = float("nan") if rate_at_1 is None else rate_at_1
+    frame.loc[1, "n_eligible"] = 0 if rate_at_1 is None else 100
+    frame.loc[1, "n_bad"] = 0
+    frame.loc[1, "low_confidence"] = rate_at_1 is None
+    return frame
+
+
+@pytest.mark.parametrize("axis", ["cohort", "period"])
+def test_eda_default_rate_una_tasa_ausente_se_marca_y_no_se_dibuja_como_cero(axis: str) -> None:
+    """🔴 Una cohorte sin casos elegibles no tiene tasa; dibujarla como una barra de altura cero la
+    haría pasar por un 0 % real (hallazgo de la revisión adversarial de S9). La ausencia se marca
+    con una cruz y la leyenda lo dice; una tasa real de 0,0 no lleva ni cruz ni leyenda."""
+    ausente = charts.render_eda_default_rate(
+        _eda_by_period_con_tasa(4, rate_at_1=None, axis_labels=axis == "period"),
+        axis=axis,
+        title="T",
+    )
+    cero = charts.render_eda_default_rate(
+        _eda_by_period_con_tasa(4, rate_at_1=0.0, axis_labels=axis == "period"),
+        axis=axis,
+        title="T",
+    )
+    assert ausente != cero
+    assert "Sin tasa (ningún caso elegible)" in ausente
+    assert "Sin tasa (ningún caso elegible)" not in cero
+
+
+def test_eda_default_rate_la_linea_se_corta_en_un_periodo_sin_tasa() -> None:
+    """Puentear el hueco dibujaría una tasa interpolada que el motor no calculó."""
+    assert charts._segments_without_gaps([0, 1, 2, 3], [0.1, None, 0.3, 0.4]) == [
+        ([0], [0.1]),
+        ([2, 3], [0.3, 0.4]),
+    ]
+    assert charts._segments_without_gaps([0, 1], [None, None]) == []
+
+
+def test_eda_default_rate_acota_las_cohortes_y_lo_dice_en_el_titulo() -> None:
+    """🔴 El eje de cohorte acepta cualquier columna: una casi única daría una barra por fila."""
+    n = 200
+    frame = pd.DataFrame(
+        {
+            "period": [f"c{i:03d}" for i in range(n)],
+            "n_total": [100] * n,
+            "n_eligible": [100] * n,
+            "n_bad": [10] * n,
+            "default_rate": [0.1] * n,
+            "low_confidence": [False] * n,
+        }
+    )
+    svg = charts.render_eda_default_rate(frame, axis="cohort", title="Tasa")
+    assert "(primeras 60 de 200 cohortes)" in svg
+    assert "c000" in svg and "c060" not in svg and "c199" not in svg
+
+
+def test_eda_default_rate_con_muchos_periodos_rotula_solo_algunas_marcas() -> None:
+    """La línea dibuja todos los períodos; los rótulos del eje se ralean para que se lean."""
+    n = 120
+    frame = pd.DataFrame(
+        {
+            "period": [f"p{i:03d}" for i in range(n)],
+            "n_total": [100] * n,
+            "n_eligible": [100] * n,
+            "n_bad": [10] * n,
+            "default_rate": [0.1 + 0.001 * i for i in range(n)],
+            "low_confidence": [False] * n,
+        }
+    )
+    svg = charts.render_eda_default_rate(frame, axis="period", title="Tasa")
+    rotulos = re.findall(r"p\d{3}", svg)
+    assert 0 < len(set(rotulos)) <= 24
+    assert "p000" in svg and "p115" in svg and "p001" not in svg
+    assert "(primeras" not in svg, "sobre el eje temporal no se recorta la serie"
+
+
+def test_eda_default_rate_con_miles_de_cohortes_termina_rapido_y_acotado() -> None:
+    """Prueba adversarial: 5.000 cohortes no agotan el render ni inflan el artefacto."""
+    import time
+
+    n = 5_000
+    frame = pd.DataFrame(
+        {
+            "period": [f"id-{i}" for i in range(n)],
+            "n_total": [3] * n,
+            "n_eligible": [3] * n,
+            "n_bad": [1] * n,
+            "default_rate": [1 / 3] * n,
+            "low_confidence": [True] * n,
+        }
+    )
+    inicio = time.perf_counter()
+    svg = charts.render_eda_default_rate(frame, axis="cohort", title="Tasa")
+    assert time.perf_counter() - inicio < 10.0
+    assert len(svg) < 300_000
+    assert "(primeras 60 de 5000 cohortes)" in svg
+
+
+def test_eda_profiles_un_tramo_sin_tasa_se_marca_y_no_se_dibuja_como_cero() -> None:
+    """El tramo «missing» sin casos elegibles del fixture lleva la cruz y la leyenda; sin
+    ausencias, ninguna de las dos."""
+    con_ausencia = charts.render_eda_profiles(_eda_profiles(), title="P")
+    assert "Sin tasa (ningún caso elegible)" in con_ausencia
+    completos = {
+        name: frame.assign(default_rate=frame["default_rate"].fillna(0.0))
+        for name, frame in _eda_profiles().items()
+    }
+    sin_ausencia = charts.render_eda_profiles(completos, title="P")
+    assert "Sin tasa (ningún caso elegible)" not in sin_ausencia
+    assert con_ausencia != sin_ausencia
