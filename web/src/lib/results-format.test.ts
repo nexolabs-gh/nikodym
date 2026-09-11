@@ -2783,21 +2783,45 @@ describe("edaRatePoints: dos cohortes que se escriben igual no se funden (D-SC-5
     axis_inferred: false,
     stability_not_evaluable_reason: "eje_cohorte" as const,
     default_rate: [
-      { period: 2024, n_total: 10, n_eligible: 10, n_bad: 1, default_rate: 0.1, low_confidence: false },
-      { period: "2024", n_total: 10, n_eligible: 10, n_bad: 2, default_rate: 0.2, low_confidence: false },
-      { period: "2025", n_total: 10, n_eligible: 10, n_bad: 3, default_rate: 0.3, low_confidence: false },
+      { period: 2024, n_total: 10, n_eligible: 10, n_bad: 1, default_rate: 0.1, low_confidence: false, period_type: "int" },
+      { period: 2024, n_total: 10, n_eligible: 10, n_bad: 4, default_rate: 0.4, low_confidence: false, period_type: "float" },
+      { period: "2024", n_total: 10, n_eligible: 10, n_bad: 2, default_rate: 0.2, low_confidence: false, period_type: "str" },
+      { period: "2025", n_total: 10, n_eligible: 10, n_bad: 3, default_rate: 0.3, low_confidence: false, period_type: "str" },
     ],
   }
 
-  it("desambigua las etiquetas repetidas con el tipo y deja únicas las claves", () => {
+  it("desambigua las etiquetas repetidas con el tipo del motor y deja únicas las claves", () => {
+    // `2024` (int) y `2024.0` (float) llegan como el MISMO número JavaScript: sólo el tipo que
+    // publica el serializer permite distinguirlos, que es lo que la segunda pasada de Codex pidió.
     const puntos = edaRatePoints(eda)
-    expect(puntos.map((p) => p.label)).toEqual(["2024 (número)", "2024 (texto)", "2025"])
-    expect(new Set(puntos.map((p) => p.key)).size).toBe(3)
-    expect(new Set(puntos.map((p) => p.label)).size).toBe(3)
+    expect(puntos.map((p) => p.label)).toEqual([
+      "2024 (entero)",
+      "2024 (decimal)",
+      "2024 (texto)",
+      "2025",
+    ])
+    expect(new Set(puntos.map((p) => p.key)).size).toBe(4)
+    expect(new Set(puntos.map((p) => p.label)).size).toBe(4)
+  })
+
+  it("una cohorte lógica y el texto que se escribe igual tampoco se funden", () => {
+    // `true` → `String(true) === "true"`: el caso exacto de la segunda pasada adversarial.
+    const logica = { ...eda.default_rate[0], period: true, period_type: "bool" }
+    const texto = { ...eda.default_rate[0], period: "true", period_type: "str" }
+    const puntos = edaRatePoints({ ...eda, default_rate: [logica, texto] })
+    expect(puntos.map((p) => p.label)).toEqual(["true (lógico)", "true (texto)"])
+    expect(new Set(puntos.map((p) => p.key)).size).toBe(2)
+  })
+
+  it("un resultado guardado antes de que viajara el tipo cae al tipo JSON, sin reventar", () => {
+    const sinTipo = eda.default_rate.slice(0, 1).map((r) => ({ ...r, period_type: null }))
+    const conTexto = { ...eda.default_rate[2], period_type: null }
+    const puntos = edaRatePoints({ ...eda, default_rate: [...sinTipo, conTexto] })
+    expect(puntos.map((p) => p.label)).toEqual(["2024 (decimal)", "2024 (texto)"])
   })
 
   it("sin repeticiones no añade nada a la etiqueta", () => {
-    const puntos = edaRatePoints({ ...eda, default_rate: eda.default_rate.slice(1) })
+    const puntos = edaRatePoints({ ...eda, default_rate: eda.default_rate.slice(2) })
     expect(puntos.map((p) => p.label)).toEqual(["2024", "2025"])
   })
 

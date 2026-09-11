@@ -343,7 +343,12 @@ def _eda_default_rate(study: Study) -> list[dict[str, Any]] | None:
     if not study.artifacts.has("eda", "default_rate"):
         return None
     by_period = study.artifacts.get("eda", "default_rate").by_period
-    return _frame_records(by_period.assign(period=by_period["period"].map(_period_label)))
+    return _frame_records(
+        by_period.assign(
+            period=by_period["period"].map(_period_label),
+            period_type=by_period["period"].map(_period_type),
+        )
+    )
 
 
 def _period_label(value: Any) -> Any:
@@ -363,6 +368,34 @@ def _period_label(value: Any) -> Any:
     if native is None or isinstance(native, (str, int, float, bool)):
         return native
     return str(value)
+
+
+def _period_type(value: Any) -> str | None:
+    """El TIPO con que el motor distinguió un período o cohorte, para que el front no funda dos.
+
+    El motor agrupa las cohortes de forma tipo-consciente —la numérica ``2024`` y la textual
+    ``"2024"`` son grupos distintos— y JSON pierde parte de esa identidad (``2024`` y ``2024.0``
+    son el mismo número en JavaScript). Con el tipo al lado del valor, la pantalla puede
+    distinguir dos cohortes que se escriban igual (hallazgo de la revisión adversarial de S9).
+    ``bool`` va antes que ``int`` porque en Python es su subclase.
+    """
+    import pandas as pd  # local: este módulo no arrastra pandas al importarse
+
+    if value is None or value is pd.NA or value is pd.NaT:
+        return None
+    if isinstance(value, (bool, np.bool_)):
+        return "bool"
+    if isinstance(value, (int, np.integer)):
+        return "int"
+    if isinstance(value, (float, np.floating)):
+        return None if value != value else "float"
+    if isinstance(value, str):
+        return "str"
+    if isinstance(value, pd.Period):
+        return "period"
+    if isinstance(value, pd.Timestamp):
+        return "datetime"
+    return type(value).__name__
 
 
 def _eda_quality(study: Study) -> list[dict[str, Any]] | None:

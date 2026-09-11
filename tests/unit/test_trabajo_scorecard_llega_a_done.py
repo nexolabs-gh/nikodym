@@ -184,6 +184,17 @@ def test_el_informe_de_la_corrida_trae_la_poblacion_con_sus_tablas(corrida: dict
     subseccion = html[inicio:fin]
     assert "Tasa de incumplimiento observada por período o cohorte" in subseccion
     assert "Calidad de datos por columna" in subseccion
+    # Las figuras de `eda` se dibujan en el cuerpo (barras: el eje efectivo es la cohorte), y la
+    # prosa dice lo que el documento reproduce, no un conteo de recetas que nadie dibuja.
+    assert subseccion.count("<svg") == 2
+    assert "<title>Tasa de incumplimiento observada en el tiempo</title>" in subseccion
+    assert "<title>Tasa de incumplimiento por tramo de cada variable descrita</title>" in subseccion
+    assert "la tasa de incumplimiento por cohorte, graficada y en su tabla" in subseccion
+    assert "publicó" not in subseccion
+    # Las recetas no tienen slot vacío en el anexo (la clave sí se lista en el manifiesto del
+    # Anexo B junto a las de las tablas: eso es trazabilidad, no copy).
+    assert "data-figure=" not in html
+    assert "figure-eda-figures" not in html
     assert "2023Q1" in subseccion and "2024Q1" in subseccion
     assert "Tabla «eda." not in html, "una tabla de eda quedó con su clave cruda por título"
     assert "Perfil frente al incumplimiento — variable «segmento»" in html

@@ -1324,17 +1324,37 @@ def _eda_reason_label(reason: str) -> str:
 
 
 def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
-    """Población: qué muestran las tablas de tasa de incumplimiento y calidad."""
+    """Población: qué se reproduce a continuación, dicho por lo que el documento dibuja.
+
+    Hasta la capa 3 esta frase anunciaba «N figuras» leyendo ``n_figures`` de la card, y el
+    documento no dibujaba ninguna (hallazgo de la revisión adversarial de S9): las recetas de
+    ``eda.figures`` sólo llegaban al anexo como un slot vacío. Ahora la tasa en el tiempo y los
+    perfiles se grafican en el cuerpo, y la frase dice exactamente eso —sin figura de la tasa
+    cuando hay un solo período, que se reproduce en la tabla—.
+    """
     card = _card(bundle, "eda")
     if card is None:
         return ()
-    figures = _int(card.get("n_figures"))
-    if figures:
-        return (
-            f"El análisis exploratorio publicó {figures} {_plural(figures, 'figura', 'figuras')} "
-            "y las tablas de tasa de incumplimiento y calidad que se reproducen a continuación.",
+    periods = _int(card.get("n_periods"))
+    if periods is None:
+        # Una card sin la tasa por período —sintética, o anterior a SDD-27— no describe nada.
+        return ()
+    axis = _text(card.get("axis")) or "period"
+    columns = _int(card.get("n_columns_profiled")) or 0
+    piezas: list[str] = []
+    if axis == "cohort" or periods >= 2:
+        piezas.append(
+            "la tasa de incumplimiento "
+            + ("por cohorte" if axis == "cohort" else "por período")
+            + ", graficada y en su tabla"
         )
-    return ()
+    else:
+        piezas.append("la tasa de incumplimiento en su tabla (un solo período: no hay serie)")
+    if columns:
+        descritas = _plural(columns, "variable descrita", "variables descritas")
+        piezas.append(f"el perfil por tramo de {columns} {descritas}")
+    piezas.append("la calidad de datos por columna")
+    return (f"A continuación se reproducen {_enumerar(tuple(piezas))}.",)
 
 
 def _results_binning(bundle: ReportInputBundle) -> tuple[str, ...]:

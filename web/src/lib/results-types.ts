@@ -224,14 +224,21 @@ export type EdaNotEvaluableReason =
 /** Las tres marcas booleanas de la tabla de calidad (`QualityFlag` del backend). */
 export type EdaQualityFlag = "near_constant" | "near_unique" | "high_cardinality"
 
-/** Fila de `eda.default_rate`: la tasa de un período o cohorte (`DefaultRateResult.by_period`). */
+/**
+ * Fila de `eda.default_rate`: la tasa de un período o cohorte (`DefaultRateResult.by_period`),
+ * más `period_type`, que añade el serializer: el TIPO con que el motor distinguió la cohorte
+ * (`int`, `float`, `bool`, `str`, `datetime`, `period`), porque JSON funde `2024` con `2024.0` y
+ * `true` con `"true"`, y la pantalla no puede fundir dos cohortes que el motor mantiene separadas.
+ * `period` es lo que el serializer deja pasar nativo: texto, número o lógico; lo demás, su texto.
+ */
 export interface EdaPeriodRow {
-  period: string | number | null
+  period: string | number | boolean | null
   n_total: number
   n_eligible: number
   n_bad: number
   default_rate: number | null
   low_confidence: boolean
+  period_type: string | null
 }
 
 /** Fila de `eda.quality`: una columna del archivo con sus marcas (`QualityResult.by_column`). */

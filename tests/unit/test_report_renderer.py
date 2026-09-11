@@ -60,7 +60,11 @@ from nikodym.validation.results import VALIDATION_STATUS_LABELS
 # Recalculado (tabla ancha en el PDF): el `figure.table-block` de una tabla de 10+ columnas suma la
 # clase `table-block--wide`, que en @media print manda esa tabla a una hoja apaisada. Sólo cambia
 # ese atributo de clase; el resto del markup (ids, thead/tbody, orden, literales) es idéntico.
-GOLDEN_HTML_SHA256 = "a6092e41845da36eb782596c6feee7df25f02896814664c54bbc29956c1fb710"
+# Recalculado (D-SC-5, S9): el Anexo B deja de emitir el slot vacío de las recetas de figura
+# (`<figure class="chart-slot" id="figure-eda-figures" data-figure="eda.figures">` con la clave
+# interna por rótulo): las figuras de `eda` se dibujan en el cuerpo de su subsección. Medido con
+# `diff` sobre los dos renders: cambian SOLO esas tres líneas.
+GOLDEN_HTML_SHA256 = "f2c483804b5ee775ed60377bed2e665ee189e3f489f35131a922f22123e4a964"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -331,7 +335,12 @@ def test_el_dump_se_degrada_a_anexo_pero_no_se_duplica() -> None:
 
     # Lo que el cuerpo NO muestra sigue íntegro en el anexo: la trazabilidad no se pierde.
     assert 'data-table-key="selection.correlation_matrix"' in anexo_b
-    assert 'data-figure="eda.figures"' in anexo_b
+    # Las recetas de figura NO tienen slot en el anexo: se dibujan en el cuerpo de su subsección
+    # (`test_las_figuras_de_eda_se_dibujan_en_el_cuerpo_de_la_subseccion`). El slot vacío que
+    # había aquí rotulaba con la clave interna `eda.figures`, y un código interno no es copy
+    # público (hallazgo de la revisión adversarial de S9).
+    assert "data-figure=" not in html
+    assert "figure-eda-figures" not in html
 
     # Anexo C: el payload crudo, con su artefacto de origen.
     assert "minus_zero" in anexo_c_eda
@@ -582,8 +591,7 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     html = renderer.render(_bundle(figures={"eda.figures": MiniFigure(figure_id="a", title="A")}))
 
     assert "font-family:Arial" in html
-    assert "figure-eda-figures" in html
-    assert "MiniFigure" not in html
+    assert "MiniFigure" not in html  # la receta no se vuelca cruda, y ya no tiene slot en el anexo
     assert report_pkg.HtmlReportRenderer is HtmlReportRenderer
     assert report_pkg.PdfReportRenderer is PdfReportRenderer
 
@@ -766,6 +774,52 @@ def test_charts_degradan_con_gracia_sin_crashear() -> None:
     )
     assert 'id="chart-' not in incompleto
     assert "report-section" in incompleto
+
+
+def _eda_tables(n_periods: int) -> dict[str, pd.DataFrame]:
+    return {
+        "eda.default_rate.by_period": pd.DataFrame(
+            {
+                "period": [f"2024-0{i + 1}" for i in range(n_periods)],
+                "n_total": [100] * n_periods,
+                "n_eligible": [100] * n_periods,
+                "n_bad": [10] * n_periods,
+                "default_rate": [0.1] * n_periods,
+                "low_confidence": [False] * n_periods,
+            }
+        ),
+        "eda.univariate.profiles.score": pd.DataFrame(
+            {"tramo": ["a", "b"], "n": [1, 2], "coverage": [0.3, 0.7], "default_rate": [0.1, 0.2]}
+        ),
+    }
+
+
+def _eda_charts(n_periods: int, *, axis: str) -> list[str]:
+    """Los gráficos que el cuerpo de «Población y calidad de datos» produce con esa card."""
+    section = _section("context.eda", "Población y calidad de datos", level=2, number="2.2")
+    bundle = _bundle(
+        tables=_eda_tables(n_periods), figures={}, sections_override=(section,)
+    ).model_copy(update={"cards": {"eda": {"axis": axis, "n_periods": n_periods}}})
+    return [
+        chart["html_id"]
+        for chart in renderer_module._charts_for_section(bundle, section, ReportConfig())
+    ]
+
+
+def test_las_figuras_de_eda_se_dibujan_en_el_cuerpo_de_la_subseccion() -> None:
+    """D-SC-5: las recetas de `eda.figures` dejan de ser un slot vacío del anexo.
+
+    🔴 Hallazgo de la revisión adversarial de S9: la prosa anunciaba «N figuras» y el documento no
+    dibujaba ninguna. Ahora la tasa en el tiempo y los perfiles salen por el pipeline de gráficos,
+    en HTML/QMD como SVG y en Word como PNG, igual que desempeño o calibración.
+    """
+    assert _eda_charts(3, axis="period") == ["chart-eda-eda_default_rate", "chart-eda-eda_profiles"]
+    assert _eda_charts(1, axis="cohort") == ["chart-eda-eda_default_rate", "chart-eda-eda_profiles"]
+
+
+def test_con_un_solo_periodo_no_hay_figura_de_la_tasa_y_los_perfiles_siguen() -> None:
+    """D-SC-5 (b): sin serie temporal no hay línea de un punto, y no es una degradación."""
+    assert _eda_charts(1, axis="period") == ["chart-eda-eda_profiles"]
 
 
 def test_renderer_propaga_el_agrupamiento_interno_al_titulo_de_tabla() -> None:

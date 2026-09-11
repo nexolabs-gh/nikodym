@@ -3,8 +3,9 @@
  * comportamiento (PD)» sobre `consumo_comportamiento` (6.000 operaciones, partición por cohorte),
  * con los defaults de la sección: `axis="period"` sin columna de fecha, así que el motor tomó la
  * cohorte de la partición (D-SC-3) y la señal temporal quedó sin evaluar por `eje_cohorte`
- * (D-SC-2). Capturado el 2026-09-11 (capa 3 del scorecard completo); `stability_value` llega
- * `null` porque el serializer publica el `NaN` del motor como ausencia.
+ * (D-SC-2). Capturado el 2026-09-11 (capa 3 del scorecard completo) y recapturado el mismo día
+ * cuando la fila de la tasa ganó `period_type`; `stability_value` llega `null` porque el
+ * serializer publica el `NaN` del motor como ausencia.
  *
  * Es el caso «cohorte inferida» de los tres que §6 de la enmienda pide gatear; los otros dos se
  * derivan de éste en el test cambiando sólo la card, porque son la misma corrida vista con otro
@@ -37,7 +38,8 @@ export const EDA_SCORECARD_REAL: EdaResult = {
       "n_eligible": 815,
       "n_bad": 187,
       "default_rate": 0.2294478527607362,
-      "low_confidence": false
+      "low_confidence": false,
+      "period_type": "str"
     },
     {
       "period": "2023Q2",
@@ -45,7 +47,8 @@ export const EDA_SCORECARD_REAL: EdaResult = {
       "n_eligible": 822,
       "n_bad": 181,
       "default_rate": 0.22019464720194648,
-      "low_confidence": false
+      "low_confidence": false,
+      "period_type": "str"
     },
     {
       "period": "2023Q3",
@@ -53,7 +56,8 @@ export const EDA_SCORECARD_REAL: EdaResult = {
       "n_eligible": 819,
       "n_bad": 180,
       "default_rate": 0.21978021978021978,
-      "low_confidence": false
+      "low_confidence": false,
+      "period_type": "str"
     },
     {
       "period": "2023Q4",
@@ -61,7 +65,8 @@ export const EDA_SCORECARD_REAL: EdaResult = {
       "n_eligible": 801,
       "n_bad": 188,
       "default_rate": 0.23470661672908863,
-      "low_confidence": false
+      "low_confidence": false,
+      "period_type": "str"
     },
     {
       "period": "2024Q1",
@@ -69,7 +74,8 @@ export const EDA_SCORECARD_REAL: EdaResult = {
       "n_eligible": 762,
       "n_bad": 184,
       "default_rate": 0.24146981627296588,
-      "low_confidence": false
+      "low_confidence": false,
+      "period_type": "str"
     }
   ],
   "quality": [

@@ -36,11 +36,9 @@
   {% include "_data_exports.html.j2" %}
   {% endif %}
 
-  {% for figure in section.figures %}
-  <figure class="chart-slot" id="{{ figure.html_id }}" data-figure="{{ figure.key }}">
-    <figcaption>{{ figure.key }}</figcaption>
-  </figure>
-  {% endfor %}
+  {# Las recetas de figura (`eda.figures`) no tienen slot aquí: se dibujan en el cuerpo de su
+     subsección por el pipeline de gráficos (D-SC-5). El slot vacío que hubo en este sitio
+     rotulaba con la clave interna, y un código interno no es copy público. #}
 
   {% if section.narration %}
   {% include "_narration.html.j2" %}

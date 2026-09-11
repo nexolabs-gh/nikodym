@@ -172,8 +172,41 @@ def _stability_frame() -> pd.DataFrame:
     )
 
 
+def _eda_by_period(n: int = 3, *, axis_labels: bool = False) -> pd.DataFrame:
+    """La tabla de la tasa por período o cohorte tal como la publica ``DefaultRateResult``."""
+    periods = [f"2024Q{i + 1}" for i in range(n)] if axis_labels else list(range(n))
+    return pd.DataFrame(
+        {
+            "period": periods,
+            "n_total": [100] * n,
+            "n_eligible": [100] * n,
+            "n_bad": [10 + 5 * i for i in range(n)],
+            "default_rate": [0.10 + 0.05 * i for i in range(n)],
+            "low_confidence": [i == n - 1 for i in range(n)],
+        }
+    )
+
+
+def _eda_profiles(n_columns: int = 2) -> dict[str, pd.DataFrame]:
+    return {
+        f"variable_{i}": pd.DataFrame(
+            {
+                "tramo": ["(0.0, 1.0]", "(1.0, 2.0]", "missing"],
+                "n": [40, 50, 10],
+                "coverage": [0.4, 0.5, 0.1],
+                "default_rate": [0.05 + 0.01 * i, 0.20, float("nan")],
+            }
+        )
+        for i in range(n_columns)
+    }
+
+
 def _all_charts() -> dict[str, str]:
     return {
+        "eda_default_rate": charts.render_eda_default_rate(
+            _eda_by_period(axis_labels=True), axis="period", title="Tasa en el tiempo"
+        ),
+        "eda_profiles": charts.render_eda_profiles(_eda_profiles(), title="Perfiles"),
         "gains": charts.render_gains_chart(_deciles_frame(), title="Ganancia"),
         "reliability": charts.render_reliability_chart(_reliability_payload(), title="Calibración"),
         "coefficients": charts.render_coefficients_forest(
@@ -213,9 +246,18 @@ sys.stdout.write(hashlib.sha256(bars.encode()).hexdigest())
 # ─────────────────────────── determinismo ───────────────────────────
 
 
-@pytest.mark.parametrize(
-    "name", ["gains", "reliability", "coefficients", "discrimination", "stability"]
-)
+_NOMBRES = [
+    "eda_default_rate",
+    "eda_profiles",
+    "gains",
+    "reliability",
+    "coefficients",
+    "discrimination",
+    "stability",
+]
+
+
+@pytest.mark.parametrize("name", _NOMBRES)
 def test_render_es_byte_identico_same_machine(name: str) -> None:
     first = _all_charts()[name]
     second = _all_charts()[name]
@@ -245,9 +287,7 @@ def _clean_env() -> dict[str, str]:
 # ─────────────────────────── estructura y anti-no-determinismo ───────────────────────────
 
 
-@pytest.mark.parametrize(
-    "name", ["gains", "reliability", "coefficients", "discrimination", "stability"]
-)
+@pytest.mark.parametrize("name", _NOMBRES)
 def test_svg_estructura_y_accesibilidad(name: str) -> None:
     svg = _all_charts()[name]
     assert "<svg" in svg and "viewBox=" in svg
@@ -461,3 +501,50 @@ def test_reporta_sha_y_tamano_same_machine(capsys: pytest.CaptureFixture[str]) -
             sha = hashlib.sha256(svg.encode()).hexdigest()
             size_kb = round(len(svg.encode()) / 1024, 1)
             print(f"[charts] {name:14s} {size_kb:5.1f} KB  sha256={sha}")
+
+
+# ─────────────────────────── análisis exploratorio (D-SC-5) ───────────────────────────
+
+
+def test_eda_default_rate_por_cohorte_dibuja_barras_y_por_periodo_linea() -> None:
+    """La figura la decide el eje efectivo: barras sobre cohortes, línea sobre períodos."""
+    barras = charts.render_eda_default_rate(_eda_by_period(), axis="cohort", title="T")
+    linea = charts.render_eda_default_rate(_eda_by_period(), axis="period", title="T")
+    assert barras != linea
+    # matplotlib emite las barras como paths de un `PatchCollection`/`Rectangle`; la línea, como
+    # un `Line2D`. Lo que importa es que sean figuras distintas y ambas válidas.
+    for svg in (barras, linea):
+        assert svg.startswith("<svg") and svg.endswith("</svg>\n")
+        assert "Poco fiable (bajo el mínimo)" in svg, "la marca de baja confianza se lee"
+
+
+def test_eda_default_rate_con_un_solo_periodo_no_dibuja_la_linea_de_un_punto() -> None:
+    """D-SC-5 (b): sobre el eje temporal una línea exige dos períodos; el builder lo omite."""
+    with pytest.raises(ReportInputError, match="al menos dos períodos"):
+        charts.render_eda_default_rate(_eda_by_period(1), axis="period", title="T")
+    # Una sola cohorte sí se dibuja: una barra no sugiere un orden que no existe.
+    assert "<svg" in charts.render_eda_default_rate(_eda_by_period(1), axis="cohort", title="T")
+
+
+def test_eda_default_rate_sin_columnas_requeridas_falla() -> None:
+    with pytest.raises(ReportInputError, match="faltan columnas"):
+        charts.render_eda_default_rate(pd.DataFrame({"period": [1, 2]}), axis="period", title="T")
+
+
+def test_eda_profiles_acota_los_paneles_y_lo_dice_en_el_titulo() -> None:
+    """Más variables que paneles: van las primeras del orden del motor, y el título lo dice."""
+    svg = charts.render_eda_profiles(_eda_profiles(15), title="Perfiles")
+    assert "(primeras 12 de 15 variables)" in svg
+    assert "variable_0" in svg and "variable_11" in svg and "variable_12" not in svg
+
+
+def test_eda_profiles_sin_perfiles_falla() -> None:
+    with pytest.raises(ReportInputError, match="no hay perfiles"):
+        charts.render_eda_profiles({}, title="Perfiles")
+
+
+def test_eda_charts_tambien_salen_en_png_para_word() -> None:
+    png = charts.render_eda_default_rate(_eda_by_period(), axis="cohort", title="T", fmt="png")
+    assert isinstance(png, bytes) and png.startswith(b"\x89PNG")
+    png = charts.render_eda_profiles(_eda_profiles(), title="P", fmt="png")
+    assert isinstance(png, bytes) and png.startswith(b"\x89PNG")

@@ -35,6 +35,8 @@ __all__ = [
     "ChartFormat",
     "render_coefficients_forest",
     "render_discrimination_bars",
+    "render_eda_default_rate",
+    "render_eda_profiles",
     "render_gains_chart",
     "render_reliability_chart",
     "render_stability_chart",
@@ -66,6 +68,14 @@ _DEFAULT_STABLE_THRESHOLD = 0.10
 _DEFAULT_REVIEW_THRESHOLD = 0.25
 # Cap explícito de barras del gráfico de estabilidad: se conservan las de mayor ``value``.
 _MAX_STABILITY_BARS = 20
+
+# Análisis exploratorio (D-SC-5): la tasa en el tiempo y un panel por variable descrita.
+_EDA_RATE_COLOR = "#1f4e79"
+_EDA_LOW_CONFIDENCE_COLOR = "#9aa0a6"
+# Cap explícito de paneles del perfil por variable: se conservan las primeras en el orden del
+# motor (por IV descriptivo si se calculó, si no por orden de perfilado); el resto va en tablas.
+_MAX_EDA_PROFILE_PANELS = 12
+_EDA_PROFILE_COLUMNS_PER_ROW = 3
 
 _MISSING_MATPLOTLIB = (
     "matplotlib no está disponible; instale nikodym[report] para generar los gráficos del reporte."
@@ -591,3 +601,136 @@ def render_stability_chart(
     axes.set_title(title)
     figure.tight_layout()
     return _render(figure, title, fmt)
+
+
+def render_eda_default_rate(
+    by_period: pd.DataFrame,
+    *,
+    axis: str,
+    title: str,
+    fmt: ChartFormat = "svg",
+) -> str | bytes:
+    """La tasa de incumplimiento en el tiempo: LÍNEA por período o BARRAS por cohorte (D-SC-5).
+
+    ``by_period`` es ``DefaultRateResult.by_period``: se usan ``period``, ``default_rate`` y
+    ``low_confidence``. La figura la decide el eje **efectivo** —``cohort`` es barras, porque las
+    cohortes no tienen un orden cronológico que una línea pueda sugerir—, y una línea exige al
+    menos dos períodos: sobre uno solo no hay serie que dibujar, y el llamador la omite (D-SC-5 b).
+    Los períodos de baja confianza se pintan en gris, no se esconden: son la tabla, marcada.
+    """
+    columns = ("period", "default_rate", "low_confidence")
+    _require_columns(by_period, frozenset(columns), what="render_eda_default_rate")
+    records = _frame_records(by_period, columns)
+    if not records:
+        raise ReportInputError("render_eda_default_rate: la tabla de la tasa está vacía.")
+    if axis != "cohort" and len(records) < 2:
+        raise ReportInputError(
+            "render_eda_default_rate: una línea exige al menos dos períodos; con uno solo la tasa "
+            "se reproduce en la tabla."
+        )
+
+    labels = [str(record["period"]) for record in records]
+    rates = [_optional_float(record["default_rate"]) for record in records]
+    low_confidence = [bool(record["low_confidence"]) for record in records]
+    positions = list(range(len(records)))
+
+    figure = _new_figure((6.5, 4.0), dpi=100)
+    axes = figure.subplots()
+    if axis == "cohort":
+        heights = [0.0 if rate is None else rate for rate in rates]
+        colors = [_EDA_LOW_CONFIDENCE_COLOR if flag else _EDA_RATE_COLOR for flag in low_confidence]
+        axes.bar(positions, heights, width=0.6, color=colors)
+    else:
+        xs = [pos for pos, rate in zip(positions, rates, strict=True) if rate is not None]
+        ys = [rate for rate in rates if rate is not None]
+        axes.plot(xs, ys, color=_EDA_RATE_COLOR, linewidth=1.6)
+        for pos, rate, flag in zip(positions, rates, low_confidence, strict=True):
+            if rate is None:
+                continue
+            axes.plot(
+                [pos],
+                [rate],
+                marker="o",
+                markersize=5.0,
+                color=_EDA_LOW_CONFIDENCE_COLOR if flag else _EDA_RATE_COLOR,
+            )
+    axes.set_xticks(positions)
+    axes.set_xticklabels(
+        labels, rotation=45 if len(labels) > 8 else 0, ha="right" if len(labels) > 8 else "center"
+    )
+    # Aire arriba para que la leyenda no pise las barras o los puntos más altos.
+    top = max((rate for rate in rates if rate is not None), default=0.0)
+    axes.set_ylim(0.0, top * (1.35 if any(low_confidence) else 1.15) if top > 0.0 else 1.0)
+    axes.set_ylabel("Tasa de incumplimiento")
+    axes.yaxis.set_major_formatter(_numeric_formatter(3))
+    axes.grid(True, axis="y", linewidth=0.4, alpha=0.4)
+    if any(low_confidence):
+        from matplotlib.patches import Patch
+
+        axes.legend(
+            handles=[Patch(color=_EDA_LOW_CONFIDENCE_COLOR, label="Poco fiable (bajo el mínimo)")],
+            loc="upper right",
+            frameon=False,
+        )
+    axes.set_title(title)
+    figure.tight_layout()
+    return _render(figure, title, fmt)
+
+
+def render_eda_profiles(
+    profiles: Any,
+    *,
+    title: str,
+    fmt: ChartFormat = "svg",
+) -> str | bytes:
+    """Un panel por variable descrita: la tasa de incumplimiento por tramo, en barras (D-SC-5).
+
+    ``profiles`` es ``UnivariateResult.profiles`` (``{columna: tabla(tramo, n, coverage,
+    default_rate)}``), en el orden que decidió el motor. Se dibujan como máximo
+    :data:`_MAX_EDA_PROFILE_PANELS` paneles —los primeros en ese orden; el resto sigue en las
+    tablas del anexo— para que la figura quepa en una página. Los tramos se rotulan con su texto,
+    acortado si no cabe: la tabla trae el literal completo.
+    """
+    items = [(str(name), frame) for name, frame in dict(profiles).items()]
+    if not items:
+        raise ReportInputError("render_eda_profiles: no hay perfiles por variable que dibujar.")
+    shown = items[:_MAX_EDA_PROFILE_PANELS]
+    n_cols = min(_EDA_PROFILE_COLUMNS_PER_ROW, len(shown))
+    n_rows = (len(shown) + n_cols - 1) // n_cols
+
+    figure = _new_figure((2.6 * n_cols + 0.8, 2.4 * n_rows + 0.8), dpi=100)
+    grid = figure.subplots(n_rows, n_cols, squeeze=False)
+    for index, (name, frame) in enumerate(shown):
+        _require_columns(frame, frozenset(("tramo", "default_rate")), what="render_eda_profiles")
+        records = _frame_records(frame, ("tramo", "default_rate"))
+        axes = grid[index // n_cols][index % n_cols]
+        positions = list(range(len(records)))
+        heights = [
+            0.0 if _is_missing(record["default_rate"]) else _as_float(record["default_rate"])
+            for record in records
+        ]
+        axes.bar(positions, heights, width=0.7, color=_EDA_RATE_COLOR)
+        axes.set_xticks(positions)
+        axes.set_xticklabels(
+            [_short_label(str(record["tramo"])) for record in records],
+            rotation=60,
+            ha="right",
+            fontsize=6,
+        )
+        axes.tick_params(axis="y", labelsize=7)
+        axes.yaxis.set_major_formatter(_numeric_formatter(2))
+        axes.set_ylim(bottom=0.0)
+        axes.set_title(name, fontsize=8)
+        axes.grid(True, axis="y", linewidth=0.3, alpha=0.4)
+    for index in range(len(shown), n_rows * n_cols):
+        grid[index // n_cols][index % n_cols].set_axis_off()
+    if len(items) > len(shown):
+        title = f"{title} (primeras {len(shown)} de {len(items)} variables)"
+    figure.suptitle(title, fontsize=10)
+    figure.tight_layout()
+    return _render(figure, title, fmt)
+
+
+def _short_label(label: str, limit: int = 14) -> str:
+    """Acorta un rótulo de tramo para el eje; el literal completo vive en la tabla."""
+    return label if len(label) <= limit else f"{label[: limit - 1]}…"

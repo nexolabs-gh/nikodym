@@ -481,8 +481,20 @@ def test_el_tipo_eda_result_espeja_la_card_y_sus_tres_tablas() -> None:
 
 
 def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -> None:
-    """Las tablas viajan tal cual las publica el motor: mismas columnas, mismo orden."""
-    assert _claves_de_la_interfaz_ts("EdaPeriodRow") == list(_COLUMNAS_TASA)
+    """Las tablas viajan tal cual las publica el motor: mismas columnas, mismo orden.
+
+    La fila de la tasa lleva además `period_type`, que añade el serializer al final: el tipo con
+    que el motor distinguió la cohorte, para que la pantalla no funda dos que JSON escribe igual.
+    """
+    from nikodym.ui import serializers
+
+    fuente = Path(serializers.__file__).read_text(encoding="utf-8")
+    inicio = fuente.index("def _eda_default_rate(")
+    cuerpo = fuente[inicio : fuente.index("\n\n\ndef ", inicio)]
+    asignadas = re.findall(r"^\s+([a-z_]+)=by_period\[", cuerpo, re.M)
+    anadidas = [columna for columna in asignadas if columna not in _COLUMNAS_TASA]
+    assert anadidas == ["period_type"], "el serializer cambió lo que añade a la fila de la tasa"
+    assert _claves_de_la_interfaz_ts("EdaPeriodRow") == [*_COLUMNAS_TASA, *anadidas]
     assert _claves_de_la_interfaz_ts("EdaQualityRow") == list(_COLUMNAS_CALIDAD)
 
 

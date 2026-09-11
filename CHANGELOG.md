@@ -193,11 +193,24 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   gate en los dos sentidos. De paso, la prosa del informe decía «cardinalidad excesiva» donde la
   pantalla dice «alta cardinalidad», y nombraba el indicador con su identificador (`cv`).
 
-- **La subsección «Población y calidad de datos» del informe trae sus tablas en el cuerpo.** Las
-  claves con que el documento pedía la tasa por período y la calidad por columna no casaban con las
-  que el motor publica, así que la subsección salía sin tablas y éstas iban al anexo con su clave
-  interna por título. Ahora las dos van en el cuerpo con título propio, y los perfiles por variable
-  al anexo, uno por columna descrita, también con título.
+- **La subsección «Población y calidad de datos» del informe trae sus tablas y sus figuras en el
+  cuerpo.** Las claves con que el documento pedía la tasa por período y la calidad por columna no
+  casaban con las que el motor publica, así que la subsección salía sin tablas y éstas iban al
+  anexo con su clave interna por título; y las figuras que la prosa anunciaba —«N figuras»— no las
+  dibujaba nadie, porque el informe nunca tuvo un constructor de gráficos para esta sección. Ahora
+  las dos tablas van en el cuerpo con título propio, los perfiles por variable al anexo, uno por
+  columna descrita, también con título, y se dibujan dos figuras: la tasa de incumplimiento en el
+  tiempo —barras por cohorte, línea por fecha, y ninguna con un solo período— y la tasa por tramo
+  de cada variable descrita, hasta doce paneles y el título dice cuántas quedaron fuera. En
+  HTML/QMD salen como SVG y en Word como PNG, como el resto de los gráficos, y la prosa dice lo que
+  el documento reproduce. El anexo de tablas deja de traer el recuadro vacío que rotulaba esas
+  recetas con su clave interna.
+
+- **Dos cohortes que se escriben igual no se funden en la pantalla.** El motor agrupa las cohortes
+  con su tipo —la numérica `2024`, la decimal `2024.0` y la textual `"2024"` son tres— y JSON
+  pierde parte de esa identidad. La respuesta de la interfaz publica ahora, al lado de cada
+  período o cohorte, el tipo con que el motor lo distinguió, y el panel lo usa para rotular las
+  que coinciden («2024 (entero)», «2024 (texto)») y para no repetir una clave.
 
 - **El estado técnico de la validación se llama igual en la pantalla y en el informe: Pasa,
   Revisar y Falla.** Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el

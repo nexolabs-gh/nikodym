@@ -120,6 +120,7 @@ def test_eda_se_serializa_con_la_card_sus_tres_tablas_y_el_nan_como_ausencia(
     assert eda["stability_flagged"] is False
     # Las tres tablas, con las columnas del motor y una fila por tramo en los perfiles.
     assert [fila["period"] for fila in eda["default_rate"]] == ["dev"]
+    assert [fila["period_type"] for fila in eda["default_rate"]] == ["str"]
     assert set(eda["default_rate"][0]) == {
         "period",
         "n_total",
@@ -127,6 +128,7 @@ def test_eda_se_serializa_con_la_card_sus_tres_tablas_y_el_nan_como_ausencia(
         "n_bad",
         "default_rate",
         "low_confidence",
+        "period_type",  # lo añade el serializer: el tipo con que el motor distinguió la cohorte
     }
     assert {fila["col"] for fila in eda["quality"]} >= {"score", "segment", "bad_flag"}
     assert {fila["column"] for fila in eda["univariate"]} == {"score", "segment"}
@@ -246,7 +248,31 @@ def test_una_cohorte_de_tipo_fecha_se_serializa_como_texto(
 
     periodos = [fila["period"] for fila in payload["eda"]["default_rate"]]
     assert periodos == ["2024-01-01 00:00:00", "2024-04-01 00:00:00"]
+    assert {fila["period_type"] for fila in payload["eda"]["default_rate"]} == {"datetime"}
     json.dumps(payload, allow_nan=False)
+
+
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [
+        (2024, "int"),
+        (2024.0, "float"),
+        (True, "bool"),
+        ("2024", "str"),
+        (np.int64(7), "int"),
+        (np.float64(7.5), "float"),
+        (pd.Period("2024-01", freq="M"), "period"),
+        (pd.Timestamp("2024-01-01"), "datetime"),
+        (None, None),
+        (float("nan"), None),
+        (pd.NaT, None),
+    ],
+)
+def test_el_tipo_del_periodo_viaja_para_que_el_front_no_funda_dos_cohortes(
+    valor: Any, esperado: str | None
+) -> None:
+    """El motor separa `2024` de `"2024"` y de `2024.0`; JSON no: el tipo viaja al lado."""
+    assert serializers._period_type(valor) == esperado
 
 
 def _parquet_de_comportamiento(destino: Path) -> Path:

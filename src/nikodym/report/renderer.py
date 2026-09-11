@@ -407,7 +407,6 @@ def _section_views(
                 "metric_items": _mapping_items(section.metric_sections) if is_appendix else [],
                 "tables": tables,
                 "charts": _charts_for_section(bundle, section, config, chart_format),
-                "figures": _figures_for_section(bundle, section),
                 "data_exports": _data_exports_view(bundle, section, config),
                 "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
             }
@@ -779,27 +778,53 @@ def _table_view(
     }
 
 
-def _figures_for_section(bundle: ReportInputBundle, section: ReportSection) -> list[dict[str, str]]:
-    """Las figuras declarativas acompañan al detalle: viven en el Anexo B."""
-    if section.id != APPENDIX_TABLES_ID:
-        return []
-    return [
-        {
-            "key": key,
-            "html_id": _element_id("figure", key),
-            "payload": _display_value(bundle.figures[key], key_path=(key,)),
-        }
-        for key in sorted(bundle.figures, key=str)
-    ]
-
-
 _CHART_TITLES: Final[dict[str, str]] = {
+    "eda_default_rate": "Tasa de incumplimiento observada en el tiempo",
+    "eda_profiles": "Tasa de incumplimiento por tramo de cada variable descrita",
     "gains": "Curva de ganancia acumulada por partición",
     "discrimination": "Discriminación (AUC/Gini/KS) por partición",
     "coefficients": "Coeficientes del modelo (β, IC 95 %)",
     "stability": "Estabilidad PSI/CSI por comparación",
     "reliability": "Curva de calibración (confiabilidad) por partición",
 }
+
+
+#: Prefijo con que el builder aplana los perfiles por variable (`UnivariateResult.profiles`).
+_EDA_PROFILE_TABLE_PREFIX: Final = "eda.univariate.profiles."
+
+
+def _chart_eda_default_rate(
+    charts: Any, bundle: ReportInputBundle, fmt: ChartFormat
+) -> str | bytes | None:
+    """La tasa en el tiempo desde ``eda.default_rate.by_period`` y el eje EFECTIVO de la card.
+
+    Devuelve ``None`` —y no una excepción— cuando hay un solo período sobre el eje temporal: no es
+    una degradación sino la omisión que D-SC-5 (b) prescribe, así que no merece un aviso.
+    """
+    table = bundle.tables["eda.default_rate.by_period"]
+    card = bundle.cards.get("eda")
+    axis = str(card.get("axis") or "period") if isinstance(card, Mapping) else "period"
+    if axis != "cohort" and len(table) < 2:
+        return None
+    return cast(
+        "str | bytes",
+        charts.render_eda_default_rate(
+            table, axis=axis, title=_CHART_TITLES["eda_default_rate"], fmt=fmt
+        ),
+    )
+
+
+def _chart_eda_profiles(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
+    """Un panel por variable descrita, desde las tablas ``eda.univariate.profiles.<columna>``."""
+    profiles = {
+        key[len(_EDA_PROFILE_TABLE_PREFIX) :]: table
+        for key, table in bundle.tables.items()
+        if key.startswith(_EDA_PROFILE_TABLE_PREFIX)
+    }
+    return cast(
+        "str | bytes",
+        charts.render_eda_profiles(profiles, title=_CHART_TITLES["eda_profiles"], fmt=fmt),
+    )
 
 
 def _chart_gains(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
@@ -870,8 +895,15 @@ def _chart_reliability(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat)
 
 # Mapeo sección → gráficos (nombre estable + builder). El nombre alimenta el ``id`` HTML del slot.
 _CHART_BUILDERS: Final[
-    dict[str, tuple[tuple[str, Callable[[Any, ReportInputBundle, ChartFormat], str | bytes]], ...]]
+    dict[
+        str,
+        tuple[tuple[str, Callable[[Any, ReportInputBundle, ChartFormat], str | bytes | None]], ...],
+    ]
 ] = {
+    # Análisis exploratorio (D-SC-5): sus recetas de figura (`eda.figures`) se materializan aquí,
+    # en el cuerpo de «Población y calidad de datos», por el mismo pipeline que el resto. Hasta la
+    # capa 3 llegaban al informe sólo como un slot vacío del anexo con la clave interna por título.
+    "eda": (("eda_default_rate", _chart_eda_default_rate), ("eda_profiles", _chart_eda_profiles)),
     "performance": (("gains", _chart_gains), ("discrimination", _chart_discrimination)),
     "model": (("coefficients", _chart_coefficients),),
     "stability": (("stability", _chart_stability),),
@@ -915,6 +947,8 @@ def _charts_for_section(
                 name,
                 exc,
             )
+            continue
+        if image is None:  # omisión prescrita por el propio builder, no una degradación.
             continue
         results.append(
             {

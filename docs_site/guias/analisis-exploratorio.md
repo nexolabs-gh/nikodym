@@ -129,9 +129,11 @@ agrupó por fecha, barras si por cohorte, y ninguna figura cuando hay un solo pe
 estabilidad o su causa, la tabla de calidad con sus marcas y un desplegable por variable descrita.
 
 En el informe, la subsección **Población y calidad de datos** del capítulo de contexto reproduce la
-tasa por período o cohorte y la calidad por columna, y la prosa dice el eje efectivo, si el motor lo
-tomó de la partición y por qué la señal temporal no se evaluó cuando no se evaluó. Los perfiles por
-variable van al anexo de tablas, uno por columna descrita.
+tasa por período o cohorte —graficada con el mismo criterio que la pantalla, y en su tabla— y la
+calidad por columna, más una figura con la tasa por tramo de cada variable descrita (hasta doce
+paneles; si hay más variables, el título dice cuántas quedaron fuera). La prosa dice el eje
+efectivo, si el motor lo tomó de la partición y por qué la señal temporal no se evaluó cuando no se
+evaluó. Los perfiles por variable van al anexo de tablas, uno por columna descrita.
 
 ## 6. Por código
 

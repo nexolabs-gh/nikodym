@@ -2150,18 +2150,29 @@ export interface EdaRatePoint {
   lowConfidence: boolean
 }
 
-/** Cómo se llama, en palabras, el tipo JSON con que viajó una cohorte (para desambiguar). */
-function tipoDeCohorte(period: string | number | null): string {
-  return typeof period === "number" ? "número" : "texto"
+/** El tipo con que el motor distinguió una cohorte, en palabras (para desambiguar etiquetas). */
+const EDA_PERIOD_TYPE_LABELS: Record<string, string> = {
+  int: "entero",
+  float: "decimal",
+  bool: "lógico",
+  str: "texto",
+  datetime: "fecha",
+  period: "período",
+} as const
+
+function tipoDeCohorte(row: EdaPeriodRow): string {
+  const tipo = row.period_type ?? (typeof row.period === "number" ? "float" : "str")
+  return EDA_PERIOD_TYPE_LABELS[tipo] ?? tipo
 }
 
 /**
  * La tasa por período o cohorte en el orden en que la publicó el motor; vacío sin tabla.
  *
- * 🔴 El motor agrupa de forma tipo-consciente y mantiene separadas la cohorte numérica `2024` y la
- * textual `"2024"` (hallazgo de la revisión adversarial de S9): `String()` las fundía en una sola
- * etiqueta, que además hacía de clave de React y de categoría del gráfico. Cuando dos filas se
- * escriben igual, la etiqueta dice de qué tipo es cada una, y la clave lleva la posición.
+ * 🔴 El motor agrupa de forma tipo-consciente y mantiene separadas la cohorte numérica `2024`, la
+ * decimal `2024.0` y la textual `"2024"` (hallazgo de la revisión adversarial de S9): `String()`
+ * las fundía en una sola etiqueta, que además hacía de clave de React y de categoría del gráfico.
+ * El serializer publica el tipo con que el motor las distinguió (`period_type`); cuando dos filas
+ * se escriben igual, la etiqueta dice el tipo de cada una, y la clave lleva la posición y el tipo.
  */
 export function edaRatePoints(eda: EdaResult | null | undefined): EdaRatePoint[] {
   const rows = eda?.default_rate ?? []
@@ -2170,11 +2181,9 @@ export function edaRatePoints(eda: EdaResult | null | undefined): EdaRatePoint[]
   return rows.map((row: EdaPeriodRow, i: number) => {
     const cruda = crudas[i]
     const label =
-      repetidas.has(cruda) && row.period !== null
-        ? `${cruda} (${tipoDeCohorte(row.period)})`
-        : cruda
+      repetidas.has(cruda) && row.period !== null ? `${cruda} (${tipoDeCohorte(row)})` : cruda
     return {
-      key: `${i}:${label}`,
+      key: `${i}:${row.period_type ?? ""}:${label}`,
       label,
       rate: row.default_rate,
       nEligible: row.n_eligible,
