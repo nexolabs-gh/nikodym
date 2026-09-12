@@ -1,24 +1,25 @@
 """Decide si el Deploy de producción publica este commit, lo deja o se detiene.
 
 Lo invoca `.github/workflows/deploy.yml` dos veces —antes de instalar nada y justo antes de
-publicar— con `DEPLOY_SHA` en el entorno. Regla (pasadas 4, 6, 7, 9 y 10 de la revisión
+publicar— con `DEPLOY_SHA` en el entorno. Regla (pasadas 4, 6, 7, 9, 10 y 11 de la revisión
 adversarial de la 1.14.0): **producción no retrocede, no pierde un commit verde y no se publica a
 ciegas.** Un CI que termina después de que `main` avanzó no debe pisar un commit que producción ya
 dejó atrás; saltarlo sólo porque la punta se movió perdía el último commit verde cuando el
 siguiente fallaba su CI (A verde, B rojo: nadie desplegaba A). Por eso la regla mira lo que
 producción SIRVE —la huella `build-sha.txt` que el propio Deploy sella en los DOS sitios— y decide:
 
-- sin huella en ninguno (404: el sitio anterior al sello): se publica;
-- las huellas presentes son este commit o ancestros suyos: se publica (el mismo commit se vuelve a
+- las dos huellas son este commit o ancestros suyos: se publica (el mismo commit se vuelve a
   publicar; un ancestro se supera; y una producción PARTIDA —docs en B, demo en A porque el
   segundo despliegue falló— la repara el rerun de B o cualquier descendiente, en los dos sitios);
 - una huella ya es un descendiente de este commit: se salta si producción es coherente (publicar
   retrocedería); si está partida con un sitio adelante y otro atrás, se detiene —ni retroceder
   el primero ni dejar el segundo—: la repara el rerun del commit adelantado;
-- huellas que no se pudieron leer, un commit que `origin/main` no conoce, un historial divergente
-  o un `DEPLOY_SHA` que no está en `main`: el Deploy se DETIENE en rojo. Publicar a ciegas es
-  exactamente el retroceso que este control existe para impedir; un `workflow_dispatch` con
-  `forzar` publica a sabiendas.
+- una huella que no se pudo leer —sin respuesta, cuerpo ilegible o 404: producción YA está
+  sellada, así que un sitio sin huella no es un arranque sino un estado que no se puede
+  verificar—, un commit que `origin/main` no conoce, un historial divergente o un `DEPLOY_SHA`
+  que no está en `main`: el Deploy se DETIENE en rojo. Publicar a ciegas es exactamente el
+  retroceso que este control existe para impedir; un `workflow_dispatch` con `forzar` publica a
+  sabiendas (y es la única vía para volver a sellar un sitio que perdió su huella).
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ import re
 import subprocess
 import sys
 import time
-import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,32 +45,25 @@ DETENER = "detener"
 
 @dataclass(frozen=True)
 class Sello:
-    """Lo que un sitio respondió: `sha` si sirve una huella; `ausente` si no tiene ninguna (404).
-
-    Sin `sha` y sin `ausente`, la huella no se pudo verificar.
-    """
+    """Lo que un sitio respondió: `sha` si sirve una huella; sin `sha`, no se pudo verificar."""
 
     sha: str | None = None
-    ausente: bool = False
 
     @property
     def ilegible(self) -> bool:
-        """Ni huella ni 404: el sitio no respondió algo verificable."""
-        return self.sha is None and not self.ausente
+        """Sin huella: el sitio no respondió un SHA (caído, cuerpo extraño o 404)."""
+        return self.sha is None
 
 
 def leer_sello(
     url: str, *, intentos: int = 3, espera: float = 10.0, timeout: float = 20.0
 ) -> Sello:
-    """Lee la huella que sirve un sitio, reintentando; un 404 es «sin huella», no un fallo."""
+    """Lee la huella que sirve un sitio, reintentando; todo lo que no sea un SHA es ilegible."""
     for intento in range(1, intentos + 1):
         try:
             peticion = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
             with urllib.request.urlopen(peticion, timeout=timeout) as respuesta:
                 texto = respuesta.read().decode("utf-8", errors="replace").strip()
-        except urllib.error.HTTPError as error:
-            if error.code == 404:
-                return Sello(ausente=True)
         except (OSError, ValueError):
             pass
         else:
@@ -104,8 +97,6 @@ def decidir(deploy_sha: str, docs: Sello, demo: Sello, repo: Path) -> tuple[str,
     if not _es_ancestro(repo, deploy_sha, "origin/main"):
         return DETENER, f"{deploy_sha[:7]} no está en main: sólo main llega a producción sin forzar"
     huellas = sorted({s.sha for s in (docs, demo) if s.sha})
-    if not huellas:
-        return PUBLICAR, f"producción no tiene huella todavía: se publica {deploy_sha[:7]}"
     for sha in huellas:
         if not _git(repo, "cat-file", "-e", f"{sha}^{{commit}}"):
             return DETENER, (

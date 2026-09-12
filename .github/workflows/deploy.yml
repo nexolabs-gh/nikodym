@@ -93,15 +93,16 @@ jobs:
           fetch-depth: 0
 
       # 🔴 Producción no retrocede, no pierde un commit verde y no se publica a ciegas (pasadas 4,
-      # 6, 7 y 9 de la revisión adversarial de la 1.14.0). Saltar un CI sólo porque `main` avanzó
-      # perdía el último commit verde cuando el siguiente fallaba su CI (A verde, B rojo: nadie
-      # desplegaba A). La regla vive en `scripts/deploy_no_retroceder_produccion.py`, con sus
-      # tests: lee la huella que SIRVE cada sitio (`build-sha.txt`, sellada más abajo en docs y
-      # demo); salta sólo si ya es un descendiente de este commit; publica si no hay huella (404)
-      # o si es anterior; y se DETIENE en rojo si no pudo leerla, si docs y demo discrepan (una
-      # publicación a medias: se repara con el rerun), si el commit no está en `main` o si el
-      # historial diverge —publicar a ciegas es el retroceso que existe para impedir; `forzar`
-      # es el override humano—. Corre ANTES de instalar nada, con el python3 del runner.
+      # 6, 7, 9, 10 y 11 de la revisión adversarial de la 1.14.0). Saltar un CI sólo porque `main`
+      # avanzó perdía el último commit verde cuando el siguiente fallaba su CI (A verde, B rojo:
+      # nadie desplegaba A). La regla vive en `scripts/deploy_no_retroceder_produccion.py`, con
+      # sus tests: lee la huella que SIRVE cada sitio (`build-sha.txt`, sellada más abajo en docs
+      # y demo); salta sólo si ya es un descendiente de este commit; publica si las huellas son
+      # este commit o anteriores (una publicación a medias la repara el rerun del commit
+      # adelantado); y se DETIENE en rojo si no pudo leer una —también ante un 404: producción ya
+      # está sellada—, si un sitio va delante y el otro atrás, si el commit no está en `main` o
+      # si el historial diverge. Publicar a ciegas es el retroceso que existe para impedir;
+      # `forzar` es el override humano. Corre ANTES de instalar nada, con el python3 del runner.
       - name: No retroceder producción
         run: python3 scripts/deploy_no_retroceder_produccion.py
 

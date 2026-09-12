@@ -1,14 +1,16 @@
 """El Deploy no retrocede producción, no pierde un commit verde y no publica a ciegas.
 
-🔴 Hallazgos de las pasadas 6, 7, 9 y 10 de la revisión adversarial de la 1.14.0: «sólo la punta de
-main llega a producción» saltaba un CI verde apenas `main` avanzaba, sin mirar si la punta nueva
-tenía CI verde o un Deploy propio (A verde, B pusheado y rojo: A terminaba en verde sin publicar y
-B nunca desplegaba; producción se quedaba atrás sin una falla visible). La primera versión de la
-regla nueva «fallaba abierta»: si la huella de producción no respondía, publicaba —justo el
-retroceso que existe para impedir—. Y la segunda modelaba dos sitios como un solo commit (docs
-sellada, demo a medias) y publicaba una ref fuera de `main` o un historial divergente sin `forzar`;
-la tercera prometía que el rerun repara la partida y se detenía antes de mirar el commit.
-La regla vive en `scripts/deploy_no_retroceder_produccion.py` y estos tests la fijan caso a caso
+🔴 Hallazgos de las pasadas 6, 7, 9, 10 y 11 de la revisión adversarial de la 1.14.0: «sólo la
+punta de main llega a producción» saltaba un CI verde apenas `main` avanzaba, sin mirar si la
+punta nueva tenía CI verde o un Deploy propio (A verde, B pusheado y rojo: A terminaba en verde
+sin publicar y B nunca desplegaba; producción se quedaba atrás sin una falla visible). La
+primera versión de la regla nueva «fallaba abierta»: si la huella de producción no respondía,
+publicaba —justo el retroceso que existe para impedir—. La segunda modelaba dos sitios como un
+solo commit (docs sellada, demo a medias) y publicaba una ref fuera de `main` o un historial
+divergente sin `forzar`; la tercera prometía que el rerun repara la partida y se detenía antes de
+mirar el commit; y la cuarta trataba un 404 como arranque cuando producción ya estaba sellada
+(fallaba abierta). La regla vive en `scripts/deploy_no_retroceder_produccion.py` y estos tests
+la fijan caso a caso
 sobre una historia real base → A → B con su `origin`.
 """
 
@@ -103,20 +105,15 @@ def test_el_mismo_commit_se_puede_republicar(historia: Historia) -> None:
     assert _decidir(m, a, m.Sello(sha=a), m.Sello(sha=a), repo)[0] == m.PUBLICAR
 
 
-def test_sin_huella_en_ninguno_se_publica(historia: Historia) -> None:
-    """Los sitios anteriores al sello responden 404: es el arranque, no un fallo."""
-    repo, _base, a, _b = historia
+def test_sin_huella_se_detiene(historia: Historia) -> None:
+    """🔴 Pasada 11: producción YA está sellada; un 404 no es arranque, es no verificable."""
+    repo, base, a, _b = historia
     m = _cargar()
-    assert _decidir(m, a, m.Sello(ausente=True), m.Sello(ausente=True), repo)[0] == m.PUBLICAR
-
-
-def test_con_huella_en_un_solo_sitio_vale_esa(historia: Historia) -> None:
-    """El primer Deploy que sella la demo encuentra docs sellada y demo sin huella: manda docs."""
-    repo, base, a, b = historia
-    m = _cargar()
-    assert _decidir(m, a, m.Sello(sha=base), m.Sello(ausente=True), repo)[0] == m.PUBLICAR
-    assert _decidir(m, a, m.Sello(sha=b), m.Sello(ausente=True), repo)[0] == m.SALTAR
-    assert _decidir(m, a, m.Sello(ausente=True), m.Sello(sha=b), repo)[0] == m.SALTAR
+    assert _decidir(m, a, m.Sello(), m.Sello(), repo)[0] == m.DETENER
+    decision, motivo = _decidir(m, a, m.Sello(sha=base), m.Sello(), repo)
+    assert decision == m.DETENER and "demo" in motivo and "a ciegas" in motivo
+    decision, motivo = _decidir(m, a, m.Sello(), m.Sello(sha=base), repo)
+    assert decision == m.DETENER and "docs" in motivo
 
 
 # ── Todo lo que la regla no puede probar se detiene, en rojo ──
@@ -251,12 +248,10 @@ def test_main_se_detiene_en_rojo_y_forzar_publica(
 # ── La lectura de una huella ──
 
 
-def test_leer_sello_distingue_404_de_no_verificable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leer_sello_solo_acepta_un_sha(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     modulo = _cargar()
     rapido = {"intentos": 1, "espera": 0.0, "timeout": 2.0}
-    # Sin servicio: no verificable (ni sha ni ausente).
+    # Sin servicio: no verificable.
     caido = modulo.leer_sello((tmp_path / "no-existe.txt").resolve().as_uri(), **rapido)
     assert caido.ilegible
     # Un cuerpo que no es un SHA (una portada de error): tampoco.
@@ -268,15 +263,15 @@ def test_leer_sello_distingue_404_de_no_verificable(
     huella.write_text("a" * 40 + "\n", encoding="utf-8")
     assert modulo.leer_sello(huella.resolve().as_uri(), **rapido).sha == "a" * 40
 
-    # Un 404 es «sin huella», no un fallo.
+    # 🔴 Pasada 11: un 404 tampoco es «sin huella»: producción ya está sellada, así que es
+    # un estado no verificable como cualquier otro fallo (y se reintenta igual).
     def _404(*_args: Any, **_kwargs: Any) -> Any:
         raise urllib.error.HTTPError("https://x.invalid", 404, "Not Found", None, io.BytesIO())  # type: ignore[arg-type]
 
     monkeypatch.setattr(modulo.urllib.request, "urlopen", _404)
-    ausente = modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido)
-    assert ausente.ausente and not ausente.ilegible
+    assert modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido).ilegible
 
-    # Un 503 NO es un 404: sigue siendo no verificable.
+    # Un 503, igual.
     def _503(*_args: Any, **_kwargs: Any) -> Any:
         raise urllib.error.HTTPError("https://x.invalid", 503, "Unavailable", None, io.BytesIO())  # type: ignore[arg-type]
 
