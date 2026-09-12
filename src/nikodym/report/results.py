@@ -38,6 +38,7 @@ ReportOutputFormat: TypeAlias = Literal["html", "pdf", "md", "docx", "csv", "xls
 
 __all__ = [
     "AiNarrationBlock",
+    "GovernanceDeclaration",
     "PlaceholderBlock",
     "ReportInputBundle",
     "ReportManifest",
@@ -106,6 +107,28 @@ class ReportSection(_ReportBaseModel):
         return _copy_report_value(value)
 
 
+class GovernanceDeclaration(_ReportBaseModel):
+    """Lo que la institución declaró en ``governance`` cuando corre ``report`` (D-SC-14).
+
+    El capítulo «Ficha del modelo» se escribe desde estas declaraciones, que existen al momento
+    de renderizar; la ficha completa (métricas, decisiones, fechas) la construye
+    ``ModelCardBuilder`` **después** de ``report``, y el capítulo remite a ella en vez de duplicarla
+    (una sola ficha por corrida). Los slugs de ``motor``/``fase``/``estado_validacion`` viajan tal
+    cual: la prosa los traduce con ``nikodym.governance.labels`` (D-SC-15).
+    """
+
+    model_name: str
+    purpose: str
+    assumptions: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = ()
+    review_period_months: int
+    cartera: str | None = None
+    motor: str | None = None
+    fase: str | None = None
+    estado_validacion: str = "desarrollo"
+    author: str | None = None
+
+
 class ReportInputBundle(_ReportBaseModel):
     """Snapshot lógico de cards, tablas, figuras, secciones y lineage usados por el reporte."""
 
@@ -134,6 +157,12 @@ class ReportInputBundle(_ReportBaseModel):
     Es lo que permite que la Metodología describa **lo que realmente se ejecutó** (solver del
     binning, umbrales de selección, escala del scorecard) en vez de frases fijas. Un dominio
     ausente simplemente no aparece: la prosa omite lo que no puede afirmar.
+    """
+    governance: GovernanceDeclaration | None = Field(default=None)
+    """Las declaraciones de gobernanza de la corrida, o ``None`` si no se declaró ninguna.
+
+    Aditivo (default ``None``, D-SC-14): sin gobernanza el documento es byte a byte el de siempre;
+    con ella entra el capítulo condicional «Ficha del modelo» (``ChapterSpec.requires_governance``).
     """
     currency: str = Field(default="")
     """Moneda con que la prosa rotula los montos; cadena vacía = el config no declaró ninguna.

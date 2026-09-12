@@ -2460,6 +2460,67 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     return tuple(hallazgos)
 
 
+def model_card_body(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """«Ficha del modelo» (capa 4, D-SC-13…15): lo que la institución declaró, con sus rótulos.
+
+    Propósito, supuestos y limitaciones van **verbatim**; la identidad de inventario lleva los
+    rótulos del copy aprobado de D-GOB-13 —los títulos de los campos de ``GovernanceConfig``, que
+    son la única fuente— y los slugs se traducen con ``nikodym.governance.labels``. El capítulo
+    **no** publica métricas ni decisiones (ya están en Resultados) ni fija fechas: la fecha de
+    emisión la fija ``ModelCardBuilder`` después de ``report``, y una segunda fecha aquí sería una
+    segunda verdad. La remisión describe el contrato (D-GOB-6/9), sin afirmar que un archivo
+    exista ni nombrar rutas (§0-16).
+    """
+    declared = bundle.governance
+    if declared is None:
+        return ()
+    from nikodym.governance.config import GovernanceConfig
+    from nikodym.governance.labels import (
+        ESTADO_VALIDACION_LABELS,
+        FASE_LABELS,
+        MOTOR_LABELS,
+        governance_label,
+    )
+
+    def rotulo(campo: str) -> str:
+        titulo = GovernanceConfig.model_fields[campo].title
+        return str(titulo) if titulo else campo
+
+    paragraphs: list[str] = [
+        f"{rotulo('purpose')}, tal como lo declaró la institución: {declared.purpose}",
+    ]
+    identidad = [f"{rotulo('model_name')}: «{declared.model_name}»"]
+    identidad.append(f"{rotulo('cartera')}: {declared.cartera or 'no declarada'}")
+    motor = governance_label(MOTOR_LABELS, declared.motor)
+    identidad.append(f"{rotulo('motor')}: {motor or 'no declarado'}")
+    fase = governance_label(FASE_LABELS, declared.fase)
+    identidad.append(f"{rotulo('fase')}: {fase or 'no declarada'}")
+    estado = governance_label(ESTADO_VALIDACION_LABELS, declared.estado_validacion)
+    identidad.append(f"{rotulo('estado_validacion')}: {estado}")
+    identidad.append(f"{rotulo('author')}: {declared.author or 'no declarado'}")
+    paragraphs.append("Identidad en el inventario — " + "; ".join(identidad) + ".")
+    if declared.assumptions:
+        paragraphs.append(f"{rotulo('assumptions')}: {_enumerar(declared.assumptions)}")
+    else:
+        paragraphs.append("Sin supuestos declarados.")
+    if declared.limitations:
+        paragraphs.append(f"{rotulo('limitations')}: {_enumerar(declared.limitations)}")
+    else:
+        paragraphs.append("Sin limitaciones declaradas.")
+    meses = declared.review_period_months
+    paragraphs.append(
+        f"{rotulo('review_period_months')}: la institución revisa este modelo cada "
+        f"{meses} {'mes' if meses == 1 else 'meses'}."
+    )
+    paragraphs.append(
+        "Las métricas, las decisiones registradas y las fechas de emisión y de la siguiente "
+        "revisión no forman parte de este informe: quedan en la ficha del modelo, que el motor "
+        "emite al cierre de la corrida cuando se le pide un directorio de corrida o la "
+        "publicación al inventario."
+    )
+    return tuple(paragraphs)
+
+
 def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
     tiene_provisiones = _card(bundle, "provisioning") is not None
@@ -2549,6 +2610,13 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
                 "La estabilidad de la PD calibrada no se evaluó en esta corrida (queda fuera del "
                 "config): sólo se midió la del score."
             )
+    if bundle.governance is not None:
+        # D-SC-13: con gobernanza, este capítulo remite a la ficha en vez de repetir lo declarado;
+        # sin ella no añade nada (D-SC-16: el golden sin gobernanza no se mueve).
+        paragraphs.append(
+            "Los supuestos y las limitaciones que la institución declaró están en el capítulo "
+            "«Ficha del modelo» y no se repiten aquí."
+        )
     return tuple(paragraphs)
 
 

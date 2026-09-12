@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -460,9 +461,10 @@ def _study_completo(
     coefficients: pd.DataFrame | None = None,
     card_overrides: dict[str, Any] | None = None,
     include_figures: bool = True,
+    governance: dict[str, Any] | None = None,
 ) -> Study:
     """Construye un ``Study`` mínimo con cards F1 y artefactos tabulares."""
-    study = Study(_nikodym_config())
+    study = Study(_nikodym_config(governance=governance))
     study.run_context.lineage = _lineage()
     overrides = {} if card_overrides is None else card_overrides
     for domain, key in _CARD_ARTIFACTS:
@@ -687,14 +689,16 @@ def _validation_result() -> ValidationResult:
     )
 
 
-def _nikodym_config() -> NikodymConfig:
+def _nikodym_config(*, governance: dict[str, Any] | None = None) -> NikodymConfig:
     """Config raíz con parámetros REALES de binning y selección.
 
     La prosa de Metodología los lee del config de la corrida (``bundle.pipeline_params``), así que
-    el fixture debe traerlos: son justamente lo que el informe tiene que saber redactar.
+    el fixture debe traerlos: son justamente lo que el informe tiene que saber redactar. Con
+    ``governance`` declarada, el informe gana el capítulo «Ficha del modelo» (D-SC-13).
     """
     return NikodymConfig.model_validate(
         {
+            **({"governance": governance} if governance is not None else {}),
             "binning": {
                 "feature_columns": ("saldo",),
                 "solver": "mip",
@@ -1435,3 +1439,103 @@ def test_la_division_leida_declara_su_alcance_y_no_promete_una_transcripcion_lit
     assert "las observaciones utilizables para modelar" in body
     assert "excluidas o indeterminadas" in body
     assert "un valor no declarado aquí" in body
+
+
+# ─────────────────── la ficha del modelo en el informe (capa 4, D-SC-13…16) ───────────────────
+
+_GOBERNANZA_DECLARADA: dict[str, Any] = {
+    "model_name": "scorecard-consumo-2026",
+    "purpose": "Originar créditos de consumo del segmento retail con una PD por operación.",
+    "assumptions": ("La definición de incumplimiento es 90+ días de mora.",),
+    "limitations": ("No cubre operaciones reestructuradas.",),
+    "review_period_months": 6,
+    "cartera": "Consumo retail",
+    "motor": "scoring",
+    "fase": "F1",
+    "estado_validacion": "en_validacion",
+    "author": "riesgo@banco.cl",
+}
+
+
+def _seccion(bundle: Any, seccion_id: str) -> Any:
+    return next(section for section in bundle.sections if section.id == seccion_id)
+
+
+def test_sin_gobernanza_el_informe_no_tiene_capitulo_de_ficha_ni_cambia_una_linea() -> None:
+    """D-SC-16: sin `governance` no hay capítulo —ni vacío ni fabricado— y la numeración es la de
+    siempre. Es el control positivo de la capa (el golden HTML de `test_report_step` lo mide en
+    bytes); aquí se mide en el documento lógico."""
+    bundle = ReportBuilder(ReportConfig()).collect(_study_completo())
+    assert bundle.governance is None
+    ids = [section.id for section in bundle.sections]
+    assert "model_card" not in ids
+    assert _seccion(bundle, "introduction").number == "1"
+    assert _seccion(bundle, "context").number == "2"
+    assert not any(
+        "Ficha del modelo" in parrafo for parrafo in _seccion(bundle, "limitations").body
+    )
+
+
+def test_con_gobernanza_la_ficha_es_el_capitulo_2_y_se_escribe_desde_lo_declarado() -> None:
+    """D-SC-13/14: con `governance` el capítulo «Ficha del modelo» entra entre «Introducción» y
+    «Contexto», se numera, y publica propósito, supuestos, limitaciones, identidad de inventario y
+    periodicidad, con los rótulos del copy aprobado de D-GOB-13 y sin slugs (D-SC-15)."""
+    bundle = ReportBuilder(ReportConfig()).collect(
+        _study_completo(governance=_GOBERNANZA_DECLARADA)
+    )
+    assert bundle.governance is not None
+    assert bundle.governance.purpose == _GOBERNANZA_DECLARADA["purpose"]
+    ids = [section.id for section in bundle.sections]
+    assert ids.index("introduction") < ids.index("model_card") < ids.index("context")
+    ficha = _seccion(bundle, "model_card")
+    assert ficha.title == "Ficha del modelo"
+    assert ficha.kind == "prose"
+    assert ficha.number == "2"
+    assert _seccion(bundle, "context").number == "3"
+    cuerpo = " ".join(ficha.body)
+    # Lo declarado, verbatim.
+    assert _GOBERNANZA_DECLARADA["purpose"] in cuerpo
+    assert "La definición de incumplimiento es 90+ días de mora." in cuerpo
+    assert "No cubre operaciones reestructuradas." in cuerpo
+    assert "scorecard-consumo-2026" in cuerpo and "Consumo retail" in cuerpo
+    assert "riesgo@banco.cl" in cuerpo and "6 meses" in cuerpo
+    # Los rótulos son los del copy aprobado (títulos de los campos de `GovernanceConfig`).
+    for rotulo in (
+        "Propósito del modelo",
+        "Nombre lógico del modelo",
+        "Cartera",
+        "Motor",
+        "Fase de construcción",
+        "Estado de validación",
+        "Autor / responsable",
+    ):
+        assert rotulo in cuerpo, rotulo
+    # Los slugs no se imprimen crudos: se traducen.
+    assert "en_validacion" not in cuerpo and "en validación" in cuerpo
+    assert "nikodym." not in cuerpo
+    # Y la remisión describe el contrato sin afirmar que exista un archivo ni fijar una fecha.
+    assert "quedan en la ficha del modelo" in cuerpo
+    assert "model_card" not in cuerpo and ".json" not in cuerpo and "2026-" not in cuerpo
+
+
+def test_con_gobernanza_limitaciones_remite_a_la_ficha_en_vez_de_repetirla() -> None:
+    """D-SC-13: «Limitaciones y supuestos» gana una frase de remisión; sin gobernanza, nada."""
+    con = ReportBuilder(ReportConfig()).collect(_study_completo(governance=_GOBERNANZA_DECLARADA))
+    sin = ReportBuilder(ReportConfig()).collect(_study_completo())
+    cuerpo_con = _seccion(con, "limitations").body
+    cuerpo_sin = _seccion(sin, "limitations").body
+    assert len(cuerpo_con) == len(cuerpo_sin) + 1
+    assert cuerpo_con[:-1] == cuerpo_sin
+    assert "capítulo «Ficha del modelo»" in cuerpo_con[-1]
+    assert "No cubre operaciones reestructuradas." not in " ".join(cuerpo_con)
+
+
+def test_la_ficha_del_informe_no_fija_fechas_ni_metricas_aunque_las_haya() -> None:
+    """D-SC-14: la fecha de emisión la fija `ModelCardBuilder` después de `report`; publicar otra
+    aquí crearía dos verdades. El capítulo no lleva ninguna fecha ni una métrica del modelo."""
+    bundle = ReportBuilder(ReportConfig()).collect(
+        _study_completo(governance=_GOBERNANZA_DECLARADA)
+    )
+    cuerpo = " ".join(_seccion(bundle, "model_card").body)
+    assert not re.search(r"\d{4}-\d{2}-\d{2}", cuerpo)
+    assert "AUC" not in cuerpo and "KS" not in cuerpo and "Gini" not in cuerpo

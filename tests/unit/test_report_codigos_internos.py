@@ -230,3 +230,34 @@ def test_el_mismo_aviso_repetido_no_duplica_la_frase(informe: str) -> None:
     """
     cuerpo = "".join(_cuerpo(informe))
     assert cuerpo.count("los cortes del semáforo verde/ámbar/rojo") == 1
+
+
+def test_la_ficha_del_modelo_no_imprime_tags_ni_slugs_de_gobernanza() -> None:
+    """D-SC-15: los tags `nikodym.*`, «SR 11-7», «effective challenge» y los `Literal` de
+    `motor`/`fase`/`estado_validacion` no llegan crudos a la prosa del capítulo nuevo."""
+    from nikodym.report.results import GovernanceDeclaration
+
+    cfg = ReportConfig(sections={"missing_policy": "skip"})
+    bundle = ReportInputBundle(
+        lineage=_lineage(),
+        cards=_cards_envenenadas(),
+        results={"validation": {"model_ref": "scorecard-retail"}},
+        tables={},
+        figures={},
+        sections=(),
+        governance=GovernanceDeclaration(
+            model_name="scorecard-retail",
+            purpose="Originar créditos de consumo.",
+            review_period_months=12,
+            motor="ifrs9",
+            fase="originacion",
+            estado_validacion="en_validacion",
+        ),
+    )
+    bundle = bundle.model_copy(update={"sections": ReportBuilder(cfg).build_sections(bundle)})
+    html = HtmlReportRenderer(cfg).render(bundle)
+    capitulo = next(s for s in _cuerpo(html) if 'data-section-id="model_card"' in s)
+    for crudo in ("nikodym.", "SR 11-7", "effective challenge", "en_validacion", "originacion"):
+        assert crudo not in capitulo, crudo
+    for palabra in ("provisiones IFRS 9", "originación", "en validación"):
+        assert palabra in capitulo, palabra

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.util
+import re
 import subprocess
 import sys
 import textwrap
@@ -853,9 +854,15 @@ def test_study_run_pipeline_scorecard_report_end_to_end(tmp_path: Path) -> None:
     assert result.input_bundle.lineage.config_hash == config_hash(study.config)
 
 
-def _study_with_report_artifacts(*, config: ReportConfig) -> Study:
+def _study_with_report_artifacts(
+    *, config: ReportConfig, governance: dict[str, Any] | None = None
+) -> Study:
     """Construye un ``Study`` con las ocho cards requeridas y tablas de reporte."""
-    study = Study(NikodymConfig(report=config))
+    study = Study(
+        NikodymConfig.model_validate(
+            {"report": config.model_dump(mode="json"), "governance": governance}
+        )
+    )
     study.run_context.lineage = _lineage()
     for domain, key in REPORT_REQUIRED_CARDS:
         study.artifacts.set(domain, key, _card(domain))
@@ -1155,3 +1162,54 @@ def _pipeline_study(tmp_path: Path) -> Study:
 def _inject_pipeline_frame(study: Study) -> None:
     """Inyecta el frame crudo bajo la clave pública de ``DataStep``."""
     study.artifacts.set("data", INPUT_FRAME_KEY, _pipeline_frame())
+
+
+def test_con_gobernanza_declarada_y_sin_run_dir_el_informe_trae_la_ficha_en_los_cuatro_formatos(
+    tmp_path: Path,
+) -> None:
+    """Capa 4 (D-SC-13…16), gate del §6: corrida con `governance` declarada, SIN `run_dir`, con
+    `publish_to_inventory=False` y `audit=None` → el capítulo existe en HTML, DOCX y QMD (el PDF
+    lo cubre el job de CI), el manifiesto lo lista, y su remisión no nombra ningún archivo ni
+    fecha como existentes (§0-16). Y el golden sin gobernanza sigue intacto (arriba)."""
+    gobernanza = {
+        "model_name": "scorecard-consumo-2026",
+        "purpose": "Originar créditos de consumo con una PD por operación.",
+        "assumptions": ["La definición de incumplimiento es 90+ días de mora."],
+        "limitations": ["No cubre operaciones reestructuradas."],
+        "review_period_months": 12,
+        "estado_validacion": "en_validacion",
+        "publish_to_inventory": False,
+    }
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        sections=SectionPolicyConfig(max_table_rows=10),
+        formats=["md", "docx"],
+    )
+    study = _study_with_report_artifacts(config=cfg, governance=gobernanza)
+    assert study.config.audit is None or getattr(study.config.audit, "enabled", False) is False
+    result = ReportStep.from_config(study.config.report).execute(
+        study, np.random.default_rng(ROOT_SEED)
+    )
+    assert result.manifest.sha256 != GOLDEN_STEP_HTML_SHA256
+    assert "model_card" in [section.id for section in result.manifest.sections]
+
+    html = Path(result.html_path).read_text(encoding="utf-8")
+    inicio = html.index('data-section-id="model_card"')
+    fin = html.index("</section>", inicio)
+    capitulo = html[inicio:fin]
+    assert "Ficha del modelo" in capitulo
+    assert "Originar créditos de consumo con una PD por operación." in capitulo
+    assert "quedan en la ficha del modelo" in capitulo
+    assert "model_card.json" not in capitulo and ".json" not in capitulo
+    assert not re.search(r"\d{4}-\d{2}-\d{2}", capitulo)
+    assert "en_validacion" not in capitulo and "nikodym." not in capitulo
+
+    import docx
+
+    word = docx.Document(str(result.docx_path))
+    texto_word = "\n".join(p.text for p in word.paragraphs)
+    assert "Ficha del modelo" in texto_word
+    assert "Originar créditos de consumo con una PD por operación." in texto_word
+    qmd = Path(result.md_path).read_text(encoding="utf-8")
+    assert "Ficha del modelo" in qmd
+    assert "Originar créditos de consumo con una PD por operación." in qmd

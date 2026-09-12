@@ -50,6 +50,7 @@ from nikodym.report.document import (
 )
 from nikodym.report.exceptions import ReportInputError
 from nikodym.report.results import (
+    GovernanceDeclaration,
     PlaceholderBlock,
     ReportInputBundle,
     ReportManifest,
@@ -206,6 +207,8 @@ class ReportBuilder:
             pipeline_params=pipeline_params,
             # D-MON-3: la moneda sale del config del propio informe, no de un dominio del pipeline.
             currency=(self.config.currency or ""),
+            # D-SC-14: lo declarado en `governance`, que existe cuando corre `report`.
+            governance=_governance_declaration(getattr(study.config, "governance", None)),
         )
         return bundle.model_copy(update={"sections": self.build_sections(bundle)})
 
@@ -228,6 +231,8 @@ class ReportBuilder:
                 continue  # capítulo condicional: el dominio no corrió ⇒ no existe el capítulo
             if spec.requires_result and spec.requires_result not in bundle.results:
                 continue  # capítulo condicional: falta el oracle agregado ⇒ no se emite
+            if spec.requires_governance and bundle.governance is None:
+                continue  # capítulo condicional: sin gobernanza declarada ⇒ no existe (D-SC-16)
             if spec.requires_any_domain and not any(
                 domain in bundle.cards for domain in spec.requires_any_domain
             ):
@@ -554,6 +559,8 @@ class ReportBuilder:
 
 def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]:
     """Prosa determinista del capítulo; los capítulos sin prosa propia devuelven vacío."""
+    if chapter_id == "model_card":
+        return prose.model_card_body(bundle)
     if chapter_id == "context":
         return prose.context_body(bundle)
     if chapter_id == "methodology":
@@ -587,6 +594,41 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
             "del código y la semilla raíz. Con estos cuatro valores el resultado es reproducible.",
         )
     return ()
+
+
+def _governance_declaration(value: Any) -> GovernanceDeclaration | None:
+    """Proyecta ``config.governance`` al DTO del informe; ``None`` si no se declaró.
+
+    Acepta el ``GovernanceConfig`` ya validado (lo normal) o su ``dict`` —el campo del config raíz
+    es ``Any`` en runtime para no arrastrar ``nikodym.governance`` al importar el núcleo—. Sólo
+    copia las declaraciones que el capítulo publica: las opciones de publicación y del diario de
+    escenarios no son copy del informe.
+    """
+    if value is None:
+        return None
+    raw: Mapping[str, Any]
+    if isinstance(value, BaseModel):
+        raw = value.model_dump(mode="json")
+    elif isinstance(value, Mapping):
+        raw = value
+    else:
+        raise ReportInputError(f"governance no es un config ni un mapping: {type(value).__name__}")
+    return GovernanceDeclaration(
+        model_name=str(raw.get("model_name") or "nikodym-model"),
+        purpose=str(raw.get("purpose") or ""),
+        assumptions=tuple(str(item) for item in raw.get("assumptions") or ()),
+        limitations=tuple(str(item) for item in raw.get("limitations") or ()),
+        review_period_months=int(raw.get("review_period_months") or 12),
+        cartera=_optional_text(raw.get("cartera")),
+        motor=_optional_text(raw.get("motor")),
+        fase=_optional_text(raw.get("fase")),
+        estado_validacion=str(raw.get("estado_validacion") or "desarrollo"),
+        author=_optional_text(raw.get("author")),
+    )
+
+
+def _optional_text(value: Any) -> str | None:
+    return None if value is None or str(value).strip() == "" else str(value)
 
 
 def _placeholder(spec: ChapterSpec, config: ReportConfig) -> PlaceholderBlock | None:

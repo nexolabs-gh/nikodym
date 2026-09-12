@@ -7,6 +7,17 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Añadido
+
+- **El informe trae la ficha del modelo.** Con la gobernanza declarada, el informe HTML, PDF, Word
+  y Quarto gana el capítulo «Ficha del modelo», entre la introducción y el contexto: el propósito,
+  los supuestos y las limitaciones tal cual los escribió la institución, la identidad de
+  inventario (nombre, cartera, motor, fase, estado de la revisión independiente, responsable) con
+  sus rótulos, y la periodicidad de revisión; el capítulo de limitaciones remite a él en vez de
+  repetirlo. Las métricas, las decisiones y las fechas siguen en la ficha que el motor emite al
+  cierre de la corrida —una sola ficha por corrida—, y el capítulo lo dice sin nombrar archivos.
+  Sin gobernanza el informe es, byte a byte, el de siempre.
+
 ### Cambiado
 
 - **Los presets F1 «Estándar consumo» y F5 «Provisión interna genérica» traen el análisis

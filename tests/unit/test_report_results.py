@@ -121,11 +121,15 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
         "sections",
         "missing_sections",
         "pipeline_params",
+        # D-SC-14 (capa 4): las declaraciones de gobernanza, aditivas con default `None`; sin
+        # ellas el documento es byte a byte el de siempre y con ellas entra «Ficha del modelo».
+        "governance",
         # D-MON-3: campo propio y NO una entrada de `pipeline_params`. Meterlo allí rompía la
         # invariante de auditoría que exige que todo config recolectado tenga sección en el Anexo C,
         # y habría metido presentación en el anexo de parámetros del pipeline.
         "currency",
     )
+    assert bundle.governance is None, "sin gobernanza declarada el bundle no afirma ninguna"
     assert bundle.pipeline_params == {}
     assert bundle.currency == "", "sin moneda declarada el bundle no afirma ninguna"
     assert bundle.results == {"validation": {"overall_status": "pass"}}

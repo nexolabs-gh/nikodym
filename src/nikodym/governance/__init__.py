@@ -17,12 +17,21 @@ from nikodym.governance.inventory import (
     NullInventory,
     publish_inventory,
 )
+from nikodym.governance.labels import (
+    ESTADO_VALIDACION_LABELS,
+    FASE_LABELS,
+    MOTOR_LABELS,
+    governance_label,
+)
 from nikodym.governance.model_card import DecisionRecord, ModelCard, ModelCardBuilder
 from nikodym.governance.scenarios import OverlayRecord, ScenarioLog, ScenarioRecord
 
 _schema._GOVERNANCE_CONFIG_CLS = GovernanceConfig
 
 __all__ = [
+    "ESTADO_VALIDACION_LABELS",
+    "FASE_LABELS",
+    "MOTOR_LABELS",
     "DecisionRecord",
     "GovernanceConfig",
     "GovernanceError",
@@ -36,5 +45,6 @@ __all__ = [
     "RegistryUnavailableError",
     "ScenarioLog",
     "ScenarioRecord",
+    "governance_label",
     "publish_inventory",
 ]

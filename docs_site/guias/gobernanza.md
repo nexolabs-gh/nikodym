@@ -65,9 +65,13 @@ tal: es una salvedad que el motor dejó escrita en vez de callar —un dato que 
 institución, o una brecha declarada del propio motor—. El código se conserva tal cual para que
 puedas auditarlo; lo que significa cada uno está en [Avisos declarados](../avisos-declarados.md).
 
-Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada. El informe HTML/PDF/Word no
-incluye la ficha del modelo; la ficha vive en Resultados y en los archivos del directorio de la
-corrida.
+Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada. Con gobernanza, el informe
+HTML/PDF/Word/Quarto gana el capítulo **«Ficha del modelo»**, entre la introducción y el contexto:
+lo que declaraste —propósito, supuestos, limitaciones, identidad de inventario y periodicidad de
+revisión— tal cual lo escribiste, con sus rótulos. Las métricas, las decisiones registradas y las
+fechas de emisión y de la siguiente revisión no van en el capítulo: quedan en la ficha, que el
+motor emite al cierre de la corrida cuando le das `run_dir` o publicas al inventario, y que
+Resultados muestra completa. Una sola ficha por corrida: el informe remite a ella, no la duplica.
 
 ## Por código
 

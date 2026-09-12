@@ -315,6 +315,12 @@ class ChapterSpec(BaseModel):
     ``data → survival → provisioning_ifrs9``) no debe traer un capítulo «Resultados» vacío.
     Vacía (el default) = sin condición any-of.
     """
+    requires_governance: bool = False
+    """El capítulo se emite sólo si la corrida declaró ``governance`` (D-SC-13).
+
+    Es el mismo tipo de predicado que ``requires_domain``: sin gobernanza no hay capítulo —ni vacío
+    ni fabricado— y el documento no cambia una sola línea (D-SC-16).
+    """
     requires_result: str = ""
     """Resultado atómico del que depende el capítulo.
 
@@ -339,6 +345,15 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
             "Delimita el alcance (qué modelo y qué cartera cubre, qué queda fuera) e "
             "identifica la audiencia: Validación independiente, Comité de Riesgo, regulador.",
         ),
+    ),
+    # Capítulo CONDICIONAL a la gobernanza (capa 4 de SCORECARD-COMPLETO, D-SC-13): lo que la
+    # institución declaró —propósito, supuestos, limitaciones, identidad de inventario— escrito
+    # desde el config, con remisión a la ficha que el motor emite al cierre de la corrida.
+    ChapterSpec(
+        id="model_card",
+        title="Ficha del modelo",
+        kind="prose",
+        requires_governance=True,
     ),
     ChapterSpec(
         id="context",
