@@ -317,7 +317,9 @@
     "max_table_rows": 200
    }
   },
-  "audit": null,
+  "audit": {
+   "enabled": true
+  },
   "governance": null,
   "tracking": null
  },

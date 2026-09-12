@@ -342,11 +342,15 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   panel ya acotan lo que dibujan; acotar la respuesta, o rechazar ese eje antes de correr, es una
   decisión pendiente.
 
-- El informe de la demo publicada sigue diciendo «Falla técnica» donde el motor ya escribe
-  «Falla»: es un artefacto capturado y se regenera en el paso de recaptura, junto con el resto.
+- La demo publicada corre sin una gobernanza declarada, así que su ficha del modelo sigue vacía y
+  su informe no la trae; el propósito de la demo es un dato de la institución y no se inventa. Sus
+  fixtures se recapturaron con esta versión desde corridas reales (F1 y F4): la identidad de las
+  corridas **no** cambia, y el informe de la demo dice ya «Falla» donde antes decía «Falla
+  técnica».
 
-- Los datos de la demo publicada siguen mostrando el model card vacío: se regeneran en un paso
-  aparte. La identidad de las corridas de la demo **no** cambia con esta versión.
+- Los presets de fábrica siguen con el análisis exploratorio apagado: encenderlo en ellos mueve
+  la identidad de cada preset y va con la próxima recaptura; los dos trabajos del scorecard de la
+  interfaz lo traen encendido.
 
 ## [1.12.0] — 2026-08-27
 

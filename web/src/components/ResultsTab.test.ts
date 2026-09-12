@@ -606,10 +606,12 @@ describe("«Validación formal» (D-SC-9) sobre una corrida real", () => {
     const html = render(conValidacion(null))
     expect(html).not.toContain("Validación formal")
     expect(html).not.toContain("Estado técnico")
-    // Y la demo publicada, que se capturó ANTES de que el serializer emitiera la clave, tampoco
-    // lo pinta: es el mismo guard, por presencia y no por verdad.
+    // La demo publicada se recapturó sobre 1.13.0, cuando el serializer ya emitía la clave, y el
+    // preset F1 corre la validación: el fixture real la trae y el panel se pinta con su estado.
+    // (Hasta 1.12.0 el fixture no traía la clave y este mismo guard lo dejaba fuera.)
     const demo = render(demoF1 as unknown as ResultsResponse)
-    expect(demo).not.toContain("Validación formal")
+    expect(demo).toContain("Validación formal")
+    expect(demo).toContain("Estado técnico")
   })
 })
 
