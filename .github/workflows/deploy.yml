@@ -128,9 +128,30 @@ jobs:
         run: |
           set -euo pipefail
           version="$(grep -oE '__version__ = "[^"]+"' src/nikodym/__init__.py | cut -d'"' -f2)"
-          sleep 10
 
-          docs="$(curl -fsSL https://docs.nikodym.cl/)"
+          # 🔴 Frescura antes que contenido (hallazgo de la revisión adversarial de la 1.14.0): el
+          # alias de producción de Vercel tarda más que un `sleep` fijo, y un chequeo que lea el
+          # build ANTERIOR pasa en falso —o falla en falso— sin acreditar este commit. El bundle
+          # que este job construyó lleva un hash en el nombre: se sondea el dominio, con plazo,
+          # hasta que sirva exactamente ese archivo; y la portada, hasta que diga esta versión.
+          bundle_local="$(grep -oE '/assets/index-[^"]*\.js' web/dist/index.html | head -1)"
+          test -n "$bundle_local" || { echo "::error::web/dist/index.html no referencia ningún bundle"; exit 1; }
+          limite=$(( SECONDS + 10 * 60 ))
+          while :; do
+            bundle_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://demo.nikodym.cl/ | grep -oE '/assets/index-[^"]*\.js' | head -1 || true)"
+            docs="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/ || true)"
+            if [ "$bundle_vivo" = "$bundle_local" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
+              echo "producción sirve este build: ${bundle_local} y la portada ${version}"
+              break
+            fi
+            if [ "$SECONDS" -ge "$limite" ]; then
+              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local})"
+              exit 1
+            fi
+            sleep 15
+          done
+
+          docs="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/)"
           if ! grep -qF "Estado: ${version}" <<<"$docs"; then
             echo "::error::docs.nikodym.cl no publica la versión ${version} en su portada"
             exit 1

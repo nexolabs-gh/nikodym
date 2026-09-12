@@ -57,6 +57,7 @@ import json
 import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
+from copy import deepcopy
 from pathlib import Path
 from runpy import run_path
 from typing import TYPE_CHECKING, Any
@@ -73,6 +74,34 @@ if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
 PRESET_ID = "f1-estandar-consumo"
+# La gobernanza con la que corre la demo pública (D-GOB-9: el propósito es un dato de la
+# institución; éste lo fijó Cami para la demo el 2026-09-12 y no es el de ningún cliente). Va en la
+# CAPTURA y no en el preset: `standard_preset()` sigue sin propósito, porque el motor no lo inventa
+# por nadie. Con ella la corrida emite la ficha del modelo —Resultados la pinta y el informe gana
+# el capítulo «Ficha del modelo» (capa 4)— y `preset-f1.json`/`toyaml-f1.json` la traen para que
+# la pestaña de configuración de la demo muestre exactamente lo que produjo `results-f1.json`.
+# No mueve el `config_hash`: la gobernanza documenta el modelo, no lo modifica.
+DEMO_GOVERNANCE: dict[str, Any] = {
+    "model_name": "scorecard-consumo-demo",
+    "purpose": (
+        "Demostración pública de Nikodym RiskLib: scorecard de comportamiento sobre una cartera "
+        "de consumo sintética. Ilustra el flujo completo de construcción y validación; no decide "
+        "sobre ninguna operación real."
+    ),
+    "assumptions": [
+        "Los datos son sintéticos y reproducibles: no representan a ninguna institución.",
+        "La definición de incumplimiento es la del dataset de ejemplo (bad_flag).",
+    ],
+    "limitations": [
+        "Sin uso productivo: las cifras sirven para leer el informe, no para decidir.",
+    ],
+    "review_period_months": 12,
+    "cartera": "Consumo (sintética)",
+    "motor": "scoring",
+    "fase": "F1",
+    "estado_validacion": "desarrollo",
+    "author": "Nexo Labs",
+}
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _FIXTURES_DIR = _PROJECT_ROOT / "web" / "src" / "fixtures" / "demo"
 _CAPTURE_WORKDIR_NAME = ".nikodym-demo-fixtures-f1"
@@ -82,6 +111,7 @@ _CAPTURE_WORKDIR_NAME = ".nikodym-demo-fixtures-f1"
 _SCORECARD_TITLE = "Informe de Validación de Scorecard"
 _IFRS9_TITLE = "Informe de Provisiones IFRS 9 / ECL"
 _VALIDATION_TITLE = "Validación formal"
+_MODEL_CARD_TITLE = "Ficha del modelo"
 _DATA_TITLE = "Población, particiones y exclusiones"
 
 # El catálogo compartido debe listar la cartera IFRS 9 (hoy el fixture versionado está stale y no la
@@ -259,7 +289,10 @@ def capture(client: TestClient) -> dict[str, Any]:
     datasets = _get(client, "/api/datasets").json()
 
     preset = _get(client, f"/api/config/preset/{PRESET_ID}").json()
-    config = preset["config"]
+    # La demo declara gobernanza (D-GOB-9); el preset servido no la trae y no debe traerla.
+    assert preset["config"].get("governance") is None, "el preset F1 no debe declarar gobernanza"
+    config = {**preset["config"], "governance": deepcopy(DEMO_GOVERNANCE)}
+    preset = {**preset, "config": config}
     dataset_id = preset["dataset_id"]
 
     run = _post(client, "/api/run", {"config": config, "dataset_id": dataset_id}).json()
@@ -457,6 +490,17 @@ def verify_artifacts() -> None:
     )
     assert _DATA_TITLE in html, "report-f1.html no proyecta el DataCardSection"
     assert _VALIDATION_TITLE in html, "report-f1.html no trae el ValidationResult ejecutado"
+    # La ficha del modelo (capa 4): el capítulo en el informe y la card en los resultados.
+    assert _MODEL_CARD_TITLE in html, "report-f1.html no trae el capítulo «Ficha del modelo»"
+    assert DEMO_GOVERNANCE["purpose"] in html, "el capítulo no publica el propósito declarado"
+    results = json.loads((_FIXTURES_DIR / "results-f1.json").read_text(encoding="utf-8"))
+    card = results.get("model_card")
+    assert isinstance(card, dict) and card.get("purpose") == DEMO_GOVERNANCE["purpose"], (
+        "results-f1.json no trae la ficha del modelo con el propósito declarado"
+    )
+    assert preset["config"].get("governance") == DEMO_GOVERNANCE, (
+        "preset-f1.json no trae la gobernanza con la que corrió la demo"
+    )
     # La contraparte visible del `git_dirty` que ya se exigió sobre el lineage: aquí se mide sobre
     # el documento que la demo sirve, que es donde un lector lo leería.
     assert _CAVEAT_GIT_SUCIO not in html, (
