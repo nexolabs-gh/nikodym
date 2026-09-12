@@ -45,10 +45,6 @@ const ROTULOS_DE_LA_FICHA = [
 ]
 
 // Las corridas que la demo publica hoy (D-JUR-9.7: la de provisiones CMF salió del árbol).
-const DEMOS: [string, ResultsResponse][] = [
-  ["results-f1.json", demoF1 as unknown as ResultsResponse],
-  ["results-ifrs9.json", demoF4 as unknown as ResultsResponse],
-]
 
 function render(results: ResultsResponse | null): string {
   const props: ResultsPanelProps = {
@@ -285,7 +281,11 @@ describe("guardrails del cableado (fuente)", () => {
 // ───────── capa 1 de SCORECARD-COMPLETO: panel de selección y resumen del PSI ─────────
 
 describe("«Selección de variables» (D-SC-10) sobre la corrida real de la demo", () => {
-  const demo = demoF1 as unknown as ResultsResponse
+  // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
+  // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
+  // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
+  // se retira del render; la ficha real se mide en su propio bloque.
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
   const html = render(demo)
 
   it("pinta la sección una vez, con candidatas, seleccionadas y excluidas", () => {
@@ -340,7 +340,11 @@ describe("«Selección de variables» (D-SC-10) sobre la corrida real de la demo
 })
 
 describe("«Selección de variables»: guard por presencia y avisos declarados", () => {
-  const demo = demoF1 as unknown as ResultsResponse
+  // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
+  // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
+  // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
+  // se retira del render; la ficha real se mide en su propio bloque.
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
 
   it("sin `selection` la sección entera desaparece, y el resto del panel sigue", () => {
     const html = render({ ...demo, selection: undefined })
@@ -378,7 +382,11 @@ describe("«Selección de variables»: guard por presencia y avisos declarados",
 })
 
 describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
-  const demo = demoF1 as unknown as ResultsResponse
+  // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
+  // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
+  // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
+  // se retira del render; la ficha real se mide en su propio bloque.
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
 
   it("una fila por comparación, con el rótulo que el informe usa", () => {
     const html = render(demo)
@@ -887,9 +895,13 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
       expect(html).not.toContain(TITULO_EDA)
       expect(html).not.toContain("data-eda-chart")
     }
-    // Las corridas de la demo se capturaron antes de esta clave y siguen renderizando.
-    for (const [nombre, demo] of DEMOS) {
-      expect(render(demo), nombre).not.toContain(TITULO_EDA)
-    }
+    // La demo IFRS 9 (F4) no corre `eda` y sigue renderizando sin el bloque; la demo F1, desde la
+    // recaptura de 1.14.0 con el preset con `eda` encendida, lo trae con barras por cohorte.
+    expect(render(demoF4 as unknown as ResultsResponse)).not.toContain(TITULO_EDA)
+    const f1 = render(demoF1 as unknown as ResultsResponse)
+    expect(f1).toContain('data-eda-chart="bar"')
+    // El título se cuenta sin la ficha, que rotula el dominio con el mismo nombre en su evidencia.
+    const f1SinFicha = render({ ...(demoF1 as unknown as ResultsResponse), model_card: null })
+    expect(ocurrencias(f1SinFicha, TITULO_EDA)).toBe(1)
   })
 })

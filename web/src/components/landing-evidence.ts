@@ -66,7 +66,7 @@ export const PIPELINE = [
     n: "06",
     paso: "Informe",
     hace: "Documento con metodología y resultados. HTML, PDF y base editable.",
-    dato: "7 capítulos + 3 anexos",
+    dato: "8 capítulos + 3 anexos",
   },
 ] as const
 
@@ -83,20 +83,24 @@ export const PIPELINE = [
  * sí redacta todo lo demás —métricas y tablas—; lo único que queda al humano es el veredicto de
  * aptitud, que no lo emite una máquina.
  *
- * OJO: el 7 NO es una constante del motor. `CHAPTER_SPECS` emite capítulos condicionales y la
- * numeración se reajusta sola (el fixture F3 emite 7, con «Provisiones regulatorias» en el 5; el de
- * IFRS 9 emite 6). Este 7 es el de la corrida F1, que es la que declara la cabecera de este
- * archivo. Si cambia la cadena de la demo, se recuenta contra el índice del informe nuevo.
+ * OJO: el 8 NO es una constante del motor. `CHAPTER_SPECS` emite capítulos condicionales y la
+ * numeración se reajusta sola (el fixture F3 emitía 7, con «Provisiones regulatorias» en el 5; el
+ * de IFRS 9 emite 6). Este 8 es el de la corrida F1 de la demo, que corre con gobernanza declarada
+ * y por eso trae «Ficha del modelo» como capítulo 2 (capa 4 de SCORECARD-COMPLETO, condicional a
+ * la gobernanza; su contenido lo declara la institución, pero el capítulo lo redacta el motor y
+ * no trae bloque POR COMPLETAR, así que es «generado» por la misma regla que los demás). Si cambia
+ * la cadena de la demo, se recuenta contra el índice del informe nuevo.
  */
 export const CAPITULOS = [
   { n: "—", titulo: "Resumen ejecutivo", tipo: "editable" },
   { n: "1", titulo: "Introducción", tipo: "editable" },
-  { n: "2", titulo: "Contexto del modelo y de la cartera", tipo: "editable" },
-  { n: "3", titulo: "Metodología", tipo: "generado" },
-  { n: "4", titulo: "Resultados", tipo: "generado" },
-  { n: "5", titulo: "Validación formal", tipo: "editable" },
-  { n: "6", titulo: "Conclusiones y recomendación", tipo: "editable" },
-  { n: "7", titulo: "Limitaciones y supuestos", tipo: "generado" },
+  { n: "2", titulo: "Ficha del modelo", tipo: "generado" },
+  { n: "3", titulo: "Contexto del modelo y de la cartera", tipo: "editable" },
+  { n: "4", titulo: "Metodología", tipo: "generado" },
+  { n: "5", titulo: "Resultados", tipo: "generado" },
+  { n: "6", titulo: "Validación formal", tipo: "editable" },
+  { n: "7", titulo: "Conclusiones y recomendación", tipo: "editable" },
+  { n: "8", titulo: "Limitaciones y supuestos", tipo: "generado" },
   { n: "A", titulo: "Lineage y reproducibilidad", tipo: "generado" },
   { n: "B", titulo: "Tablas detalladas", tipo: "generado" },
   { n: "C", titulo: "Parámetros completos", tipo: "generado" },
