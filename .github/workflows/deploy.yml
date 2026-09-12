@@ -40,6 +40,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     environment: production
+    # 🔴 En un evento `workflow_run`, `github.sha` es la punta de la rama por defecto y NO el commit
+    # cuyo CI disparó este job (hallazgo de la revisión adversarial de la 1.14.0, pasada 4): el
+    # checkout ya usaba `workflow_run.head_sha`, pero el sello y el chequeo en vivo miraban
+    # `github.sha`, así que un CI atrasado podía publicar A y certificar B. Un solo SHA para todo.
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Comprobar que las credenciales están configuradas
         # Falla PRIMERO y con un mensaje que dice qué hacer, en vez de dejar que el CLI de Vercel
@@ -66,18 +72,35 @@ jobs:
         with:
           # `workflow_run` da por defecto la punta de la rama, que puede haber avanzado mientras el
           # CI corría. Se publica EXACTAMENTE el commit que pasó los gates.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 0
+
+      # Un CI que termina después de que `main` avanzó no debe promover a producción un commit
+      # que ya no es la punta: se sale limpio y el Deploy del commit nuevo hace el trabajo.
+      - name: Sólo la punta de main llega a producción
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          punta="$(git rev-parse origin/main)"
+          if [ "$punta" != "$DEPLOY_SHA" ]; then
+            echo "::notice::este CI es de ${DEPLOY_SHA:0:7} y main ya está en ${punta:0:7}: no se despliega"
+            echo "SALTAR=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Setup uv
+        if: env.SALTAR != '1'
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
       - name: Install Python
+        if: env.SALTAR != '1'
         run: uv python install 3.12
 
       - name: Instalar dependencias de documentación
+        if: env.SALTAR != '1'
         run: uv sync --locked --python 3.12 --group docs
 
       # 🔴 Frescura de la documentación (pasada 3 de la revisión adversarial de la 1.14.0): varios
@@ -86,32 +109,40 @@ jobs:
       # más de `docs_site/`, creado sólo aquí) y el chequeo en vivo la espera antes de dar por
       # verde el despliegue.
       - name: Sellar el sitio con la huella del commit
-        run: printf '%s\n' "${{ github.sha }}" > docs_site/build-sha.txt
+        if: env.SALTAR != '1'
+        run: printf '%s\n' "$DEPLOY_SHA" > docs_site/build-sha.txt
 
       - name: Construir el sitio de documentación
+        if: env.SALTAR != '1'
         # `--strict` es el mismo gate que corre en local: un enlace roto aborta antes de publicar.
         run: uv run --no-sync mkdocs build --strict
 
       - name: Setup Node
+        if: env.SALTAR != '1'
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
 
       - name: Activar Corepack
+        if: env.SALTAR != '1'
         run: corepack enable
 
       - name: Instalar con lock congelado
+        if: env.SALTAR != '1'
         working-directory: web
         run: pnpm install --frozen-lockfile
 
       - name: Construir la demo estática
+        if: env.SALTAR != '1'
         working-directory: web
         run: pnpm build:demo
 
       - name: Instalar Vercel CLI
+        if: env.SALTAR != '1'
         run: npm install --global vercel@56
 
       - name: Publicar docs.nikodym.cl
+        if: env.SALTAR != '1'
         working-directory: site
         env:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -120,6 +151,7 @@ jobs:
         run: vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN"
 
       - name: Publicar demo.nikodym.cl
+        if: env.SALTAR != '1'
         working-directory: web/dist
         env:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -128,6 +160,7 @@ jobs:
         run: vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN"
 
       - name: Verificar EN VIVO lo publicado
+        if: env.SALTAR != '1'
         # 🔴 Un deploy que devuelve `READY` no prueba que el dominio sirva lo nuevo. Se comprueba
         # contra el dominio real y por CONTENIDO, no por código de estado: la versión que la portada
         # de la doc afirma tiene que ser la que el paquete declara, y el titular que se retiró del
@@ -149,12 +182,12 @@ jobs:
             bundle_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://demo.nikodym.cl/ | grep -oE '/assets/index-[^"]*\.js' | head -1 || true)"
             docs="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/ || true)"
             sha_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/build-sha.txt | tr -d '[:space:]' || true)"
-            if [ "$bundle_vivo" = "$bundle_local" ] && [ "$sha_vivo" = "${{ github.sha }}" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
+            if [ "$bundle_vivo" = "$bundle_local" ] && [ "$sha_vivo" = "$DEPLOY_SHA" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
               echo "producción sirve este build: ${bundle_local}, docs ${sha_vivo:0:7} y la portada ${version}"
               break
             fi
             if [ "$SECONDS" -ge "$limite" ]; then
-              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local}; docs=${sha_vivo:-∅} esperado=${{ github.sha }})"
+              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local}; docs=${sha_vivo:-∅} esperado=${DEPLOY_SHA})"
               exit 1
             fi
             sleep 15

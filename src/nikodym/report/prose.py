@@ -2474,16 +2474,10 @@ def model_card_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     declared = bundle.governance
     if declared is None:
         return ()
-    declared = declared.model_copy(
-        update={
-            "model_name": _declaracion_en_una_linea(declared.model_name),
-            "purpose": _declaracion_en_una_linea(declared.purpose),
-            "assumptions": tuple(_declaracion_en_una_linea(x) for x in declared.assumptions),
-            "limitations": tuple(_declaracion_en_una_linea(x) for x in declared.limitations),
-            "cartera": _declaracion_en_una_linea(declared.cartera),
-            "author": _declaracion_en_una_linea(declared.author),
-        }
-    )
+    # Las declaraciones se copian TAL CUAL (saltos y espacios incluidos): neutralizar marcado es
+    # cosa de cada renderer —el HTML escapa por autoescape, Word escribe texto, y el QMD las
+    # vuelve texto literal de pandoc—; hacerlo aquí alteraba el contenido visible en todos los
+    # formatos y creaba dos versiones de una misma declaración (pasada 4 de la revisión).
     from nikodym.governance.config import GovernanceConfig
     from nikodym.governance.labels import (
         ESTADO_VALIDACION_LABELS,
@@ -2529,23 +2523,6 @@ def model_card_body(bundle: ReportInputBundle) -> tuple[str, ...]:
         "publicación al inventario."
     )
     return tuple(paragraphs)
-
-
-def _declaracion_en_una_linea(texto: str | None) -> str | None:
-    """Una declaración de la institución es texto, no marcado: viaja en UNA línea.
-
-    🔴 El QMD copia la prosa tal cual y Quarto ejecuta lo que parezca una celda de código; un
-    propósito con un bloque cercado ```{python}``` en su propia línea sería código ejecutable al
-    renderizar (hallazgo de la revisión adversarial de la 1.14.0). Colapsar el espacio en blanco
-    deja fuera todo constructo de línea (cercas, bloques ``:::``, YAML, encabezados) y los
-    shortcodes ``{{<`` se separan para que no se interpreten. El HTML ya escapa por autoescape y
-    Word escribe texto; lo que queda —HTML crudo en línea dentro del QMD— se acusa en el gate y se
-    escapa en el renderer de QMD.
-    """
-    if texto is None:
-        return None
-    plano = " ".join(str(texto).split())
-    return plano.replace("{{<", "{{ <").replace(">}}", "> }}")
 
 
 def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:

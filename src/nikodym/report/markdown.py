@@ -166,7 +166,12 @@ def _texto_literal_pandoc(texto: str) -> str:
     una declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, TeX crudo, cercas ni
     shortcodes. Las letras, los dígitos, los espacios y los caracteres no ASCII no se tocan.
     """
-    return _PUNTUACION_ACTIVA.sub(r"\\\1", texto)
+    # Un salto de línea dentro de una declaración abriría constructos de LÍNEA en el QMD
+    # (cercas, bloques `:::`, YAML, encabezados): dentro del párrafo del QMD la declaración va en
+    # una línea; en HTML y Word viaja intacta, porque son los renderers y no la prosa quienes
+    # deciden cómo se escribe cada formato.
+    plano = " ".join(texto.split())
+    return _PUNTUACION_ACTIVA.sub(r"\\\1", plano)
 
 
 def _front_matter(document: Mapping[str, Any], config: ReportConfig) -> str:

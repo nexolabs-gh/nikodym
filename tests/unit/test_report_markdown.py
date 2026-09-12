@@ -434,3 +434,10 @@ def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo()
     assert "\\!\\[x\\]\\(file:///" in ficha and "\\*\\*énfasis\\*\\*" in ficha
     html = HtmlReportRenderer.from_config(config).render(bundle)
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
+    # Pasada 4: la declaración NO se altera para llegar al HTML —los saltos de línea del propósito
+    # se conservan (autoescapados), y el capítulo del bundle la lleva tal cual la declaró—.
+    ficha_bundle = next(s for s in bundle.sections if s.id == "model_card")
+    assert veneno in " ".join(ficha_bundle.body)
+    assert "Originar créditos.\n```{python}" in html.replace("&#39;", "'").replace(
+        "&gt;", ">"
+    ).replace("&lt;", "<")
