@@ -408,7 +408,8 @@ def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo()
 
     veneno = (
         "Originar créditos.\n```{python}\nimport os; os.system('echo pwned')\n```\n"
-        "{{< include /etc/passwd >}} <script>alert(1)</script>"
+        "{{< include /etc/passwd >}} <script>alert(1)</script> ![x](file:///C:/secreto.png) "
+        "[enlace](http://ejemplo.invalid) **énfasis** \\input{/etc/passwd}"
     )
     config = ReportConfig(sections={"missing_policy": "skip"})  # el bundle mínimo no trae eda
     bundle = _bundle().model_copy(
@@ -424,5 +425,12 @@ def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo()
     assert not any(line.startswith("```") and "python" in line for line in qmd.splitlines())
     assert "{{<" not in qmd and "<script>" not in qmd
     assert "\\<script\\>" in qmd
+    # Pasada 3: nada de la declaración queda como marcado activo en el QMD —ni imagen local, ni
+    # enlace, ni énfasis, ni TeX crudo—: toda su puntuación va escapada y pandoc la emite literal.
+    ficha = qmd[qmd.index("Ficha del modelo") :]
+    ficha = ficha[: ficha.index("\n## ") if "\n## " in ficha else len(ficha)]
+    assert "![x](" not in ficha and "](http" not in ficha and "**énfasis**" not in ficha
+    assert "\\input{" not in ficha and "\\\\input\\{" in ficha
+    assert "\\!\\[x\\]\\(file:///" in ficha and "\\*\\*énfasis\\*\\*" in ficha
     html = HtmlReportRenderer.from_config(config).render(bundle)
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html

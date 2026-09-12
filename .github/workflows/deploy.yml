@@ -80,6 +80,14 @@ jobs:
       - name: Instalar dependencias de documentación
         run: uv sync --locked --python 3.12 --group docs
 
+      # 🔴 Frescura de la documentación (pasada 3 de la revisión adversarial de la 1.14.0): varios
+      # commits comparten versión y la portada no distingue un deploy sólo de docs del anterior. El
+      # sitio publica la huella del commit que lo construyó (`build-sha.txt`, un archivo estático
+      # más de `docs_site/`, creado sólo aquí) y el chequeo en vivo la espera antes de dar por
+      # verde el despliegue.
+      - name: Sellar el sitio con la huella del commit
+        run: printf '%s\n' "${{ github.sha }}" > docs_site/build-sha.txt
+
       - name: Construir el sitio de documentación
         # `--strict` es el mismo gate que corre en local: un enlace roto aborta antes de publicar.
         run: uv run --no-sync mkdocs build --strict
@@ -140,12 +148,13 @@ jobs:
           while :; do
             bundle_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://demo.nikodym.cl/ | grep -oE '/assets/index-[^"]*\.js' | head -1 || true)"
             docs="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/ || true)"
-            if [ "$bundle_vivo" = "$bundle_local" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
-              echo "producción sirve este build: ${bundle_local} y la portada ${version}"
+            sha_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/build-sha.txt | tr -d '[:space:]' || true)"
+            if [ "$bundle_vivo" = "$bundle_local" ] && [ "$sha_vivo" = "${{ github.sha }}" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
+              echo "producción sirve este build: ${bundle_local}, docs ${sha_vivo:0:7} y la portada ${version}"
               break
             fi
             if [ "$SECONDS" -ge "$limite" ]; then
-              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local})"
+              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local}; docs=${sha_vivo:-∅} esperado=${{ github.sha }})"
               exit 1
             fi
             sleep 15

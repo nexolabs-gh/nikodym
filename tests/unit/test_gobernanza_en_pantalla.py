@@ -486,17 +486,24 @@ def test_los_valores_emitidos_tienen_los_tipos_que_el_front_declara(
         assert isinstance(decision["regla"], str) and isinstance(decision["accion"], str)
 
 
-def test_sin_gobernanza_no_hay_ficha_y_la_demo_sigue_sin_ella() -> None:
-    """§5: los fixtures de la demo traen ``model_card: null``; el guard los cubre sin recapturar.
+def test_la_demo_f1_trae_su_ficha_y_la_ifrs9_sigue_sin_ella() -> None:
+    """§5, medido sobre los fixtures: la demo F1 corre con gobernanza declarada desde la recaptura
+    de 1.14.0 (D-GOB-9, propósito fijado para la demo) y trae su ficha; la demo IFRS 9 no declara
+    gobernanza y trae ``model_card: null``, que es el caso que el guard cubre sin fabricar nada.
 
-    Eran tres hasta D-JUR-9.7, que sacó del árbol la corrida del caso de referencia (F3). La cifra
-    se deriva del glob y se ancla por abajo, para que el gate no pueda quedarse midiendo cero.
+    Eran tres fixtures hasta D-JUR-9.7, que sacó del árbol la corrida del caso de referencia (F3).
+    La cifra se deriva del glob y se ancla por abajo, para que el gate no pueda medir cero.
     """
     assert len(_FIXTURES_DE_LA_DEMO) == 2, [p.name for p in _FIXTURES_DE_LA_DEMO]
-    for fixture in _FIXTURES_DE_LA_DEMO:
-        payload = json.loads(fixture.read_text(encoding="utf-8"))
-        assert "model_card" in payload, fixture.name
-        assert payload["model_card"] is None, fixture.name
+    por_nombre = {
+        fixture.name: json.loads(fixture.read_text(encoding="utf-8"))
+        for fixture in _FIXTURES_DE_LA_DEMO
+    }
+    assert set(por_nombre) == {"results-f1.json", "results-ifrs9.json"}
+    assert por_nombre["results-ifrs9.json"]["model_card"] is None
+    ficha = por_nombre["results-f1.json"]["model_card"]
+    assert isinstance(ficha, dict)
+    assert ficha["purpose"].startswith("Demostración pública de Nikodym RiskLib")
 
 
 def test_el_bundle_servido_pinta_la_ficha_del_modelo() -> None:

@@ -1204,12 +1204,16 @@ def test_con_gobernanza_declarada_y_sin_run_dir_el_informe_trae_la_ficha_en_los_
     assert not re.search(r"\d{4}-\d{2}-\d{2}", capitulo)
     assert "en_validacion" not in capitulo and "nikodym." not in capitulo
 
-    import docx
+    # Word sólo donde python-docx está instalado (el extra `docx`): los jobs de Tests de CI no lo
+    # traen y el export se degrada con gracia; el capítulo en Word lo cubre `test-all-extras`.
+    if importlib.util.find_spec("docx") is not None:
+        import docx
 
-    word = docx.Document(str(result.docx_path))
-    texto_word = "\n".join(p.text for p in word.paragraphs)
-    assert "Ficha del modelo" in texto_word
-    assert "Originar créditos de consumo con una PD por operación." in texto_word
+        word = docx.Document(str(result.docx_path))
+        texto_word = "\n".join(p.text for p in word.paragraphs)
+        assert "Ficha del modelo" in texto_word
+        assert "Originar créditos de consumo con una PD por operación." in texto_word
     qmd = Path(result.md_path).read_text(encoding="utf-8")
     assert "Ficha del modelo" in qmd
-    assert "Originar créditos de consumo con una PD por operación." in qmd
+    # En QMD las declaraciones van como texto literal de pandoc (puntuación escapada con barra).
+    assert "Originar créditos de consumo con una PD por operación" in qmd.replace("\\", "")

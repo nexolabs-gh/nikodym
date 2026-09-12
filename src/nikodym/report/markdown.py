@@ -24,6 +24,7 @@ editable a mano.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
@@ -155,6 +156,19 @@ def _write_bytes(path: Path, payload: bytes, *, formato: str) -> None:
 # ─────────────────────────── bloques del documento ───────────────────────────
 
 
+_PUNTUACION_ACTIVA = re.compile(r"([\\`*_{}\[\]()#+\-.!<>|~])")
+
+
+def _texto_literal_pandoc(texto: str) -> str:
+    """Escapa con barra toda la puntuación que pandoc interpreta, para que el texto sea literal.
+
+    Pandoc admite la barra delante de cualquier signo de puntuación ASCII y lo emite tal cual; así
+    una declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, TeX crudo, cercas ni
+    shortcodes. Las letras, los dígitos, los espacios y los caracteres no ASCII no se tocan.
+    """
+    return _PUNTUACION_ACTIVA.sub(r"\\\1", texto)
+
+
 def _front_matter(document: Mapping[str, Any], config: ReportConfig) -> str:
     """Front-matter YAML: título, autor, fecha y los metadatos de proyecto de la portada.
 
@@ -277,13 +291,12 @@ def _section(section: Mapping[str, Any], config: ReportConfig) -> str:
     if section["kind"] == "appendix" and section["level"] == 2:
         lines.extend([f"Artefacto de origen: `{section['source']}`", ""])
     for paragraph in section["body"]:
-        # La ficha del modelo lleva texto libre de la institución: en QMD, `<` y `>` en línea son
-        # HTML crudo para pandoc, y un `<script>` llegaría al HTML renderizado. Se escapan con la
-        # barra de pandoc SÓLO en ese capítulo: la prosa del motor no los trae y sus goldens no
-        # se mueven (hallazgo de la revisión adversarial de la 1.14.0).
-        texto = paragraph
-        if section["id"] == "model_card":
-            texto = texto.replace("<", "\\<").replace(">", "\\>")
+        # La ficha del modelo lleva texto libre de la institución. En QMD ese texto es MARCADO:
+        # `<script>` sería HTML crudo, `![x](file:///…)` una imagen local, `\\input{…}` TeX crudo,
+        # `[t](url)` un enlace. Se escribe como texto LITERAL de pandoc —toda puntuación con
+        # significado va escapada con barra— y SÓLO en ese capítulo: la prosa del motor no lo
+        # necesita y sus goldens no se mueven (revisión adversarial de la 1.14.0, pasadas 2 y 3).
+        texto = _texto_literal_pandoc(paragraph) if section["id"] == "model_card" else paragraph
         lines.extend([texto, ""])
     if section["placeholder"]:
         lines.extend([_placeholder(section["placeholder"]), ""])
