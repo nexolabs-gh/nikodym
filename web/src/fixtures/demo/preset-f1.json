@@ -154,7 +154,23 @@
    }
   },
   "markov": null,
-  "eda": null,
+  "eda": {
+   "type": "standard",
+   "default_rate": {
+    "axis": "cohort",
+    "cohort_col": "cohorte"
+   },
+   "univariate": {
+    "columns": [
+     "ingreso_mensual",
+     "deuda_ingreso",
+     "utilizacion_linea",
+     "mora_max_12m",
+     "antiguedad_meses",
+     "segmento"
+    ]
+   }
+  },
   "binning": {
    "type": "standard",
    "feature_columns": [
@@ -443,6 +459,7 @@
    },
    "sections": {
     "required_sections": [
+     "eda",
      "binning",
      "selection",
      "model",
@@ -459,10 +476,26 @@
   "audit": {
    "enabled": true
   },
-  "governance": null,
+  "governance": {
+   "model_name": "scorecard-consumo-demo",
+   "purpose": "Demostración pública de Nikodym RiskLib: scorecard de comportamiento sobre una cartera de consumo sintética. Ilustra el flujo completo de construcción y validación; no decide sobre ninguna operación real.",
+   "assumptions": [
+    "Los datos son sintéticos y reproducibles: no representan a ninguna institución.",
+    "La definición de incumplimiento es la del dataset de ejemplo (bad_flag)."
+   ],
+   "limitations": [
+    "Sin uso productivo: las cifras sirven para leer el informe, no para decidir."
+   ],
+   "review_period_months": 12,
+   "cartera": "Consumo (sintética)",
+   "motor": "scoring",
+   "fase": "F1",
+   "estado_validacion": "desarrollo",
+   "author": "Nexo Labs"
+  },
   "tracking": null
  },
- "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
+ "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
  "dataset_id": "consumo_comportamiento",
  "name": "Preset estándar F1 — consumo (comportamiento)",
  "description": "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de comportamiento (data→binning→selection→model→scorecard→calibration→performance→stability) sobre el dataset sintético de consumo."

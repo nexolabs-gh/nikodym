@@ -1,29 +1,1315 @@
 {
  "status": "done",
- "run_id": "434dd865694541b8bf0ecee1587f7dd1",
+ "run_id": "d97078b0b27549ff83a950ff119fbdb4",
  "error": null,
- "model_card": null,
+ "model_card": {
+  "run_id": "d97078b0b27549ff83a950ff119fbdb4",
+  "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
+  "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
+  "git_sha": "0071cfc634a64dcb751bd430a4c8d75277a20857",
+  "git_dirty": false,
+  "root_seed": 20240706,
+  "schema_version": "1.0.0",
+  "created_at": "2026-09-12T19:00:39.378322Z",
+  "purpose": "Demostración pública de Nikodym RiskLib: scorecard de comportamiento sobre una cartera de consumo sintética. Ilustra el flujo completo de construcción y validación; no decide sobre ninguna operación real.",
+  "assumptions": [
+   "Los datos son sintéticos y reproducibles: no representan a ninguna institución.",
+   "La definición de incumplimiento es la del dataset de ejemplo (bad_flag)."
+  ],
+  "limitations": [
+   "Sin uso productivo: las cifras sirven para leer el informe, no para decidir."
+  ],
+  "data_description": {
+   "source": "consumo_comportamiento.parquet",
+   "n_rows": 6000,
+   "n_features": 8,
+   "target_col": "target",
+   "bad_rate": 0.2345,
+   "class_counts": {
+    "bueno": 4593,
+    "malo": 1407,
+    "indeterminado": 0,
+    "excluido": 0
+   },
+   "partition_sizes": {
+    "desarrollo": 3961,
+    "holdout": 1031,
+    "oot": 1008,
+    "fuera_de_modelo": 0
+   },
+   "partition_bad_rates": {
+    "desarrollo": 0.23327442565008835,
+    "holdout": 0.23666343355965083,
+    "oot": 0.2371031746031746,
+    "fuera_de_modelo": 0.0
+   },
+   "performance_window_months": null,
+   "exclusions_by_reason": {},
+   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8"
+  },
+  "metrics": {
+   "data.n_rows": 6000.0,
+   "data.n_features": 8.0,
+   "data.bad_rate": 0.2345,
+   "eda.overall_default_rate": 0.23327442565008835,
+   "eda.n_periods": 5.0,
+   "eda.stability_flagged": 0.0,
+   "binning.n_variables_binned": 6.0,
+   "binning.n_variables_skipped": 0.0,
+   "selection.n_candidates": 6.0,
+   "selection.n_selected": 5.0,
+   "selection.max_abs_correlation_after_selection": 0.030325981242350992,
+   "model.n_final_features": 5.0,
+   "scorecard.n_variables": 5.0,
+   "calibration.target_pd": 0.23327442565008835,
+   "calibration.calibrated_mean_pd_dev": 0.2332744256500883,
+   "calibration.observed_default_rate_dev": 0.23327442565008835,
+   "performance.auc_desarrollo": 0.7123458941453674,
+   "performance.gini_desarrollo": 0.42469178829073484,
+   "performance.ks_desarrollo": 0.32014426688447106,
+   "performance.auc_holdout": 0.6946460932780636,
+   "performance.gini_holdout": 0.3892921865561272,
+   "performance.ks_holdout": 0.3118920157477034,
+   "performance.auc_oot": 0.6560957827097084,
+   "performance.gini_oot": 0.31219156541941673,
+   "performance.ks_oot": 0.25190569723218226,
+   "stability.worst_psi": 0.013181930579331572,
+   "stability.worst_csi_value": 0.010208836708625104
+  },
+  "metric_sections": {
+   "performance": {
+    "discrimination": {
+     "effective_deciles_by_partition": {
+      "desarrollo": 10,
+      "holdout": 10,
+      "oot": 10
+     },
+     "not_evaluable_reasons_by_partition": {},
+     "threshold_flags_by_partition": {}
+    }
+   },
+   "stability": {
+    "stability": {
+     "temporal_axis": "period",
+     "include_pd_stability": true,
+     "csi_features": [
+      "antiguedad_meses__points",
+      "deuda_ingreso__points",
+      "ingreso_mensual__points",
+      "mora_max_12m__points",
+      "utilizacion_linea__points"
+     ],
+     "n_periods": 6
+    }
+   }
+  },
+  "decisions": [
+   {
+    "step": null,
+    "regla": "partition_strategy",
+    "umbral": "cohort",
+    "valor": "cohort",
+    "accion": "aplicar_estrategia",
+    "ts": "2026-09-12T19:00:39.703234Z"
+   },
+   {
+    "step": null,
+    "regla": "partition_summary",
+    "umbral": "sizes_bad_rates",
+    "valor": {
+     "bad_rates": {
+      "desarrollo": 0.23327442565008835,
+      "fuera_de_modelo": 0.0,
+      "holdout": 0.23666343355965083,
+      "oot": 0.2371031746031746
+     },
+     "sizes": {
+      "desarrollo": 3961,
+      "fuera_de_modelo": 0,
+      "holdout": 1031,
+      "oot": 1008
+     }
+    },
+    "accion": "reportar_particiones",
+    "ts": "2026-09-12T19:00:39.703322Z"
+   },
+   {
+    "step": null,
+    "regla": "estabilidad_temporal",
+    "umbral": 0.25,
+    "valor": "eje de cohorte sin cronología",
+    "accion": "no_evaluable",
+    "ts": "2026-09-12T19:00:39.723692Z"
+   },
+   {
+    "step": null,
+    "regla": "monotonia_auto_resuelta",
+    "umbral": "auto_asc_desc",
+    "valor": {
+     "monotonic_trend": "descending",
+     "variable": "ingreso_mensual"
+    },
+    "accion": "registrar_tendencia",
+    "ts": "2026-09-12T19:00:44.333491Z"
+   },
+   {
+    "step": null,
+    "regla": "monotonia_auto_resuelta",
+    "umbral": "auto_asc_desc",
+    "valor": {
+     "monotonic_trend": "ascending",
+     "variable": "deuda_ingreso"
+    },
+    "accion": "registrar_tendencia",
+    "ts": "2026-09-12T19:00:44.333583Z"
+   },
+   {
+    "step": null,
+    "regla": "monotonia_auto_resuelta",
+    "umbral": "auto_asc_desc",
+    "valor": {
+     "monotonic_trend": "ascending",
+     "variable": "utilizacion_linea"
+    },
+    "accion": "registrar_tendencia",
+    "ts": "2026-09-12T19:00:44.333612Z"
+   },
+   {
+    "step": null,
+    "regla": "monotonia_auto_resuelta",
+    "umbral": "auto_asc_desc",
+    "valor": {
+     "monotonic_trend": "ascending",
+     "variable": "mora_max_12m"
+    },
+    "accion": "registrar_tendencia",
+    "ts": "2026-09-12T19:00:44.333660Z"
+   },
+   {
+    "step": null,
+    "regla": "monotonia_auto_resuelta",
+    "umbral": "auto_asc_desc",
+    "valor": {
+     "monotonic_trend": "descending",
+     "variable": "antiguedad_meses"
+    },
+    "accion": "registrar_tendencia",
+    "ts": "2026-09-12T19:00:44.333679Z"
+   },
+   {
+    "step": null,
+    "regla": "bins_colapsados",
+    "umbral": 6,
+    "valor": {
+     "n_bins": 5,
+     "variable": "utilizacion_linea"
+    },
+    "accion": "conservar_variable",
+    "ts": "2026-09-12T19:00:44.334243Z"
+   },
+   {
+    "step": null,
+    "regla": "bins_colapsados",
+    "umbral": 6,
+    "valor": {
+     "n_bins": 3,
+     "variable": "segmento"
+    },
+    "accion": "conservar_variable",
+    "ts": "2026-09-12T19:00:44.334294Z"
+   },
+   {
+    "step": null,
+    "regla": "iv_bajo",
+    "umbral": 0.02,
+    "valor": {
+     "iv": 0.002922409359928141,
+     "variable": "segmento"
+    },
+    "accion": "diagnosticar_sin_eliminar",
+    "ts": "2026-09-12T19:00:44.334315Z"
+   },
+   {
+    "step": null,
+    "regla": "low_iv",
+    "umbral": 0.02,
+    "valor": {
+     "feature": "segmento",
+     "iv": 0.002922409359928141,
+     "iv_band": "none",
+     "woe_column": "segmento__woe"
+    },
+    "accion": "excluir",
+    "ts": "2026-09-12T19:00:44.521805Z"
+   },
+   {
+    "step": null,
+    "regla": "model_wald_pvalue",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0000000000000009,
+     "feature": "ingreso_mensual",
+     "lr_stat": null,
+     "p_value": 9.904266606971208e-41
+    },
+    "accion": "enter",
+    "ts": "2026-09-12T19:00:44.680065Z"
+   },
+   {
+    "step": null,
+    "regla": "model_iv_contribution",
+    "umbral": 0.9,
+    "valor": {
+     "beta": null,
+     "feature": "ingreso_mensual",
+     "lr_stat": null,
+     "p_value": null
+    },
+    "accion": "flag",
+    "ts": "2026-09-12T19:00:44.692828Z"
+   },
+   {
+    "step": null,
+    "regla": "model_wald_pvalue",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0523094045477277,
+     "feature": "deuda_ingreso",
+     "lr_stat": null,
+     "p_value": 4.298619202001231e-28
+    },
+    "accion": "enter",
+    "ts": "2026-09-12T19:00:44.744384Z"
+   },
+   {
+    "step": null,
+    "regla": "model_wald_pvalue",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.1026846747332208,
+     "feature": "utilizacion_linea",
+     "lr_stat": null,
+     "p_value": 9.970285673886036e-12
+    },
+    "accion": "enter",
+    "ts": "2026-09-12T19:00:44.796529Z"
+   },
+   {
+    "step": null,
+    "regla": "model_wald_pvalue",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0902029723775233,
+     "feature": "antiguedad_meses",
+     "lr_stat": null,
+     "p_value": 1.7899471110037847e-07
+    },
+    "accion": "enter",
+    "ts": "2026-09-12T19:00:44.836258Z"
+   },
+   {
+    "step": null,
+    "regla": "model_wald_pvalue",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -0.9678239296796618,
+     "feature": "mora_max_12m",
+     "lr_stat": null,
+     "p_value": 0.00036461213095663236
+    },
+    "accion": "enter",
+    "ts": "2026-09-12T19:00:44.863573Z"
+   },
+   {
+    "step": null,
+    "regla": "model_stepwise_enter",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0000000000000009,
+     "criterion": "wald_pvalue",
+     "detail": "wald_p=9.90427e-41",
+     "feature": "ingreso_mensual",
+     "iteration": 1,
+     "lr_stat": null,
+     "p_value": 9.904266606971208e-41,
+     "woe_column": "ingreso_mensual__woe"
+    },
+    "accion": "entrar",
+    "ts": "2026-09-12T19:00:44.926183Z"
+   },
+   {
+    "step": null,
+    "regla": "model_iv_contribution",
+    "umbral": 0.9,
+    "valor": {
+     "beta": null,
+     "criterion": "iv_contribution",
+     "detail": "iv_contribution=1",
+     "feature": "ingreso_mensual",
+     "iteration": 2,
+     "iv": 0.3047503805275573,
+     "iv_contribution": 1.0,
+     "lr_stat": null,
+     "p_value": null,
+     "woe_column": "ingreso_mensual__woe"
+    },
+    "accion": "flag",
+    "ts": "2026-09-12T19:00:44.926289Z"
+   },
+   {
+    "step": null,
+    "regla": "model_stepwise_enter",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0523094045477277,
+     "criterion": "wald_pvalue",
+     "detail": "wald_p=4.29862e-28",
+     "feature": "deuda_ingreso",
+     "iteration": 2,
+     "lr_stat": null,
+     "p_value": 4.298619202001231e-28,
+     "woe_column": "deuda_ingreso__woe"
+    },
+    "accion": "entrar",
+    "ts": "2026-09-12T19:00:44.926333Z"
+   },
+   {
+    "step": null,
+    "regla": "model_stepwise_enter",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.1026846747332208,
+     "criterion": "wald_pvalue",
+     "detail": "wald_p=9.97029e-12",
+     "feature": "utilizacion_linea",
+     "iteration": 3,
+     "lr_stat": null,
+     "p_value": 9.970285673886036e-12,
+     "woe_column": "utilizacion_linea__woe"
+    },
+    "accion": "entrar",
+    "ts": "2026-09-12T19:00:44.926363Z"
+   },
+   {
+    "step": null,
+    "regla": "model_stepwise_enter",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -1.0902029723775233,
+     "criterion": "wald_pvalue",
+     "detail": "wald_p=1.78995e-07",
+     "feature": "antiguedad_meses",
+     "iteration": 4,
+     "lr_stat": null,
+     "p_value": 1.7899471110037847e-07,
+     "woe_column": "antiguedad_meses__woe"
+    },
+    "accion": "entrar",
+    "ts": "2026-09-12T19:00:44.926388Z"
+   },
+   {
+    "step": null,
+    "regla": "model_stepwise_enter",
+    "umbral": 0.05,
+    "valor": {
+     "beta": -0.9678239296796618,
+     "criterion": "wald_pvalue",
+     "detail": "wald_p=0.000364612",
+     "feature": "mora_max_12m",
+     "iteration": 5,
+     "lr_stat": null,
+     "p_value": 0.00036461213095663236,
+     "woe_column": "mora_max_12m__woe"
+    },
+    "accion": "entrar",
+    "ts": "2026-09-12T19:00:44.926410Z"
+   },
+   {
+    "step": null,
+    "regla": "statsmodels_convergence",
+    "umbral": {
+     "fit_maxiter": 100,
+     "tol": 1e-08
+    },
+    "valor": {
+     "converged": true,
+     "n_iterations": 6,
+     "optimizer": "newton"
+    },
+    "accion": "aceptar_ajuste",
+    "ts": "2026-09-12T19:00:44.926436Z"
+   },
+   {
+    "step": null,
+    "regla": "woe_duplicado",
+    "umbral": "primera_aparicion_feature_woe",
+    "valor": [
+     {
+      "bin_label": "Missing",
+      "feature": "antiguedad_meses",
+      "points_descartados": 104,
+      "points_usados": 104,
+      "woe": 0.0
+     },
+     {
+      "bin_label": "Missing",
+      "feature": "deuda_ingreso",
+      "points_descartados": 104,
+      "points_usados": 104,
+      "woe": 0.0
+     },
+     {
+      "bin_label": "Missing",
+      "feature": "ingreso_mensual",
+      "points_descartados": 104,
+      "points_usados": 104,
+      "woe": 0.0
+     },
+     {
+      "bin_label": "Missing",
+      "feature": "mora_max_12m",
+      "points_descartados": 104,
+      "points_usados": 104,
+      "woe": 0.0
+     },
+     {
+      "bin_label": "Missing",
+      "feature": "utilizacion_linea",
+      "points_descartados": 104,
+      "points_usados": 104,
+      "woe": 0.0
+     }
+    ],
+    "accion": "usar_punto_determinista",
+    "ts": "2026-09-12T19:00:44.943414Z"
+   },
+   {
+    "step": null,
+    "regla": "scorecard_rounding",
+    "umbral": "nearest_integer",
+    "valor": {
+     "delta_max_abs": 0.4891356761430501,
+     "delta_suma": -3.1047431971888955,
+     "n_variables": 5
+    },
+    "accion": "publicar_puntos_redondeados",
+    "ts": "2026-09-12T19:00:44.943758Z"
+   },
+   {
+    "step": null,
+    "regla": "bin_no_visto",
+    "umbral": "woe_tabular",
+    "valor": {
+     "conteo": 5697,
+     "feature": "antiguedad_meses"
+    },
+    "accion": "calcular_por_formula",
+    "ts": "2026-09-12T19:00:44.954776Z"
+   },
+   {
+    "step": null,
+    "regla": "bin_no_visto",
+    "umbral": "woe_tabular",
+    "valor": {
+     "conteo": 5260,
+     "feature": "deuda_ingreso"
+    },
+    "accion": "calcular_por_formula",
+    "ts": "2026-09-12T19:00:44.962001Z"
+   },
+   {
+    "step": null,
+    "regla": "bin_no_visto",
+    "umbral": "woe_tabular",
+    "valor": {
+     "conteo": 3937,
+     "feature": "ingreso_mensual"
+    },
+    "accion": "calcular_por_formula",
+    "ts": "2026-09-12T19:00:44.968783Z"
+   },
+   {
+    "step": null,
+    "regla": "bin_no_visto",
+    "umbral": "woe_tabular",
+    "valor": {
+     "conteo": 5623,
+     "feature": "mora_max_12m"
+    },
+    "accion": "calcular_por_formula",
+    "ts": "2026-09-12T19:00:44.976147Z"
+   },
+   {
+    "step": null,
+    "regla": "bin_no_visto",
+    "umbral": "woe_tabular",
+    "valor": {
+     "conteo": 5641,
+     "feature": "utilizacion_linea"
+    },
+    "accion": "calcular_por_formula",
+    "ts": "2026-09-12T19:00:44.983421Z"
+   },
+   {
+    "step": null,
+    "regla": "calibration_anchor",
+    "umbral": "desarrollo",
+    "valor": {
+     "anchor_kind": "through_the_cycle",
+     "anchor_source": "development_observed",
+     "target_pd": 0.23327442565008835
+    },
+    "accion": "fijar_ancla",
+    "ts": "2026-09-12T19:00:45.046064Z"
+   },
+   {
+    "step": null,
+    "regla": "calibration_method",
+    "umbral": 1e-12,
+    "valor": {
+     "method": "intercept_offset",
+     "n_fit": 3961
+    },
+    "accion": "ajustar_calibracion",
+    "ts": "2026-09-12T19:00:45.046152Z"
+   },
+   {
+    "step": null,
+    "regla": "calibration_offset",
+    "umbral": 1e-12,
+    "valor": {
+     "calibrated_mean_pd_dev": 0.2332744256500883,
+     "offset": -2.721334238405213e-16,
+     "raw_mean_pd_dev": 0.23327442565008835
+    },
+    "accion": "publicar_pd_calibrada",
+    "ts": "2026-09-12T19:00:45.046185Z"
+   },
+   {
+    "step": null,
+    "regla": "calibration_ranking",
+    "umbral": "rank(pd_raw)==rank(pd_calibrated)",
+    "valor": {
+     "ranking_preserved": true,
+     "ties_created": 0
+    },
+    "accion": "registrar_ranking",
+    "ts": "2026-09-12T19:00:45.046213Z"
+   },
+   {
+    "step": null,
+    "regla": "calibration_hosmer_lemeshow",
+    "umbral": 0.05,
+    "valor": {
+     "p_value": 0.012624826300114127,
+     "partition": "oot",
+     "statistic": 19.451071238480708
+    },
+    "accion": "revisar_calibracion",
+    "ts": "2026-09-12T19:00:45.296260Z"
+   },
+   {
+    "step": null,
+    "regla": "report_sections",
+    "umbral": [
+     "eda",
+     "binning",
+     "selection",
+     "model",
+     "scorecard",
+     "calibration",
+     "performance",
+     "stability"
+    ],
+    "valor": {
+     "missing_sections": [],
+     "sections": [
+      "toc",
+      "introduction",
+      "model_card",
+      "context",
+      "context.data",
+      "context.eda",
+      "methodology",
+      "methodology.data",
+      "methodology.binning",
+      "methodology.selection",
+      "methodology.model",
+      "methodology.scorecard",
+      "methodology.calibration",
+      "results",
+      "results.binning",
+      "results.selection",
+      "results.model",
+      "results.scorecard",
+      "results.calibration",
+      "results.performance",
+      "results.stability",
+      "validation",
+      "validation.discrimination",
+      "validation.calibration",
+      "validation.stability",
+      "conclusions",
+      "limitations",
+      "appendix_lineage",
+      "appendix_tables",
+      "appendix_parameters",
+      "appendix_parameters.data",
+      "appendix_parameters.eda",
+      "appendix_parameters.binning",
+      "appendix_parameters.selection",
+      "appendix_parameters.model",
+      "appendix_parameters.scorecard",
+      "appendix_parameters.calibration",
+      "appendix_parameters.performance",
+      "appendix_parameters.stability",
+      "appendix_parameters.validation"
+     ]
+    },
+    "accion": "renderizar_reporte",
+    "ts": "2026-09-12T19:01:00.784378Z"
+   },
+   {
+    "step": null,
+    "regla": "report_ai_disabled",
+    "umbral": false,
+    "valor": {
+     "provider": "none"
+    },
+    "accion": "usar_narrativa_basica",
+    "ts": "2026-09-12T19:01:00.785896Z"
+   },
+   {
+    "step": null,
+    "regla": "report_export_html",
+    "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
+    "valor": {
+     "path": "scorecard_report.html",
+     "sha256": "d49b72a46febe38cca85d5795cdd0453782276414180b8350a8ebc6b79bf6f01"
+    },
+    "accion": "publicar_html_local",
+    "ts": "2026-09-12T19:01:00.785946Z"
+   },
+   {
+    "step": null,
+    "regla": "report_export_pdf",
+    "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
+    "valor": {
+     "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.pdf"
+    },
+    "accion": "publicar_pdf_local",
+    "ts": "2026-09-12T19:01:00.785975Z"
+   },
+   {
+    "step": null,
+    "regla": "report_export_md",
+    "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
+    "valor": {
+     "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.qmd"
+    },
+    "accion": "publicar_qmd_local",
+    "ts": "2026-09-12T19:01:00.785994Z"
+   },
+   {
+    "step": null,
+    "regla": "report_export_docx",
+    "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
+    "valor": {
+     "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.docx"
+    },
+    "accion": "publicar_docx_local",
+    "ts": "2026-09-12T19:01:00.786016Z"
+   }
+  ],
+  "determinism_caveats": [],
+  "review_date": "2026-09-12T19:01:00.794191Z",
+  "next_review_date": "2027-09-12T19:01:00.794191Z",
+  "environment": {
+   "python_version": "3.12.14",
+   "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+   "library_versions": {
+    "nikodym": "1.14.0",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "pandera": "0.32.0",
+    "pyarrow": "24.0.0",
+    "pydantic": "2.13.4",
+    "joblib": "1.5.3",
+    "PyYAML": "6.0.3"
+   },
+   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
+   "captured_at": "2026-09-12T19:01:00.795165Z"
+  }
+ },
  "lineage": {
-  "git_sha": "da7c96e68a479f4186bec3f4bab49838ee274026",
+  "git_sha": "0071cfc634a64dcb751bd430a4c8d75277a20857",
   "git_dirty": false,
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
-  "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
+  "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "3cc13c9b7bb71cfca39f266b0231de9ff1090964e3101fa0a226c7e17ec5cccc",
+  "runtime_environment_hash": "ad15acc13aedcc100420376791828c476418ae6f4407b858d9b5f64273dbcc0b",
   "library_versions": {
-   "nikodym": "1.13.0",
+   "nikodym": "1.14.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-12T15:23:17.701133Z",
+  "created_at": "2026-09-12T19:00:39.378322Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
- "eda": null,
+ "eda": {
+  "overall_default_rate": 0.23327442565008835,
+  "n_periods": 5,
+  "stability_flagged": false,
+  "stability_metric_used": "cv",
+  "stability_threshold": 0.25,
+  "stability_value": null,
+  "n_columns_profiled": 6,
+  "quality_flag_counts": {
+   "near_constant": 0,
+   "near_unique": 1,
+   "high_cardinality": 0
+  },
+  "n_figures": 6,
+  "axis": "cohort",
+  "axis_inferred": false,
+  "stability_not_evaluable_reason": "eje_cohorte",
+  "default_rate": [
+   {
+    "period": "2023Q1",
+    "n_total": 785,
+    "n_eligible": 785,
+    "n_bad": 201,
+    "default_rate": 0.25605095541401274,
+    "low_confidence": false,
+    "period_type": "str"
+   },
+   {
+    "period": "2023Q2",
+    "n_total": 789,
+    "n_eligible": 789,
+    "n_bad": 170,
+    "default_rate": 0.21546261089987326,
+    "low_confidence": false,
+    "period_type": "str"
+   },
+   {
+    "period": "2023Q3",
+    "n_total": 838,
+    "n_eligible": 838,
+    "n_bad": 188,
+    "default_rate": 0.2243436754176611,
+    "low_confidence": false,
+    "period_type": "str"
+   },
+   {
+    "period": "2023Q4",
+    "n_total": 777,
+    "n_eligible": 777,
+    "n_bad": 174,
+    "default_rate": 0.22393822393822393,
+    "low_confidence": false,
+    "period_type": "str"
+   },
+   {
+    "period": "2024Q1",
+    "n_total": 772,
+    "n_eligible": 772,
+    "n_bad": 191,
+    "default_rate": 0.24740932642487046,
+    "low_confidence": false,
+    "period_type": "str"
+   }
+  ],
+  "quality": [
+   {
+    "col": "ingreso_mensual",
+    "dtype": "float64",
+    "missing_rate": 0.0,
+    "cardinality": 3961,
+    "near_constant": false,
+    "near_unique": true,
+    "high_cardinality": false
+   },
+   {
+    "col": "deuda_ingreso",
+    "dtype": "float64",
+    "missing_rate": 0.0,
+    "cardinality": 3076,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "utilizacion_linea",
+    "dtype": "float64",
+    "missing_rate": 0.0,
+    "cardinality": 3064,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "mora_max_12m",
+    "dtype": "int64",
+    "missing_rate": 0.0,
+    "cardinality": 18,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "antiguedad_meses",
+    "dtype": "int64",
+    "missing_rate": 0.0,
+    "cardinality": 120,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "segmento",
+    "dtype": "object",
+    "missing_rate": 0.0,
+    "cardinality": 3,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "cohorte",
+    "dtype": "object",
+    "missing_rate": 0.0,
+    "cardinality": 5,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   },
+   {
+    "col": "bad_flag",
+    "dtype": "int64",
+    "missing_rate": 0.0,
+    "cardinality": 2,
+    "near_constant": false,
+    "near_unique": false,
+    "high_cardinality": false
+   }
+  ],
+  "univariate": [
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(74032.56, 287183.36]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.37531486146095716,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(287183.36, 353839.8]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.3686868686868687,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(353839.8, 409923.63]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.2777777777777778,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(409923.63, 460844.97]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.2828282828282828,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(460844.97, 526601.82]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.21717171717171718,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(526601.82, 600699.29]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.2297979797979798,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(600699.29, 689809.83]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.1893939393939394,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(689809.83, 810582.2]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.17424242424242425,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(810582.2, 1017997.74]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.12373737373737374,
+    "descriptive_iv": null
+   },
+   {
+    "column": "ingreso_mensual",
+    "tramo": "(1017997.74, 3524342.26]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.09343434343434344,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.0032, 0.0919]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.1561712846347607,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.0919, 0.1487]",
+    "n": 398,
+    "coverage": 0.10047967684928048,
+    "default_rate": 0.18592964824120603,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.1487, 0.20200000000000007]",
+    "n": 394,
+    "coverage": 0.09946983085079525,
+    "default_rate": 0.19543147208121828,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.20200000000000007, 0.2525]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.19143576826196473,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.2525, 0.3088]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.21914357682619648,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.3088, 0.3661]",
+    "n": 395,
+    "coverage": 0.09972229235041656,
+    "default_rate": 0.17974683544303796,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.3661, 0.4454]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.24242424242424243,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.4454, 0.5362]",
+    "n": 395,
+    "coverage": 0.09972229235041656,
+    "default_rate": 0.2683544303797468,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.5362, 0.6925]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.30303030303030304,
+    "descriptive_iv": null
+   },
+   {
+    "column": "deuda_ingreso",
+    "tramo": "(0.6925, 1.7973]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.39141414141414144,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.0041, 0.1384]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.17632241813602015,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.1384, 0.216]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.1964735516372796,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.216, 0.2795]",
+    "n": 395,
+    "coverage": 0.09972229235041656,
+    "default_rate": 0.20253164556962025,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.2795, 0.3346]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.25,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.3346, 0.3881]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.20202020202020202,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.3881, 0.44310000000000005]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.20202020202020202,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.44310000000000005, 0.5066]",
+    "n": 397,
+    "coverage": 0.10022721534965917,
+    "default_rate": 0.29974811083123426,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.5066, 0.5755]",
+    "n": 395,
+    "coverage": 0.09972229235041656,
+    "default_rate": 0.2379746835443038,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.5755, 0.6618]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.255050505050505,
+    "descriptive_iv": null
+   },
+   {
+    "column": "utilizacion_linea",
+    "tramo": "(0.6618, 0.9724]",
+    "n": 396,
+    "coverage": 0.09997475385003787,
+    "default_rate": 0.3106060606060606,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(0.0, 3.0]",
+    "n": 595,
+    "coverage": 0.15021459227467812,
+    "default_rate": 0.18823529411764706,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(3.0, 4.0]",
+    "n": 547,
+    "coverage": 0.13809644029285534,
+    "default_rate": 0.21389396709323583,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(4.0, 5.0]",
+    "n": 626,
+    "coverage": 0.15804089876293864,
+    "default_rate": 0.22044728434504793,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(5.0, 6.0]",
+    "n": 636,
+    "coverage": 0.16056551375915173,
+    "default_rate": 0.25157232704402516,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(6.0, 7.0]",
+    "n": 530,
+    "coverage": 0.1338045947992931,
+    "default_rate": 0.24150943396226415,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(7.0, 8.0]",
+    "n": 390,
+    "coverage": 0.09845998485231003,
+    "default_rate": 0.2641025641025641,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(8.0, 9.0]",
+    "n": 288,
+    "coverage": 0.07270891189093663,
+    "default_rate": 0.2465277777777778,
+    "descriptive_iv": null
+   },
+   {
+    "column": "mora_max_12m",
+    "tramo": "(9.0, 17.0]",
+    "n": 349,
+    "coverage": 0.0881090633678364,
+    "default_rate": 0.2722063037249284,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(1.0, 13.0]",
+    "n": 422,
+    "coverage": 0.10653875284019187,
+    "default_rate": 0.2843601895734597,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(13.0, 26.0]",
+    "n": 399,
+    "coverage": 0.1007321383489018,
+    "default_rate": 0.22807017543859648,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(26.0, 38.0]",
+    "n": 383,
+    "coverage": 0.09669275435496087,
+    "default_rate": 0.28720626631853785,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(38.0, 50.0]",
+    "n": 393,
+    "coverage": 0.09921736935117395,
+    "default_rate": 0.22391857506361323,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(50.0, 62.0]",
+    "n": 416,
+    "coverage": 0.10502398384246403,
+    "default_rate": 0.23076923076923078,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(62.0, 73.0]",
+    "n": 371,
+    "coverage": 0.09366321635950517,
+    "default_rate": 0.22641509433962265,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(73.0, 85.0]",
+    "n": 407,
+    "coverage": 0.10275183034587225,
+    "default_rate": 0.25552825552825553,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(85.0, 97.0]",
+    "n": 416,
+    "coverage": 0.10502398384246403,
+    "default_rate": 0.21634615384615385,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(97.0, 108.0]",
+    "n": 370,
+    "coverage": 0.09341075485988387,
+    "default_rate": 0.21351351351351353,
+    "descriptive_iv": null
+   },
+   {
+    "column": "antiguedad_meses",
+    "tramo": "(108.0, 120.0]",
+    "n": 384,
+    "coverage": 0.09694521585458217,
+    "default_rate": 0.16145833333333334,
+    "descriptive_iv": null
+   },
+   {
+    "column": "segmento",
+    "tramo": "asalariado",
+    "n": 1303,
+    "coverage": 0.328957334006564,
+    "default_rate": 0.23177283192632386,
+    "descriptive_iv": null
+   },
+   {
+    "column": "segmento",
+    "tramo": "independiente",
+    "n": 1353,
+    "coverage": 0.34158040898762937,
+    "default_rate": 0.22246858832224686,
+    "descriptive_iv": null
+   },
+   {
+    "column": "segmento",
+    "tramo": "pensionado",
+    "n": 1305,
+    "coverage": 0.3294622570058066,
+    "default_rate": 0.24597701149425288,
+    "descriptive_iv": null
+   }
+  ]
+ },
  "binning": {
   "n_variables_requested": 6,
   "n_variables_binned": 6,

@@ -1,25 +1,25 @@
 {
  "status": "done",
- "run_id": "669a6f70518a4baab2e2cd4e81d65226",
+ "run_id": "cf27b0c47bcb430eaeae51b87a8355bb",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "da7c96e68a479f4186bec3f4bab49838ee274026",
+  "git_sha": "0071cfc634a64dcb751bd430a4c8d75277a20857",
   "git_dirty": false,
   "data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
   "config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "3cc13c9b7bb71cfca39f266b0231de9ff1090964e3101fa0a226c7e17ec5cccc",
+  "runtime_environment_hash": "ad15acc13aedcc100420376791828c476418ae6f4407b858d9b5f64273dbcc0b",
   "library_versions": {
-   "nikodym": "1.13.0",
+   "nikodym": "1.14.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-12T15:23:16.123425Z",
+  "created_at": "2026-09-12T19:00:44.006525Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
