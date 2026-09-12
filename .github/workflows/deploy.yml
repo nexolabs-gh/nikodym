@@ -49,7 +49,9 @@ jobs:
     # 🔴 Un solo Deploy de producción a la vez (pasada 5 de la revisión adversarial de la 1.14.0):
     # sin serializar, dos CI seguidos podían publicar solapados y el más viejo terminar después.
     # `cancel-in-progress: false`: el que espera vuelve a mirar qué sirve producción antes de
-    # publicar.
+    # publicar. Límite conocido (pasada 9): la cola de GitHub guarda UN solo pendiente —si llega
+    # un tercero, reemplaza al que esperaba—; el reemplazado no se pierde de producción porque
+    # el tercero lo contiene, y si el tercero falla, un rerun o el push siguiente lo publica.
     concurrency:
       group: deploy-produccion
       cancel-in-progress: false
@@ -91,13 +93,15 @@ jobs:
           fetch-depth: 0
 
       # 🔴 Producción no retrocede, no pierde un commit verde y no se publica a ciegas (pasadas 4,
-      # 6 y 7 de la revisión adversarial de la 1.14.0). Saltar un CI sólo porque `main` avanzó
+      # 6, 7 y 9 de la revisión adversarial de la 1.14.0). Saltar un CI sólo porque `main` avanzó
       # perdía el último commit verde cuando el siguiente fallaba su CI (A verde, B rojo: nadie
       # desplegaba A). La regla vive en `scripts/deploy_no_retroceder_produccion.py`, con sus
-      # tests: mira la huella que producción SIRVE (`build-sha.txt`, sellada más abajo); salta
-      # sólo si ya es un descendiente de este commit; publica si no hay huella (404) o si es
-      # anterior; y se DETIENE en rojo si no pudo verificarla —publicar a ciegas es el retroceso
-      # que existe para impedir—. Corre ANTES de instalar nada, con el python3 del runner.
+      # tests: lee la huella que SIRVE cada sitio (`build-sha.txt`, sellada más abajo en docs y
+      # demo); salta sólo si ya es un descendiente de este commit; publica si no hay huella (404)
+      # o si es anterior; y se DETIENE en rojo si no pudo leerla, si docs y demo discrepan (una
+      # publicación a medias: se repara con el rerun), si el commit no está en `main` o si el
+      # historial diverge —publicar a ciegas es el retroceso que existe para impedir; `forzar`
+      # es el override humano—. Corre ANTES de instalar nada, con el python3 del runner.
       - name: No retroceder producción
         run: python3 scripts/deploy_no_retroceder_produccion.py
 
@@ -149,6 +153,12 @@ jobs:
         if: env.SALTAR != '1'
         working-directory: web
         run: pnpm build:demo
+
+      # La demo lleva la misma huella que docs (pasada 9): dos sitios son dos estados, y la regla
+      # de arriba exige que coincidan antes de dar producción por adelantada.
+      - name: Sellar la demo con la huella del commit
+        if: env.SALTAR != '1'
+        run: printf '%s\n' "$DEPLOY_SHA" > web/dist/build-sha.txt
 
       - name: Instalar Vercel CLI
         if: env.SALTAR != '1'
@@ -202,12 +212,13 @@ jobs:
             bundle_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://demo.nikodym.cl/ | grep -oE '/assets/index-[^"]*\.js' | head -1 || true)"
             docs="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/ || true)"
             sha_vivo="$(curl -fsSL -H 'Cache-Control: no-cache' https://docs.nikodym.cl/build-sha.txt | tr -d '[:space:]' || true)"
-            if [ "$bundle_vivo" = "$bundle_local" ] && [ "$sha_vivo" = "$DEPLOY_SHA" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
-              echo "producción sirve este build: ${bundle_local}, docs ${sha_vivo:0:7} y la portada ${version}"
+            sha_demo="$(curl -fsSL -H 'Cache-Control: no-cache' https://demo.nikodym.cl/build-sha.txt | tr -d '[:space:]' || true)"
+            if [ "$bundle_vivo" = "$bundle_local" ] && [ "$sha_vivo" = "$DEPLOY_SHA" ] && [ "$sha_demo" = "$DEPLOY_SHA" ] && grep -qF "Estado: ${version}" <<<"$docs"; then
+              echo "producción sirve este build: ${bundle_local}, docs y demo ${sha_vivo:0:7} y la portada ${version}"
               break
             fi
             if [ "$SECONDS" -ge "$limite" ]; then
-              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local}; docs=${sha_vivo:-∅} esperado=${DEPLOY_SHA})"
+              echo "::error::producción no sirvió este build en 10 min (demo=${bundle_vivo:-∅} esperado=${bundle_local}; docs=${sha_vivo:-∅} demo=${sha_demo:-∅} esperado=${DEPLOY_SHA})"
               exit 1
             fi
             sleep 15

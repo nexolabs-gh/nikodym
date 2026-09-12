@@ -1,12 +1,14 @@
 """El Deploy no retrocede producción, no pierde un commit verde y no publica a ciegas.
 
-🔴 Hallazgos de las pasadas 6 y 7 de la revisión adversarial de la 1.14.0: «sólo la punta de main
-llega a producción» saltaba un CI verde apenas `main` avanzaba, sin mirar si la punta nueva tenía
-CI verde o un Deploy propio (A verde, B pusheado y rojo: A terminaba en verde sin publicar y B
-nunca desplegaba; producción se quedaba atrás sin una falla visible). Y la primera versión de la
+🔴 Hallazgos de las pasadas 6, 7 y 9 de la revisión adversarial de la 1.14.0: «sólo la punta de
+main llega a producción» saltaba un CI verde apenas `main` avanzaba, sin mirar si la punta nueva
+tenía CI verde o un Deploy propio (A verde, B pusheado y rojo: A terminaba en verde sin publicar y
+B nunca desplegaba; producción se quedaba atrás sin una falla visible). La primera versión de la
 regla nueva «fallaba abierta»: si la huella de producción no respondía, publicaba —justo el
-retroceso que existe para impedir—. La regla vive en `scripts/deploy_no_retroceder_produccion.py`
-y estos tests la fijan caso a caso sobre una historia real base → A → B con su `origin`.
+retroceso que existe para impedir—. Y la segunda modelaba dos sitios como un solo commit (docs
+sellada, demo a medias) y publicaba una ref fuera de `main` o un historial divergente sin `forzar`.
+La regla vive en `scripts/deploy_no_retroceder_produccion.py` y estos tests la fijan caso a caso
+sobre una historia real base → A → B con su `origin`.
 """
 
 from __future__ import annotations
@@ -71,112 +73,163 @@ def historia(tmp_path: Path) -> Historia:
     return repo, shas[0], shas[1], shas[2]
 
 
+def _decidir(m: ModuleType, deploy: str, docs: Any, demo: Any, repo: Path) -> tuple[str, str]:
+    decision, motivo = m.decidir(deploy, docs, demo, repo)
+    return decision, motivo
+
+
+# ── Lo que producción sirve, coherente en los dos sitios ──
+
+
 def test_a_verde_con_b_rojo_publica_a(historia: Historia) -> None:
     """Producción sirve `base`; `main` ya está en B (rojo): A se publica igual."""
     repo, base, a, _b = historia
-    modulo = _cargar()
-    decision, _ = modulo.decidir(a, modulo.Sello(sha=base), repo)
-    assert decision == modulo.PUBLICAR
+    m = _cargar()
+    assert _decidir(m, a, m.Sello(sha=base), m.Sello(sha=base), repo)[0] == m.PUBLICAR
 
 
 def test_no_retrocede_si_produccion_ya_sirve_un_descendiente(historia: Historia) -> None:
     repo, _base, a, b = historia
-    modulo = _cargar()
-    decision, motivo = modulo.decidir(a, modulo.Sello(sha=b), repo)
-    assert decision == modulo.SALTAR and b[:7] in motivo and a[:7] in motivo
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(sha=b), m.Sello(sha=b), repo)
+    assert decision == m.SALTAR and b[:7] in motivo and a[:7] in motivo
 
 
 def test_el_mismo_commit_se_puede_republicar(historia: Historia) -> None:
+    """Un rerun del Deploy que quedó a medias vuelve a publicar los dos sitios."""
     repo, _base, a, _b = historia
-    modulo = _cargar()
-    assert modulo.decidir(a, modulo.Sello(sha=a), repo)[0] == modulo.PUBLICAR
+    m = _cargar()
+    assert _decidir(m, a, m.Sello(sha=a), m.Sello(sha=a), repo)[0] == m.PUBLICAR
 
 
-def test_sin_huella_en_produccion_se_publica(historia: Historia) -> None:
-    """El sitio anterior al sello (o uno roto) responde 404: es el arranque, no un fallo."""
+def test_sin_huella_en_ninguno_se_publica(historia: Historia) -> None:
+    """Los sitios anteriores al sello responden 404: es el arranque, no un fallo."""
     repo, _base, a, _b = historia
-    modulo = _cargar()
-    assert modulo.decidir(a, modulo.Sello(ausente=True), repo)[0] == modulo.PUBLICAR
+    m = _cargar()
+    assert _decidir(m, a, m.Sello(ausente=True), m.Sello(ausente=True), repo)[0] == m.PUBLICAR
+
+
+def test_con_huella_en_un_solo_sitio_vale_esa(historia: Historia) -> None:
+    """El primer Deploy que sella la demo encuentra docs sellada y demo sin huella: manda docs."""
+    repo, base, a, b = historia
+    m = _cargar()
+    assert _decidir(m, a, m.Sello(sha=base), m.Sello(ausente=True), repo)[0] == m.PUBLICAR
+    assert _decidir(m, a, m.Sello(sha=b), m.Sello(ausente=True), repo)[0] == m.SALTAR
+    assert _decidir(m, a, m.Sello(ausente=True), m.Sello(sha=b), repo)[0] == m.SALTAR
+
+
+# ── Todo lo que la regla no puede probar se detiene, en rojo ──
 
 
 def test_una_huella_que_no_se_pudo_verificar_detiene(historia: Historia) -> None:
     """🔴 Pasada 7: sin huella legible NO se publica a ciegas —se detiene, en rojo—."""
+    repo, base, a, _b = historia
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(), m.Sello(sha=base), repo)
+    assert decision == m.DETENER and "docs" in motivo and "a ciegas" in motivo
+    decision, motivo = _decidir(m, a, m.Sello(sha=base), m.Sello(), repo)
+    assert decision == m.DETENER and "demo" in motivo
+
+
+def test_produccion_partida_detiene(historia: Historia) -> None:
+    """🔴 Pasada 9: docs en B y demo en A es una publicación a medias, no un commit; no se pisa."""
+    repo, _base, a, b = historia
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(sha=b), m.Sello(sha=a), repo)
+    assert decision == m.DETENER and "partida" in motivo and b[:7] in motivo and a[:7] in motivo
+    # …tampoco un descendiente: primero se repara con el rerun del Deploy que quedó a medias.
+    assert _decidir(m, b, m.Sello(sha=b), m.Sello(sha=a), repo)[0] == m.DETENER
+
+
+def test_una_huella_que_main_no_conoce_detiene(historia: Historia) -> None:
+    """🔴 Pasada 9: un commit que `origin/main` no conoce no se pisa a ciegas."""
     repo, _base, a, _b = historia
-    modulo = _cargar()
-    decision, motivo = modulo.decidir(a, modulo.Sello(), repo)
-    assert decision == modulo.DETENER and "a ciegas" in motivo
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(sha="0" * 40), m.Sello(sha="0" * 40), repo)
+    assert decision == m.DETENER and "no conoce" in motivo
 
 
-def test_una_huella_fuera_de_main_no_bloquea(historia: Historia) -> None:
-    """Un commit que `origin/main` no conoce (un deploy a mano desde otra rama) no bloquea."""
-    repo, _base, a, _b = historia
-    modulo = _cargar()
-    decision, motivo = modulo.decidir(a, modulo.Sello(sha="0" * 40), repo)
-    assert decision == modulo.PUBLICAR and "no está en main" in motivo
-
-
-def test_una_huella_desconocida_sin_remoto_detiene(historia: Historia) -> None:
-    """Si no se puede traer `origin/main` para situar la huella, tampoco se publica a ciegas."""
-    repo, _base, a, _b = historia
-    _git(repo, "remote", "remove", "origin")
-    modulo = _cargar()
-    decision, motivo = modulo.decidir(a, modulo.Sello(sha="0" * 40), repo)
-    assert decision == modulo.DETENER and "origin/main" in motivo
-
-
-def test_una_huella_divergente_no_bloquea(historia: Historia) -> None:
-    """Un commit conocido que no desciende de A (otra rama) no impide publicar A."""
+def test_una_huella_divergente_detiene(historia: Historia) -> None:
+    """🔴 Pasada 9: un commit conocido que ni desciende de A ni es su ancestro no se pisa."""
     repo, base, a, _b = historia
     _git(repo, "checkout", "-q", "-b", "otra", base)
     _git(repo, "commit", "-q", "--allow-empty", "-m", "otra")
     divergente = _git(repo, "rev-parse", "HEAD")
-    modulo = _cargar()
-    assert modulo.decidir(a, modulo.Sello(sha=divergente), repo)[0] == modulo.PUBLICAR
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(sha=divergente), m.Sello(sha=divergente), repo)
+    assert decision == m.DETENER and "divergente" in motivo
+
+
+def test_un_commit_fuera_de_main_detiene(historia: Historia) -> None:
+    """🔴 Pasada 9: un `workflow_dispatch` desde otra rama no publica sin `forzar`."""
+    repo, base, _a, _b = historia
+    _git(repo, "checkout", "-q", "-b", "rama", base)
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "rama")
+    fuera = _git(repo, "rev-parse", "HEAD")
+    m = _cargar()
+    decision, motivo = _decidir(m, fuera, m.Sello(sha=base), m.Sello(sha=base), repo)
+    assert decision == m.DETENER and "no está en main" in motivo
+
+
+def test_sin_remoto_detiene(historia: Historia) -> None:
+    """Si no se puede traer `origin/main`, no hay cómo situar nada: se detiene."""
+    repo, base, a, _b = historia
+    _git(repo, "remote", "remove", "origin")
+    m = _cargar()
+    decision, motivo = _decidir(m, a, m.Sello(sha=base), m.Sello(sha=base), repo)
+    assert decision == m.DETENER and "origin/main" in motivo
+
+
+# ── `main()` como lo corre el Deploy ──
 
 
 @pytest.fixture
 def entorno_del_workflow(
     historia: Historia, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[ModuleType, Path, Path, Historia]:
-    """`main()` como lo corre el Deploy: `DEPLOY_SHA`, la huella por URL y `GITHUB_ENV`."""
+) -> tuple[ModuleType, Path, Path, Path, Historia]:
+    """`DEPLOY_SHA`, las dos huellas por URL y `GITHUB_ENV`, sin reintentos ni esperas."""
     repo, _base, a, _b = historia
-    sello = tmp_path / "build-sha.txt"
+    docs = tmp_path / "docs-build-sha.txt"
+    demo = tmp_path / "demo-build-sha.txt"
     env_file = tmp_path / "github.env"
     env_file.write_text("", encoding="utf-8")
     monkeypatch.setenv("DEPLOY_SHA", a)
-    monkeypatch.setenv("SELLO_URL", sello.resolve().as_uri())
+    monkeypatch.setenv("SELLO_DOCS_URL", docs.resolve().as_uri())
+    monkeypatch.setenv("SELLO_DEMO_URL", demo.resolve().as_uri())
     monkeypatch.setenv("GITHUB_ENV", str(env_file))
     monkeypatch.delenv("FORZAR", raising=False)
     monkeypatch.chdir(repo)
     modulo = _cargar()
-    original = modulo.leer_sello  # sin reintentos ni esperas: la URL es un archivo local
+    original = modulo.leer_sello
     monkeypatch.setattr(
         modulo, "leer_sello", lambda url: original(url, intentos=1, espera=0.0, timeout=2.0)
     )
-    return modulo, sello, env_file, historia
+    return modulo, docs, demo, env_file, historia
 
 
 def test_main_deja_saltar_solo_cuando_produccion_va_adelante(
-    entorno_del_workflow: tuple[ModuleType, Path, Path, Historia],
+    entorno_del_workflow: tuple[ModuleType, Path, Path, Path, Historia],
 ) -> None:
-    modulo, sello, env_file, (_repo, base, _a, b) = entorno_del_workflow
-    sello.write_text(b + "\n", encoding="utf-8")  # producción ya va adelante
+    modulo, docs, demo, env_file, (_repo, base, _a, b) = entorno_del_workflow
+    docs.write_text(b + "\n", encoding="utf-8")  # producción ya va adelante, coherente
+    demo.write_text(b + "\n", encoding="utf-8")
     assert modulo.main() == 0
     assert env_file.read_text(encoding="utf-8") == "SALTAR=1\n"
 
     env_file.write_text("", encoding="utf-8")
-    sello.write_text(base + "\n", encoding="utf-8")  # producción va atrás: se publica
+    docs.write_text(base + "\n", encoding="utf-8")  # producción va atrás: se publica
+    demo.write_text(base + "\n", encoding="utf-8")
     assert modulo.main() == 0
     assert env_file.read_text(encoding="utf-8") == ""
 
 
-def test_main_se_detiene_en_rojo_si_la_huella_no_responde_y_forzar_lo_publica(
-    entorno_del_workflow: tuple[ModuleType, Path, Path, Historia],
+def test_main_se_detiene_en_rojo_y_forzar_publica(
+    entorno_del_workflow: tuple[ModuleType, Path, Path, Path, Historia],
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """🔴 Pasada 7: sin huella → exit 1 con `::error::` y sin `SALTAR`; con `forzar`, publica."""
-    modulo, _sello, env_file, _historia = entorno_del_workflow  # el archivo del sello no existe
+    modulo, _docs, _demo, env_file, _historia = entorno_del_workflow  # sin archivos: ilegibles
     assert modulo.main() == 1
     assert "::error::" in capsys.readouterr().out
     assert env_file.read_text(encoding="utf-8") == ""
@@ -187,38 +240,40 @@ def test_main_se_detiene_en_rojo_si_la_huella_no_responde_y_forzar_lo_publica(
     assert env_file.read_text(encoding="utf-8") == ""
 
 
+# ── La lectura de una huella ──
+
+
 def test_leer_sello_distingue_404_de_no_verificable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     modulo = _cargar()
     rapido = {"intentos": 1, "espera": 0.0, "timeout": 2.0}
     # Sin servicio: no verificable (ni sha ni ausente).
-    ausente = modulo.leer_sello((tmp_path / "no-existe.txt").resolve().as_uri(), **rapido)
-    assert ausente.sha is None and not ausente.ausente
+    caido = modulo.leer_sello((tmp_path / "no-existe.txt").resolve().as_uri(), **rapido)
+    assert caido.ilegible
     # Un cuerpo que no es un SHA (una portada de error): tampoco.
     basura = tmp_path / "basura.txt"
     basura.write_text("<html>Service Unavailable</html>", encoding="utf-8")
-    ilegible = modulo.leer_sello(basura.resolve().as_uri(), **rapido)
-    assert ilegible.sha is None and not ilegible.ausente
+    assert modulo.leer_sello(basura.resolve().as_uri(), **rapido).ilegible
     # Un SHA completo: verificado.
     huella = tmp_path / "build-sha.txt"
     huella.write_text("a" * 40 + "\n", encoding="utf-8")
     assert modulo.leer_sello(huella.resolve().as_uri(), **rapido).sha == "a" * 40
 
-    # Un 404 es «producción sin huella», no un fallo.
+    # Un 404 es «sin huella», no un fallo.
     def _404(*_args: Any, **_kwargs: Any) -> Any:
         raise urllib.error.HTTPError("https://x.invalid", 404, "Not Found", None, io.BytesIO())  # type: ignore[arg-type]
 
     monkeypatch.setattr(modulo.urllib.request, "urlopen", _404)
-    assert modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido).ausente
+    ausente = modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido)
+    assert ausente.ausente and not ausente.ilegible
 
     # Un 503 NO es un 404: sigue siendo no verificable.
     def _503(*_args: Any, **_kwargs: Any) -> Any:
         raise urllib.error.HTTPError("https://x.invalid", 503, "Unavailable", None, io.BytesIO())  # type: ignore[arg-type]
 
     monkeypatch.setattr(modulo.urllib.request, "urlopen", _503)
-    caido = modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido)
-    assert caido.sha is None and not caido.ausente
+    assert modulo.leer_sello("https://x.invalid/build-sha.txt", **rapido).ilegible
 
 
 def test_leer_sello_reintenta_antes_de_rendirse(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -231,11 +286,14 @@ def test_leer_sello_reintenta_antes_de_rendirse(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(modulo.urllib.request, "urlopen", _caido)
     monkeypatch.setattr(modulo.time, "sleep", lambda _s: None)
-    assert modulo.leer_sello("https://x.invalid/build-sha.txt", intentos=3, espera=0.0).sha is None
+    assert modulo.leer_sello("https://x.invalid/build-sha.txt", intentos=3, espera=0.0).ilegible
     assert len(llamadas) == 3
 
 
-def test_el_workflow_aplica_la_regla_antes_de_instalar_y_antes_de_publicar() -> None:
+# ── El workflow ──
+
+
+def test_el_workflow_aplica_la_regla_y_sella_los_dos_sitios() -> None:
     texto = _WORKFLOW.read_text(encoding="utf-8")
     llamada = "python3 scripts/deploy_no_retroceder_produccion.py"
     assert texto.count(llamada) == 2
@@ -244,3 +302,6 @@ def test_el_workflow_aplica_la_regla_antes_de_instalar_y_antes_de_publicar() -> 
     assert "cancel-in-progress: false" in texto
     # El override explícito existe y llega al script; en un `workflow_run` vale `false`.
     assert "forzar:" in texto and "FORZAR: ${{ inputs.forzar || 'false' }}" in texto
+    # Los DOS sitios se sellan con el mismo commit y el chequeo en vivo espera las dos huellas.
+    assert "> docs_site/build-sha.txt" in texto and "> web/dist/build-sha.txt" in texto
+    assert "https://demo.nikodym.cl/build-sha.txt" in texto
