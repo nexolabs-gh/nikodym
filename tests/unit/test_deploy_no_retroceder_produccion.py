@@ -1,12 +1,13 @@
 """El Deploy no retrocede producción, no pierde un commit verde y no publica a ciegas.
 
-🔴 Hallazgos de las pasadas 6, 7 y 9 de la revisión adversarial de la 1.14.0: «sólo la punta de
+🔴 Hallazgos de las pasadas 6, 7, 9 y 10 de la revisión adversarial de la 1.14.0: «sólo la punta de
 main llega a producción» saltaba un CI verde apenas `main` avanzaba, sin mirar si la punta nueva
 tenía CI verde o un Deploy propio (A verde, B pusheado y rojo: A terminaba en verde sin publicar y
 B nunca desplegaba; producción se quedaba atrás sin una falla visible). La primera versión de la
 regla nueva «fallaba abierta»: si la huella de producción no respondía, publicaba —justo el
 retroceso que existe para impedir—. Y la segunda modelaba dos sitios como un solo commit (docs
-sellada, demo a medias) y publicaba una ref fuera de `main` o un historial divergente sin `forzar`.
+sellada, demo a medias) y publicaba una ref fuera de `main` o un historial divergente sin `forzar`;
+la tercera prometía que el rerun repara la partida y se detenía antes de mirar el commit.
 La regla vive en `scripts/deploy_no_retroceder_produccion.py` y estos tests la fijan caso a caso
 sobre una historia real base → A → B con su `origin`.
 """
@@ -131,14 +132,21 @@ def test_una_huella_que_no_se_pudo_verificar_detiene(historia: Historia) -> None
     assert decision == m.DETENER and "demo" in motivo
 
 
-def test_produccion_partida_detiene(historia: Historia) -> None:
-    """🔴 Pasada 9: docs en B y demo en A es una publicación a medias, no un commit; no se pisa."""
-    repo, _base, a, b = historia
+def test_produccion_partida_solo_la_repara_un_descendiente(historia: Historia) -> None:
+    """🔴 Pasadas 9 y 10: docs en B y demo en A es una publicación a medias. Un ancestro (A) no la
+    pisa —retrocedería docs—; el rerun de B, o cualquier descendiente, republica los DOS sitios."""
+    repo, base, a, b = historia
     m = _cargar()
     decision, motivo = _decidir(m, a, m.Sello(sha=b), m.Sello(sha=a), repo)
-    assert decision == m.DETENER and "partida" in motivo and b[:7] in motivo and a[:7] in motivo
-    # …tampoco un descendiente: primero se repara con el rerun del Deploy que quedó a medias.
-    assert _decidir(m, b, m.Sello(sha=b), m.Sello(sha=a), repo)[0] == m.DETENER
+    assert decision == m.DETENER and "partida" in motivo and b[:7] in motivo
+    decision, motivo = _decidir(m, b, m.Sello(sha=b), m.Sello(sha=a), repo)
+    assert decision == m.PUBLICAR and "los dos sitios" in motivo
+    assert _decidir(m, b, m.Sello(sha=a), m.Sello(sha=base), repo)[0] == m.PUBLICAR
+    # …pero no con un sitio divergente: eso sigue siendo a ciegas.
+    _git(repo, "checkout", "-q", "-b", "otra", base)
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "otra")
+    divergente = _git(repo, "rev-parse", "HEAD")
+    assert _decidir(m, b, m.Sello(sha=b), m.Sello(sha=divergente), repo)[0] == m.DETENER
 
 
 def test_una_huella_que_main_no_conoce_detiene(historia: Historia) -> None:
