@@ -277,7 +277,14 @@ def _section(section: Mapping[str, Any], config: ReportConfig) -> str:
     if section["kind"] == "appendix" and section["level"] == 2:
         lines.extend([f"Artefacto de origen: `{section['source']}`", ""])
     for paragraph in section["body"]:
-        lines.extend([paragraph, ""])
+        # La ficha del modelo lleva texto libre de la institución: en QMD, `<` y `>` en línea son
+        # HTML crudo para pandoc, y un `<script>` llegaría al HTML renderizado. Se escapan con la
+        # barra de pandoc SÓLO en ese capítulo: la prosa del motor no los trae y sus goldens no
+        # se mueven (hallazgo de la revisión adversarial de la 1.14.0).
+        texto = paragraph
+        if section["id"] == "model_card":
+            texto = texto.replace("<", "\\<").replace(">", "\\>")
+        lines.extend([texto, ""])
     if section["placeholder"]:
         lines.extend([_placeholder(section["placeholder"]), ""])
     for chart in section["charts"]:

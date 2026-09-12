@@ -599,31 +599,45 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
 def _governance_declaration(value: Any) -> GovernanceDeclaration | None:
     """Proyecta ``config.governance`` al DTO del informe; ``None`` si no se declaró.
 
-    Acepta el ``GovernanceConfig`` ya validado (lo normal) o su ``dict`` —el campo del config raíz
-    es ``Any`` en runtime para no arrastrar ``nikodym.governance`` al importar el núcleo—. Sólo
-    copia las declaraciones que el capítulo publica: las opciones de publicación y del diario de
-    escenarios no son copy del informe.
+    El campo del config raíz es ``Any`` en runtime para no arrastrar ``nikodym.governance`` al
+    importar el núcleo, así que puede llegar ya validado (``GovernanceConfig``) o como el ``dict``
+    crudo del YAML si nadie importó el paquete antes. 🔴 Un ``dict`` se VALIDA con
+    ``GovernanceConfig`` y de ahí se proyecta: la primera versión lo leía con defaults propios y,
+    según el orden de imports, podía atribuir a la institución un propósito vacío o un nombre que
+    nunca declaró (hallazgo de la revisión adversarial de la 1.14.0). Sólo se copian las
+    declaraciones que el capítulo publica.
     """
     if value is None:
         return None
-    raw: Mapping[str, Any]
-    if isinstance(value, BaseModel):
-        raw = value.model_dump(mode="json")
+    from pydantic import ValidationError
+
+    from nikodym.governance.config import GovernanceConfig
+
+    if isinstance(value, GovernanceConfig):
+        declared = value
+    elif isinstance(value, BaseModel):
+        try:
+            declared = GovernanceConfig.model_validate(value.model_dump(mode="json"))
+        except ValidationError as error:
+            raise ReportInputError(f"governance no es un config válido: {error}") from error
     elif isinstance(value, Mapping):
-        raw = value
+        try:
+            declared = GovernanceConfig.model_validate(dict(value))
+        except ValidationError as error:
+            raise ReportInputError(f"governance no es un config válido: {error}") from error
     else:
         raise ReportInputError(f"governance no es un config ni un mapping: {type(value).__name__}")
     return GovernanceDeclaration(
-        model_name=str(raw.get("model_name") or "nikodym-model"),
-        purpose=str(raw.get("purpose") or ""),
-        assumptions=tuple(str(item) for item in raw.get("assumptions") or ()),
-        limitations=tuple(str(item) for item in raw.get("limitations") or ()),
-        review_period_months=int(raw.get("review_period_months") or 12),
-        cartera=_optional_text(raw.get("cartera")),
-        motor=_optional_text(raw.get("motor")),
-        fase=_optional_text(raw.get("fase")),
-        estado_validacion=str(raw.get("estado_validacion") or "desarrollo"),
-        author=_optional_text(raw.get("author")),
+        model_name=declared.model_name,
+        purpose=declared.purpose,
+        assumptions=tuple(declared.assumptions),
+        limitations=tuple(declared.limitations),
+        review_period_months=declared.review_period_months,
+        cartera=_optional_text(declared.cartera),
+        motor=declared.motor,
+        fase=declared.fase,
+        estado_validacion=declared.estado_validacion,
+        author=_optional_text(declared.author),
     )
 
 

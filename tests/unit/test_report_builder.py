@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import subprocess
 import sys
@@ -1539,3 +1541,49 @@ def test_la_ficha_del_informe_no_fija_fechas_ni_metricas_aunque_las_haya() -> No
     cuerpo = " ".join(_seccion(bundle, "model_card").body)
     assert not re.search(r"\d{4}-\d{2}-\d{2}", cuerpo)
     assert "AUC" not in cuerpo and "KS" not in cuerpo and "Gini" not in cuerpo
+
+
+def test_una_gobernanza_cruda_se_valida_y_nada_se_inventa() -> None:
+    """🔴 Hallazgo de la revisión adversarial de la 1.14.0: un `dict` de gobernanza (el config raíz
+    lo deja crudo si nadie importó `nikodym.governance`) se proyectaba con defaults propios —un
+    propósito vacío, «nikodym-model», 12 meses— y el capítulo podía atribuir a la institución lo
+    que nunca declaró. Ahora se valida con `GovernanceConfig` y se proyecta de ahí."""
+    from nikodym.report.builder import _governance_declaration
+    from nikodym.report.exceptions import ReportInputError
+
+    validada = _governance_declaration(_GOBERNANZA_DECLARADA)
+    assert validada is not None and validada.purpose == _GOBERNANZA_DECLARADA["purpose"]
+    assert validada.review_period_months == 6 and validada.estado_validacion == "en_validacion"
+    for invalida in (
+        {},  # sin propósito
+        {"purpose": "   "},  # propósito en blanco (D-GOB-12)
+        {"purpose": "Originar créditos.", "motor": "otro"},  # slug fuera del Literal
+        {"purpose": "Originar créditos.", "review_period_months": 0},
+    ):
+        with pytest.raises(ReportInputError, match="governance no es un config válido"):
+            _governance_declaration(invalida)
+
+
+def test_la_proyeccion_de_gobernanza_no_depende_del_orden_de_imports() -> None:
+    """En un proceso fresco que importa SOLO `nikodym.report` (nunca `nikodym.governance`), el
+    config raíz deja `governance` como `dict`, y aun así el capítulo dice lo declarado."""
+    codigo = (
+        "import json, sys\n"
+        "from nikodym.core.config import NikodymConfig\n"
+        "from nikodym.report.builder import _governance_declaration\n"
+        "cfg = NikodymConfig.model_validate({'governance': json.loads(sys.argv[1])})\n"
+        "d = _governance_declaration(cfg.governance)\n"
+        "print(json.dumps({'tipo': type(cfg.governance).__name__, 'purpose': d.purpose, "
+        "'model_name': d.model_name, 'meses': d.review_period_months}))\n"
+    )
+    salida = subprocess.run(
+        [sys.executable, "-c", codigo, json.dumps(_GOBERNANZA_DECLARADA)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+        env={**os.environ, "PYTHONUTF8": "1"},
+    )
+    leido = json.loads(salida.stdout.strip().splitlines()[-1])
+    assert leido["purpose"] == _GOBERNANZA_DECLARADA["purpose"]
+    assert leido["model_name"] == "scorecard-consumo-2026" and leido["meses"] == 6

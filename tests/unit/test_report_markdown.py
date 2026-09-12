@@ -393,3 +393,36 @@ def test_el_qmd_no_invoca_quarto_ni_lo_declara_como_dependencia() -> None:
     assert "subprocess" not in importados
     assert "shutil" not in importados
     assert "quarto" not in importados
+
+
+def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo() -> None:
+    """🔴 Hallazgo de la revisión adversarial de la 1.14.0: el propósito, los supuestos y las
+    limitaciones son texto libre de la institución, y el QMD copia la prosa tal cual: un bloque
+    ```{python}``` en su propia línea sería una celda ejecutable en `quarto render`, un shortcode
+    se interpretaría y un `<script>` llegaría crudo al HTML renderizado. Las declaraciones viajan
+    en una línea, los shortcodes se separan y el capítulo escapa `<`/`>` en QMD; el HTML del
+    informe ya escapa por autoescape."""
+    from nikodym.report.builder import ReportBuilder
+    from nikodym.report.renderer import HtmlReportRenderer
+    from nikodym.report.results import GovernanceDeclaration
+
+    veneno = (
+        "Originar créditos.\n```{python}\nimport os; os.system('echo pwned')\n```\n"
+        "{{< include /etc/passwd >}} <script>alert(1)</script>"
+    )
+    config = ReportConfig(sections={"missing_policy": "skip"})  # el bundle mínimo no trae eda
+    bundle = _bundle().model_copy(
+        update={
+            "governance": GovernanceDeclaration(
+                model_name="m", purpose=veneno, review_period_months=12, assumptions=(veneno,)
+            )
+        }
+    )
+    bundle = bundle.model_copy(update={"sections": ReportBuilder(config).build_sections(bundle)})
+    qmd = MarkdownReportRenderer.from_config(config).render(bundle)
+    assert "Ficha del modelo" in qmd
+    assert not any(line.startswith("```") and "python" in line for line in qmd.splitlines())
+    assert "{{<" not in qmd and "<script>" not in qmd
+    assert "\\<script\\>" in qmd
+    html = HtmlReportRenderer.from_config(config).render(bundle)
+    assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
