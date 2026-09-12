@@ -49,7 +49,11 @@ from nikodym.ui.presets import (
 # Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (la ruta del dataset ya no
 # entra a la identidad; el data_hash captura el contenido). El preset trae ``source: null``, así que
 # el JSON canónico pierde esa clave y el hash se mueve; ahora coincide con el del informe capturado.
-_EXPECTED_CONFIG_HASH = "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e"
+# Actualizado en la capa 5 de SCORECARD-COMPLETO (2026-09-12, OK de Cami) al ENCENDER `eda` en F1:
+# `axis=cohort` sobre la misma cohorte de la partición y perfiles sobre las variables del binning.
+# `eda` es cálculo (entra al hash): ec10eb43… → 1063d6cf…; F5 se mueve igual (b36318b5… →
+# a7476bf2…); F3 y F4 no cambian (siguen sin `eda`). Medido en los cuatro presets antes y después.
+_EXPECTED_CONFIG_HASH = "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────
@@ -97,6 +101,7 @@ def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
     assert report["ai"]["enabled"] is False
     assert report["html"]["include_interactive_charts"] is False
     assert report["sections"]["required_sections"] == [
+        "eda",
         "binning",
         "selection",
         "model",
@@ -105,7 +110,8 @@ def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
         "performance",
         "stability",
     ]
-    assert "eda" not in report["sections"]["required_sections"]
+    # Desde la capa 5 el preset EXIGE `eda` en el informe: la enciende y la pide (D-OBL-11).
+    assert "eda" in report["sections"]["required_sections"]
     # report es INFRA → excluido del config_hash: la identidad del preset NO cambia por activarlo.
     assert config_hash(NikodymConfig.model_validate(config)) == _EXPECTED_CONFIG_HASH
 
@@ -341,7 +347,11 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
     # recapturar la demo—; medirlo lo refutó, y que este test siga verde en su mitad de identidad
     # es la evidencia. Ver `DECISIONES-VIGENTES.md` §D-GOB.
     expected_payload_digests = {
-        STANDARD_PRESET_ID: "32f922f246e413b8fd85bfcb27b856ca7087175de722d7ab0375a0b7751cd65a",
+        # Actualizado el 2026-09-12 por la capa 5 de SCORECARD-COMPLETO: F1 ENCIENDE `eda`. Esta vez
+        # se mueven los DOS lados —los bytes del preset y su `config_hash`—, porque `eda` es cálculo
+        # y no infraestructura: es el caso simétrico de los dos anteriores, y la asimetría de arriba
+        # sigue siendo la que este test exhibe para `report` y `audit`. F3 y F4 no cambian.
+        STANDARD_PRESET_ID: "36134773adf591faceb15ed05432505c724ba727613910b019b915c81f78db63",
         PROVISIONES_PRESET_ID: "90e0c78f8abb20cfaf25fc5f7c20d62dd645ebf57312e9262c6313b87527a831",
         F4_IFRS9_PRESET_ID: "202483e594fc029827fe04c17db2b1b5e469263553ef0ba943974fb69e21b6f3",
     }

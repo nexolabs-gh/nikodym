@@ -129,7 +129,7 @@ def test_el_aviso_no_mueve_el_config_hash_de_ningun_preset() -> None:
     from nikodym.ui.presets import get_preset
 
     esperados = {
-        "f1-estandar-consumo": "ec10eb43",
+        "f1-estandar-consumo": "1063d6cf",
         "f3-provisiones-consumo": "857b06ee",
         "f4-ifrs9-retail": "013e69dc",
     }

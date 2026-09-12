@@ -108,8 +108,9 @@ binning—.
 
 ## 4. Calidad de datos
 
-Una fila por columna del archivo, con su tipo, la proporción de faltantes, cuántos valores
-distintos tiene y hasta tres marcas:
+Una fila por columna **de tu archivo** —las que produce el motor al preparar los datos (el target
+derivado, el estado de la etiqueta, la partición y el rol TTD) no se diagnostican— con su tipo, la
+proporción de faltantes, cuántos valores distintos tiene y hasta tres marcas:
 
 | Marca | Qué significa |
 |---|---|

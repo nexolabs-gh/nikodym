@@ -253,11 +253,12 @@ Por orden de Cami del 2026-09-11 —una demo con datos propios el lunes 14—, l
 con las capas 1, 2 y 3 cerradas y **sin** las capas 4 (la ficha en el informe) y 5. De la capa 5
 se hace sólo lo inherente a publicar: el bump, el CHANGELOG cortado, las nueve notas «Si
 instalaste desde PyPI» retiradas y la recaptura de la demo F1/F4 con el motor vigente **sin
-gobernanza declarada** (D-GOB-9 sigue sin `purpose`: la ficha no aparece en la demo). **No** se
-hace el flip de `eda` en los presets F1/F5 —mueve `config_hash` y estaba atado a la ficha y a una
-recaptura única— ni entra F5 a la demo: quedan, con la ficha, para las capas 4 y 5, que traerán
-su propia recaptura. Los presets publicados siguen con `eda` apagada; los dos trabajos del
-scorecard de la interfaz la traen encendida (D-SC-4), que es lo que la demo usa.
+gobernanza declarada** (D-GOB-9 sigue sin `purpose`: la ficha no aparece en la demo). En esa
+release **no** se hizo el flip de `eda` en los presets F1/F5 ni entró F5 a la demo. El 2026-09-12,
+con el OK de Cami a las cinco mejoras propuestas tras la 1.13.0, la misma sesión hizo el flip
+(F1 `ec10eb43…` → `1063d6cf…`, F5 `b36318b5…` → `a7476bf2…`; F3 y F4 intactos), excluyó de la
+tabla de calidad las columnas que produce el motor (decisión que §0.3 dejaba pendiente) e
+implementó la capa 4; F5 sigue fuera de la demo (exige su capturador y su OK, D-GOB-9).
 
 ## 1. El estado, medido sobre `40cb5a3`
 

@@ -5,6 +5,25 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Cambiado
+
+- **Los presets F1 «Estándar consumo» y F5 «Provisión interna genérica» traen el análisis
+  exploratorio encendido.** Agrupan la tasa por la misma cohorte con la que particionan y
+  describen las variables que entran al binning, y el informe lo exige como sección obligatoria:
+  quien corra `standard_preset()` o `provision_interna_preset()` ve la población antes de
+  modelar, en Resultados y en el informe. Es cálculo, así que la identidad de los dos presets
+  cambia: F1 `ec10eb43…` → `1063d6cf…`, F5 `b36318b5…` → `a7476bf2…`; F3 y F4 no cambian. Los
+  fixtures de la demo se recapturan con esta versión.
+
+- **La tabla de calidad de datos describe las columnas del archivo, no las que produce el motor.**
+  Diagnosticaba también el target derivado, el estado de la etiqueta, la partición y el rol TTD,
+  y sobre la muestra de desarrollo la partición y el TTD salían «casi constante» por
+  construcción: dos marcas que parecían un problema del archivo y eran del propio motor. Las
+  columnas del usuario —incluidas la fecha, la cohorte y la que define el incumplimiento— se siguen
+  diagnosticando.
+
 ## [1.13.0] — 2026-09-12
 
 ### Añadido
@@ -329,12 +348,6 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Sabido
 
-- La tabla de calidad de datos del análisis exploratorio describe **todas** las columnas del frame
-  que llega al paso, incluidas las que produce el propio motor —el target derivado, el estado, la
-  partición y el rol TTD—, así que sobre la muestra de desarrollo la partición y el TTD salen
-  marcados «casi constante» por construcción. Es el comportamiento del motor desde su primera
-  versión; excluirlas es una decisión pendiente.
-
 - Agrupar la tasa de incumplimiento por una cohorte **casi única** —una columna de identificador,
   por ejemplo— produce una fila por operación: el motor la calcula tal como se pidió, y la respuesta
   de la interfaz la publica entera, porque la tabla de la tasa viaja completa por contrato. Medido:
@@ -348,9 +361,6 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   corridas **no** cambia, y el informe de la demo dice ya «Falla» donde antes decía «Falla
   técnica».
 
-- Los presets de fábrica siguen con el análisis exploratorio apagado: encenderlo en ellos mueve
-  la identidad de cada preset y va con la próxima recaptura; los dos trabajos del scorecard de la
-  interfaz lo traen encendido.
 
 ## [1.12.0] — 2026-08-27
 

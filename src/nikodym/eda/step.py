@@ -128,8 +128,18 @@ class EdaStep(AuditableMixin):
             columns=columns,
             audit=self._audit,
         )
+        # La calidad es del ARCHIVO: las cuatro columnas que produce ``data`` (target derivado,
+        # estado de la etiqueta, partición y rol TTD) no se diagnostican —sobre desarrollo, la
+        # partición y el TTD salían «casi constante» por construcción—. Las del usuario, incluidas
+        # la fecha, la cohorte y la que define la etiqueta, sí (decisión de Cami, 2026-09-12).
         quality = DataQualityProfiler.from_config(self.config.quality).profile(
-            profile_frame,
+            profile_frame.drop(
+                columns=[
+                    column
+                    for column in (target_col, labels.status_col, PARTITION_COL, TTD_COL)
+                    if column in profile_frame.columns
+                ]
+            ),
             audit=self._audit,
         )
         figures = _build_figure_specs(default_rate=default_rate, univariate=univariate)

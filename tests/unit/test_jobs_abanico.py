@@ -758,7 +758,7 @@ def test_una_clave_nueva_rompe_en_vez_de_perderse(
 #: mediría que la función es determinista, que es el defecto de paridad que este repo ya pagó—. El
 #: oráculo es el pasado, y por eso se anclan.
 _HASHES_ANTES_DEL_ABANICO: dict[str, str] = {
-    "f1-estandar-consumo": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
+    "f1-estandar-consumo": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
     "f3-provisiones-consumo": "857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d",
     "f4-ifrs9-retail": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
 }

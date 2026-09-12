@@ -174,6 +174,20 @@ def test_edastep_registrado_requires_provides_from_config_y_reexports() -> None:
     assert step.provides == tuple(("eda", key) for key in EDA_ARTIFACTS)
 
 
+def test_la_calidad_no_diagnostica_las_columnas_que_produce_el_motor() -> None:
+    """🔴 La tabla de calidad describía TODAS las columnas del frame que llega al paso, incluidas
+    las cuatro que produce ``data`` —el target derivado, el estado de la etiqueta, la partición y
+    el rol TTD—, y sobre desarrollo la partición y el TTD salían «casi constante» por construcción
+    (declarado como sabido en la 1.13.0). Cami decidió el 2026-09-12 excluirlas: la calidad es del
+    ARCHIVO, y esas cuatro columnas no vienen en él. Las del usuario —incluidas la fecha, la cohorte
+    y la que define la etiqueta— se siguen diagnosticando: su calidad sí es información."""
+    result = _run_step()
+    columnas = list(result.quality.by_column["col"])
+    assert columnas == ["fecha", "score", "segment"], columnas
+    for estructural in ("target", STATUS_COL, PARTITION_COL, TTD_COL):
+        assert estructural not in columnas
+
+
 def test_execute_publica_seis_artefactos_figures_card_y_no_muta_data() -> None:
     """``execute`` puebla artefactos EDA, no muta frame/labels y produce figuras golden."""
     frame = _frame()

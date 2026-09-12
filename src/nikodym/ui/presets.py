@@ -51,6 +51,25 @@ PROVISIONES_DATASET_ID = "provisiones_consumo"
 # Config F1 COMPLETO derivado de los objetos Pydantic de dominio (``model_dump(mode="json",
 # by_alias=True)``) y pegado como literal para preservar la frontera domain-agnostic (SDD-23 §3.3).
 # NO editar a mano: regenerar con el script de derivación si cambia una sección de dominio.
+# Análisis exploratorio de los presets que corren el scorecard (F1 y F5; capa 5 de
+# SCORECARD-COMPLETO, §4). Eje de cohorte EXPLÍCITO sobre la misma `cohorte` de la partición —la
+# inferencia de D-SC-3 es para quien no lo declara— y los perfiles sobre las mismas variables que
+# entran al binning, para que el informe describa lo que después modela. F3 y F4 no la traen.
+_EDA_SCORECARD_SECTION: dict[str, Any] = {
+    "type": "standard",
+    "default_rate": {"axis": "cohort", "cohort_col": "cohorte"},
+    "univariate": {
+        "columns": [
+            "ingreso_mensual",
+            "deuda_ingreso",
+            "utilizacion_linea",
+            "mora_max_12m",
+            "antiguedad_meses",
+            "segmento",
+        ],
+    },
+}
+
 _STANDARD_CONFIG: dict[str, Any] = {
     "schema_version": "1.0.0",
     "name": "preset-estandar-consumo",
@@ -422,7 +441,8 @@ _STANDARD_CONFIG: dict[str, Any] = {
     },
     # Report HTML determinístico activado. Derivado con ``ReportConfig(sections=SectionPolicyConfig(
     # required_sections=(...)))`` + ``model_dump(mode="json", by_alias=True)`` (NO editar a mano).
-    # Las ``required_sections`` son las cards scorecard obligatorias (sin ``eda``); ``data_card`` y
+    # Las ``required_sections`` del literal son las cards scorecard obligatorias (sin ``eda``: F1 y
+    # F5 la añaden en ``_standard_config_con_eda``, capa 5); ``data_card`` y
     # ``validation.result`` se consumen de manera aditiva y no entran en ``ReportStep.requires``.
     # Así el motor CT-1 conserva el contrato estable de prerequisitos. ``report`` es INFRA
     # (``INFRA_SECTIONS``)
@@ -506,6 +526,22 @@ _STANDARD_CONFIG: dict[str, Any] = {
 }
 
 
+def _standard_config_con_eda() -> dict[str, Any]:
+    """El config estándar con el análisis exploratorio encendido y exigido por el informe.
+
+    Copia defensiva: nunca muta ``_STANDARD_CONFIG`` ni ``_EDA_SCORECARD_SECTION``. La sección
+    entra al ``config_hash`` (es cálculo), así que F1 y F5 firman una identidad nueva desde la
+    capa 5; ``required_sections`` gana ``eda`` para que el informe la exija, y no sólo la acepte.
+    """
+    cfg = deepcopy(_STANDARD_CONFIG)
+    cfg["eda"] = deepcopy(_EDA_SCORECARD_SECTION)
+    required = list(cfg["report"]["sections"]["required_sections"])
+    if "eda" not in required:
+        required.insert(0, "eda")
+    cfg["report"]["sections"]["required_sections"] = required
+    return cfg
+
+
 def standard_preset() -> dict[str, Any]:
     """Devuelve el descriptor del preset estándar F1 (config curado + dataset recomendado).
 
@@ -526,7 +562,7 @@ def standard_preset() -> dict[str, Any]:
             "comportamiento (data→binning→selection→model→scorecard→calibration→performance→"
             "stability) sobre el dataset sintético de consumo."
         ),
-        "config": deepcopy(_STANDARD_CONFIG),
+        "config": _standard_config_con_eda(),
         "dataset_id": STANDARD_DATASET_ID,
     }
 
@@ -687,7 +723,7 @@ def _provision_interna_config() -> dict[str, Any]:
     ``provisioning`` (el orquestador de la regla del máximo, que exige **dos** fuentes distintas y
     por tanto no puede existir con un motor solo). Lo que queda corre igual y publica su capítulo.
     """
-    cfg = deepcopy(_STANDARD_CONFIG)
+    cfg = _standard_config_con_eda()
     cfg["name"] = "preset-provision-interna-generica"
     cfg["calibration"] = {**cfg["calibration"], **_PROVISIONES_CALIBRATION_OVERRIDE}
     interna = deepcopy(_PROVISIONES_SECTIONS["provisioning_internal"])
