@@ -25,6 +25,12 @@ name: Deploy
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      forzar:
+        description: >-
+          Publicar a sabiendas aunque producción vaya adelante o su huella no se pueda verificar
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,7 +48,8 @@ jobs:
     environment: production
     # 🔴 Un solo Deploy de producción a la vez (pasada 5 de la revisión adversarial de la 1.14.0):
     # sin serializar, dos CI seguidos podían publicar solapados y el más viejo terminar después.
-    # `cancel-in-progress: false`: el que espera vuelve a comprobar la punta antes de publicar.
+    # `cancel-in-progress: false`: el que espera vuelve a mirar qué sirve producción antes de
+    # publicar.
     concurrency:
       group: deploy-produccion
       cancel-in-progress: false
@@ -52,6 +59,8 @@ jobs:
     # `github.sha`, así que un CI atrasado podía publicar A y certificar B. Un solo SHA para todo.
     env:
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # Override humano de la regla de abajo; en un `workflow_run` no hay inputs y vale `false`.
+      FORZAR: ${{ inputs.forzar || 'false' }}
     steps:
       - name: Comprobar que las credenciales están configuradas
         # Falla PRIMERO y con un mensaje que dice qué hacer, en vez de dejar que el CLI de Vercel
@@ -81,18 +90,16 @@ jobs:
           ref: ${{ env.DEPLOY_SHA }}
           fetch-depth: 0
 
-      # Un CI que termina después de que `main` avanzó no debe promover a producción un commit
-      # que ya no es la punta: se sale limpio y el Deploy del commit nuevo hace el trabajo.
-      - name: Sólo la punta de main llega a producción
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --quiet origin main
-          punta="$(git rev-parse origin/main)"
-          if [ "$punta" != "$DEPLOY_SHA" ]; then
-            echo "::notice::este CI es de ${DEPLOY_SHA:0:7} y main ya está en ${punta:0:7}: no se despliega"
-            echo "SALTAR=1" >> "$GITHUB_ENV"
-          fi
+      # 🔴 Producción no retrocede, no pierde un commit verde y no se publica a ciegas (pasadas 4,
+      # 6 y 7 de la revisión adversarial de la 1.14.0). Saltar un CI sólo porque `main` avanzó
+      # perdía el último commit verde cuando el siguiente fallaba su CI (A verde, B rojo: nadie
+      # desplegaba A). La regla vive en `scripts/deploy_no_retroceder_produccion.py`, con sus
+      # tests: mira la huella que producción SIRVE (`build-sha.txt`, sellada más abajo); salta
+      # sólo si ya es un descendiente de este commit; publica si no hay huella (404) o si es
+      # anterior; y se DETIENE en rojo si no pudo verificarla —publicar a ciegas es el retroceso
+      # que existe para impedir—. Corre ANTES de instalar nada, con el python3 del runner.
+      - name: No retroceder producción
+        run: python3 scripts/deploy_no_retroceder_produccion.py
 
       - name: Setup uv
         if: env.SALTAR != '1'
@@ -147,19 +154,12 @@ jobs:
         if: env.SALTAR != '1'
         run: npm install --global vercel@56
 
-      # La punta se recomprueba justo antes de promover: entre el control de arriba y aquí pasan
-      # minutos de instalación y build, y `main` puede haber avanzado (TOCTOU, pasada 5).
-      - name: Recomprobar la punta de main antes de publicar
+      # La misma regla otra vez, justo antes de publicar: entre el control de arriba y aquí pasan
+      # minutos de instalación y build (TOCTOU, pasada 5). Con `concurrency` nadie publica en
+      # medio; esto lo acredita en vez de suponerlo.
+      - name: Recomprobar producción antes de publicar
         if: env.SALTAR != '1'
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --quiet origin main
-          punta="$(git rev-parse origin/main)"
-          if [ "$punta" != "$DEPLOY_SHA" ]; then
-            echo "::notice::main avanzó a ${punta:0:7} durante el build de ${DEPLOY_SHA:0:7}: no se publica"
-            echo "SALTAR=1" >> "$GITHUB_ENV"
-          fi
+        run: python3 scripts/deploy_no_retroceder_produccion.py
 
       - name: Publicar docs.nikodym.cl
         if: env.SALTAR != '1'

@@ -16,7 +16,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   sus rótulos, y la periodicidad de revisión; el capítulo de limitaciones remite a él en vez de
   repetirlo. Las métricas, las decisiones y las fechas siguen en la ficha que el motor emite al
   cierre de la corrida —una sola ficha por corrida—, y el capítulo lo dice sin nombrar archivos.
-  Sin gobernanza el informe es, byte a byte, el de siempre.
+  Sin gobernanza el informe es, byte a byte, el de siempre. En la fuente Quarto las declaraciones
+  van como texto literal, línea a línea: lo que la institución escriba en el propósito —una celda
+  de código, un enlace, HTML— se lee, no se ejecuta ni se interpreta al compilar.
 
 ### Cambiado
 

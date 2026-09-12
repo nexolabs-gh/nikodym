@@ -160,18 +160,23 @@ _PUNTUACION_ASCII = re.compile(r"([!-/:-@\\[-`{-~])")
 
 
 def _texto_literal_pandoc(texto: str) -> str:
-    """Escribe una declaración como texto LITERAL de pandoc, línea a línea.
+    """Escribe una declaración como un *line block* LITERAL de pandoc.
 
-    Pandoc admite la barra delante de **cualquier** signo de puntuación ASCII y lo emite tal cual:
-    se escapan todos (``!`` … ``/``, ``:`` … ``@``, ``[`` … `````, ``{`` … ``~``), así que una
-    declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, matemática (``$x$``),
-    superíndices (``^x^``), TeX crudo, cercas ni shortcodes. Las líneas que la institución
-    declaró se conservan (pandoc las lee como saltos blandos dentro del párrafo); cada línea va
-    sin sangría —cuatro espacios abrirían un bloque de código— y las vacías se omiten, porque una
-    línea en blanco cerraría el párrafo. Letras, dígitos, espacios y no ASCII no se tocan.
+    Cada línea que la institución declaró sale como una línea del bloque (``| `` delante) y cada
+    línea vacía como ``|``: se conservan la división en líneas, la sangría y los párrafos tal cual
+    se escribieron, y dentro de un line block no existen bloques de código, cercas, encabezados ni
+    YAML. Y como pandoc admite la barra delante de **cualquier** signo de puntuación ASCII y lo
+    emite tal cual, se escapan todos (``!`` … ``/``, ``:`` … ``@``, ``[`` … `````, ``{`` … ``~``):
+    una declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, matemática (``$x$``),
+    superíndices (``^x^``), TeX crudo ni shortcodes. Letras, dígitos, espacios y no ASCII no se
+    tocan.
     """
-    lineas = [linea.strip() for linea in texto.splitlines()]
-    return "\n".join(_PUNTUACION_ASCII.sub(r"\\\1", linea) for linea in lineas if linea)
+    if not texto.strip():
+        return ""
+    return "\n".join(
+        "| " + _PUNTUACION_ASCII.sub(r"\\\1", linea) if linea.strip() else "|"
+        for linea in texto.splitlines()
+    )
 
 
 def _front_matter(document: Mapping[str, Any], config: ReportConfig) -> str:
@@ -298,9 +303,10 @@ def _section(section: Mapping[str, Any], config: ReportConfig) -> str:
     for paragraph in section["body"]:
         # La ficha del modelo lleva texto libre de la institución. En QMD ese texto es MARCADO:
         # `<script>` sería HTML crudo, `![x](file:///…)` una imagen local, `\\input{…}` TeX crudo,
-        # `[t](url)` un enlace. Se escribe como texto LITERAL de pandoc —toda puntuación con
-        # significado va escapada con barra— y SÓLO en ese capítulo: la prosa del motor no lo
-        # necesita y sus goldens no se mueven (revisión adversarial de la 1.14.0, pasadas 2 y 3).
+        # `[t](url)` un enlace. Se escribe como un line block LITERAL de pandoc —línea a línea,
+        # toda puntuación con significado escapada con barra— y SÓLO en ese capítulo: la prosa del
+        # motor no lo necesita y sus goldens no se mueven (revisión adversarial de la 1.14.0,
+        # pasadas 2, 3, 5 y 6).
         texto = _texto_literal_pandoc(paragraph) if section["id"] == "model_card" else paragraph
         lines.extend([texto, ""])
     if section["placeholder"]:
