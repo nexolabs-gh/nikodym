@@ -166,9 +166,11 @@ jobs:
             fi
           done
           # Y la mitad positiva, sin la cual un bundle vacío pasaría por «limpio»: las dos corridas
-          # que la demo sí publica tienen que estar.
-          for publicado in 4eb39425ffca49b19a38bfba1e91fcf1 \
-                           1d93a67c6e3b4611817063544dca42f5; do
+          # que la demo sí publica tienen que estar. Son los `run_id` de `results-f1.json` y
+          # `results-ifrs9.json`; `test_deploy_publica_las_corridas_de_la_demo.py` los ata a los
+          # fixtures versionados, así que una recaptura mueve los dos lados en el mismo commit.
+          for publicado in 434dd865694541b8bf0ecee1587f7dd1 \
+                           669a6f70518a4baab2e2cd4e81d65226; do
             grep -qF "$publicado" <<<"$cuerpo" || {
               echo "::error::la demo no publica la corrida ${publicado:0:16}…: el bundle no sirve ningún ejemplo"
               exit 1; }
