@@ -14,12 +14,6 @@ sobre qué cartera decide— lo fija tu institución, y el motor no lo inventa: 
 cambia ningún cálculo ni la identidad de la corrida (`config_hash`): documenta el modelo, no lo
 modifica.
 
-!!! note "Si instalaste desde PyPI"
-    Todo lo que describe esta guía llegó después de la 1.12.0 publicada en PyPI: en esa versión la
-    sección de gobernanza no está en el formulario de la interfaz, `run_dir` no existe y la ficha no
-    se escribe en disco ni se muestra en Resultados. Esta documentación describe el código del
-    repositorio; lo que aún no está en PyPI lo lista el [changelog](../changelog.md#no-publicado).
-
 ## Encenderla desde la interfaz
 
 La sección **Gobernanza** está en todos los trabajos del catálogo, siempre como última sección del

@@ -145,12 +145,6 @@ print(metrics)
 ```
 <!-- quickstart:end -->
 
-!!! note "Si instalaste desde PyPI"
-    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
-    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
-    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
-    PyPI lo lista el [changelog](changelog.md#no-publicado).
-
 El dataset del preset (`consumo_comportamiento`) es una cartera de consumo sintética de 6.000 filas,
 cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin datos reales.
 
@@ -233,7 +227,7 @@ modelo y hace que Resultados muestre la ficha del modelo. Cómo se enciende y qu
 | `--port PORT` | Puerto local (1024–65535). Por defecto `8000`. |
 | `--workdir DIR` | Dónde se guardan corridas y datasets. Por defecto `.nikodym_ui` en el directorio actual. |
 | `--no-open` | No abrir el navegador automáticamente. |
-| `--casos-de-referencia` | Ofrecer también los casos de referencia atados a una jurisdicción. Por defecto el catálogo no los ofrece; ver [Aterrizar una norma local](norma-local.md). **Llegó después de la 1.12.0 publicada**: en esa versión el comando la rechaza y el catálogo ya los ofrece sin ella. |
+| `--casos-de-referencia` | Ofrecer también los casos de referencia atados a una jurisdicción. Por defecto el catálogo no los ofrece; ver [Aterrizar una norma local](norma-local.md). |
 
 !!! note "Sólo escucha en loopback, y no es configurable"
     El bind es siempre `127.0.0.1`: **no existe `--host`**. La interfaz no es alcanzable desde la

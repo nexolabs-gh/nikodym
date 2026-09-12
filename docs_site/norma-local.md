@@ -82,13 +82,6 @@ caminos para llegar.
 nikodym-ui --casos-de-referencia
 ```
 
-!!! note "Si instalaste desde PyPI"
-    La opción `--casos-de-referencia` llegó después de la 1.12.0 publicada: en esa versión
-    `nikodym-ui` la rechaza como argumento desconocido y la interfaz no arranca. No hace falta —en
-    la 1.12.0 el catálogo todavía ofrece «Provisiones CMF» y «Comparar provisiones (CMF vs.
-    interna)» en la primera pantalla, sin pedir nada—. Esta documentación describe el código del
-    repositorio; lo que aún no está en PyPI lo lista el [changelog](changelog.md#no-publicado).
-
 La primera pantalla añade el bloque **«Normativa local · casos de referencia»** con «Provisiones
 CMF» y «Comparar provisiones (CMF vs. interna)», y el selector de ejemplos lista también
 `f3-provisiones-consumo`. Sin la opción, ninguno de los tres aparece.

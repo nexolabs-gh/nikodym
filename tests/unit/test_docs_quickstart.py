@@ -136,68 +136,33 @@ def _fragmentos_con_preset() -> list[tuple[str, str]]:
     return encontrados
 
 
-def test_cada_quickstart_con_run_dir_avisa_que_la_version_publicada_no_lo_acepta() -> None:
-    """`run_dir` no existe en la 1.12.0 publicada, y el sitio recomienda instalar desde PyPI.
+_NOTA_VERSION_PUBLICADA = re.compile(r"llegó después de la (\d+\.\d+\.\d+) publicada")
+
+
+def test_ninguna_nota_para_la_version_publicada_cita_una_version_vieja() -> None:
+    """Las notas «Si instalaste desde PyPI» sólo pueden citar la versión que el paquete declara.
 
     🔴 Hallazgo de la revisión adversarial de S5 (2026-09-09): el sitio se construye desde `main`
     y sus ejemplos describen el árbol, pero quien sigue «pip install nikodym» tiene la versión
-    publicada, donde `nikodym.run(config, run_dir=...)` es un `TypeError`. Hasta que la release lo
-    publique, cada página que corre un preset con `run_dir` lleva la nota que dice cómo correrlo en
-    esa versión. La nota cita la versión publicada y se ata a ``__version__``: el bump de la
-    release la rompe y obliga a retirarla en la misma capa, en vez de dejar una salvedad vieja.
+    publicada. Mientras el sitio va por delante de PyPI, cada página que corre un preset con
+    `run_dir` lleva una nota que dice cómo correrlo en la versión publicada; al cortar la release
+    (1.13.0, 2026-09-12) las nueve notas se retiraron porque PyPI y el sitio coinciden. Si el
+    sitio vuelve a adelantarse, la nota vuelve citando la versión publicada, y este invariante
+    obliga a retirarla en el mismo bump que la deja vieja: cero notas es válido; una nota con
+    otra versión, no.
     """
     import nikodym
 
-    frase = f"llegó después de la {nikodym.__version__} publicada"
-    paginas = sorted({origen for origen, _ in _fragmentos_con_preset()} | {"docs_site/tutorial.md"})
-    assert len(paginas) >= 6, paginas
-    sin_nota = [
-        origen
-        for origen in paginas
-        if frase not in " ".join((_RAIZ / origen).read_text(encoding="utf-8").split())
-    ]
-    assert sin_nota == [], (
-        f"páginas con un preset y `run_dir` sin la nota para la versión publicada: {sin_nota}"
-    )
-
-
-#: La guía de gobernanza no ofrece alternativa: todo lo que describe llegó después de la versión
-#: publicada, y su nota lo dice así en vez de fingir una llamada que allí no produce la ficha.
-_SIN_ALTERNATIVA = {"docs_site/guias/gobernanza.md"}
-
-
-def _llamada_sin_run_dir(fragmento: str) -> str:
-    """La llamada `study = nikodym.run(...)` del fragmento sin `run_dir`, normalizada."""
-    inicio = fragmento.index("study = nikodym.run(")
-    fin = fragmento.index(")\n", inicio) + 1
-    # `run_dir=` puede valer una expresión con paréntesis (`Path("x") / "y"`): se recorta desde el
-    # argumento hasta el cierre de la llamada, y se normaliza el espacio y la coma final.
-    llamada = re.sub(r",\s*run_dir=.*?(?=,?\s*\)\s*$)", "", fragmento[inicio:fin], flags=re.S)
-    llamada = re.sub(r"\s+", " ", llamada).replace("( ", "(").replace(" )", ")").replace(",)", ")")
-    return llamada
-
-
-def test_la_alternativa_para_la_version_publicada_usa_las_variables_del_ejemplo() -> None:
-    """La nota no puede proponer una llamada con nombres que el ejemplo no define.
-
-    🔴 Segundo hallazgo de la revisión adversarial de S5: la guía de desempeño construía el config
-    como `cfg` dentro de la llamada, y su nota decía `nikodym.run(config)`: quien la siguiera en la
-    versión publicada obtenía `NameError`. La alternativa tiene que ser la misma llamada del
-    ejemplo sin `run_dir`, y se compara con ella de forma literal.
-    """
-    for origen, fragmento in _fragmentos_con_preset():
-        if origen in _SIN_ALTERNATIVA:
-            continue
-        esperada = _llamada_sin_run_dir(fragmento)
-        assert "run_dir" not in esperada, (origen, esperada)
-        texto = " ".join((_RAIZ / origen).read_text(encoding="utf-8").split())
-        assert f"—`{esperada}`—" in texto, (
-            f"{origen}: la nota para la versión publicada no propone «{esperada}», que es la "
-            "llamada del propio ejemplo sin `run_dir`"
+    paginas = [*sorted(_DOCS.rglob("*.md")), _README]
+    viejas = [
+        (pagina.relative_to(_RAIZ).as_posix(), version)
+        for pagina in paginas
+        for version in _NOTA_VERSION_PUBLICADA.findall(
+            " ".join(pagina.read_text(encoding="utf-8").split())
         )
-    tutorial = (_DOCS / "tutorial.md").read_text(encoding="utf-8")
-    esperada = _llamada_sin_run_dir(_bloque(tutorial, "tutorial-paso-3", "tutorial.md"))
-    assert f"—`{esperada}`—" in " ".join(tutorial.split()), esperada
+        if version != nikodym.__version__
+    ]
+    assert viejas == [], f"notas que citan una versión que ya no es la publicada: {viejas}"
 
 
 def test_todo_fragmento_que_corre_un_preset_dice_donde_queda_la_evidencia() -> None:

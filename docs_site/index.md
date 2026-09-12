@@ -8,12 +8,11 @@ Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa lo
 jurisdicción se aterriza encima**, y hay un caso de referencia implementado que muestra cómo:
 [Aterrizar una norma local](norma-local.md).
 
-!!! note "Estado: 1.12.0 — release estable"
+!!! note "Estado: 1.13.0 — release estable"
     Disponible en PyPI: `pip install nikodym`. El pipeline de scorecard (F1) es **API estable
     (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, survival,
     forward-looking, stress, validación y gobernanza) siguen experimentales, fuera de la garantía
-    SemVer 1.x. Esta documentación se construye desde el código del repositorio; lo que aún no
-    está en PyPI lo lista el [changelog](changelog.md#no-publicado).
+    SemVer 1.x. Esta documentación se construye desde el código publicado.
 
     **Los seis dominios calculan hoy** —son motores deterministas, con más de 500 tests sobre los
     tres que no tienen interfaz—, pero **solo el scorecard y las provisiones tienen UI, preset y
@@ -119,12 +118,6 @@ metrics = study.artifacts.get("performance", "discriminant_metrics")  # AUC/KS/G
 print(metrics)
 ```
 <!-- quickstart:end -->
-
-!!! note "Si instalaste desde PyPI"
-    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
-    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
-    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
-    PyPI lo lista el [changelog](changelog.md#no-publicado).
 
 `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
 `study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso

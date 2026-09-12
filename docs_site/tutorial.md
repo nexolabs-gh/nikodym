@@ -114,12 +114,6 @@ assert study.run_context.status == "done"
 ```
 <!-- tutorial-paso-3:end -->
 
-!!! note "Si instalaste desde PyPI"
-    El argumento `run_dir` llegó después de la 1.12.0 publicada; en esa versión omítelo
-    —`study = nikodym.run(config)`— porque sus ejemplos de fábrica no traen la auditoría encendida y
-    no lo necesitan. Esta documentación describe el código del repositorio; lo que aún no está en
-    PyPI lo lista el [changelog](changelog.md#no-publicado).
-
 !!! warning "Chequea el estado siempre"
     `run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
     `status == "failed"`, y el diagnóstico queda en `study.run_context.error` (tipo del error,
