@@ -40,6 +40,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     environment: production
+    # 🔴 Un solo Deploy de producción a la vez (pasada 5 de la revisión adversarial de la 1.14.0):
+    # sin serializar, dos CI seguidos podían publicar solapados y el más viejo terminar después.
+    # `cancel-in-progress: false`: el que espera vuelve a comprobar la punta antes de publicar.
+    concurrency:
+      group: deploy-produccion
+      cancel-in-progress: false
     # 🔴 En un evento `workflow_run`, `github.sha` es la punta de la rama por defecto y NO el commit
     # cuyo CI disparó este job (hallazgo de la revisión adversarial de la 1.14.0, pasada 4): el
     # checkout ya usaba `workflow_run.head_sha`, pero el sello y el chequeo en vivo miraban
@@ -140,6 +146,20 @@ jobs:
       - name: Instalar Vercel CLI
         if: env.SALTAR != '1'
         run: npm install --global vercel@56
+
+      # La punta se recomprueba justo antes de promover: entre el control de arriba y aquí pasan
+      # minutos de instalación y build, y `main` puede haber avanzado (TOCTOU, pasada 5).
+      - name: Recomprobar la punta de main antes de publicar
+        if: env.SALTAR != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          punta="$(git rev-parse origin/main)"
+          if [ "$punta" != "$DEPLOY_SHA" ]; then
+            echo "::notice::main avanzó a ${punta:0:7} durante el build de ${DEPLOY_SHA:0:7}: no se publica"
+            echo "SALTAR=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Publicar docs.nikodym.cl
         if: env.SALTAR != '1'

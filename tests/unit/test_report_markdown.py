@@ -409,7 +409,8 @@ def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo()
     veneno = (
         "Originar créditos.\n```{python}\nimport os; os.system('echo pwned')\n```\n"
         "{{< include /etc/passwd >}} <script>alert(1)</script> ![x](file:///C:/secreto.png) "
-        "[enlace](http://ejemplo.invalid) **énfasis** \\input{/etc/passwd}"
+        "[enlace](http://ejemplo.invalid) **énfasis** \\input{/etc/passwd}\n"
+        "$x^2$ ^super^ &amp; segunda línea declarada\n    cuatro espacios no son código"
     )
     config = ReportConfig(sections={"missing_policy": "skip"})  # el bundle mínimo no trae eda
     bundle = _bundle().model_copy(
@@ -431,7 +432,14 @@ def test_las_declaraciones_de_gobernanza_no_son_codigo_en_el_qmd_ni_html_crudo()
     ficha = ficha[: ficha.index("\n## ") if "\n## " in ficha else len(ficha)]
     assert "![x](" not in ficha and "](http" not in ficha and "**énfasis**" not in ficha
     assert "\\input{" not in ficha and "\\\\input\\{" in ficha
-    assert "\\!\\[x\\]\\(file:///" in ficha and "\\*\\*énfasis\\*\\*" in ficha
+    assert "\\!\\[x\\]\\(file\\:\\/\\/\\/" in ficha and "\\*\\*énfasis\\*\\*" in ficha
+    # Pasada 5: matemática, superíndice y entidades tampoco quedan activos; las líneas declaradas
+    # se conservan (saltos blandos), sin sangría que abra un bloque de código.
+    assert "$x^2$" not in ficha and "\\$x\\^2\\$" in ficha
+    assert "^super^" not in ficha and "\\^super\\^" in ficha
+    assert "&amp;" not in ficha and "\\&amp\\;" in ficha
+    assert "\ncuatro espacios no son código" in ficha and "\n    cuatro" not in ficha
+    assert "segunda línea declarada" in ficha
     html = HtmlReportRenderer.from_config(config).render(bundle)
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
     # Pasada 4: la declaración NO se altera para llegar al HTML —los saltos de línea del propósito

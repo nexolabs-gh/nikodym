@@ -156,22 +156,22 @@ def _write_bytes(path: Path, payload: bytes, *, formato: str) -> None:
 # ─────────────────────────── bloques del documento ───────────────────────────
 
 
-_PUNTUACION_ACTIVA = re.compile(r"([\\`*_{}\[\]()#+\-.!<>|~])")
+_PUNTUACION_ASCII = re.compile(r"([!-/:-@\\[-`{-~])")
 
 
 def _texto_literal_pandoc(texto: str) -> str:
-    """Escapa con barra toda la puntuación que pandoc interpreta, para que el texto sea literal.
+    """Escribe una declaración como texto LITERAL de pandoc, línea a línea.
 
-    Pandoc admite la barra delante de cualquier signo de puntuación ASCII y lo emite tal cual; así
-    una declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, TeX crudo, cercas ni
-    shortcodes. Las letras, los dígitos, los espacios y los caracteres no ASCII no se tocan.
+    Pandoc admite la barra delante de **cualquier** signo de puntuación ASCII y lo emite tal cual:
+    se escapan todos (``!`` … ``/``, ``:`` … ``@``, ``[`` … `````, ``{`` … ``~``), así que una
+    declaración no puede abrir HTML crudo, imágenes, enlaces, énfasis, matemática (``$x$``),
+    superíndices (``^x^``), TeX crudo, cercas ni shortcodes. Las líneas que la institución
+    declaró se conservan (pandoc las lee como saltos blandos dentro del párrafo); cada línea va
+    sin sangría —cuatro espacios abrirían un bloque de código— y las vacías se omiten, porque una
+    línea en blanco cerraría el párrafo. Letras, dígitos, espacios y no ASCII no se tocan.
     """
-    # Un salto de línea dentro de una declaración abriría constructos de LÍNEA en el QMD
-    # (cercas, bloques `:::`, YAML, encabezados): dentro del párrafo del QMD la declaración va en
-    # una línea; en HTML y Word viaja intacta, porque son los renderers y no la prosa quienes
-    # deciden cómo se escribe cada formato.
-    plano = " ".join(texto.split())
-    return _PUNTUACION_ACTIVA.sub(r"\\\1", plano)
+    lineas = [linea.strip() for linea in texto.splitlines()]
+    return "\n".join(_PUNTUACION_ASCII.sub(r"\\\1", linea) for linea in lineas if linea)
 
 
 def _front_matter(document: Mapping[str, Any], config: ReportConfig) -> str:
