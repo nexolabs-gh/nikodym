@@ -670,9 +670,13 @@ No resumir “CI verde” desde la conclusión agregada: listar todos los jobs y
 quedó rojo, cancelado o saltado indebidamente. Si falla el paso de licencias que consulta red,
 inspeccionar el log antes de diagnosticar un defecto del código.
 
-El workflow `Deploy` se dispara automáticamente sólo tras CI verde en `main`, publica docs y demo y
-verifica contenido en vivo. No hace falta un deploy manual adicional. Desplegar artefactos ya
-versionados no autoriza recapturar fixtures ni publicar PyPI. Un despacho manual
+El workflow `Deploy` se dispara automáticamente sólo tras CI verde en `main` —el `if` del job
+exige, desde los metadatos del evento y antes de cualquier checkout, un run de `ci.yml` que sea un
+`push` a `main` del propio repositorio con `success`: el CI de un `pull_request` desde un fork con
+una rama llamada `main` ya no lo dispara (pasada 15 de la revisión adversarial de la serie
+posterior a la 1.14.0)—, publica docs y demo y verifica contenido en vivo. No hace falta un deploy
+manual adicional. Desplegar artefactos ya versionados no autoriza recapturar fixtures ni publicar
+PyPI. Un despacho manual
 (`gh workflow run deploy.yml`) sin `forzar` exige lo mismo que la vía automática: el script
 `scripts/deploy_no_retroceder_produccion.py` consulta por la API de Actions los runs de `ci.yml`
 del commit **en `main`** —el run de un tag o de otra rama sobre el mismo commit es un CI reducido

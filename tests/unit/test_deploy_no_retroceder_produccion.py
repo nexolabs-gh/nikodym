@@ -474,6 +474,37 @@ def test_leer_sello_reintenta_antes_de_rendirse(monkeypatch: pytest.MonkeyPatch)
 # ── El workflow ──
 
 
+def _condicion_del_job(texto: str) -> str:
+    """El `if:` del job `deploy`, aplanado a una línea."""
+    inicio = texto.index("    if: >-\n")
+    fin = texto.index("    environment: production", inicio)
+    return " ".join(linea.strip() for linea in texto[inicio:fin].splitlines()[1:])
+
+
+def test_la_via_automatica_solo_acepta_un_push_verde_a_main_del_propio_repositorio() -> None:
+    """🔴 Pasada 15 de la revisión adversarial (252aeed), CRÍTICO: `ci.yml` corre también para
+    `pull_request`, y el `if` del Deploy sólo exigía `conclusion == 'success'`. Un PR desde un
+    fork con una rama llamada `main` satisfacía el filtro, el job hacía checkout de SU SHA y
+    ejecutaba SU `deploy_no_retroceder_produccion.py` —y sus builds— en un workflow privilegiado
+    con `GITHUB_TOKEN` y, en los pasos siguientes, el token de Vercel: el *pwn request* del que
+    GitHub advierte para `workflow_run`. La vía automática exige ahora, desde los metadatos del
+    evento —código de confianza, ANTES de cualquier checkout—, que el run sea un `push` a `main`
+    del propio repositorio; la manual sigue siendo el override humano de un mantenedor."""
+    condicion = _condicion_del_job(_WORKFLOW.read_text(encoding="utf-8"))
+    assert "github.event_name == 'workflow_dispatch' ||" in condicion
+    automatica = condicion.split("||", 1)[1]
+    for exigido in (
+        "github.event.workflow_run.conclusion == 'success'",
+        "github.event.workflow_run.event == 'push'",
+        "github.event.workflow_run.head_branch == 'main'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+    ):
+        assert exigido in automatica, exigido
+    # Las cuatro van unidas por `&&` dentro de un mismo paréntesis: ninguna basta sola.
+    assert automatica.count("&&") == 3 and "(" in automatica and ")" in automatica
+    assert "||" not in automatica
+
+
 def test_el_workflow_aplica_la_regla_y_sella_los_dos_sitios() -> None:
     texto = _WORKFLOW.read_text(encoding="utf-8")
     llamada = "python3 scripts/deploy_no_retroceder_produccion.py"

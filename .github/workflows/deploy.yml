@@ -46,9 +46,21 @@ jobs:
     # 🔴 La condición es lo que impide publicar basura: sólo corre si el run de CI que lo disparó
     # terminó en `success`, o sea con todos sus jobs verdes. `workflow_run` se dispara igual cuando el
     # CI falla, así que sin este `if` un commit rojo se publicaría.
+    #
+    # 🔴 Y es lo que impide ejecutar código ajeno con credenciales (pasada 15 de la revisión
+    # adversarial, crítico): `ci.yml` corre también para `pull_request`, y un PR desde un fork con
+    # una rama llamada `main` pasaba el filtro `branches: [main]` con su CI en verde; este job
+    # hacía checkout de SU SHA y ejecutaba SU script y SUS builds en un workflow privilegiado —el
+    # *pwn request* del que advierte GitHub para `workflow_run`—. Los metadatos del evento son
+    # código de confianza y se exigen ANTES de cualquier checkout: un `push` a `main` del propio
+    # repositorio. La vía manual (`workflow_dispatch`) la dispara un mantenedor sobre la ref que
+    # elige: es el override humano, y el script comprueba `main` y el CI del commit.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     environment: production
     # 🔴 Un solo Deploy de producción a la vez (pasada 5 de la revisión adversarial de la 1.14.0):
     # sin serializar, dos CI seguidos podían publicar solapados y el más viejo terminar después.
