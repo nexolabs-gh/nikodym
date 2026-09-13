@@ -102,12 +102,46 @@ def asegurar_workdir(workdir: Path) -> Path:
     usuario en ``--workdir``: por eso el veto se escribe **dentro** del directorio, que es lo que
     hacen las herramientas que generan caché local. No se sobrescribe si ya existe — el archivo pasa
     a ser del usuario en cuanto lo toca.
+
+    Y devuelve a su sitio las corridas que un corte del proceso dejó apartadas
+    (:func:`_recuperar_corridas_apartadas`): lo llaman el arranque del servidor y cada persistencia.
     """
     workdir.mkdir(parents=True, exist_ok=True)
     veto = workdir / ".gitignore"
     if not veto.exists():
         veto.write_text(_GITIGNORE_DEL_WORKDIR, encoding="utf-8")
+    _recuperar_corridas_apartadas(workdir / "runs")
     return workdir
+
+
+_RESPALDO_RE = re.compile(r"\A\.(?P<run_id>[0-9a-f]{32})\.old\.")
+
+
+def _recuperar_corridas_apartadas(runs_root: Path) -> None:
+    """Restaura cada respaldo ``.<run_id>.old.*`` cuya ruta canónica ``runs/<run_id>`` falte.
+
+    Al re-persistir una corrida, :func:`_publicar_corrida` aparta la previa a ``.<run_id>.old.*``
+    y sólo después ocupa su sitio con el temporal; un corte del proceso entre los dos ``replace``
+    —un ``kill``, un apagón— dejaba ``runs/<run_id>`` ausente, la corrida intacta en un respaldo
+    que ningún arranque recuperaba y la UI devolviendo 404 (pasada 11 de la revisión adversarial).
+    Aquí vuelve a su sitio; con más de un respaldo del mismo ``run_id``, el más reciente. Un
+    respaldo cuya canónica sí existe es una re-persistencia que terminó y se conserva. Los
+    temporales ``.<run_id>.*.tmp`` de un corte no se tocan: no son una corrida y pueden llevar la
+    evidencia de lo que pasó.
+    """
+    if not runs_root.is_dir():
+        return
+    respaldos: dict[str, list[Path]] = {}
+    for ruta in runs_root.iterdir():
+        coincidencia = _RESPALDO_RE.match(ruta.name)
+        if coincidencia is not None and ruta.is_dir():
+            respaldos.setdefault(coincidencia.group("run_id"), []).append(ruta)
+    for run_id, rutas in respaldos.items():
+        canonica = runs_root / run_id
+        if canonica.exists():
+            continue
+        reciente = max(rutas, key=lambda ruta: ruta.stat().st_mtime)
+        _replace_path(reciente, canonica)
 
 
 def reservar_trail(workdir: Path) -> Path:

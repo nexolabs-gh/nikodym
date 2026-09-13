@@ -19,7 +19,7 @@ _VENENOSOS = [
     "-cmd|' /C calc'!A0",
     "@SUM(A1)",
     "\tx",  # un tabulador delante; tras él, un texto cualquiera
-    "\r=1",
+    "\rx",
 ]
 
 
@@ -127,7 +127,7 @@ def test_el_escape_es_inyectivo_dos_valores_distintos_siguen_distintos() -> None
 def test_el_salto_de_linea_y_los_prefijos_de_ancho_completo_tambien_se_protegen() -> None:
     """🔴 Pasada 5 de la revisión adversarial (98871cb): LF y las variantes de ancho completo de
     `=`, `+`, `-` y `@` también abren una fórmula en una planilla y quedaban sin guarda."""
-    venenosos = ["\n=1", "\uff1d1+1", "\uff0b1", "\uff0dcmd", "\uff20SUM(A1)"]
+    venenosos = ["\nx", "\uff1d1+1", "\uff0b1", "\uff0dcmd", "\uff20SUM(A1)"]
     frame = pd.DataFrame({"texto": venenosos}, index=pd.Index(venenosos, name="id"))
     protegido = neutralize_formula_prefixes(frame)
     assert protegido["texto"].tolist() == [f"'{v}" for v in venenosos]
@@ -149,6 +149,25 @@ def test_la_guarda_va_tambien_tras_cada_punto_y_coma_y_tabulador_dentro_del_text
         "a,=x": "a,=x",  # la coma es el separador del archivo: el citado la protege
         "x;": "x;",
         "=a;=b": "'=a;'=b",
+    }
+    frame = pd.DataFrame({"texto": list(casos)})
+    assert neutralize_formula_prefixes(frame)["texto"].tolist() == list(casos.values())
+    assert len(set(casos.values())) == len(casos)
+
+
+def test_la_guarda_va_tambien_tras_cada_salto_de_linea_sin_partir_el_crlf() -> None:
+    """🔴 Pasada 11 de la revisión adversarial (3ce7116): un texto multilínea `\\n=1+1;fin`
+    llevaba la guarda sólo al principio; reinterpretado por un Excel con `;`, el salto abría una
+    fila cuya primera celda seguía empezando por `=`. CR, LF y CRLF son límites de celda como el
+    `;`: la guarda va tras cada uno, y un CRLF no se parte en dos."""
+    casos = {
+        "\n=1+1;fin": "'\n'=1+1;fin",
+        "a\n=x": "a\n'=x",
+        "a\r=x": "a\r'=x",
+        "a\r\n=x": "a\r\n'=x",
+        "a\r\nb": "a\r\nb",
+        "\r\n=x": "'\r\n'=x",
+        "a\n'=x": "a\n''=x",
     }
     frame = pd.DataFrame({"texto": list(casos)})
     assert neutralize_formula_prefixes(frame)["texto"].tolist() == list(casos.values())

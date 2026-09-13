@@ -401,6 +401,48 @@ def test_re_persistir_desde_el_trail_canonico_no_muta_la_corrida_previa_si_falla
     assert sorted(p.name for p in (workdir / "runs").iterdir()) == [run_id]
 
 
+def test_una_corrida_apartada_por_un_corte_a_mitad_del_swap_se_recupera_al_arrancar(
+    f1_study: Study, tmp_path: Path
+) -> None:
+    """🔴 Pasada 11 de la revisión adversarial (3ce7116): al re-persistir, la corrida previa se
+    aparta a `.<run_id>.old.*` y sólo después el temporal ocupa su sitio; un corte del proceso
+    entre los dos `replace` dejaba `runs/<run_id>` ausente —404— con la corrida intacta en un
+    respaldo que ningún arranque recuperaba. `asegurar_workdir` —el arranque del servidor y cada
+    persistencia— devuelve a su sitio todo respaldo cuya ruta canónica falte."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    run_dir = workdir / "runs" / run_id
+    contenido = {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()}
+    # El estado que deja el corte: la previa apartada, el temporal a medias, la canónica ausente.
+    apartada = workdir / "runs" / f".{run_id}.old.corte"
+    run_dir.rename(apartada)
+    temporal = workdir / "runs" / f".{run_id}.corte.tmp"
+    temporal.mkdir()
+    (temporal / "results.json").write_text("{", encoding="utf-8")
+    with pytest.raises(UiRunNotFoundError):
+        runs.load_results(run_id, workdir=workdir)
+
+    runs.asegurar_workdir(workdir)
+
+    assert run_dir.is_dir() and not apartada.exists()
+    assert {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()} == contenido
+    assert runs.load_results(run_id, workdir=workdir) == serialize_study(f1_study, governance=None)
+    # El temporal a medias no se toca: no es una corrida y puede llevar evidencia de un corte.
+    assert temporal.is_dir()
+
+
+def test_la_recuperacion_no_pisa_una_corrida_que_si_existe(f1_study: Study, tmp_path: Path) -> None:
+    """Un respaldo cuya ruta canónica sí está (una re-persistencia que terminó) se queda."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    run_id_2 = runs.save(f1_study, workdir=workdir, governance=None)
+    assert run_id == run_id_2
+    respaldos = list((workdir / "runs").glob(f".{run_id}.old.*"))
+    assert len(respaldos) == 1
+    runs.asegurar_workdir(workdir)
+    assert respaldos[0].is_dir() and (workdir / "runs" / run_id).is_dir()
+
+
 def test_una_corrida_publicada_no_deja_temporales_y_un_fallo_sin_evidencia_no_deja_rastro(
     f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

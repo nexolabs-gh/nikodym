@@ -182,8 +182,8 @@ def test_csv_protege_el_salto_de_linea_y_los_prefijos_de_ancho_completo(tmp_path
     completo (U+FF1D, U+FF0B, U+FF0D, U+FF20) llegaban al CSV sin la comilla de guarda, en datos,
     índice y encabezado."""
     frame = _score_frame(rows=3)
-    frame["\uff1dcol"] = ["\n=1", "\uff0b1", "\uff20SUM(A1)"]
-    frame.index = pd.Index(["\uff0dcmd", "op-2", "\n=2"], name="loan_id")
+    frame["\uff1dcol"] = ["\nx", "\uff0b1", "\uff20SUM(A1)"]
+    frame.index = pd.Index(["\uff0dcmd", "op-2", "\ny"], name="loan_id")
     exports = write_data_exports(
         {"scorecard.score": frame},
         config=ReportConfig(formats=("csv",)),
@@ -191,9 +191,9 @@ def test_csv_protege_el_salto_de_linea_y_los_prefijos_de_ancho_completo(tmp_path
     )
     texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
     leido = pd.read_csv(io.StringIO(texto), keep_default_na=False, index_col=0)
-    assert leido.index.tolist() == ["'\uff0dcmd", "op-2", "'\n=2"]
+    assert leido.index.tolist() == ["'\uff0dcmd", "op-2", "'\ny"]
     assert "'\uff1dcol" in leido.columns
-    assert leido["'\uff1dcol"].tolist() == ["'\n=1", "'\uff0b1", "'\uff20SUM(A1)"]
+    assert leido["'\uff1dcol"].tolist() == ["'\nx", "'\uff0b1", "'\uff20SUM(A1)"]
 
 
 def _frame_con_columnas_homonimas() -> pd.DataFrame:
@@ -315,6 +315,31 @@ def test_csv_un_separador_regional_no_abre_una_celda_con_formula_en_mitad_de_un_
     # Los números no llevan comillas: un lector los sigue leyendo como números.
     assert ",600," in texto and '"600"' not in texto
     assert leido["score"].tolist() == [600, 601]
+
+
+def test_csv_un_texto_multilinea_no_abre_una_fila_con_formula_bajo_un_separador_regional(
+    tmp_path: Path,
+) -> None:
+    """🔴 Pasada 11 de la revisión adversarial (3ce7116): un valor `\\n=1+1;fin` en una columna
+    posterior, reinterpretado por un Excel con `;` como separador, abría una fila nueva cuya
+    primera celda empezaba por `=`. Tras CR/LF también va la guarda."""
+    frame = _score_frame(rows=2)
+    frame["nota"] = ["\n=1+1;fin", "ok\r\n=SUM(A1)"]
+    exports = write_data_exports(
+        {"scorecard.score": frame},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    # Bytes decodificados, no `read_text`: la lectura universal de saltos convertiría el CRLF
+    # de dentro de la celda en LF y el oráculo no vería el archivo real.
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_bytes().decode("utf-8-sig")
+    # Lo que ve el Excel con `;`, fila a fila y celda a celda: nada empieza por un prefijo activo.
+    for fila in csv.reader(io.StringIO(texto), delimiter=";"):
+        for celda in fila:
+            for linea in celda.splitlines():
+                assert not linea.startswith(("=", "+", "-", "@")), linea
+    leido = pd.read_csv(io.StringIO(texto), index_col=0)
+    assert leido["nota"].tolist() == ["'\n'=1+1;fin", "ok\r\n'=SUM(A1)"]
 
 
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:

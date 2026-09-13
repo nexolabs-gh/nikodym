@@ -61,14 +61,15 @@ _GUARD: Final = "'"
 #: 4 de la revisión adversarial). Las imágenes de los tres grupos —empieza por comilla, empieza
 #: por prefijo activo, el resto— no se cruzan.
 _ESCAPED_PREFIXES: Final[tuple[str, ...]] = (*FORMULA_PREFIXES, _GUARD)
-#: Dónde una planilla puede EMPEZAR una celda dentro de un texto: al principio, y tras un ``;`` o
-#: un tabulador. Un Excel cuyo separador de lista es ``;`` (es-CL, es-ES) abre un CSV de comas
-#: partiendo cada línea por ``;`` e ignorando el citado de comas, así que ``texto;=SUM(A1)``
-#: —aunque viaje entre comillas— se convertía en dos celdas, la segunda una fórmula viva (pasada
-#: 10 de la revisión adversarial). La guarda se antepone en cada uno de esos puntos; la coma no
-#: hace falta: es el separador del archivo y el citado la protege.
+#: Dónde una planilla puede EMPEZAR una celda dentro de un texto: al principio, tras un ``;``, un
+#: tabulador o un salto de línea (CRLF, CR o LF, sin partir el CRLF). Un Excel cuyo separador de
+#: lista es ``;`` (es-CL, es-ES) abre un CSV de comas partiendo cada línea por ``;`` e ignorando el
+#: citado de comas, así que ``texto;=SUM(A1)`` —aunque viaje entre comillas— se convertía en dos
+#: celdas, la segunda una fórmula viva; y un texto multilínea abría una FILA nueva tras el salto
+#: (pasadas 10 y 11 de la revisión adversarial). La guarda se antepone en cada uno de esos puntos;
+#: la coma no hace falta: es el separador del archivo y el citado la protege.
 _CELL_START: Final = re.compile(
-    "(^|[;\t])(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
+    "(^|\r\n|\r(?!\n)|[;\t\n])(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
 )
 
 
