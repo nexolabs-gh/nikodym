@@ -672,7 +672,11 @@ inspeccionar el log antes de diagnosticar un defecto del código.
 
 El workflow `Deploy` se dispara automáticamente sólo tras CI verde en `main`, publica docs y demo y
 verifica contenido en vivo. No hace falta un deploy manual adicional. Desplegar artefactos ya
-versionados no autoriza recapturar fixtures ni publicar PyPI.
+versionados no autoriza recapturar fixtures ni publicar PyPI. Un despacho manual
+(`gh workflow run deploy.yml`) sin `forzar` exige lo mismo que la vía automática: el script
+`scripts/deploy_no_retroceder_produccion.py` consulta por la API de Actions los runs de `ci.yml`
+del commit y se detiene en rojo si ninguno terminó en `success` (pendiente, rojo, sin runs o API
+sin respuesta); `forzar=true` avisa y publica a sabiendas.
 
 ## 9. Descargar y verificar el candidato exacto de CI
 
@@ -1128,7 +1132,8 @@ cortaron la 1.13.0 y la 1.14.0 (2026-09-12); cada trampa de abajo se pagó en un
    la demo con las corridas publicadas. La regla «producción no retrocede, no pierde un commit verde
    y no se publica a ciegas» vive en `scripts/deploy_no_retroceder_produccion.py` (con sus tests):
    un Deploy que se detiene en rojo dice por qué; el rerun del commit adelantado repara una
-   publicación a medias, y un `workflow_dispatch` con `forzar=true` es el único override humano.
+   publicación a medias, y un `workflow_dispatch` con `forzar=true` es el único override humano
+   —sin `forzar`, el despacho manual exige además un run de `ci.yml` del commit en `success`—.
    No existe GitHub Release desde la 1.2.0: sólo PyPI, por diseño.
 7. **Cerrar.** Borrar el venv y los temporales del smoke; HANDOFF con los `run_id` de CI, Deploy y
    Release, los digests de PyPI y lo verificado en vivo (§10).

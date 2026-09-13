@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import shutil
 import subprocess
 import sys
@@ -245,6 +246,142 @@ def test_main_se_detiene_en_rojo_y_forzar_publica(
     assert env_file.read_text(encoding="utf-8") == ""
 
 
+# ── El despacho manual exige el CI verde del commit (pasada 12) ──
+
+
+def _api_de_actions(
+    monkeypatch: pytest.MonkeyPatch, modulo: ModuleType, runs: list[dict[str, Any]] | Exception
+) -> list[str]:
+    """Simula `GET .../actions/workflows/ci.yml/runs?head_sha=…` y deja pasar las demás URL.
+
+    Devuelve la lista de URL de la API consultadas, para afirmar cuándo se consulta y cuándo no.
+    """
+    original = modulo.urllib.request.urlopen
+    consultas: list[str] = []
+
+    class _Respuesta(io.BytesIO):
+        def __enter__(self) -> _Respuesta:
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            self.close()
+
+    def _urlopen(peticion: Any, *args: Any, **kwargs: Any) -> Any:
+        url = peticion.full_url if hasattr(peticion, "full_url") else str(peticion)
+        if "/actions/workflows/" not in url:
+            return original(peticion, *args, **kwargs)
+        consultas.append(url)
+        if isinstance(runs, Exception):
+            raise runs
+        return _Respuesta(json.dumps({"workflow_runs": runs}).encode("utf-8"))
+
+    monkeypatch.setattr(modulo.urllib.request, "urlopen", _urlopen)
+    return consultas
+
+
+def _run(status: str, conclusion: str | None) -> dict[str, Any]:
+    return {"status": status, "conclusion": conclusion, "html_url": "https://x.invalid/run"}
+
+
+@pytest.mark.parametrize(
+    ("runs", "esperado", "fragmento"),
+    [
+        ([_run("completed", "success")], "verde", "en verde"),
+        ([_run("completed", "failure"), _run("completed", "success")], "verde", "en verde"),
+        ([_run("in_progress", None)], "pendiente", "todavía no terminó"),
+        ([_run("queued", None), _run("completed", "failure")], "pendiente", "todavía no terminó"),
+        ([_run("completed", "failure")], "rojo", "no terminó en success"),
+        ([_run("completed", "cancelled")], "rojo", "no terminó en success"),
+        ([], "sin_runs", "ningún run"),
+    ],
+)
+def test_consultar_ci_clasifica_los_runs_del_commit(
+    monkeypatch: pytest.MonkeyPatch,
+    runs: list[dict[str, Any]],
+    esperado: str,
+    fragmento: str,
+) -> None:
+    """🔴 Pasada 12 de la revisión adversarial de la 1.14.0: un `workflow_dispatch` publicaba un
+    commit de `main` sin comprobar su CI. Verde = al menos un run de `ci.yml` de ESTE commit con
+    `conclusion == success`; con alguno sin terminar, pendiente; terminados sin éxito, rojo; sin
+    runs, no verificable. Todo lo que no es verde detiene sin `forzar`."""
+    modulo = _cargar()
+    consultas = _api_de_actions(monkeypatch, modulo, runs)
+    veredicto, motivo = modulo.consultar_ci(
+        "a" * 40, repo="nexolabs-gh/nikodym", token="t", intentos=1, espera=0.0
+    )
+    assert veredicto == esperado and fragmento in motivo
+    assert len(consultas) == 1
+    assert "/repos/nexolabs-gh/nikodym/actions/workflows/ci.yml/runs?" in consultas[0]
+    assert "head_sha=" + "a" * 40 in consultas[0]
+
+
+def test_consultar_ci_sin_api_no_es_verde(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Una API caída, un cuerpo ilegible o un token sin permiso no se leen como verde."""
+    modulo = _cargar()
+    monkeypatch.setattr(modulo.time, "sleep", lambda _s: None)
+    _api_de_actions(monkeypatch, modulo, urllib.error.URLError("caída"))
+    veredicto, motivo = modulo.consultar_ci("a" * 40, repo="o/r", token="t", intentos=2)
+    assert veredicto == "no_verificable" and "a ciegas" in motivo
+    _api_de_actions(
+        monkeypatch,
+        modulo,
+        urllib.error.HTTPError("https://x.invalid", 403, "Forbidden", None, io.BytesIO()),  # type: ignore[arg-type]
+    )
+    assert modulo.consultar_ci("a" * 40, repo="o/r", token="t", intentos=1)[0] == "no_verificable"
+    assert modulo.consultar_ci("a" * 40, repo="o/r", token=None, intentos=1)[0] == "no_verificable"
+
+
+def test_main_en_un_despacho_manual_exige_el_ci_verde_del_commit(
+    entorno_del_workflow: tuple[ModuleType, Path, Path, Path, Historia],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """🔴 Pasada 12: `workflow_dispatch` sin `forzar` → CI pendiente o rojo detiene en rojo, sin
+    `SALTAR`; verde sigue con la regla de producción y publica; con `forzar` publica con aviso."""
+    modulo, docs, demo, env_file, (_repo, base, _a, _b) = entorno_del_workflow
+    docs.write_text(base + "\n", encoding="utf-8")  # producción va atrás: la regla publicaría
+    demo.write_text(base + "\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "nexolabs-gh/nikodym")
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setattr(modulo.time, "sleep", lambda _s: None)
+
+    consultas = _api_de_actions(monkeypatch, modulo, [_run("in_progress", None)])
+    assert modulo.main() == 1
+    assert "::error::" in capsys.readouterr().out and len(consultas) == 1
+    assert env_file.read_text(encoding="utf-8") == ""
+
+    _api_de_actions(monkeypatch, modulo, [_run("completed", "failure")])
+    assert modulo.main() == 1
+    salida = capsys.readouterr().out
+    assert "::error::" in salida and "forzar=true" in salida
+
+    _api_de_actions(monkeypatch, modulo, [_run("completed", "success")])
+    assert modulo.main() == 0
+    assert "::error::" not in capsys.readouterr().out
+    assert env_file.read_text(encoding="utf-8") == ""
+
+    monkeypatch.setenv("FORZAR", "true")
+    _api_de_actions(monkeypatch, modulo, [_run("completed", "failure")])
+    assert modulo.main() == 0
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_main_en_un_workflow_run_no_consulta_la_api(
+    entorno_del_workflow: tuple[ModuleType, Path, Path, Path, Historia],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La vía automática ya exige CI verde en el `if` del job: no se vuelve a consultar."""
+    modulo, docs, demo, _env_file, (_repo, base, _a, _b) = entorno_del_workflow
+    docs.write_text(base + "\n", encoding="utf-8")
+    demo.write_text(base + "\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_run")
+    consultas = _api_de_actions(monkeypatch, modulo, urllib.error.URLError("no debería llamar"))
+    assert modulo.main() == 0
+    assert consultas == []
+
+
 # ── La lectura de una huella ──
 
 
@@ -308,3 +445,7 @@ def test_el_workflow_aplica_la_regla_y_sella_los_dos_sitios() -> None:
     # Los DOS sitios se sellan con el mismo commit y el chequeo en vivo espera las dos huellas.
     assert "> docs_site/build-sha.txt" in texto and "> web/dist/build-sha.txt" in texto
     assert "https://demo.nikodym.cl/build-sha.txt" in texto
+    # Pasada 12: el despacho manual consulta los runs de CI del commit por la API de Actions, y
+    # para eso el job necesita `actions: read` y el token en el entorno del script (dos veces).
+    assert "actions: read" in texto
+    assert texto.count("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}") == 2

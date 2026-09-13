@@ -39,6 +39,10 @@ jobs:
   deploy:
     name: Publicar docs y demo
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Pasada 12: un `workflow_dispatch` consulta por la API de Actions los runs de CI del commit.
+      actions: read
     # 🔴 La condición es lo que impide publicar basura: sólo corre si el run de CI que lo disparó
     # terminó en `success`, o sea con todos sus jobs verdes. `workflow_run` se dispara igual cuando el
     # CI falla, así que sin este `if` un commit rojo se publicaría.
@@ -103,7 +107,14 @@ jobs:
       # está sellada—, si un sitio va delante y el otro atrás, si el commit no está en `main` o
       # si el historial diverge. Publicar a ciegas es el retroceso que existe para impedir;
       # `forzar` es el override humano. Corre ANTES de instalar nada, con el python3 del runner.
+      # 🔴 Y la vía MANUAL exige el CI del commit (pasada 12): el `if` del job sólo mira el CI
+      # cuando lo dispara un `workflow_run`; un `workflow_dispatch` publicaba cualquier commit de
+      # `main` sin comprobar si su CI terminó en verde. Sin `forzar`, el script consulta los runs
+      # de `ci.yml` de `DEPLOY_SHA` por la API de Actions (de ahí `actions: read` y el token) y se
+      # detiene si ninguno terminó en `success`.
       - name: No retroceder producción
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/deploy_no_retroceder_produccion.py
 
       - name: Setup uv
@@ -170,6 +181,8 @@ jobs:
       # medio; esto lo acredita en vez de suponerlo.
       - name: Recomprobar producción antes de publicar
         if: env.SALTAR != '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/deploy_no_retroceder_produccion.py
 
       - name: Publicar docs.nikodym.cl
