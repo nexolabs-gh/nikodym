@@ -306,6 +306,40 @@ def test_un_fallo_despues_del_csv_no_deja_una_corrida_huerfana_con_el_archivo_gr
         runs.load_results(run_id, workdir=workdir)
 
 
+def test_si_falla_la_publicacion_la_corrida_previa_vuelve_a_su_sitio(
+    f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 Pasada 5 de la revisión adversarial (98871cb): con una corrida previa en `runs/<run_id>`,
+    `save` la apartaba a `.old.*` y, si el `replace` del temporal fallaba, no la restauraba: la
+    ruta canónica desaparecía y la UI devolvía 404 para una corrida que era válida."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    run_dir = workdir / "runs" / run_id
+    centinela = (run_dir / "results.json").read_bytes()
+    (run_dir / "report.html").write_text("<h1>previo</h1>", encoding="utf-8")
+
+    original = runs._replace_path
+    llamadas: list[tuple[Path, Path]] = []
+
+    def _falla_al_publicar(src: Path, dst: Path) -> None:
+        llamadas.append((src, dst))
+        if dst == run_dir and src.name.endswith(".tmp"):
+            raise PermissionError(13, "lock transitorio agotado")
+        original(src, dst)
+
+    monkeypatch.setattr(runs, "_replace_path", _falla_al_publicar)
+    with pytest.raises(PermissionError):
+        runs.save(f1_study, workdir=workdir, governance=None)
+
+    # La corrida previa vuelve a su sitio, byte a byte, y sigue sirviéndose.
+    assert (run_dir / "results.json").read_bytes() == centinela
+    assert (run_dir / "report.html").read_text(encoding="utf-8") == "<h1>previo</h1>"
+    assert runs.load_results(run_id, workdir=workdir) == serialize_study(f1_study, governance=None)
+    runs_root = workdir / "runs"
+    assert not list(runs_root.glob(f".{run_id}.old.*")), "el respaldo se consumió al restaurar"
+    assert not list(runs_root.glob(f".{run_id}.*.tmp")), "el temporal no queda a medias"
+
+
 def test_una_corrida_publicada_no_deja_temporales_y_un_fallo_sin_evidencia_no_deja_rastro(
     f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -31,8 +31,19 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   tabulador o retorno de carro se convierte en una fórmula viva —un enlace, una llamada externa—
   al abrir el CSV o el libro en Excel, LibreOffice o Google Sheets. Los exports de datos del
   informe (`.csv` y `.xlsx`) y la tabla completa de la tasa por período o cohorte anteponen una
-  comilla simple a esas celdas de texto, y sólo a ellas: los números, las fechas y el resto del
-  texto viajan intactos, y un archivo sin celdas de ese tipo es, byte a byte, el de siempre.
+  comilla simple a esas celdas de texto —valores, nombres de columna y nombre del índice,
+  también en columnas categóricas, y también con salto de línea o con las variantes de ancho
+  completo de esos cuatro caracteres—, y sólo a ellas: los números, las fechas y el resto del
+  texto viajan intactos, y un archivo sin celdas de ese tipo es, byte a byte, el de siempre. Un
+  texto que ya empezaba por comilla recibe otra, para que dos valores distintos nunca salgan
+  iguales.
+
+- **Una corrida de la interfaz se guarda entera o no se guarda.** Sus archivos se construyen en
+  un temporal y se publican de una vez; si el disco se llena a mitad de camino —la tabla completa
+  de la tasa puede ser grande—, no queda una corrida a medias que la interfaz sirva sin su tabla,
+  ni un archivo grande huérfano que se acumule con cada reintento: sólo se conserva el
+  audit-trail, y una corrida previa con el mismo identificador vuelve a su sitio si la
+  publicación nueva falla.
 
 ## [1.14.0] — 2026-09-12
 

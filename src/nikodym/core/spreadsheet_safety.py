@@ -24,8 +24,23 @@ if TYPE_CHECKING:
 
 __all__ = ["FORMULA_PREFIXES", "neutralize_formula_prefixes"]
 
-#: Primer carácter con el que una hoja de cálculo decide que la celda es una fórmula.
-FORMULA_PREFIXES: Final[tuple[str, ...]] = ("=", "+", "-", "@", "\t", "\r")
+#: Primer carácter con el que una hoja de cálculo decide que la celda es una fórmula: los cuatro
+#: operadores, sus variantes de ancho completo (U+FF1D, U+FF0B, U+FF0D y U+FF20, que las planillas
+#: normalizan al abrir) y los tres controles con los que un texto "salta" a otra celda
+#: (tabulador, CR y LF); pasada 5 de la revisión adversarial.
+FORMULA_PREFIXES: Final[tuple[str, ...]] = (
+    "=",
+    "+",
+    "-",
+    "@",
+    "\uff1d",  # FULLWIDTH EQUALS SIGN
+    "\uff0b",  # FULLWIDTH PLUS SIGN
+    "\uff0d",  # FULLWIDTH HYPHEN-MINUS
+    "\uff20",  # FULLWIDTH COMMERCIAL AT
+    "\t",
+    "\r",
+    "\n",
+)
 
 _GUARD: Final = "'"
 #: Lo que recibe la comilla de guarda: un prefijo activo, o la propia comilla. Escapar también la

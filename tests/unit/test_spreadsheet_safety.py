@@ -124,6 +124,17 @@ def test_el_escape_es_inyectivo_dos_valores_distintos_siguen_distintos() -> None
     assert neutralize_formula_prefixes(limpio) is limpio
 
 
+def test_el_salto_de_linea_y_los_prefijos_de_ancho_completo_tambien_se_protegen() -> None:
+    """🔴 Pasada 5 de la revisión adversarial (98871cb): LF y las variantes de ancho completo de
+    `=`, `+`, `-` y `@` también abren una fórmula en una planilla y quedaban sin guarda."""
+    venenosos = ["\n=1", "\uff1d1+1", "\uff0b1", "\uff0dcmd", "\uff20SUM(A1)"]
+    frame = pd.DataFrame({"texto": venenosos}, index=pd.Index(venenosos, name="id"))
+    protegido = neutralize_formula_prefixes(frame)
+    assert protegido["texto"].tolist() == [f"'{v}" for v in venenosos]
+    assert protegido.index.tolist() == [f"'{v}" for v in venenosos]
+    assert set(venenosos) <= {f"{p}{v[1:]}" for p in FORMULA_PREFIXES for v in venenosos}
+
+
 @pytest.mark.parametrize("prefijo", FORMULA_PREFIXES)
 def test_cada_prefijo_declarado_se_protege(prefijo: str) -> None:
     frame = pd.DataFrame({"texto": [f"{prefijo}x"]})

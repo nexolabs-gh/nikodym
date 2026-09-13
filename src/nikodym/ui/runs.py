@@ -200,14 +200,30 @@ def _publicar_corrida(staging: Path, run_dir: Path) -> None:
     del mismo estudio; lo que hubiera no se mezcla ni se borra: se aparta a un hermano
     ``.<run_id>.old.*`` que se conserva —lleva un audit-trail, que es evidencia—, como hace
     ``nikodym.run`` con su ``run_dir``. Un destino vacío se retira, porque ``os.replace`` no pisa
-    directorios en Windows.
+    directorios en Windows. Y si el ``replace`` del temporal falla —disco lleno, permisos, un lock
+    que no cede—, la corrida previa **vuelve a su sitio** antes de propagar el error: apartada y no
+    restaurada, la ruta canónica desaparecía y la UI devolvía 404 para una corrida válida (pasada
+    5 de la revisión adversarial; es ``api._consolidar_run_dir``, con su doble fallo anotado).
     """
+    respaldo: Path | None = None
     if run_dir.exists():
         if any(run_dir.iterdir()):
-            _replace_path(run_dir, _missing_backup_path(run_dir))
+            respaldo = _missing_backup_path(run_dir)
+            _replace_path(run_dir, respaldo)
         else:
             run_dir.rmdir()
-    _replace_path(staging, run_dir)
+    try:
+        _replace_path(staging, run_dir)
+    except BaseException:
+        if respaldo is not None:
+            try:
+                _replace_path(respaldo, run_dir)  # la corrida previa, intacta, a su sitio
+            except BaseException as fallo_de_restauracion:
+                fallo_de_restauracion.add_note(
+                    f"La corrida previa quedó en el respaldo lateral '{respaldo}'."
+                )
+                raise
+        raise
 
 
 def _apartar_corrida_fallida(staging: Path, run_dir: Path, exc: BaseException) -> None:

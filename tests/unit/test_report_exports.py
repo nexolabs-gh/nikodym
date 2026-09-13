@@ -172,6 +172,25 @@ def _frame_con_pares_que_colisionaban() -> pd.DataFrame:
     return frame
 
 
+def test_csv_protege_el_salto_de_linea_y_los_prefijos_de_ancho_completo(tmp_path: Path) -> None:
+    """🔴 Pasada 5 de la revisión adversarial (98871cb): LF y los cuatro operadores de ancho
+    completo (U+FF1D, U+FF0B, U+FF0D, U+FF20) llegaban al CSV sin la comilla de guarda, en datos,
+    índice y encabezado."""
+    frame = _score_frame(rows=3)
+    frame["\uff1dcol"] = ["\n=1", "\uff0b1", "\uff20SUM(A1)"]
+    frame.index = pd.Index(["\uff0dcmd", "op-2", "\n=2"], name="loan_id")
+    exports = write_data_exports(
+        {"scorecard.score": frame},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    leido = pd.read_csv(io.StringIO(texto), keep_default_na=False, index_col=0)
+    assert leido.index.tolist() == ["'\uff0dcmd", "op-2", "'\n=2"]
+    assert "'\uff1dcol" in leido.columns
+    assert leido["'\uff1dcol"].tolist() == ["'\n=1", "'\uff0b1", "'\uff20SUM(A1)"]
+
+
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
     """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
     exports = write_data_exports(
