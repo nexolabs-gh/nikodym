@@ -362,9 +362,7 @@ def test_re_persistir_desde_el_trail_canonico_no_muta_la_corrida_previa_si_falla
 
     monkeypatch.setattr(runs, "serialize_study", _revienta)
     with pytest.raises(RuntimeError):
-        runs.save(
-            f1_study, workdir=workdir, governance=None, trail=run_dir / "audit_trail.jsonl"
-        )
+        runs.save(f1_study, workdir=workdir, governance=None, trail=run_dir / "audit_trail.jsonl")
 
     assert {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()} == previa
     assert runs.load_audit_trail(run_id, workdir=workdir) == '{"event": "run_start"}\n'
