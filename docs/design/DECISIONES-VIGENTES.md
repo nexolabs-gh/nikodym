@@ -824,6 +824,21 @@ reimplementa por motor. El chequeo PIT de IFRS 9 es incondicional y ningún flag
   desplegar, con el deploy en rojo y `main` ya avanzado. Es el mismo comando en los dos sitios;
   `deploy.yml` lo conserva porque publica exactamente lo que construye. Control negativo: un ancla
   rota en una rama temporal puso rojo el job nuevo en CI y verde el resto.
+- **Archivos para planilla (aprobado por Cami el 2026-09-13, S10, sin SDD; nació en la revisión
+  adversarial de la serie de mantenimiento posterior a la 1.14.0).** Todo archivo que Nikodym
+  entrega para abrirse en una planilla —los exports CSV/XLSX por observación del informe y el CSV
+  con la tasa completa por período o cohorte de una corrida de la interfaz— protege las celdas de
+  TEXTO que empiezan por un prefijo de fórmula (`=`, `+`, `-`, `@`, sus variantes de ancho
+  completo, tabulador, CR y LF) anteponiendo una comilla simple, **sólo al inicio real del campo**
+  y de forma inyectiva (una celda que ya empieza por comilla recibe otra); valores, encabezados,
+  nombre del índice, categóricas y `MultiIndex` por igual; números, lógicos, fechas y el texto
+  interno viajan intactos, y un archivo sin celdas activas es byte a byte el de siempre
+  (`nikodym.core.spreadsheet_safety`). Los CSV se emiten en un solo dialecto: coma, todo el texto
+  entre comillas, números sin ellas. **Límite declarado**: abierto con otro separador (doble clic
+  en un Excel cuyo separador de lista es `;`) la tabla sale rota y la protección no aplica a esa
+  vista rota; emitir un dialecto regional sería una decisión de producto nueva, no un arreglo.
+  Codex se contradijo entre sus pasadas 10–11 y 14 sobre proteger también tras `;` dentro del
+  texto; se eligió conservar el dato y declarar el límite, y Cami lo aprobó.
 
 ## Evidencia histórica preservada
 
