@@ -350,6 +350,9 @@ def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]]
 #: 73 s, 135 MB de JSON y 634 MB de pico al serializar (cuarta pasada adversarial de S9). Se acota
 #: la RESPUESTA, no el eje: el motor calcula la tabla entera y la conserva como artefacto; aquí
 #: viajan las primeras filas en su orden, con la ventana que dice cuántas hay y que se recortó.
+#: La fuente canónica es ``nikodym.eda.default_rate.MAX_PUBLISHED_PERIODS`` —el informe aplica el
+#: mismo tope a su tabla—; se replica aquí porque la capa ``ui`` no importa dominios, y
+#: ``tests/unit/test_vocabulario_en_pantalla.py`` ata los dos valores.
 EDA_MAX_PUBLISHED_PERIODS: Final = 1000
 
 

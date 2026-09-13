@@ -18,7 +18,8 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   corrida (`eda_default_rate.csv`, junto a `results.json`), que Resultados ofrece como descarga y
   la interfaz sirve en `GET /api/results/{run_id}/eda-default-rate`. Resultados dice «se muestran
   las primeras 1.000 de N»; el informe ya recortaba la tabla a su máximo de filas y lo decía al
-  pie, y ahora formatea sólo las filas que muestra —con un millón de filas, 5,9 s → 0,0 s—. El
+  pie —ahora nunca por encima de 1.000, aunque ese máximo se configure más alto—, y formatea
+  sólo las filas que muestra —con un millón de filas, 5,9 s → 0,0 s—. El
   motor no rechaza el eje y `DefaultRateResult.by_period` sigue trayendo todas las filas: cierra
   la decisión pendiente que la 1.13.0 dejó declarada como sabida. Medido: un millón de cohortes
   pasan de 71 s, 138 MB y 634 MB de pico a 0,07 s, 0,14 MB y 0,6 MB.

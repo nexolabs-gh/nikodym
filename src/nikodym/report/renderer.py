@@ -54,6 +54,7 @@ from nikodym.report.document import (
     APPENDIX_TABLES_ID,
     KEY_TABLES,
     PER_OBSERVATION_TABLES,
+    max_visible_rows,
     ordered_sections,
     table_title,
 )
@@ -674,7 +675,9 @@ def _tables_for_section(
         _table_view(
             key,
             bundle.tables[key],
-            max_rows=max_rows,
+            # La tasa por período o cohorte lleva además el tope contractual de 1.000 (cierre 1
+            # de D-SC): un máximo configurado alto no la devuelve a la tabla entera.
+            max_rows=max_visible_rows(key, max_rows),
             internal_grouping=internal_grouping,
         )
         for key in keys

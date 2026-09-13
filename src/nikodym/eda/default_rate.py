@@ -20,7 +20,13 @@ from nikodym.core.audit import AuditSink
 from nikodym.eda.config import DefaultRateConfig
 from nikodym.eda.exceptions import EdaError
 
-__all__ = ["AXIS_LABELS", "DefaultRateAnalyzer", "DefaultRateResult", "EdaAxis"]
+__all__ = [
+    "AXIS_LABELS",
+    "MAX_PUBLISHED_PERIODS",
+    "DefaultRateAnalyzer",
+    "DefaultRateResult",
+    "EdaAxis",
+]
 
 #: Los dos ejes con que se agrupa la tasa de incumplimiento; es la anotación de ``axis`` en el
 #: config y en el resultado, para que ninguno de los dos pueda ganar un valor sin el otro.
@@ -32,6 +38,14 @@ AXIS_LABELS: Final[dict[str, str]] = {
     "period": "por fecha de observación",
     "cohort": "por cohorte",
 }
+
+#: Períodos o cohortes de ``by_period`` que las superficies PUBLICAN como máximo —la respuesta de
+#: la interfaz y la tabla del informe—, en el orden del motor (cierre 1 de D-SC, decidido por
+#: delegación de Cami el 2026-09-12). El eje de cohorte acepta cualquier columna y una casi única
+#: produce una fila por operación; el motor calcula y conserva la tabla ENTERA —este tope no la
+#: toca— y quien la publica dice cuántas filas hay y que recortó. La capa ``ui`` no importa
+#: dominios: replica el valor y un gate ata los dos.
+MAX_PUBLISHED_PERIODS: Final = 1000
 
 #: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
 _LOC_SECCION: tuple[str, ...] = ("eda",)

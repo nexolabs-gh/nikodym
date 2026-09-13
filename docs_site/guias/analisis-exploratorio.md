@@ -147,8 +147,9 @@ publica como máximo las primeras **1.000** filas, en el orden del motor, y Resu
 muestran las primeras 1.000 de N» y ofrece la tabla completa como descarga (un CSV que queda junto
 a los resultados de la corrida, en su directorio de trabajo); el gráfico sigue dibujando sesenta.
 En el informe la tabla se recorta al máximo de filas por tabla configurado en la sección «Informe»
-(200 de fábrica) y lo dice al pie —«mostrando N de M filas»—, como cualquier otra tabla larga.
-Por código, `DefaultRateResult.by_period` trae siempre todas las filas.
+(200 de fábrica) —y nunca por encima de 1.000, aunque ese máximo se configure más alto— y lo dice
+al pie —«mostrando N de M filas»—, como cualquier otra tabla larga. Por código,
+`DefaultRateResult.by_period` trae siempre todas las filas.
 
 ## 6. Por código
 

@@ -494,6 +494,18 @@ def test_el_tope_de_barras_por_cohorte_es_el_mismo_en_el_informe_y_en_la_pantall
     assert int(tope_ts.group(1)) == charts._MAX_EDA_RATE_BARS
 
 
+def test_el_tope_de_filas_publicadas_de_la_tasa_es_uno_solo_para_respuesta_e_informe() -> None:
+    """Cierre 1 de D-SC: la respuesta y el informe publican como máximo 1.000 períodos/cohortes.
+
+    La fuente canónica vive en el dominio (`nikodym.eda.default_rate.MAX_PUBLISHED_PERIODS`); el
+    serializer la replica —la capa `ui` no importa dominios— y este gate los ata.
+    """
+    from nikodym.eda.default_rate import MAX_PUBLISHED_PERIODS
+    from nikodym.ui import serializers
+
+    assert serializers.EDA_MAX_PUBLISHED_PERIODS == MAX_PUBLISHED_PERIODS == 1_000
+
+
 def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -> None:
     """Las tablas viajan tal cual las publica el motor: mismas columnas, mismo orden.
 

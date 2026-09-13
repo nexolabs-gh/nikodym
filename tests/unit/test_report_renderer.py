@@ -867,6 +867,38 @@ def test_el_informe_con_una_cohorte_casi_unica_dice_cuantas_filas_muestra_de_cua
     assert "ID-01499" not in html
 
 
+@pytest.mark.skipif(not _HAS_MATPLOTLIB, reason="requiere el extra report (matplotlib)")
+def test_la_tasa_por_cohorte_tiene_un_tope_duro_aunque_max_table_rows_sea_mayor() -> None:
+    """🔴 Pasada 7 de la revisión adversarial (f231f52): el recorte de la tasa seguía SÓLO a
+    `report.sections.max_table_rows`, que no tiene máximo: con 1.000.000 el informe volvía a
+    materializar la tabla entera. El cierre 1 de D-SC fija 1.000 para el informe igual que para
+    la respuesta: `min(max_table_rows, 1.000)` sobre `eda.default_rate.by_period` —y sólo sobre
+    ella: las demás tablas siguen el valor configurado—."""
+    from nikodym.eda.default_rate import MAX_PUBLISHED_PERIODS
+
+    n = 1_500
+    section = _section("context.eda", "Población y calidad de datos", level=2, number="2.2")
+    tables = _eda_tables(n)
+    tables["eda.default_rate.by_period"]["period"] = [f"ID-{i:05d}" for i in range(n)]
+    tables["eda.quality.by_column"] = pd.DataFrame(
+        {"col": [f"c{i:04d}" for i in range(1_200)], "dtype": ["int64"] * 1_200}
+    )
+    bundle = _bundle(tables=tables, figures={}, sections_override=(section,)).model_copy(
+        update={"cards": {"eda": {"axis": "cohort", "n_periods": n}}}
+    )
+    html = HtmlReportRenderer.from_config(
+        ReportConfig(sections=SectionPolicyConfig(max_table_rows=1_000_000))
+    ).render(bundle)
+
+    assert MAX_PUBLISHED_PERIODS == 1_000
+    assert "(mostrando 1000 de 1500 filas)" in html
+    assert "ID-00999" in html
+    assert "ID-01000" not in html and "ID-01499" not in html
+    # La calidad por columna no tiene ese tope: con 1.200 filas y un máximo de un millón, entera.
+    assert "c1199" in html
+    assert "(mostrando 1000 de 1200 filas)" not in html
+
+
 def test_con_un_solo_periodo_no_hay_figura_de_la_tasa_y_los_perfiles_siguen() -> None:
     """D-SC-5 (b): sin serie temporal no hay línea de un punto, y no es una degradación."""
     assert _eda_charts(1, axis="period") == ["chart-eda-eda_profiles"]

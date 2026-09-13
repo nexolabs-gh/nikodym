@@ -48,6 +48,7 @@ __all__ = [
     "CHAPTER_SPECS",
     "CONTEXT_DOMAINS",
     "DOMAIN_TITLES",
+    "EDA_DEFAULT_RATE_TABLE",
     "IFRS9_DOMAINS",
     "KEY_TABLES",
     "METHODOLOGY_STEPS",
@@ -59,6 +60,7 @@ __all__ = [
     "domain_section_id",
     "domain_title",
     "internal_grouping_label",
+    "max_visible_rows",
     "ordered_sections",
     "section_sort_key",
     "table_title",
@@ -227,6 +229,28 @@ KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "provisioning_internal": ("provisioning_internal.groups",),
     "provisioning_ifrs9": ("provisioning_ifrs9.summary",),
 }
+
+#: La tabla de la tasa por período o cohorte, que además del máximo configurable de filas por
+#: tabla lleva el tope contractual de :data:`nikodym.eda.default_rate.MAX_PUBLISHED_PERIODS`.
+EDA_DEFAULT_RATE_TABLE: Final = "eda.default_rate.by_period"
+
+
+def max_visible_rows(table_key: str, max_table_rows: int) -> int:
+    """Cuántas filas de ``table_key`` muestra el documento: el configurable, o menos.
+
+    ``report.sections.max_table_rows`` acota lo que se muestra de cualquier tabla y no tiene
+    máximo; la tasa por período o cohorte tiene además un tope CONTRACTUAL —1.000, el mismo que la
+    respuesta de la interfaz (cierre 1 de D-SC)—, porque una cohorte casi única trae una fila por
+    operación y un máximo configurado alto volvía a materializar la tabla entera en el HTML, el
+    QMD y el Word (pasada 7 de la revisión adversarial). El total y el aviso «mostrando N de M»
+    siguen contando la tabla entera; la tabla completa queda como artefacto de la corrida.
+    """
+    if table_key == EDA_DEFAULT_RATE_TABLE:
+        from nikodym.eda.default_rate import MAX_PUBLISHED_PERIODS  # perezoso: dominio
+
+        return min(max_table_rows, MAX_PUBLISHED_PERIODS)
+    return max_table_rows
+
 
 # Tablas **por observación**: una fila por crédito/cliente. Son frames del dataset, no resúmenes, y
 # NO pertenecen al documento: truncadas no sirven como dato (están incompletas) ni como informe

@@ -27,7 +27,7 @@ from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey, ContextoDeResolucion
 from nikodym.report.builder import OPTIONAL_REPORT_INPUTS, ReportBuilder
 from nikodym.report.config import ReportConfig
-from nikodym.report.document import PER_OBSERVATION_TABLES
+from nikodym.report.document import PER_OBSERVATION_TABLES, max_visible_rows
 from nikodym.report.exceptions import ReportExportError
 from nikodym.report.exports import DATA_EXPORT_FORMATS, write_data_exports
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportManifest, ReportResult
@@ -190,10 +190,10 @@ class ReportStep(AuditableMixin):
             },
             accion="renderizar_reporte",
         )
-        for table_key, total_rows in _truncated_tables(bundle, config):
+        for table_key, total_rows, max_rows in _truncated_tables(bundle, config):
             self.log_decision(
                 regla="report_table_truncation",
-                umbral=config.sections.max_table_rows,
+                umbral=max_rows,
                 valor={"table_key": table_key, "total_rows": total_rows},
                 accion="truncar_visualizacion",
             )
@@ -435,20 +435,22 @@ def _manifest_for_html(
 def _truncated_tables(
     bundle: ReportInputBundle,
     config: ReportConfig,
-) -> tuple[tuple[str, int], ...]:
-    """Detecta tablas cuyo render aplica truncamiento visual explícito.
+) -> tuple[tuple[str, int, int], ...]:
+    """Detecta tablas cuyo render aplica truncamiento visual explícito: (clave, filas, tope).
 
     Las tablas por observación quedan fuera: ya no se renderizan (salen como adjunto completo), así
-    que auditarlas como "truncadas" sería registrar una decisión que el motor no toma.
+    que auditarlas como "truncadas" sería registrar una decisión que el motor no toma. El tope es
+    el que el render aplica de verdad a cada tabla (:func:`max_visible_rows`): el configurable, o
+    el contractual de la tasa por período o cohorte cuando es menor.
     """
-    truncated: list[tuple[str, int]] = []
-    max_rows = config.sections.max_table_rows
+    truncated: list[tuple[str, int, int]] = []
     for key, table in bundle.tables.items():
         if key in PER_OBSERVATION_TABLES:
             continue
+        max_rows = max_visible_rows(key, config.sections.max_table_rows)
         row_count = len(getattr(table, "index", ()))
         if row_count > max_rows:
-            truncated.append((key, row_count))
+            truncated.append((key, row_count, max_rows))
     return tuple(truncated)
 
 
