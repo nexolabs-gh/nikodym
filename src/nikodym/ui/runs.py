@@ -157,10 +157,13 @@ def save(
     run_dir.mkdir(parents=True, exist_ok=True)
     trail_final = _archivar_trail(trail, run_dir)
     payload = serialize_study(study, governance=governance, trail_path=trail_final)
+    # La tabla completa de la tasa va ANTES que `results.json`: el JSON es lo que publica la
+    # corrida para `load_results`, y un fallo al escribir el archivo grande —un disco que se llena
+    # a mitad— no puede dejar una corrida servible que declara `truncated: true` sin su tabla.
+    _save_eda_default_rate(study, payload, run_dir)
     (run_dir / _RESULTS_FILENAME).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )
-    _save_eda_default_rate(study, payload, run_dir)
     html = _report_html(study)
     if html is not None:
         (run_dir / _REPORT_FILENAME).write_text(html, encoding="utf-8")
@@ -195,12 +198,22 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
     frame = eda_default_rate_frame(study)
     if frame is None:  # inalcanzable: la ventana sólo existe con el artefacto; no se fabrica
         return
-    neutralize_formula_prefixes(frame).to_csv(
-        run_dir / _EDA_DEFAULT_RATE_FILENAME,
-        index=False,
-        encoding="utf-8-sig",
-        lineterminator="\n",
-    )
+    # A un temporal y `replace` sólo al completarlo (pasada 3 de la revisión adversarial): el
+    # archivo existe porque la tabla puede ser enorme, y un disco que se llena a medio camino no
+    # puede dejar un CSV parcial con el nombre que el endpoint sirve.
+    destino = run_dir / _EDA_DEFAULT_RATE_FILENAME
+    temporal = run_dir / f".{_EDA_DEFAULT_RATE_FILENAME}.tmp"
+    try:
+        neutralize_formula_prefixes(frame).to_csv(
+            temporal,
+            index=False,
+            encoding="utf-8-sig",
+            lineterminator="\n",
+        )
+        temporal.replace(destino)
+    except BaseException:
+        temporal.unlink(missing_ok=True)
+        raise
 
 
 def _archivar_trail(trail: Path | None, run_dir: Path) -> Path | None:

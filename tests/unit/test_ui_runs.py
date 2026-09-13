@@ -230,6 +230,42 @@ def test_el_archivo_de_la_tasa_neutraliza_las_cohortes_que_excel_leeria_como_for
     assert any(str(p).startswith("ID-") for p in periodos)  # una etiqueta normal viaja tal cual
 
 
+def test_un_fallo_al_escribir_el_csv_no_deja_la_corrida_publicada_a_medias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 Pasada 3 de la revisión adversarial (b71f599): `save` escribía `results.json` y DESPUÉS
+    el CSV, directo a su nombre final. Un disco lleno a mitad del archivo grande dejaba una
+    corrida que se servía —con `truncated: true`— sin su tabla completa, o con un CSV a medias.
+    Ahora el CSV se escribe a un temporal y se publica entero, y `results.json` sólo después: si
+    el CSV falla, la corrida no existe para `load_results` y no queda ningún archivo servible."""
+    import pandas as pd
+
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+    workdir = tmp_path / "wd"
+    run_id = study.run_context.run_id
+    assert run_id is not None
+    original = pd.DataFrame.to_csv
+
+    def _disco_lleno(self: pd.DataFrame, destino: object, *args: object, **kwargs: object) -> None:
+        # Escribe la mitad del archivo y muere, como un disco que se llena a medio camino.
+        original(self.head(len(self) // 2), destino, *args, **kwargs)
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(pd.DataFrame, "to_csv", _disco_lleno)
+    with pytest.raises(OSError, match="No space left"):
+        runs.save(study, workdir=workdir, governance=None)
+
+    run_dir = workdir / "runs" / run_id
+    assert not (run_dir / "results.json").exists()
+    assert runs.eda_default_rate_path(run_id, workdir=workdir) is None
+    with pytest.raises(UiRunNotFoundError):
+        runs.load_results(run_id, workdir=workdir)
+    assert not any(run_dir.glob("*.csv*")) if run_dir.exists() else True
+
+
 def test_sin_recorte_no_hay_archivo_de_la_tasa(
     fake_binning_process: object, tmp_path: Path
 ) -> None:

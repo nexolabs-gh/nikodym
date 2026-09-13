@@ -9,6 +9,7 @@ identificador de la operación intacto y abrible por quien lo reciba. Los tests 
 from __future__ import annotations
 
 import builtins
+import csv
 import importlib.util
 import io
 import re
@@ -129,6 +130,56 @@ def test_csv_neutraliza_los_prefijos_de_formula_de_las_celdas_de_texto(tmp_path:
     # El número negativo sigue siendo un número: no se protege.
     leido = pd.read_csv(io.StringIO(texto))
     assert leido["score"].tolist() == [600, 601, 602, 603]
+
+
+def _frame_con_encabezados_activos() -> pd.DataFrame:
+    """Nombre de columna, nombre del índice y categórica que una planilla leería como fórmula."""
+    frame = _score_frame(rows=3)
+    frame['=HYPERLINK("http://x.invalid";"ver")'] = [1, 2, 3]
+    frame["nivel"] = pd.Categorical(["@SUM(A1)", "b", "-c"])
+    frame.index = frame.index.rename("+loan_id")
+    return frame
+
+
+def test_csv_neutraliza_encabezados_nombre_del_indice_y_categoricas(tmp_path: Path) -> None:
+    """🔴 Pasada 3 de la revisión adversarial (b71f599): los nombres de columna y del índice también
+    son celdas, y una categórica no es `object`: los tres pasaban intactos."""
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_encabezados_activos()},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    encabezado = next(csv.reader(io.StringIO(texto)))
+    assert encabezado[0] == "'+loan_id"
+    assert '\'=HYPERLINK("http://x.invalid";"ver")' in encabezado
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r")) for c in encabezado)
+    leido = pd.read_csv(io.StringIO(texto), keep_default_na=False)
+    assert leido["nivel"].tolist() == ["'@SUM(A1)", "b", "'-c"]
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_neutraliza_encabezados_nombre_del_indice_y_categoricas(tmp_path: Path) -> None:
+    import openpyxl
+
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_encabezados_activos()},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    encabezado = [hoja.cell(row=1, column=c).value for c in range(1, hoja.max_column + 1)]
+    assert encabezado[0] == "'+loan_id"
+    assert '\'=HYPERLINK("http://x.invalid";"ver")' in encabezado
+    assert all(hoja.cell(row=1, column=c).data_type == "s" for c in range(1, hoja.max_column + 1))
+    columna_nivel = encabezado.index("nivel") + 1
+    assert [hoja.cell(row=f, column=columna_nivel).value for f in (2, 3, 4)] == [
+        "'@SUM(A1)",
+        "b",
+        "'-c",
+    ]
 
 
 @pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
