@@ -1081,6 +1081,58 @@ git -C privado status --short --branch
 if ($LASTEXITCODE -ne 0) { throw 'status final privado falló' }
 ```
 
+### 10.1 Receta de release (tag → `release.yml` → PyPI → smoke)
+
+Sólo con el OK explícito de Cami para ESA release (AGENTS.md: un OK anterior no se hereda). Así se
+cortaron la 1.13.0 y la 1.14.0 (2026-09-12); cada trampa de abajo se pagó en una de las dos.
+
+1. **Bump en un commit propio.** `__version__` en `src/nikodym/__init__.py` (pyproject lo lee),
+   `CHANGELOG.md` (`## [No publicado]` → `## [X.Y.Z] — AAAA-MM-DD`), `docs_site/index.md`
+   («Estado: X.Y.Z — release estable») y `docs_site/api.md` («código publicado (`X.Y.Z`)»). Suite
+   completa sobre ese árbol, push, CI 18/18 job a job (§8).
+2. **Recaptura de la demo**, sólo si la release mueve el `config_hash` de un preset publicado o el
+   copy del informe, y sólo con OK de Cami: rama temporal desde el bump
+   (`git push -f origin HEAD:refs/heads/recaptura-X.Y.Z`),
+   `gh workflow run recapture-demo.yml --ref recaptura-X.Y.Z -f motivo=…`, bajar el artefacto
+   `demo-fixtures-recapturados`, verificar en `results-*.json` que `nikodym == X.Y.Z`, que `git_sha`
+   es el del bump y `git_dirty == false`, regenerar las firmas
+   (`node scripts/generate_frontend_demo_fixture_signatures.mjs`), correr
+   `scripts/check_demo_report_copy.py`, mover los `run_id` que `deploy.yml` busca en vivo (el gate
+   `test_deploy_publica_las_corridas_de_la_demo.py` los ata a los fixtures), vitest, y la suite
+   completa SOBRE EL ÁRBOL CON LOS FIXTURES YA APLICADOS —la suite anterior a la recaptura no cuenta:
+   el gate de identidad de la demo sólo queda verde con los fixtures nuevos—; commit con fixtures y
+   código juntos, push a `main`, borrar la rama.
+3. **Tag anotado sobre el commit final con CI verde.** `git tag -a vX.Y.Z -F mensaje.txt <sha>` y
+   `git push origin vX.Y.Z`. `release.yml` exige `tag == __version__` y que TODOS los runs de
+   `ci.yml` del SHA hayan terminado en `success` (y, por unión de runs, que cada job haya sido
+   `success` al menos una vez: `test-all` se salta en el push del tag y lo cubre el run de `main`);
+   promueve el artefacto que construyó el CI, sin rebuild. 🔴 El push del tag dispara OTRO CI sobre
+   el mismo SHA (rama `vX.Y.Z`): un rojo aislado del runner ahí —H9R, coverage al combinar— tumba
+   la Release con «hay runs de CI de <sha> que no terminaron en success». Remedio, en este orden:
+   `gh run rerun <run de CI del tag> --failed`, esperar verde, `gh run rerun <run de Release>
+   --failed`. Presupuestar ~30 min por esta vía.
+4. **Verificar PyPI.** `curl -s https://pypi.org/pypi/nikodym/json` → `info.version` y los sha256
+   de wheel y sdist, que van al HANDOFF. El índice simple que usa `pip` tarda ~2 min más que el
+   JSON en servir la versión («No matching distribution found» transitorio).
+5. **Smoke fuera del repo, en un venv limpio.** `python -m venv %TEMP%\nkr-smoke-venv`,
+   `pip install --no-cache-dir "nikodym[ui,scoring,report]==X.Y.Z"`, cwd en un temporal ajeno al
+   checkout (para que `import nikodym` sea el instalado): `__version__` y metadata coinciden, el
+   quickstart público llega a `done` con `audit_trail.jsonl`/`environment.json`/`study` en el
+   `run_dir`, y `nikodym-ui` por HTTP real sirve `/` con su bundle, `/api/jobs`, `/api/schema` y
+   rechaza `POST /api/run` sin Origin ni token (403). No usar `starlette.testclient` en ese venv:
+   starlette ≥ 1.6 exige `httpx2` (el lock del repo va más atrás; al subirlo, añadir `httpx2` al
+   grupo dev porque `tests/unit/_ui_client.py` lo usa).
+6. **Producción la publica el Deploy del último push a `main`, no el tag.** Comprobar
+   `https://docs.nikodym.cl/build-sha.txt` y `https://demo.nikodym.cl/build-sha.txt` = HEAD de
+   `main`, «Estado: X.Y.Z» en la portada, la guía y el changelog que la release toca, y el bundle de
+   la demo con las corridas publicadas. La regla «producción no retrocede, no pierde un commit verde
+   y no se publica a ciegas» vive en `scripts/deploy_no_retroceder_produccion.py` (con sus tests):
+   un Deploy que se detiene en rojo dice por qué; el rerun del commit adelantado repara una
+   publicación a medias, y un `workflow_dispatch` con `forzar=true` es el único override humano.
+   No existe GitHub Release desde la 1.2.0: sólo PyPI, por diseño.
+7. **Cerrar.** Borrar el venv y los temporales del smoke; HANDOFF con los `run_id` de CI, Deploy y
+   Release, los digests de PyPI y lo verificado en vivo (§10).
+
 ## 11. Mecánica del agente en este checkout
 
 El reparto de roles —Claude Code writer único, Codex revisor adversarial read-only— es regla durable
