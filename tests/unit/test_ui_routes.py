@@ -912,15 +912,41 @@ def test_run_pipeline_ok_persiste_y_devuelve_done(
     assert (tmp_path / "runs" / result["run_id"] / "results.json").is_file()
 
 
+#: Lo que el reloj escribe en el HTML del informe: el sello ISO de la corrida (``created_at`` del
+#: lineage) y la FECHA del informe a secas (``<dd>2026-09-12</dd>``). Se enmascaran las dos: el
+#: 2026-09-13 a las 00:00Z la comparación de dos corridas cruzó la medianoche y la fecha cambió
+#: entre una y otra (rojo aislado en el CI de `5ed1a64`; rerun en verde).
+_SELLO_DE_RELOJ = re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+00:00|Z))?")
+
+
+def _sin_sellos_de_reloj(html: str) -> str:
+    """El HTML con cada sello o fecha del reloj sustituido por ``TS``."""
+    return _SELLO_DE_RELOJ.sub("TS", html)
+
+
+def test_la_comparacion_del_html_ignora_la_fecha_del_informe_y_el_sello() -> None:
+    """🔴 Dos informes que sólo difieren en el reloj —sello ISO y fecha a secas— son el mismo;
+    cualquier otra diferencia sigue contando."""
+    antes = "<dd>2026-09-12</dd><p>2026-09-12T23:59:59.123456+00:00</p><td>0.1234</td>"
+    despues = "<dd>2026-09-13</dd><p>2026-09-13T00:00:01+00:00</p><td>0.1234</td>"
+    assert _sin_sellos_de_reloj(antes) == _sin_sellos_de_reloj(despues)
+    assert _sin_sellos_de_reloj(antes) != _sin_sellos_de_reloj(despues.replace("0.1234", "0.1235"))
+    # Una cifra que no es una fecha no se toca (un período `2024-01` tampoco lo es).
+    assert _sin_sellos_de_reloj("<td>2024-01</td><td>1234-56-78-90</td>") == (
+        "<td>2024-01</td><td>TS-90</td>"
+    )
+
+
 def test_run_pipeline_preset_genera_reporte_html_determinista(tmp_path: Path) -> None:
     """La corrida del **preset F1** termina ``done`` y ``load_report`` devuelve el HTML del reporte.
 
     Ejercita el escaparate completo: ``run_pipeline`` corre el preset real (binning MIP, modelo,
     scorecard, calibración, performance, stability, report), persiste la corrida y sirve el HTML.
     Determinismo robusto: dos corridas (mismo ``workdir`` → mismo ``config_hash``) dan un HTML
-    byte-idéntico salvo el ÚNICO campo wall-clock del lineage (``created_at``, el sello de la
-    corrida); con ``ai.enabled=False`` el cuerpo del reporte no tiene otra fuente de azar. Requiere
-    el extra ``scoring`` (binning MIP real): el job de dependencias mínimas lo salta.
+    byte-idéntico salvo lo que escribe el reloj —el sello ``created_at`` del lineage y la fecha del
+    informe, que cambia si la comparación cruza la medianoche UTC—; con ``ai.enabled=False`` el
+    cuerpo del reporte no tiene otra fuente de azar. Requiere el extra ``scoring`` (binning MIP
+    real): el job de dependencias mínimas lo salta.
     """
     pytest.importorskip("optbinning")
     from nikodym.ui import runs
@@ -939,8 +965,7 @@ def test_run_pipeline_preset_genera_reporte_html_determinista(tmp_path: Path) ->
     for html in (html_1, html_2):
         assert html is not None and html.strip(), "load_report debe devolver HTML no vacío"
         assert "<html" in html.lower()
-    run_stamp = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+00:00|Z)")
-    assert run_stamp.sub("TS", html_1) == run_stamp.sub("TS", html_2)
+    assert _sin_sellos_de_reloj(html_1) == _sin_sellos_de_reloj(html_2)
 
 
 def test_run_pipeline_preset_provisiones_estandar_muerde(tmp_path: Path) -> None:
