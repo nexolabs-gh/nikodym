@@ -20,7 +20,13 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 import pytest
-from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
+from _ui_f1 import (
+    eda_only_config,
+    failing_config,
+    full_f1_config,
+    write_behavior_parquet,
+    write_near_unique_cohort_parquet,
+)
 from pydantic import BaseModel, ConfigDict
 
 import nikodym
@@ -300,6 +306,77 @@ def test_un_entero_fuera_del_rango_seguro_de_javascript_viaja_como_texto(
 def _parquet_de_comportamiento(destino: Path) -> Path:
     write_behavior_parquet(destino)
     return destino
+
+
+@pytest.fixture
+def estudio_con_cohorte_casi_unica(tmp_path: Path) -> Study:
+    """``Study`` con ``eda`` agrupado por un identificador: una cohorte por operación (>1.000)."""
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+    return study
+
+
+def test_la_respuesta_publica_como_maximo_mil_periodos_en_orden_y_declara_el_total(
+    estudio_con_cohorte_casi_unica: Study,
+) -> None:
+    """🔴 Cierre 1 de D-SC (delegado por Cami el 2026-09-12): el eje de cohorte acepta cualquier
+    columna y una casi única produce una fila por operación; sin tope, un millón de cohortes eran
+    73 s, 135 MB de JSON y 634 MB de pico (cuarta pasada adversarial de S9). La respuesta publica
+    como máximo :data:`EDA_MAX_PUBLISHED_PERIODS` filas, **las primeras en el orden del motor**, y
+    dice cuántas calculó y que recortó; el motor no rechaza el eje y su artefacto sigue entero."""
+    study = estudio_con_cohorte_casi_unica
+    by_period = study.artifacts.get("eda", "default_rate").by_period
+    assert len(by_period) > serializers.EDA_MAX_PUBLISHED_PERIODS
+
+    payload = serialize_study(study, governance=None)
+    eda = payload["eda"]
+
+    assert len(eda["default_rate"]) == serializers.EDA_MAX_PUBLISHED_PERIODS
+    assert [fila["period"] for fila in eda["default_rate"]] == [
+        str(valor) for valor in by_period["period"].head(serializers.EDA_MAX_PUBLISHED_PERIODS)
+    ]
+    assert eda["default_rate_window"] == {"total_periods": len(by_period), "truncated": True}
+    # El total publicado es el mismo que la card ya declara: una sola cifra para «N de M».
+    assert eda["default_rate_window"]["total_periods"] == eda["n_periods"]
+    json.dumps(payload, allow_nan=False)
+
+
+def test_bajo_el_tope_la_ventana_dice_que_no_se_recorto_nada(f1_con_eda: Study) -> None:
+    """Con pocas cohortes viaja la tabla entera y la ventana lo declara (`truncated: false`)."""
+    eda = serialize_study(f1_con_eda, governance=None)["eda"]
+    assert eda["default_rate_window"] == {
+        "total_periods": len(eda["default_rate"]),
+        "truncated": False,
+    }
+    assert eda["default_rate_window"]["total_periods"] == eda["n_periods"]
+
+
+def test_la_tabla_completa_de_la_tasa_se_proyecta_entera_con_las_columnas_del_payload(
+    estudio_con_cohorte_casi_unica: Study,
+) -> None:
+    """La tabla que la respuesta recorta queda como artefacto de la corrida: la proyección
+    completa lleva TODAS las filas y exactamente las columnas de la fila del payload (con
+    `period_type`), en el orden del motor, para que el archivo y la pantalla digan lo mismo."""
+    study = estudio_con_cohorte_casi_unica
+    by_period = study.artifacts.get("eda", "default_rate").by_period
+    completa = serializers.eda_default_rate_frame(study)
+    assert completa is not None
+    assert len(completa) == len(by_period)
+    fila = serialize_study(study, governance=None)["eda"]["default_rate"][0]
+    assert list(completa.columns) == list(fila)
+    assert completa["period"].tolist()[: len(fila)] == [
+        str(valor) for valor in by_period["period"].head(len(fila))
+    ]
+    assert set(completa["period_type"]) == {"str"}
+    # Sin artefacto de `eda` no hay tabla que proyectar: ausencia, no un frame vacío.
+    assert serializers.eda_default_rate_frame(SimpleNamespace(artifacts=_SinArtefactos())) is None
+
+
+class _SinArtefactos:
+    def has(self, domain: str, key: str) -> bool:
+        return False
 
 
 def test_serialize_study_done_shape_y_cards(f1_study: Study) -> None:

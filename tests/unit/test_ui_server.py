@@ -552,6 +552,39 @@ def test_report_docx_presente_200_ooxml(client_tmp: TestClient, tmp_path: Path) 
     assert respuesta.content == b"PK\x03\x04 nikodym"
 
 
+def test_eda_default_rate_presente_200_csv(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/results/{run_id}/eda-default-rate`` sirve la tasa entera como CSV → 200.
+
+    Es el artefacto que ``runs.save`` escribe cuando la respuesta recortó la tasa por período o
+    cohorte al tope (cierre 1 de D-SC): el panel lo ofrece como descarga y aquí viaja tal cual.
+    """
+    run_id = "e" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    contenido = b"\xef\xbb\xbfperiod,n_total\nID-00000,1\n"
+    (run_dir / "eda_default_rate.csv").write_bytes(contenido)
+
+    respuesta = client_tmp.get(f"/api/results/{run_id}/eda-default-rate")
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith("text/csv")
+    assert (
+        respuesta.headers["content-disposition"]
+        == 'attachment; filename="tasa-de-incumplimiento-por-periodo.csv"'
+    )
+    assert respuesta.content == contenido
+
+
+def test_eda_default_rate_sin_archivo_404(client_tmp: TestClient) -> None:
+    """Sin el archivo —la respuesta no se recortó, o la corrida no corrió ``eda``— → 404."""
+    assert client_tmp.get(f"/api/results/{'0' * 32}/eda-default-rate").status_code == 404
+
+
+def test_eda_default_rate_run_id_invalido_404(client_tmp: TestClient) -> None:
+    """Un ``run_id`` no-uuid → 404 (mismo blindaje de path traversal que el resto)."""
+    assert client_tmp.get("/api/results/no-uuid/eda-default-rate").status_code == 404
+
+
 @pytest.mark.parametrize("formato", ["md", "docx"])
 def test_report_base_editable_sin_archivo_404(client_tmp: TestClient, formato: str) -> None:
     """Sin la fuente editable → 404 explícito, nunca un 200 con cuerpo vacío."""

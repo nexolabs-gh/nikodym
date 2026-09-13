@@ -72,6 +72,7 @@ import {
   temporalScore,
   variableBinning,
   edaRatePoints,
+  edaRateWindow,
 } from "./results-format"
 import type {
   BinningResult,
@@ -2843,5 +2844,58 @@ describe("edaRatePoints: dos cohortes que se escriben igual no se funden (D-SC-5
       default_rate: [{ ...eda.default_rate[0], period: null }],
     })
     expect(puntos[0].label).toBe("—")
+  })
+})
+
+describe("edaRateWindow: cuántas filas de la tasa llegaron frente a cuántas calculó el motor", () => {
+  // Cierre 1 de D-SC: el serializer publica hasta 1.000 filas y lo declara en
+  // `default_rate_window`; el helper no calcula nada, sólo lee la ventana o su ausencia.
+  const filas = Array.from({ length: 3 }, (_, i) => ({
+    period: `c${i}`,
+    n_total: 1,
+    n_eligible: 1,
+    n_bad: 0,
+    default_rate: 0,
+    low_confidence: false,
+    period_type: "str",
+  }))
+  const eda = {
+    overall_default_rate: 0,
+    n_periods: 3,
+    stability_flagged: false,
+    stability_metric_used: "cv" as const,
+    stability_threshold: 0.25,
+    stability_value: null,
+    n_columns_profiled: 0,
+    quality_flag_counts: {},
+    n_figures: 0,
+    axis: "cohort" as const,
+    axis_inferred: false,
+    stability_not_evaluable_reason: "eje_cohorte" as const,
+    default_rate: filas,
+  }
+
+  it("con la ventana declarada lee el total y el recorte del motor", () => {
+    expect(
+      edaRateWindow({ ...eda, default_rate_window: { total_periods: 5000, truncated: true } }),
+    ).toEqual({ shown: 3, total: 5000, truncated: true })
+    expect(
+      edaRateWindow({ ...eda, default_rate_window: { total_periods: 3, truncated: false } }),
+    ).toEqual({ shown: 3, total: 3, truncated: false })
+  })
+
+  it("sin ventana —payload anterior, o `null`— la tabla que llegó es la entera", () => {
+    expect(edaRateWindow(eda)).toEqual({ shown: 3, total: 3, truncated: false })
+    expect(edaRateWindow({ ...eda, default_rate_window: null })).toEqual({
+      shown: 3,
+      total: 3,
+      truncated: false,
+    })
+    expect(edaRateWindow({ ...eda, default_rate: null })).toEqual({
+      shown: 0,
+      total: 0,
+      truncated: false,
+    })
+    expect(edaRateWindow(null)).toEqual({ shown: 0, total: 0, truncated: false })
   })
 })

@@ -263,6 +263,18 @@ export interface EdaProfileRow {
 }
 
 /**
+ * Ventana con que viaja `eda.default_rate` (cierre 1 de D-SC): el serializer publica como máximo
+ * 1.000 períodos o cohortes, las primeras en el orden del motor, y aquí dice cuántas calculó el
+ * motor (`total_periods`, la misma cifra que `n_periods`) y si recortó (`truncated`). Cuando
+ * recortó, la tabla completa queda como archivo de la corrida (`/api/results/{run_id}/eda-default-rate`).
+ * Un payload anterior a esta clave —la demo capturada— no la trae: se lee como tabla entera.
+ */
+export interface EdaDefaultRateWindow {
+  total_periods: number
+  truncated: boolean
+}
+
+/**
  * Sección de análisis exploratorio (`EdaCardSection` + sus tres tablas agregadas, D-SC-5).
  *
  * `stability_value` y `overall_default_rate` llegan `null` cuando el motor no pudo calcularlos
@@ -283,6 +295,7 @@ export interface EdaResult {
   axis_inferred: boolean
   stability_not_evaluable_reason: EdaNotEvaluableReason | null
   default_rate?: EdaPeriodRow[] | null
+  default_rate_window?: EdaDefaultRateWindow | null
   quality?: EdaQualityRow[] | null
   univariate?: EdaProfileRow[] | null
 }

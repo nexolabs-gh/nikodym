@@ -5,6 +5,24 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Cambiado
+
+- **La tasa de incumplimiento por período o cohorte viaja a la interfaz hasta un tope.** Agrupar
+  la tasa por una cohorte casi única —una columna de identificador— produce una fila por
+  operación, y la respuesta de la interfaz la publicaba entera: un millón de cohortes eran 73 s,
+  135 MB de respuesta y 634 MB de memoria al serializar. Ahora la respuesta publica como máximo
+  las primeras 1.000 filas, en el orden del motor, y declara cuántas calculó el motor y si
+  recortó (`eda.default_rate_window`); con el recorte, la tabla completa queda como archivo de la
+  corrida (`eda_default_rate.csv`, junto a `results.json`), que Resultados ofrece como descarga y
+  la interfaz sirve en `GET /api/results/{run_id}/eda-default-rate`. Resultados dice «se muestran
+  las primeras 1.000 de N»; el informe ya recortaba la tabla a su máximo de filas y lo decía al
+  pie, y ahora formatea sólo las filas que muestra —con un millón de filas, 5,9 s → 0,0 s—. El
+  motor no rechaza el eje y `DefaultRateResult.by_period` sigue trayendo todas las filas: cierra
+  la decisión pendiente que la 1.13.0 dejó declarada como sabida. Medido: un millón de cohortes
+  pasan de 71 s, 138 MB y 634 MB de pico a 0,07 s, 0,14 MB y 0,6 MB.
+
 ## [1.14.0] — 2026-09-12
 
 ### Añadido

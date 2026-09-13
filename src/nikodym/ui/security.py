@@ -109,6 +109,10 @@ PUBLIC_PATHS: MappingProxyType[tuple[str, str], str] = MappingProxyType(
         ("GET", "/api/results/{run_id}"): (
             "Lee una corrida ya hecha. El id lo devuelve quien la ejecutó, que sí llevaba token."
         ),
+        ("GET", "/api/results/{run_id}/eda-default-rate"): (
+            "Igual que los resultados: descarga la tasa por período o cohorte entera, que la "
+            "respuesta recortó al tope, de una corrida ya hecha."
+        ),
         ("GET", "/api/report/{run_id}"): "Igual que los resultados: lee un informe ya generado.",
         ("GET", "/api/report/{run_id}/pdf"): (
             "Igual que los resultados: descarga un informe ya generado."

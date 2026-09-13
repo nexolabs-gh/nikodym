@@ -12,13 +12,18 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from _ui_f1 import full_f1_config, write_behavior_parquet
+from _ui_f1 import (
+    eda_only_config,
+    full_f1_config,
+    write_behavior_parquet,
+    write_near_unique_cohort_parquet,
+)
 
 import nikodym
 from nikodym.core.study import Study
 from nikodym.ui import runs
 from nikodym.ui.exceptions import UiError, UiRunNotFoundError
-from nikodym.ui.serializers import serialize_study
+from nikodym.ui.serializers import EDA_MAX_PUBLISHED_PERIODS, serialize_study
 
 
 @pytest.fixture
@@ -144,6 +149,77 @@ def test_save_persiste_el_docx(f1_study: Study, tmp_path: Path) -> None:
     run_id = runs.save(f1_study, workdir=workdir, governance=None)
 
     assert runs.load_report_docx(run_id, workdir=workdir) == b"PK\x03\x04 nikodym"
+
+
+def test_la_tabla_completa_de_la_tasa_queda_como_archivo_de_la_corrida_si_se_recorto(
+    tmp_path: Path,
+) -> None:
+    """🔴 Cierre 1 de D-SC: la respuesta publica hasta el tope y la tabla ENTERA queda como
+    artefacto de la corrida. ``save`` escribe ``eda_default_rate.csv`` con todas las filas y las
+    mismas columnas que la fila del payload; ``load_eda_default_rate`` lo sirve."""
+    import pandas as pd
+
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(study, workdir=workdir, governance=None)
+
+    payload = runs.load_results(run_id, workdir=workdir)
+    assert payload["eda"]["default_rate_window"]["truncated"] is True
+    csv = workdir / "runs" / run_id / "eda_default_rate.csv"
+    assert csv.is_file()
+    contenido = runs.load_eda_default_rate(run_id, workdir=workdir)
+    assert contenido == csv.read_bytes()
+    assert contenido.startswith(b"\xef\xbb\xbf")  # UTF-8 con BOM, como los exports del informe
+    tabla = pd.read_csv(io.BytesIO(contenido))
+    assert len(tabla) == payload["eda"]["default_rate_window"]["total_periods"]
+    assert len(tabla) > EDA_MAX_PUBLISHED_PERIODS
+    assert list(tabla.columns) == list(payload["eda"]["default_rate"][0])
+    # Las primeras filas del archivo son las que la respuesta publicó, en el mismo orden.
+    assert tabla["period"].tolist()[:EDA_MAX_PUBLISHED_PERIODS] == [
+        fila["period"] for fila in payload["eda"]["default_rate"]
+    ]
+
+
+def test_sin_recorte_no_hay_archivo_de_la_tasa(
+    fake_binning_process: object, tmp_path: Path
+) -> None:
+    """El archivo existe si y sólo si la respuesta se recortó: con pocas cohortes el payload ya
+    trae la tabla entera y no se duplica en disco (``load_eda_default_rate`` → ``None``)."""
+    del fake_binning_process
+    from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
+
+    parquet = tmp_path / "cartera.parquet"
+    write_behavior_parquet(parquet)
+    config = full_f1_config(str(parquet)).model_copy(
+        update={
+            "eda": EdaConfig(
+                default_rate=DefaultRateConfig(min_obs_per_period=1),
+                univariate=UnivariateConfig(columns=("score",), n_quantile_bins=2),
+            )
+        }
+    )
+    study = nikodym.run(config)
+    assert study.run_context.status == "done", study.run_context.error
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(study, workdir=workdir, governance=None)
+
+    payload = runs.load_results(run_id, workdir=workdir)
+    assert payload["eda"]["default_rate_window"]["truncated"] is False
+    assert not (workdir / "runs" / run_id / "eda_default_rate.csv").exists()
+    assert runs.load_eda_default_rate(run_id, workdir=workdir) is None
+
+
+def test_sin_eda_no_hay_archivo_de_la_tasa(f1_study: Study, tmp_path: Path) -> None:
+    """Una corrida sin ``eda`` no escribe el archivo ni lo fabrica al leer."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    assert not (workdir / "runs" / run_id / "eda_default_rate.csv").exists()
+    assert runs.load_eda_default_rate(run_id, workdir=workdir) is None
 
 
 def test_save_study_sin_run_id_falla(tmp_path: Path) -> None:

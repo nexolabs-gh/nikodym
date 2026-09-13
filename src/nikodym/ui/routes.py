@@ -1267,6 +1267,37 @@ def build_router() -> APIRouter:
         except UiRunNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @router.get("/results/{run_id}/eda-default-rate")
+    async def results_eda_default_rate_endpoint(run_id: str, request: Request) -> Response:
+        """Sirve la tasa por período o cohorte ENTERA como CSV; sin archivo → 404.
+
+        Es el artefacto que la persistencia escribe cuando ``/api/results`` recortó esa tabla al
+        tope (cierre 1 de D-SC): sólo existe en ese caso, así que un 404 aquí significa que el
+        JSON de resultados ya trae la tabla completa, o que la corrida no corrió ``eda``.
+        """
+        workdir = Path(request.app.state.settings.workdir)
+        try:
+            csv = runs.load_eda_default_rate(run_id, workdir=workdir)
+        except UiRunNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if csv is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"la corrida '{run_id}' no tiene la tabla completa de la tasa como archivo: "
+                    "sólo se escribe cuando la respuesta la recortó."
+                ),
+            )
+        return Response(
+            content=csv,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": (
+                    'attachment; filename="tasa-de-incumplimiento-por-periodo.csv"'
+                )
+            },
+        )
+
     @router.post("/config/to-yaml")
     async def config_to_yaml_endpoint(payload: dict[str, Any]) -> dict[str, Any]:
         """Exporta ``{config}`` a YAML canónico; config inválido → 422 (round-trip, SDD-23 §3.4)."""

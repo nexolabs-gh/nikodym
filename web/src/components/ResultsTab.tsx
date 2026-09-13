@@ -26,6 +26,7 @@ import {
   validationStatusColor,
 } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
+import { edaDefaultRateCsvUrl } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -57,6 +58,7 @@ import {
   edaProfiles,
   edaQualityRows,
   edaRatePoints,
+  edaRateWindow,
   edaStabilitySummary,
   formatAmount,
   formatBool,
@@ -227,6 +229,9 @@ export function ResultsPanel({
   const eda = results.eda ?? null
   const edaKind = edaChartKind(eda)
   const edaPoints = edaRatePoints(eda)
+  // Cuántas filas de la tasa llegaron frente a cuántas calculó el motor (cierre 1 de D-SC): el
+  // payload publica hasta un tope y, si recortó, la tabla completa es un archivo de la corrida.
+  const edaWindow = edaRateWindow(eda)
   const edaStability = eda ? edaStabilitySummary(eda) : null
   const edaQuality = edaQualityRows(eda)
   const edaProfileViews = edaProfiles(eda)
@@ -579,8 +584,37 @@ export function ResultsPanel({
                   : "Tasa de incumplimiento por cohorte"
               }
             >
-              <EdaDefaultRateChart kind={edaKind} points={edaPoints} />
+              <EdaDefaultRateChart
+                kind={edaKind}
+                points={edaPoints}
+                totalPeriods={edaWindow.total}
+              />
             </Subchart>
+          ) : null}
+
+          {/* 🔴 La tasa recortada se DICE (cierre 1 de D-SC): el motor calculó más filas de las
+              que viajan, y la tabla entera —el artefacto de la corrida— se ofrece como descarga.
+              Sin `run_id` no hay URL que ofrecer; el recorte se declara igual. */}
+          {edaWindow.truncated ? (
+            <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              Se muestran las primeras {formatCount(edaWindow.shown)} de{" "}
+              {formatCount(edaWindow.total)} {edaPeriodNoun(eda.axis, edaWindow.total)}, en el
+              orden del motor. La tabla completa quedó como archivo de la corrida
+              {runId ? (
+                <>
+                  :{" "}
+                  <a
+                    className="font-medium text-foreground underline underline-offset-2 hover:text-eyebrow"
+                    href={edaDefaultRateCsvUrl(runId)}
+                    download="tasa-de-incumplimiento-por-periodo.csv"
+                  >
+                    Descargar la tabla completa (CSV)
+                  </a>
+                </>
+              ) : (
+                "."
+              )}
+            </p>
           ) : null}
 
           {edaPoints.length > 0 ? (

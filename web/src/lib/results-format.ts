@@ -2200,6 +2200,26 @@ export function edaRatePoints(eda: EdaResult | null | undefined): EdaRatePoint[]
   })
 }
 
+/** Cuántas filas de la tasa trae el payload, cuántas calculó el motor y si se recortó. */
+export interface EdaRateWindow {
+  shown: number
+  total: number
+  truncated: boolean
+}
+
+/**
+ * La ventana de la tasa por período o cohorte (cierre 1 de D-SC): el serializer publica como
+ * máximo 1.000 filas y declara el total en `default_rate_window`. Un payload anterior a esa clave
+ * —la demo capturada— trae la tabla entera, así que sin ventana no hay recorte y el total son
+ * las filas que llegaron. CERO cálculo: el total es el que publicó el motor.
+ */
+export function edaRateWindow(eda: EdaResult | null | undefined): EdaRateWindow {
+  const shown = (eda?.default_rate ?? []).length
+  const window = eda?.default_rate_window ?? null
+  if (!window) return { shown, total: shown, truncated: false }
+  return { shown, total: window.total_periods, truncated: window.truncated }
+}
+
 /** La señal temporal tal como la dejó el motor: marcada, sin aviso o no evaluable con su causa. */
 export type EdaStabilitySummary =
   | { kind: "not_evaluable"; reason: string; indicator: string }

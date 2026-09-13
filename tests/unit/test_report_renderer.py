@@ -77,9 +77,15 @@ class MiniFigure(BaseModel):
 
 
 class FrameLike:
-    """Objeto con forma de DataFrame para cubrir ramas defensivas."""
+    """Objeto con forma de DataFrame para cubrir ramas defensivas.
+
+    Modela lo que el renderer le pide a una tabla: ``columns``/``copy``/``select_dtypes`` para
+    reconocerla, y ``index``/``head``/``to_dict`` para contar sus filas y recortarlas ANTES de
+    formatearlas (``_table_view``).
+    """
 
     columns: tuple[str, ...] = ("valor",)
+    index: tuple[int, ...] = (0,)
 
     def copy(self, *, deep: bool) -> FrameLike:
         """Devuelve copia sintética."""
@@ -89,6 +95,11 @@ class FrameLike:
     def select_dtypes(self) -> tuple[object, ...]:
         """Imita ``DataFrame.select_dtypes``."""
         return ()
+
+    def head(self, n: int) -> FrameLike:
+        """Imita ``DataFrame.head``: con una sola fila, cualquier recorte es la misma tabla."""
+        assert n >= 1
+        return self
 
     def to_dict(self, *, orient: str) -> list[dict[str, float]]:
         """Entrega registros determinísticos."""
@@ -815,6 +826,45 @@ def test_las_figuras_de_eda_se_dibujan_en_el_cuerpo_de_la_subseccion() -> None:
     """
     assert _eda_charts(3, axis="period") == ["chart-eda-eda_default_rate", "chart-eda-eda_profiles"]
     assert _eda_charts(1, axis="cohort") == ["chart-eda-eda_default_rate", "chart-eda-eda_profiles"]
+
+
+def test_la_vista_de_una_tabla_solo_formatea_las_filas_que_muestra() -> None:
+    """🔴 Cierre 1 de D-SC: con una cohorte casi única `by_period` trae una fila por operación y la
+    vista formateaba TODAS las celdas para mostrar 200 —5,9 s medidos con un millón de filas—: el
+    recorte va antes del formato. El oráculo es una celda venenosa más allá del tope, cuyo texto no
+    se puede producir; el total y la marca de truncado siguen contando la tabla entera."""
+
+    class Venenosa:
+        def __str__(self) -> str:
+            raise AssertionError("se formateó una fila que la vista no muestra")
+
+    table = pd.DataFrame({"period": ["a", "b", Venenosa()], "n": [1, 2, 3]})
+    vista = renderer_module._table_view("eda.default_rate.by_period", table, max_rows=2)
+    assert vista["rows"] == [("a", "1"), ("b", "2")]
+    assert (vista["total_rows"], vista["shown_rows"], vista["truncated"]) == (3, 2, True)
+
+
+@pytest.mark.skipif(not _HAS_MATPLOTLIB, reason="requiere el extra report (matplotlib)")
+def test_el_informe_con_una_cohorte_casi_unica_dice_cuantas_filas_muestra_de_cuantas() -> None:
+    """Cierre 1 de D-SC en el informe: la tabla de la tasa por cohorte se recorta a
+    `max_table_rows` y lo dice («mostrando N de M filas»), la figura grafica sesenta y lo dice, y
+    ninguna de las cohortes que quedaron fuera llega al HTML."""
+    n = 1_500
+    section = _section("context.eda", "Población y calidad de datos", level=2, number="2.2")
+    tables = _eda_tables(n)
+    tables["eda.default_rate.by_period"]["period"] = [f"ID-{i:05d}" for i in range(n)]
+    bundle = _bundle(tables=tables, figures={}, sections_override=(section,)).model_copy(
+        update={"cards": {"eda": {"axis": "cohort", "n_periods": n}}}
+    )
+    html = HtmlReportRenderer.from_config(
+        ReportConfig(sections=SectionPolicyConfig(max_table_rows=200))
+    ).render(bundle)
+
+    assert "(mostrando 200 de 1500 filas)" in html
+    assert "(primeras 60 de 1500 cohortes)" in html
+    assert "ID-00199" in html
+    assert "ID-00200" not in html
+    assert "ID-01499" not in html
 
 
 def test_con_un_solo_periodo_no_hay_figura_de_la_tasa_y_los_perfiles_siguen() -> None:

@@ -873,6 +873,59 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     expect(pocas).not.toContain("Se grafican las primeras")
   })
 
+  it("🔴 con la tasa recortada al tope, el panel dice cuántas muestra de cuántas y ofrece la tabla completa", () => {
+    // Cierre 1 de D-SC (delegado por Cami el 2026-09-12): el serializer publica como máximo
+    // 1.000 períodos/cohortes y declara el total y el recorte en `default_rate_window`; la tabla
+    // completa queda como archivo de la corrida, que el panel ofrece como descarga.
+    const n = 1_000
+    const total = 1_234_567
+    const filas = Array.from({ length: n }, (_, i) => ({
+      period: `ID-${String(i).padStart(5, "0")}`,
+      n_total: 1,
+      n_eligible: 1,
+      n_bad: i % 3 === 0 ? 1 : 0,
+      default_rate: i % 3 === 0 ? 1 : 0,
+      low_confidence: false,
+      period_type: "str",
+    }))
+    const html = render(
+      conEda({
+        ...base,
+        n_periods: total,
+        default_rate: filas,
+        default_rate_window: { total_periods: total, truncated: true },
+      }),
+    )
+    // `formatCount` separa miles con coma: es la convención de toda la pantalla.
+    expect(html).toContain("Se muestran las primeras 1,000 de 1,234,567 cohortes")
+    // El gráfico cuenta contra el total del motor, no contra las filas publicadas, y ya no
+    // promete que «la tabla de abajo trae todas».
+    expect(html).toContain("Se grafican las primeras 60 de 1,234,567 cohortes")
+    expect(html).toContain("la tabla de abajo trae las primeras 1,000.")
+    expect(html).not.toContain("la tabla de abajo trae todas")
+    expect(html).toContain("Descargar la tabla completa (CSV)")
+    expect(html).toContain(`/api/results/${minima(null).run_id}/eda-default-rate`)
+    // La cifra del encabezado es la misma: el total que calculó el motor.
+    expect(html).toContain("1,234,567 cohortes")
+    expect(html).toContain("ID-00999")
+  })
+
+  it("sin recorte no hay nota ni descarga, aunque la ventana venga declarada", () => {
+    const html = render(
+      conEda({ ...base, default_rate_window: { total_periods: 5, truncated: false } }),
+    )
+    expect(html).not.toContain("Se muestran las primeras")
+    expect(html).not.toContain("Descargar la tabla completa")
+    expect(html).not.toContain("eda-default-rate")
+  })
+
+  it("un payload anterior a la ventana —la demo capturada— se lee como tabla entera", () => {
+    expect("default_rate_window" in base).toBe(false)
+    const html = render(conEda(base))
+    expect(html).not.toContain("Se muestran las primeras")
+    expect(html).not.toContain("Descargar la tabla completa")
+  })
+
   it("ningún slug del motor llega a la pantalla", () => {
     const html = render(conEda(base))
     for (const slug of ["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero", ">cv<"]) {

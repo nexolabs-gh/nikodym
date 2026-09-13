@@ -71,25 +71,34 @@ function pointColor(point: EdaRatePoint): string {
  * y lo dicen en el tooltip: se ven, marcados, como en la tabla del motor. Una tasa AUSENTE (ningún
  * caso elegible) no se dibuja —ni barra ni punto, y la línea se corta— y la leyenda lo dice, igual
  * que la figura del informe. Sobre cohortes se grafican como máximo `EDA_MAX_RATE_BARS`, en el
- * orden del motor, y se dice; la tabla trae todas.
+ * orden del motor, y se dice contra `totalPeriods` —las que calculó el motor, no las que
+ * llegaron: el payload publica hasta un tope (cierre 1 de D-SC)—; la tabla trae las publicadas.
  */
 export function EdaDefaultRateChart({
   kind,
   points,
+  totalPeriods,
 }: {
   kind: "line" | "bar"
   points: EdaRatePoint[]
+  /** Períodos o cohortes que calculó el motor; `points` puede ser una ventana de ellos. */
+  totalPeriods: number
 }) {
   if (points.length === 0) return null
   const shown = kind === "bar" ? points.slice(0, EDA_MAX_RATE_BARS) : points
   const data = shown.map((p) => ({ ...p, rateOrNull: p.rate ?? undefined }))
+  const total = Math.max(totalPeriods, points.length)
 
   return (
     <div className="space-y-2" data-eda-chart={kind}>
-      {points.length > shown.length ? (
+      {total > shown.length ? (
         <p className="text-xs text-muted-foreground">
-          Se grafican las primeras {formatCount(shown.length)} de {formatCount(points.length)}{" "}
-          cohortes, en el orden del motor; la tabla de abajo trae todas.
+          {kind === "bar"
+            ? `Se grafican las primeras ${formatCount(shown.length)} de ${formatCount(total)} cohortes, en el orden del motor; ` +
+              (points.length < total
+                ? `la tabla de abajo trae las primeras ${formatCount(points.length)}.`
+                : "la tabla de abajo trae todas.")
+            : `Se grafican los primeros ${formatCount(shown.length)} de ${formatCount(total)} períodos, en el orden del motor; la tabla de abajo trae los mismos.`}
         </p>
       ) : null}
       <div className="h-64 w-full">

@@ -37,7 +37,14 @@ if TYPE_CHECKING:
 
     from nikodym.core.study import Study
 
-__all__ = ["dump_dto", "public_engine_message", "serialize_study", "to_records"]
+__all__ = [
+    "EDA_MAX_PUBLISHED_PERIODS",
+    "dump_dto",
+    "eda_default_rate_frame",
+    "public_engine_message",
+    "serialize_study",
+    "to_records",
+]
 
 # Mapa canónico dominio → clave de su *card* en ``study.artifacts``. La clave NO es uniforme:
 # binning/selection/model usan ``"<dom>_card"``; scorecard/calibration/performance/stability usan
@@ -241,7 +248,11 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         # columna con sus tres marcas, y los perfiles por variable REDUCIDOS a una fila por tramo
         # (columna, tramo, n, cobertura, tasa). Nunca el frame ni las figuras: las figuras son
         # recetas para el informe y el panel decide qué graficar por el eje efectivo de la card.
-        payload["eda"]["default_rate"] = _eda_default_rate(study)
+        # La tasa viaja hasta un tope, y su ventana dice cuántas filas calculó el motor y si se
+        # recortó (cierre 1 de D-SC): la tabla completa es el artefacto de la corrida.
+        rows, window = _eda_default_rate(study)
+        payload["eda"]["default_rate"] = rows
+        payload["eda"]["default_rate_window"] = window
         payload["eda"]["quality"] = _eda_quality(study)
         payload["eda"]["univariate"] = _eda_univariate(study)
     if isinstance(payload["binning"], dict):
@@ -333,21 +344,56 @@ def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]]
     return _frame_records(study.artifacts.get(domain, key))
 
 
-def _eda_default_rate(study: Study) -> list[dict[str, Any]] | None:
-    """La tasa por período o cohorte (``DefaultRateResult.by_period``); ``None`` si falta.
+#: Períodos o cohortes de la tasa que la respuesta publica como máximo (cierre 1 de D-SC, decidido
+#: por delegación de Cami el 2026-09-12). El eje de cohorte acepta cualquier columna y una casi
+#: única —un identificador— produce una fila por operación: sin tope, un millón de cohortes eran
+#: 73 s, 135 MB de JSON y 634 MB de pico al serializar (cuarta pasada adversarial de S9). Se acota
+#: la RESPUESTA, no el eje: el motor calcula la tabla entera y la conserva como artefacto; aquí
+#: viajan las primeras filas en su orden, con la ventana que dice cuántas hay y que se recortó.
+EDA_MAX_PUBLISHED_PERIODS: Final = 1000
+
+
+def eda_default_rate_frame(study: Study) -> pd.DataFrame | None:
+    """La tasa por período o cohorte ENTERA, proyectada como viaja en el payload; ``None`` si falta.
+
+    Es la tabla completa que la respuesta recorta cuando supera :data:`EDA_MAX_PUBLISHED_PERIODS`:
+    todas las filas de ``DefaultRateResult.by_period``, en el orden del motor, con el ``period`` ya
+    convertido a su etiqueta JSON y el ``period_type`` al lado —exactamente las columnas de una
+    fila de ``eda.default_rate``—, para que el archivo de la corrida y la pantalla digan lo mismo.
+    La persistencia (``ui.runs``) la escribe; este módulo sigue sin tocar el disco.
+    """
+    if not study.artifacts.has("eda", "default_rate"):
+        return None
+    return _project_periods(study.artifacts.get("eda", "default_rate").by_period)
+
+
+def _eda_default_rate(
+    study: Study,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """La tasa por período o cohorte (``DefaultRateResult.by_period``) hasta el tope, y su ventana.
 
     Los artefactos de ``eda`` son DTOs que envuelven su tabla: se desenvuelven aquí, en la
     frontera, en vez de pedirle al motor que publique la tabla dos veces. El ``period`` de un eje
     temporal es un ``pd.Period``: viaja como su texto, igual que en el informe.
+
+    Viajan **las primeras** :data:`EDA_MAX_PUBLISHED_PERIODS` filas en el orden del motor —el
+    recorte va ANTES de proyectar etiquetas y records, que es lo que costaba— y la ventana declara
+    ``total_periods`` (cuántas calculó el motor; la misma cifra que ``n_periods`` en la card) y
+    ``truncated``. Ambos ``None`` cuando el artefacto falta: nada se fabrica.
     """
     if not study.artifacts.has("eda", "default_rate"):
-        return None
+        return None, None
     by_period = study.artifacts.get("eda", "default_rate").by_period
-    return _frame_records(
-        by_period.assign(
-            period=by_period["period"].map(_period_label),
-            period_type=by_period["period"].map(_period_type),
-        )
+    total = len(by_period)
+    rows = _frame_records(_project_periods(by_period.head(EDA_MAX_PUBLISHED_PERIODS)))
+    return rows, {"total_periods": total, "truncated": total > EDA_MAX_PUBLISHED_PERIODS}
+
+
+def _project_periods(by_period: pd.DataFrame) -> pd.DataFrame:
+    """``by_period`` con el ``period`` como etiqueta JSON y el ``period_type`` del motor al lado."""
+    return by_period.assign(
+        period=by_period["period"].map(_period_label),
+        period_type=by_period["period"].map(_period_type),
     )
 
 

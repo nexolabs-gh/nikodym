@@ -509,6 +509,16 @@ export function getResults(runId: string): Promise<ResultsResponse> {
   return request<ResultsResponse>(`results/${encodeURIComponent(runId)}`)
 }
 
+/**
+ * URL de `GET /api/results/{run_id}/eda-default-rate` — la tasa por período o cohorte ENTERA, como
+ * CSV, cuando `/api/results` la recortó al tope (cierre 1 de D-SC). Es un enlace de descarga, no
+ * una petición: el navegador la baja tal cual. El backend responde 404 si no hubo recorte, y el
+ * panel sólo la ofrece cuando `default_rate_window.truncated` lo dice.
+ */
+export function edaDefaultRateCsvUrl(runId: string): string {
+  return `${API_BASE}/api/results/${encodeURIComponent(runId)}/eda-default-rate`
+}
+
 /** GET /api/report/{run_id} — HTML determinístico del reporte (texto crudo). */
 export async function getReport(runId: string): Promise<string> {
   if (DEMO_MODE) return demoGetReport()

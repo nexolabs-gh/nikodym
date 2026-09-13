@@ -139,6 +139,17 @@ tabla trae todas. La prosa dice el eje efectivo, si el motor lo tomó de la part
 señal temporal no se evaluó cuando no se evaluó. Los perfiles por variable van al anexo de tablas,
 uno por columna descrita.
 
+**Cuando el eje tiene demasiados valores.** Un identificador no es una cohorte, pero el eje lo
+acepta, y entonces el motor calcula una tasa por operación —la tabla tiene tantas filas como el
+archivo—. El motor no rechaza ese eje ni pierde nada: calcula la tabla entera y la conserva como
+artefacto de la corrida. Lo que se acota es lo que se **muestra**: la respuesta de la interfaz
+publica como máximo las primeras **1.000** filas, en el orden del motor, y Resultados dice «se
+muestran las primeras 1.000 de N» y ofrece la tabla completa como descarga (un CSV que queda junto
+a los resultados de la corrida, en su directorio de trabajo); el gráfico sigue dibujando sesenta.
+En el informe la tabla se recorta al máximo de filas por tabla configurado en la sección «Informe»
+(200 de fábrica) y lo dice al pie —«mostrando N de M filas»—, como cualquier otra tabla larga.
+Por código, `DefaultRateResult.by_period` trae siempre todas las filas.
+
 ## 6. Por código
 
 La sección se configura igual desde YAML o desde Python; la interfaz es un editor del mismo config.

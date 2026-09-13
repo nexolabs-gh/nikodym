@@ -758,23 +758,26 @@ def _table_view(
             f"Tabla no renderizable en report: clave='{key}', acción='publique un DataFrame'."
         )
     columns = tuple(c for c in table.columns if str(c) not in _AUDIT_ONLY_COLUMNS)
-    records = cast(list[Mapping[Any, Any]], table.to_dict(orient="records"))
-    rows = [
+    total_rows = len(table.index)
+    # Se recorta ANTES de formatear: la tasa por una cohorte casi única trae una fila por
+    # operación, y formatear el millón de celdas para mostrar doscientas costaba 5,9 s medidos
+    # (cierre 1 de D-SC). El total y la marca de truncado siguen contando la tabla entera.
+    records = cast(list[Mapping[Any, Any]], table.head(max_rows).to_dict(orient="records"))
+    visible_rows = [
         tuple(
             _display_scalar(record.get(column), key_path=(key, str(column))) for column in columns
         )
         for record in records
     ]
-    visible_rows = rows[:max_rows]
     return {
         "key": key,
         "title": table_title(key, internal_grouping=internal_grouping),
         "html_id": _element_id("table", key),
         "columns": [str(column) for column in columns],
         "rows": visible_rows,
-        "total_rows": len(rows),
+        "total_rows": total_rows,
         "shown_rows": len(visible_rows),
-        "truncated": len(rows) > len(visible_rows),
+        "truncated": total_rows > len(visible_rows),
     }
 
 

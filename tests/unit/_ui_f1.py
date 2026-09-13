@@ -47,6 +47,11 @@ ROOT_SEED = 20_240_628
 
 def write_behavior_parquet(path: Path) -> None:
     """Materializa un frame crudo de comportamiento (30 filas) que la fake binning predice bien."""
+    _behavior_frame().to_parquet(path)
+
+
+def _behavior_frame() -> pd.DataFrame:
+    """El frame crudo de comportamiento de 30 filas, con ``loan_id`` como índice."""
     index = pd.Index([f"op-{position:03d}" for position in range(30)], name="loan_id")
     score = [
         0,
@@ -114,10 +119,9 @@ def write_behavior_parquet(path: Path) -> None:
     ]
     bad = [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1]
     cohort = ["dev"] * 24 + ["oot"] * 6
-    frame = pd.DataFrame(
+    return pd.DataFrame(
         {"score": score, "segment": segment, "bad_flag": bad, "cohort": cohort}, index=index
     )
-    frame.to_parquet(path)
 
 
 def _data_config(*, source: str | None) -> DataConfig:
@@ -184,4 +188,57 @@ def failing_config(source: str) -> NikodymConfig:
         repro=ReproConfig(seed=ROOT_SEED),
         data=_data_config(source=source),
         binning=BinningConfig(feature_columns=("no_existe",), categorical_columns=()),
+    )
+
+
+#: Columna casi única que los tests del tope de EDA usan como eje de cohorte: un identificador.
+NEAR_UNIQUE_COHORT_COL = "operacion"
+
+
+def write_near_unique_cohort_parquet(path: Path, *, repeats: int = 80) -> int:
+    """Materializa el frame de comportamiento repetido ``repeats`` veces más un identificador.
+
+    Es el caso adversarial de la cuarta pasada de Codex en S9: agrupar la tasa por una columna
+    casi única produce **una cohorte por operación**. El frame de 30 filas se apila ``repeats``
+    veces (2.400 filas de fábrica), el índice vuelve a ser único y :data:`NEAR_UNIQUE_COHORT_COL`
+    lleva un identificador distinto por fila. Devuelve el número de filas escritas; con los
+    defaults de ``eda`` —población de desarrollo— quedan más de 1.000 cohortes, que es lo que el
+    tope de la respuesta tiene que recortar.
+    """
+    base = _behavior_frame()
+    frame = pd.concat([base] * repeats, ignore_index=True)
+    frame.index = pd.Index([f"op-{position:05d}" for position in range(len(frame))], name="loan_id")
+    frame[NEAR_UNIQUE_COHORT_COL] = [f"ID-{position:05d}" for position in range(len(frame))]
+    frame.to_parquet(path)
+    return len(frame)
+
+
+def eda_only_config(source: str, *, cohort_col: str = NEAR_UNIQUE_COHORT_COL) -> NikodymConfig:
+    """Config ``data`` + ``eda`` con la tasa agrupada por ``cohort_col`` (sin modelar nada).
+
+    Sólo corre el análisis exploratorio: es lo que el tope de la respuesta acota, y correr el F1
+    entero sobre un frame apilado no aporta —su desempeño por deciles ni siquiera es evaluable con
+    tantos empates de puntaje—. ``min_obs_per_period=1`` para que cada cohorte de una sola
+    operación tenga tasa y la tabla sea tan larga como el identificador.
+    """
+    from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
+
+    data = _data_config(source=source)
+    schema = data.schema_.model_copy(
+        update={
+            "columns": (
+                *data.schema_.columns,
+                ColumnSpec(name=cohort_col, dtype="str", nullable=False),
+            )
+        }
+    )
+    return NikodymConfig(
+        repro=ReproConfig(seed=ROOT_SEED),
+        data=data.model_copy(update={"schema_": schema}),
+        eda=EdaConfig(
+            default_rate=DefaultRateConfig(
+                axis="cohort", cohort_col=cohort_col, min_obs_per_period=1
+            ),
+            univariate=UnivariateConfig(columns=("score",), n_quantile_bins=2),
+        ),
     )

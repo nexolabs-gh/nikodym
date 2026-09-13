@@ -469,15 +469,18 @@ def _claves_de_la_interfaz_ts(nombre: str) -> list[str]:
 def test_el_tipo_eda_result_espeja_la_card_y_sus_tres_tablas() -> None:
     """Renombrar, añadir o quitar un campo de ``EdaCardSection`` sin tocar el tipo pone rojo.
 
-    Las tres tablas van al final, en el orden en que el serializer las fusiona, y son las únicas
-    claves que la card no declara: cualquier otra diferencia es deriva.
+    Las tres tablas van al final, en el orden en que el serializer las fusiona —la tasa con su
+    ventana al lado (cierre 1 de D-SC: cuántas filas calculó el motor y si se recortó)—, y son las
+    únicas claves que la card no declara: cualquier otra diferencia es deriva.
     """
     assert _claves_de_la_interfaz_ts("EdaResult") == [
         *EdaCardSection.model_fields,
         "default_rate",
+        "default_rate_window",
         "quality",
         "univariate",
     ]
+    assert _claves_de_la_interfaz_ts("EdaDefaultRateWindow") == ["total_periods", "truncated"]
 
 
 def test_el_tope_de_barras_por_cohorte_es_el_mismo_en_el_informe_y_en_la_pantalla() -> None:
@@ -500,7 +503,9 @@ def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -
     from nikodym.ui import serializers
 
     fuente = Path(serializers.__file__).read_text(encoding="utf-8")
-    inicio = fuente.index("def _eda_default_rate(")
+    # La proyección vive en `_project_periods`, que comparten el payload (hasta el tope) y la
+    # tabla completa que se conserva como archivo de la corrida (cierre 1 de D-SC).
+    inicio = fuente.index("def _project_periods(")
     cuerpo = fuente[inicio : fuente.index("\n\n\ndef ", inicio)]
     asignadas = re.findall(r"^\s+([a-z_]+)=by_period\[", cuerpo, re.M)
     anadidas = [columna for columna in asignadas if columna not in _COLUMNAS_TASA]

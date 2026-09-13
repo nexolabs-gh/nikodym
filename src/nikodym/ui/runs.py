@@ -4,6 +4,9 @@ Cada corrida se persiste como su **payload ya serializado** (``results.json`` de
 :func:`~nikodym.ui.serializers.serialize_study`) más, si la produjo, el HTML del reporte
 (``report.html``). Se evita *pickle* del ``Study`` vivo (arrastra el stack ML y es frágil entre
 versiones): se guarda solo lo que la UI necesita servir (decisión de implementación D-UI, §4.3).
+La única tabla que el payload puede no traer entera es la tasa de incumplimiento por período o
+cohorte —viaja hasta un tope, cierre 1 de D-SC—, y cuando se recorta la tabla completa queda al
+lado, como ``eda_default_rate.csv``: el archivo existe **si y sólo si** la respuesta se recortó.
 
 El ``run_id`` (``uuid4().hex`` que genera ``Study.run()``) es la clave de persistencia y compone
 rutas, así que se **valida** contra su forma canónica (32 hex) y se verifica que la ruta resuelta
@@ -42,7 +45,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from nikodym.ui.exceptions import UiError, UiRunNotFoundError
-from nikodym.ui.serializers import serialize_study
+from nikodym.ui.serializers import eda_default_rate_frame, serialize_study
 
 if TYPE_CHECKING:
     from nikodym.core.study import Study
@@ -51,6 +54,7 @@ if TYPE_CHECKING:
 __all__ = [
     "asegurar_workdir",
     "load_audit_trail",
+    "load_eda_default_rate",
     "load_report",
     "load_report_docx",
     "load_report_md",
@@ -78,6 +82,8 @@ _REPORT_FILENAME = "report.html"
 _REPORT_PDF_FILENAME = "report.pdf"
 _REPORT_MD_FILENAME = "report.qmd"
 _REPORT_DOCX_FILENAME = "report.docx"
+# La tasa por período o cohorte ENTERA, sólo cuando la respuesta la recortó (cierre 1 de D-SC).
+_EDA_DEFAULT_RATE_FILENAME = "eda_default_rate.csv"
 _REPORT_ARTIFACTS = (("report", "result"), ("report", "manifest"))
 # Sufijo del directorio hermano de figuras del ``.qmd`` (lo fija ``nikodym.report.markdown``). Se
 # replica aquí como convención de nombres —no como import— para no acoplar el backend al dominio.
@@ -134,8 +140,9 @@ def save(
     Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida los produjo, el
     reporte HTML (``report.html``), su PDF (``report.pdf``) y las **fuentes editables**: el ``.qmd``
     de Quarto (``report.qmd``, con su directorio de figuras al lado, para que compile tal cual) y el
-    ``.docx`` de Word (``report.docx``). Un ``Study`` sin ``run_id`` (no ejecutado) es un error de
-    uso.
+    ``.docx`` de Word (``report.docx``). Si el payload recortó la tasa por período o cohorte, la
+    tabla completa va al lado como ``eda_default_rate.csv`` (:func:`_save_eda_default_rate`). Un
+    ``Study`` sin ``run_id`` (no ejecutado) es un error de uso.
     """
     run_id = study.run_context.run_id
     if run_id is None:
@@ -152,6 +159,7 @@ def save(
     (run_dir / _RESULTS_FILENAME).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )
+    _save_eda_default_rate(study, payload, run_dir)
     html = _report_html(study)
     if html is not None:
         (run_dir / _REPORT_FILENAME).write_text(html, encoding="utf-8")
@@ -163,6 +171,33 @@ def save(
     if docx is not None:
         (run_dir / _REPORT_DOCX_FILENAME).write_bytes(docx)
     return run_id
+
+
+def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path) -> None:
+    """Escribe la tasa por período o cohorte ENTERA si —y sólo si— el payload la recortó.
+
+    El serializer publica hasta :data:`~nikodym.ui.serializers.EDA_MAX_PUBLISHED_PERIODS` filas y
+    lo declara en ``eda.default_rate_window`` (cierre 1 de D-SC); la tabla completa es un artefacto
+    del motor y aquí se conserva como archivo de la corrida, con las mismas columnas que la fila
+    del payload y en el mismo orden, para que el panel pueda ofrecerla. Sin recorte no se
+    duplica: ``results.json`` ya la trae entera. CSV UTF-8 con BOM y saltos LF, como los
+    exports de datos del informe: byte-determinista y legible en Excel.
+    """
+    eda = payload.get("eda")
+    if not isinstance(eda, dict):
+        return
+    window = eda.get("default_rate_window")
+    if not isinstance(window, dict) or not window.get("truncated"):
+        return
+    frame = eda_default_rate_frame(study)
+    if frame is None:  # inalcanzable: la ventana sólo existe con el artefacto; no se fabrica
+        return
+    frame.to_csv(
+        run_dir / _EDA_DEFAULT_RATE_FILENAME,
+        index=False,
+        encoding="utf-8-sig",
+        lineterminator="\n",
+    )
 
 
 def _archivar_trail(trail: Path | None, run_dir: Path) -> Path | None:
@@ -186,6 +221,18 @@ def load_results(run_id: str, *, workdir: Path) -> dict[str, Any]:
         raise UiRunNotFoundError(f"no existe la corrida '{run_id}' bajo el directorio de trabajo.")
     loaded: dict[str, Any] = json.loads(results_path.read_text(encoding="utf-8"))
     return loaded
+
+
+def load_eda_default_rate(run_id: str, *, workdir: Path) -> bytes | None:
+    """Devuelve el CSV con la tasa por período o cohorte entera, o ``None`` si no existe (→ 404).
+
+    Sólo existe cuando la respuesta la recortó (:func:`_save_eda_default_rate`); para una corrida
+    sin recorte ``results.json`` ya trae la tabla completa, y no se fabrica ningún archivo al leer.
+    """
+    csv_path = _run_dir(workdir, run_id) / _EDA_DEFAULT_RATE_FILENAME
+    if not csv_path.is_file():
+        return None
+    return csv_path.read_bytes()
 
 
 def load_report(run_id: str, *, workdir: Path) -> str | None:
