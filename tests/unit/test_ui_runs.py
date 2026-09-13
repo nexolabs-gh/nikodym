@@ -156,7 +156,7 @@ def test_la_tabla_completa_de_la_tasa_queda_como_archivo_de_la_corrida_si_se_rec
 ) -> None:
     """🔴 Cierre 1 de D-SC: la respuesta publica hasta el tope y la tabla ENTERA queda como
     artefacto de la corrida. ``save`` escribe ``eda_default_rate.csv`` con todas las filas y las
-    mismas columnas que la fila del payload; ``load_eda_default_rate`` lo sirve."""
+    mismas columnas que la fila del payload; ``eda_default_rate_path`` la sirve por trozos."""
     import pandas as pd
 
     parquet = tmp_path / "cartera.parquet"
@@ -171,8 +171,9 @@ def test_la_tabla_completa_de_la_tasa_queda_como_archivo_de_la_corrida_si_se_rec
     assert payload["eda"]["default_rate_window"]["truncated"] is True
     csv = workdir / "runs" / run_id / "eda_default_rate.csv"
     assert csv.is_file()
-    contenido = runs.load_eda_default_rate(run_id, workdir=workdir)
-    assert contenido == csv.read_bytes()
+    # La persistencia entrega la RUTA, no los bytes: el endpoint la sirve por trozos.
+    assert runs.eda_default_rate_path(run_id, workdir=workdir) == csv
+    contenido = csv.read_bytes()
     assert contenido.startswith(b"\xef\xbb\xbf")  # UTF-8 con BOM, como los exports del informe
     tabla = pd.read_csv(io.BytesIO(contenido))
     assert len(tabla) == payload["eda"]["default_rate_window"]["total_periods"]
@@ -188,7 +189,7 @@ def test_sin_recorte_no_hay_archivo_de_la_tasa(
     fake_binning_process: object, tmp_path: Path
 ) -> None:
     """El archivo existe si y sólo si la respuesta se recortó: con pocas cohortes el payload ya
-    trae la tabla entera y no se duplica en disco (``load_eda_default_rate`` → ``None``)."""
+    trae la tabla entera y no se duplica en disco (``eda_default_rate_path`` → ``None``)."""
     del fake_binning_process
     from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
 
@@ -211,7 +212,7 @@ def test_sin_recorte_no_hay_archivo_de_la_tasa(
     payload = runs.load_results(run_id, workdir=workdir)
     assert payload["eda"]["default_rate_window"]["truncated"] is False
     assert not (workdir / "runs" / run_id / "eda_default_rate.csv").exists()
-    assert runs.load_eda_default_rate(run_id, workdir=workdir) is None
+    assert runs.eda_default_rate_path(run_id, workdir=workdir) is None
 
 
 def test_sin_eda_no_hay_archivo_de_la_tasa(f1_study: Study, tmp_path: Path) -> None:
@@ -219,7 +220,7 @@ def test_sin_eda_no_hay_archivo_de_la_tasa(f1_study: Study, tmp_path: Path) -> N
     workdir = tmp_path / "wd"
     run_id = runs.save(f1_study, workdir=workdir, governance=None)
     assert not (workdir / "runs" / run_id / "eda_default_rate.csv").exists()
-    assert runs.load_eda_default_rate(run_id, workdir=workdir) is None
+    assert runs.eda_default_rate_path(run_id, workdir=workdir) is None
 
 
 def test_save_study_sin_run_id_falla(tmp_path: Path) -> None:

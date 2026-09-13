@@ -610,6 +610,29 @@ def test_eda_default_rate_acota_las_cohortes_y_lo_dice_en_el_titulo() -> None:
     assert "c000" in svg and "c060" not in svg and "c199" not in svg
 
 
+def test_eda_default_rate_por_cohorte_recorta_el_frame_antes_de_materializarlo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Pasada 1 de Codex sobre e13bac3: el tope de sesenta se aplicaba a los records, y
+    `_frame_records` ya había copiado las tres columnas y creado un diccionario por fila —una por
+    operación con una cohorte casi única—. El frame que se materializa es el ya recortado; el
+    título sigue contando la tabla entera, y sobre el eje temporal no se recorta nada."""
+    original = charts._frame_records
+    vistos: list[int] = []
+
+    def espia(frame: pd.DataFrame, columns: tuple[str, ...]) -> list[dict[str, object]]:
+        vistos.append(len(frame))
+        return original(frame, columns)
+
+    monkeypatch.setattr(charts, "_frame_records", espia)
+    svg = charts.render_eda_default_rate(_eda_by_period(500), axis="cohort", title="T")
+    assert vistos == [charts._MAX_EDA_RATE_BARS]
+    assert "(primeras 60 de 500 cohortes)" in svg
+    vistos.clear()
+    charts.render_eda_default_rate(_eda_by_period(120, axis_labels=True), axis="period", title="T")
+    assert vistos == [120]
+
+
 def test_eda_default_rate_con_muchos_periodos_rotula_solo_algunas_marcas() -> None:
     """La línea dibuja todos los períodos; los rótulos del eje se ralean para que se lean."""
     n = 120

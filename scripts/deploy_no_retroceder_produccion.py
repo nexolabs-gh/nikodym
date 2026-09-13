@@ -24,9 +24,10 @@ producción SIRVE —la huella `build-sha.txt` que el propio Deploy sella en los
 Y la vía MANUAL exige el CI del commit (pasada 12): el `if` del job sólo comprueba el CI verde
 cuando lo dispara un `workflow_run`; un `workflow_dispatch` publicaba cualquier commit de `main`
 sin mirar si su CI terminó, y en qué. Sin `forzar`, el script consulta por la API de Actions los
-runs de `ci.yml` de `DEPLOY_SHA` y sólo sigue si alguno terminó en `success`: uno sin terminar,
-ninguno en éxito, ninguno en absoluto o una API que no responde detienen el Deploy en rojo. Con
-`forzar`, avisa y publica a sabiendas, como con el resto de la regla.
+runs de `ci.yml` de `DEPLOY_SHA` **en `main`** —el verde de un tag o de otra rama sobre el mismo
+commit es un CI reducido y no cuenta— y sólo sigue si alguno terminó en `success`: uno sin
+terminar, ninguno en éxito, ninguno en absoluto o una API que no responde detienen el Deploy en
+rojo. Con `forzar`, avisa y publica a sabiendas, como con el resto de la regla.
 """
 
 from __future__ import annotations
@@ -60,6 +61,9 @@ CI_SIN_RUNS = "sin_runs"
 CI_NO_VERIFICABLE = "no_verificable"
 #: Estados de un run que todavía no terminó (`status` de la API de Actions).
 _RUN_EN_CURSO = frozenset({"queued", "in_progress", "waiting", "pending", "requested"})
+#: La única rama cuyo CI corre TODOS los gates (`test-all` sólo corre en PR o en `refs/heads/main`):
+#: un run verde de un tag o de otra rama sobre el mismo commit es un CI reducido y no cuenta.
+_RAMA_DE_PRODUCCION = "main"
 
 
 @dataclass(frozen=True)
@@ -105,11 +109,15 @@ def consultar_ci(
 ) -> tuple[str, str]:
     """Clasifica los runs de `ci.yml` de `deploy_sha` (pasada 12): (`verde` | … , motivo).
 
-    Verde si algún run terminó en `success` (dos runs del mismo SHA —el push y un tag— pueden
-    convivir, y un rojo aislado del runner en uno no invalida el verde del otro); `pendiente` si
-    alguno sigue corriendo y ninguno está en verde; `rojo` si todos terminaron sin éxito;
-    `sin_runs` si el commit no tiene CI; y `no_verificable` sin token o si la API no respondió
-    algo legible tras `intentos`. Nunca fabrica un verde: la duda detiene.
+    Sólo cuentan los runs de `main` (`head_branch`): `ci.yml` corre en cualquier rama y en los
+    tags, pero `test-all` sólo corre en PR o en `refs/heads/main`, así que el verde de un tag o de
+    otra rama sobre el MISMO commit es un CI reducido que no habilita publicar un `main` rojo
+    (pasada 1 de la revisión adversarial de esta serie). Verde si algún run de `main` terminó en
+    `success` (un rerun verde de `main` cuenta; un rojo aislado del runner al lado no lo invalida);
+    `pendiente` si alguno de `main` sigue corriendo y ninguno está en verde; `rojo` si todos los de
+    `main` terminaron sin éxito; `sin_runs` si el commit no tiene CI de `main`; y `no_verificable`
+    sin token o si la API no respondió algo legible tras `intentos`. Nunca fabrica un verde: la
+    duda detiene.
     """
     corto = deploy_sha[:7]
     if not token:
@@ -143,8 +151,12 @@ def consultar_ci(
         return CI_NO_VERIFICABLE, (
             f"no se pudo consultar el CI de {corto} por la API de Actions: no se publica a ciegas"
         )
+    runs = [run for run in runs if run.get("head_branch") == _RAMA_DE_PRODUCCION]
     if not runs:
-        return CI_SIN_RUNS, f"no hay ningún run de ci.yml para {corto}: no se publica sin CI"
+        return CI_SIN_RUNS, (
+            f"no hay ningún run de ci.yml de {_RAMA_DE_PRODUCCION} para {corto} (los de otras "
+            "ramas o tags no cuentan: no corren todos los gates): no se publica sin CI"
+        )
     en_verde = [run for run in runs if run.get("conclusion") == "success"]
     if en_verde:
         return CI_VERDE, f"el CI de {corto} terminó en verde ({en_verde[0].get('html_url', '')})"
@@ -155,7 +167,10 @@ def consultar_ci(
             "espera su verde antes de publicar"
         )
     conclusiones = ", ".join(sorted({str(run.get("conclusion")) for run in runs}))
-    return CI_ROJO, f"el CI de {corto} no terminó en success ({conclusiones}): no se publica"
+    return CI_ROJO, (
+        f"el CI de {_RAMA_DE_PRODUCCION} para {corto} no terminó en success ({conclusiones}): "
+        "no se publica"
+    )
 
 
 def _git(repo: Path, *args: str) -> bool:

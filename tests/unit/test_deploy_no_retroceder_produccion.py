@@ -279,8 +279,20 @@ def _api_de_actions(
     return consultas
 
 
-def _run(status: str, conclusion: str | None) -> dict[str, Any]:
-    return {"status": status, "conclusion": conclusion, "html_url": "https://x.invalid/run"}
+def _run(
+    status: str,
+    conclusion: str | None,
+    *,
+    head_branch: str = "main",
+    event: str = "push",
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "conclusion": conclusion,
+        "head_branch": head_branch,
+        "event": event,
+        "html_url": "https://x.invalid/run",
+    }
 
 
 @pytest.mark.parametrize(
@@ -293,6 +305,35 @@ def _run(status: str, conclusion: str | None) -> dict[str, Any]:
         ([_run("completed", "failure")], "rojo", "no terminó en success"),
         ([_run("completed", "cancelled")], "rojo", "no terminó en success"),
         ([], "sin_runs", "ningún run"),
+        # 🔴 Pasada 1 de Codex sobre e13bac3: `ci.yml` corre en cualquier rama y en los tags, y
+        # `test-all` sólo corre en PR o en `refs/heads/main`. El run verde de un tag o de otra rama
+        # sobre el MISMO commit es un CI reducido: no habilita el deploy de un `main` rojo.
+        (
+            [
+                _run("completed", "failure"),
+                _run("completed", "success", head_branch="v1.14.0"),
+            ],
+            "rojo",
+            "no terminó en success",
+        ),
+        (
+            [_run("completed", "success", head_branch="recaptura-1.14.0")],
+            "sin_runs",
+            "otras ramas o tags no cuentan",
+        ),
+        (
+            [_run("completed", "success", head_branch="main", event="workflow_dispatch")],
+            "verde",
+            "en verde",
+        ),
+        (
+            [
+                _run("in_progress", None),
+                _run("completed", "success", head_branch="v1.14.0"),
+            ],
+            "pendiente",
+            "todavía no terminó",
+        ),
     ],
 )
 def test_consultar_ci_clasifica_los_runs_del_commit(

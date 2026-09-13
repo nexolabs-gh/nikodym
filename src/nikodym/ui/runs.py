@@ -53,8 +53,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "asegurar_workdir",
+    "eda_default_rate_path",
     "load_audit_trail",
-    "load_eda_default_rate",
     "load_report",
     "load_report_docx",
     "load_report_md",
@@ -223,16 +223,19 @@ def load_results(run_id: str, *, workdir: Path) -> dict[str, Any]:
     return loaded
 
 
-def load_eda_default_rate(run_id: str, *, workdir: Path) -> bytes | None:
-    """Devuelve el CSV con la tasa por período o cohorte entera, o ``None`` si no existe (→ 404).
+def eda_default_rate_path(run_id: str, *, workdir: Path) -> Path | None:
+    """La ruta del CSV con la tasa por período o cohorte entera, o ``None`` si no existe (→ 404).
 
     Sólo existe cuando la respuesta la recortó (:func:`_save_eda_default_rate`); para una corrida
     sin recorte ``results.json`` ya trae la tabla completa, y no se fabrica ningún archivo al leer.
+    Devuelve la RUTA y no los bytes a propósito: el archivo existe porque la tabla puede ser
+    enorme, y el endpoint lo sirve por trozos (``FileResponse``) en vez de cargarlo entero en
+    memoria dentro del event loop, que es lo que hacía la primera versión.
     """
     csv_path = _run_dir(workdir, run_id) / _EDA_DEFAULT_RATE_FILENAME
     if not csv_path.is_file():
         return None
-    return csv_path.read_bytes()
+    return csv_path
 
 
 def load_report(run_id: str, *, workdir: Path) -> str | None:

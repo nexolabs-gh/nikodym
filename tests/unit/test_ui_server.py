@@ -575,6 +575,33 @@ def test_eda_default_rate_presente_200_csv(client_tmp: TestClient, tmp_path: Pat
     assert respuesta.content == contenido
 
 
+def test_eda_default_rate_se_sirve_por_streaming_sin_cargarlo_entero(
+    client_tmp: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 Pasada 1 de Codex sobre e13bac3: el handler `async` leía el CSV entero con
+    `read_bytes` —bloqueando el event loop y reteniendo todos los bytes— para un artefacto que
+    existe justamente porque la tabla puede ser enorme. Se sirve como `FileResponse`, por trozos y
+    en el threadpool: con `read_bytes` vetado, la descarga sigue entera e idéntica."""
+    run_id = "f" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    contenido = b"\xef\xbb\xbfperiod,n_total\n" + b"".join(
+        f"ID-{i:05d},1\n".encode() for i in range(20_000)
+    )
+    (run_dir / "eda_default_rate.csv").write_bytes(contenido)
+
+    def _veto(self: Path) -> bytes:
+        raise AssertionError(f"la descarga cargó {self.name} entero con read_bytes")
+
+    monkeypatch.setattr(Path, "read_bytes", _veto)
+    respuesta = client_tmp.get(f"/api/results/{run_id}/eda-default-rate")
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith("text/csv")
+    assert respuesta.headers["content-length"] == str(len(contenido))
+    assert respuesta.content == contenido
+
+
 def test_eda_default_rate_sin_archivo_404(client_tmp: TestClient) -> None:
     """Sin el archivo —la respuesta no se recortó, o la corrida no corrió ``eda``— → 404."""
     assert client_tmp.get(f"/api/results/{'0' * 32}/eda-default-rate").status_code == 404

@@ -111,7 +111,8 @@ jobs:
       # cuando lo dispara un `workflow_run`; un `workflow_dispatch` publicaba cualquier commit de
       # `main` sin comprobar si su CI terminó en verde. Sin `forzar`, el script consulta los runs
       # de `ci.yml` de `DEPLOY_SHA` por la API de Actions (de ahí `actions: read` y el token) y se
-      # detiene si ninguno terminó en `success`.
+      # detiene si ninguno DE `main` terminó en `success`: el verde de un tag o de otra rama sobre
+      # el mismo commit es un CI reducido (`test-all` sólo corre en `main`) y no cuenta.
       - name: No retroceder producción
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

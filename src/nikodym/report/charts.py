@@ -632,18 +632,21 @@ def render_eda_default_rate(
     """
     columns = ("period", "default_rate", "low_confidence")
     _require_columns(by_period, frozenset(columns), what="render_eda_default_rate")
-    records = _frame_records(by_period, columns)
-    if not records:
+    n_total = len(by_period.index)
+    if n_total == 0:
         raise ReportInputError("render_eda_default_rate: la tabla de la tasa está vacía.")
-    if axis != "cohort" and len(records) < 2:
+    if axis != "cohort" and n_total < 2:
         raise ReportInputError(
             "render_eda_default_rate: una línea exige al menos dos períodos; con uno solo la tasa "
             "se reproduce en la tabla."
         )
-    n_total = len(records)
+    # El recorte va ANTES de materializar records: con una cohorte casi única la tabla trae una
+    # fila por operación, y copiar sus columnas y crear un diccionario por fila para dibujar
+    # sesenta era trabajo O(N) (pasada 1 de la revisión adversarial de esta serie).
     if axis == "cohort" and n_total > _MAX_EDA_RATE_BARS:
-        records = records[:_MAX_EDA_RATE_BARS]
-        title = f"{title} (primeras {len(records)} de {n_total} cohortes)"
+        by_period = by_period.head(_MAX_EDA_RATE_BARS)
+        title = f"{title} (primeras {_MAX_EDA_RATE_BARS} de {n_total} cohortes)"
+    records = _frame_records(by_period, columns)
 
     labels = [str(record["period"]) for record in records]
     rates = [_optional_float(record["default_rate"]) for record in records]

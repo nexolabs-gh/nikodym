@@ -1114,7 +1114,7 @@ def _error_de_dominio(exc: NikodymError) -> list[dict[str, Any]]:
 def build_router() -> APIRouter:
     """Construye el ``APIRouter`` con los endpoints del contrato (import perezoso de FastAPI)."""
     from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
-    from fastapi.responses import HTMLResponse
+    from fastapi.responses import FileResponse, HTMLResponse
 
     # Las anotaciones de los handlers son *strings* (``from __future__ import annotations``) y
     # FastAPI las resuelve con los globals del módulo; se exponen aquí los tipos de FastAPI recién
@@ -1277,10 +1277,10 @@ def build_router() -> APIRouter:
         """
         workdir = Path(request.app.state.settings.workdir)
         try:
-            csv = runs.load_eda_default_rate(run_id, workdir=workdir)
+            csv_path = runs.eda_default_rate_path(run_id, workdir=workdir)
         except UiRunNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if csv is None:
+        if csv_path is None:
             raise HTTPException(
                 status_code=404,
                 detail=(
@@ -1288,14 +1288,13 @@ def build_router() -> APIRouter:
                     "sólo se escribe cuando la respuesta la recortó."
                 ),
             )
-        return Response(
-            content=csv,
+        # Por trozos y en el threadpool (`FileResponse`), no `read_bytes` en el handler `async`:
+        # el archivo existe porque la tabla puede ser enorme, y cargarlo entero bloqueaba el
+        # event loop y retenía todos sus bytes por descarga (pasada 1 de la revisión adversarial).
+        return FileResponse(
+            csv_path,
             media_type="text/csv",
-            headers={
-                "Content-Disposition": (
-                    'attachment; filename="tasa-de-incumplimiento-por-periodo.csv"'
-                )
-            },
+            filename="tasa-de-incumplimiento-por-periodo.csv",
         )
 
     @router.post("/config/to-yaml")

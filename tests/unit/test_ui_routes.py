@@ -912,28 +912,44 @@ def test_run_pipeline_ok_persiste_y_devuelve_done(
     assert (tmp_path / "runs" / result["run_id"] / "results.json").is_file()
 
 
-#: Lo que el reloj escribe en el HTML del informe: el sello ISO de la corrida (``created_at`` del
-#: lineage) y la FECHA del informe a secas (``<dd>2026-09-12</dd>``). Se enmascaran las dos: el
-#: 2026-09-13 a las 00:00Z la comparación de dos corridas cruzó la medianoche y la fecha cambió
-#: entre una y otra (rojo aislado en el CI de `5ed1a64`; rerun en verde).
-_SELLO_DE_RELOJ = re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+00:00|Z))?")
+#: Lo que el reloj escribe en el HTML del informe, y SÓLO eso: el sello ISO de la corrida
+#: (``created_at`` del lineage) y la «Fecha de emisión» de la portada, que se deriva de él
+#: (``<dt>Fecha de emisión</dt> <dd>2026-09-12</dd>``). El 2026-09-13 a las 00:00Z la comparación
+#: de dos corridas cruzó la medianoche y esa fecha cambió entre una y otra (rojo aislado en el CI
+#: de `5ed1a64`; rerun en verde). Una fecha de NEGOCIO —una cohorte, un período— no es reloj y
+#: no se enmascara: una deriva ahí es lo que este gate existe para acusar.
+_SELLO_ISO = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+00:00|Z)")
+_FECHA_DE_EMISION = re.compile(r"(<dt>Fecha de emisión</dt>\s*<dd>)\d{4}-\d{2}-\d{2}(</dd>)")
 
 
 def _sin_sellos_de_reloj(html: str) -> str:
-    """El HTML con cada sello o fecha del reloj sustituido por ``TS``."""
-    return _SELLO_DE_RELOJ.sub("TS", html)
+    """El HTML con el sello ISO y la fecha de emisión sustituidos por ``TS``; nada más."""
+    return _FECHA_DE_EMISION.sub(r"\1TS\2", _SELLO_ISO.sub("TS", html))
 
 
 def test_la_comparacion_del_html_ignora_la_fecha_del_informe_y_el_sello() -> None:
-    """🔴 Dos informes que sólo difieren en el reloj —sello ISO y fecha a secas— son el mismo;
-    cualquier otra diferencia sigue contando."""
-    antes = "<dd>2026-09-12</dd><p>2026-09-12T23:59:59.123456+00:00</p><td>0.1234</td>"
-    despues = "<dd>2026-09-13</dd><p>2026-09-13T00:00:01+00:00</p><td>0.1234</td>"
+    """🔴 Dos informes que sólo difieren en el reloj —el sello ISO y la «Fecha de emisión» de la
+    portada— son el mismo; cualquier otra diferencia sigue contando, incluida una fecha de
+    NEGOCIO (una cohorte, un período): la máscara no la toca, porque una deriva ahí es justo lo
+    que el gate de determinismo existe para acusar (pasada 1 de Codex sobre e13bac3)."""
+    antes = (
+        "<dt>Fecha de emisión</dt>\n      <dd>2026-09-12</dd>"
+        "<p>2026-09-12T23:59:59.123456+00:00</p><td>0.1234</td><td>2024-01-01</td>"
+    )
+    despues = antes.replace("<dd>2026-09-12</dd>", "<dd>2026-09-13</dd>").replace(
+        "2026-09-12T23:59:59.123456+00:00", "2026-09-13T00:00:01+00:00"
+    )
+    assert antes != despues
     assert _sin_sellos_de_reloj(antes) == _sin_sellos_de_reloj(despues)
     assert _sin_sellos_de_reloj(antes) != _sin_sellos_de_reloj(despues.replace("0.1234", "0.1235"))
-    # Una cifra que no es una fecha no se toca (un período `2024-01` tampoco lo es).
+    # La fecha de una cohorte NO es reloj: cambiarla entre dos corridas sigue poniendo rojo.
+    assert _sin_sellos_de_reloj(antes) != _sin_sellos_de_reloj(
+        despues.replace("<td>2024-01-01</td>", "<td>2024-01-02</td>")
+    )
+    assert "2024-01-01" in _sin_sellos_de_reloj(antes)
+    # Y una cifra que no es una fecha, ni un período `2024-01`, tampoco se tocan.
     assert _sin_sellos_de_reloj("<td>2024-01</td><td>1234-56-78-90</td>") == (
-        "<td>2024-01</td><td>TS-90</td>"
+        "<td>2024-01</td><td>1234-56-78-90</td>"
     )
 
 
