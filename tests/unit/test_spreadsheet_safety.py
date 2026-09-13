@@ -135,6 +135,19 @@ def test_el_salto_de_linea_y_los_prefijos_de_ancho_completo_tambien_se_protegen(
     assert set(venenosos) <= {f"{p}{v[1:]}" for p in FORMULA_PREFIXES for v in venenosos}
 
 
+def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:
+    """🔴 Pasada 8 de la revisión adversarial (abe11fb): con una etiqueta repetida, `frame[col]`
+    devuelve un DataFrame sin `dtype` y las dos columnas quedaban sin sanear. Se recorre por
+    posición, conservando las etiquetas."""
+    frame = pd.DataFrame(
+        [["=1", "=2", 3, "+a"], ["b", "@c", 4, "d"]], columns=["texto", "texto", "n", "texto"]
+    )
+    protegido = neutralize_formula_prefixes(frame)
+    assert protegido.values.tolist() == [["'=1", "'=2", 3, "'+a"], ["b", "'@c", 4, "d"]]
+    assert list(protegido.columns) == ["texto", "texto", "n", "texto"]
+    assert frame.values.tolist() == [["=1", "=2", 3, "+a"], ["b", "@c", 4, "d"]]
+
+
 @pytest.mark.parametrize("prefijo", FORMULA_PREFIXES)
 def test_cada_prefijo_declarado_se_protege(prefijo: str) -> None:
     frame = pd.DataFrame({"texto": [f"{prefijo}x"]})

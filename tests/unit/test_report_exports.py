@@ -191,6 +191,45 @@ def test_csv_protege_el_salto_de_linea_y_los_prefijos_de_ancho_completo(tmp_path
     assert leido["'\uff1dcol"].tolist() == ["'\n=1", "'\uff0b1", "'\uff20SUM(A1)"]
 
 
+def _frame_con_columnas_homonimas() -> pd.DataFrame:
+    frame = pd.DataFrame(
+        [["=1", "=2"], ["b", "@c"]],
+        columns=["nivel", "nivel"],
+        index=pd.Index(["op-1", "op-2"], name="loan_id"),
+    )
+    return frame
+
+
+def test_csv_protege_las_dos_columnas_homonimas(tmp_path: Path) -> None:
+    """🔴 Pasada 8 de la revisión adversarial (abe11fb): dos columnas con el mismo nombre dejaban
+    pasar sus fórmulas al CSV."""
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_columnas_homonimas()},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    filas = list(csv.reader(io.StringIO(texto)))
+    assert filas[1] == ["op-1", "'=1", "'=2"]
+    assert filas[2] == ["op-2", "b", "'@c"]
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_protege_las_dos_columnas_homonimas(tmp_path: Path) -> None:
+    import openpyxl
+
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_columnas_homonimas()},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    assert [hoja.cell(row=2, column=c).value for c in (2, 3)] == ["'=1", "'=2"]
+    assert [hoja.cell(row=3, column=c).value for c in (2, 3)] == ["b", "'@c"]
+
+
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
     """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
     exports = write_data_exports(

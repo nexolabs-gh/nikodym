@@ -71,8 +71,11 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
     import pandas as pd  # local: el módulo no arrastra pandas al importarse
 
     result = frame
-    for column in frame.columns:
-        serie = frame[column]
+    # Por POSICIÓN, no por etiqueta: con una etiqueta repetida `frame[etiqueta]` devuelve un
+    # DataFrame sin `dtype` y las dos columnas quedaban sin sanear (pasada 8 de la revisión
+    # adversarial). Nadie exige etiquetas únicas en las tablas que se exportan.
+    for position in range(frame.shape[1]):
+        serie = frame.iloc[:, position]
         if not _is_text_like(serie):
             continue
         valores = serie.astype(object) if _is_categorical(serie) else serie
@@ -80,7 +83,7 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
         if not protegida.equals(valores):
             if result is frame:
                 result = frame.copy(deep=True)
-            result[column] = protegida
+            result.isetitem(position, protegida.to_numpy())
     if _is_text_like(frame.index):
         indice = pd.Index(
             [_neutralize_value(value) for value in frame.index], name=frame.index.name
