@@ -260,6 +260,20 @@ con el OK de Cami a las cinco mejoras propuestas tras la 1.13.0, la misma sesió
 tabla de calidad las columnas que produce el motor (decisión que §0.3 dejaba pendiente) e
 implementó la capa 4; F5 sigue fuera de la demo (exige su capturador y su OK, D-GOB-9).
 
+### 0.5 La 1.14.0 (S9) y el cierre de los abiertos por delegación
+
+La 1.14.0 se publicó el 2026-09-12 con las capas 4 y 5 (§0.4), la demo recapturada con gobernanza
+declarada y doce pasadas de revisión adversarial. Los cuatro abiertos que la serie dejó a Cami los
+delegó ese mismo día («no son vitales, decide tú») y S9 los cerró así, con el detalle en
+`DECISIONES-VIGENTES.md` (fila D-SC-1…16): **(1)** el eje de cohorte casi único se resuelve
+acotando la respuesta —serializer, panel e informe publican hasta 1.000 períodos/cohortes con
+`total_periods` y `truncated`, la tabla completa queda como artefacto de la corrida y el motor no
+rechaza el eje—, de modo que §4 se lee «una fila por período/cohorte hasta el tope publicado»;
+se programa en la sesión siguiente. **(2)** Las declaraciones de gobernanza no admiten Markdown
+activo en ningún formato: en QMD van como texto literal de pandoc. **(3)** El propósito de la demo
+pública queda con el texto recapturado en la 1.14.0. **(4)** F5 no entra a la demo; la capa 5 se
+cierra sin residual.
+
 ## 1. El estado, medido sobre `40cb5a3`
 
 | Pieza | Config | Preset | Trabajo | `CONFIG_SECTIONS` | `serialize_study` | Panel Resultados | Informe | Guía | Métricas D-GOB-4 | SemVer |
