@@ -23,6 +23,17 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   la decisión pendiente que la 1.13.0 dejó declarada como sabida. Medido: un millón de cohortes
   pasan de 71 s, 138 MB y 634 MB de pico a 0,07 s, 0,14 MB y 0,6 MB.
 
+### Corregido
+
+- **Los archivos que se abren en una planilla protegen las celdas que Excel leería como
+  fórmula.** El identificador de la operación, los niveles de una categórica o la etiqueta de una
+  cohorte vienen del archivo del usuario, y un texto que empieza por `=`, `+`, `-`, `@`,
+  tabulador o retorno de carro se convierte en una fórmula viva —un enlace, una llamada externa—
+  al abrir el CSV o el libro en Excel, LibreOffice o Google Sheets. Los exports de datos del
+  informe (`.csv` y `.xlsx`) y la tabla completa de la tasa por período o cohorte anteponen una
+  comilla simple a esas celdas de texto, y sólo a ellas: los números, las fechas y el resto del
+  texto viajan intactos, y un archivo sin celdas de ese tipo es, byte a byte, el de siempre.
+
 ## [1.14.0] — 2026-09-12
 
 ### Añadido

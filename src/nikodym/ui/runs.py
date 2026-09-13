@@ -44,6 +44,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from nikodym.core.spreadsheet_safety import neutralize_formula_prefixes
 from nikodym.ui.exceptions import UiError, UiRunNotFoundError
 from nikodym.ui.serializers import eda_default_rate_frame, serialize_study
 
@@ -181,7 +182,9 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
     del motor y aquí se conserva como archivo de la corrida, con las mismas columnas que la fila
     del payload y en el mismo orden, para que el panel pueda ofrecerla. Sin recorte no se
     duplica: ``results.json`` ya la trae entera. CSV UTF-8 con BOM y saltos LF, como los
-    exports de datos del informe: byte-determinista y legible en Excel.
+    exports de datos del informe: byte-determinista y legible en Excel. Y como ellos, con las
+    celdas de texto que una planilla leería como fórmula protegidas al exportar: la etiqueta de
+    cohorte viene del archivo del usuario (:mod:`nikodym.core.spreadsheet_safety`).
     """
     eda = payload.get("eda")
     if not isinstance(eda, dict):
@@ -192,7 +195,7 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
     frame = eda_default_rate_frame(study)
     if frame is None:  # inalcanzable: la ventana sólo existe con el artefacto; no se fabrica
         return
-    frame.to_csv(
+    neutralize_formula_prefixes(frame).to_csv(
         run_dir / _EDA_DEFAULT_RATE_FILENAME,
         index=False,
         encoding="utf-8-sig",

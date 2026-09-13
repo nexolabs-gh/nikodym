@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.util
+import io
 import re
 import sys
 import tomllib
@@ -96,6 +97,62 @@ def test_csv_completo_sin_truncar_y_con_el_identificador(tmp_path: Path) -> None
 
     # La tabla agregada NO se exporta: se queda en el documento, que es donde se revisa.
     assert not list(tmp_path.glob("*coefficients*"))
+
+
+def _frame_con_celdas_activas() -> pd.DataFrame:
+    """Un identificador y un nivel de categórica que una planilla leería como fórmula."""
+    frame = _score_frame(rows=4)
+    frame.index = pd.Index(
+        ['=HYPERLINK("http://x.invalid";"ver")', "op-000001", "-cmd", "@SUM(A1)"], name="loan_id"
+    )
+    frame["segmento"] = ["+1+1", "normal", "\t=1", "-"]
+    return frame
+
+
+def test_csv_neutraliza_los_prefijos_de_formula_de_las_celdas_de_texto(tmp_path: Path) -> None:
+    """🔴 Pasada 2 de la revisión adversarial (d99bc9d): el identificador de la operación y los
+    niveles de una categórica vienen del archivo del usuario y el CSV lleva BOM «para Excel»: un
+    `=HYPERLINK(...)` llegaba como fórmula viva. Se antepone una comilla a esas celdas; los
+    números y el resto del texto viajan intactos."""
+    config = ReportConfig(formats=("csv",))
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_celdas_activas()},
+        config=config,
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    assert "'=HYPERLINK" in texto and "'-cmd" in texto and "'@SUM(A1)" in texto
+    assert "'+1+1" in texto and "'\t=1" in texto and ",'-\n" in texto
+    assert "op-000001" in texto and "normal" in texto
+    for linea in texto.splitlines()[1:]:
+        assert not linea.startswith(("=", "+", "-", "@", "\t", "\r")), linea
+    # El número negativo sigue siendo un número: no se protege.
+    leido = pd.read_csv(io.StringIO(texto))
+    assert leido["score"].tolist() == [600, 601, 602, 603]
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_neutraliza_los_prefijos_de_formula_de_las_celdas_de_texto(tmp_path: Path) -> None:
+    """La planilla también: openpyxl escribe un texto que empieza por `=` como fórmula."""
+    import openpyxl
+
+    config = ReportConfig(formats=("xlsx",))
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_celdas_activas()},
+        config=config,
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    celdas = [hoja.cell(row=fila, column=1).value for fila in range(2, 6)]
+    assert celdas == [
+        '\'=HYPERLINK("http://x.invalid";"ver")',
+        "op-000001",
+        "'-cmd",
+        "'@SUM(A1)",
+    ]
+    assert all(hoja.cell(row=fila, column=1).data_type == "s" for fila in range(2, 6))
 
 
 def test_csv_es_byte_determinista(tmp_path: Path) -> None:

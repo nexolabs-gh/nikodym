@@ -19,6 +19,11 @@ Dos formatos, ambos opt-in vía ``report.formats``:
 El índice del frame se exporta **siempre**: en estas tablas es el identificador de la operación
 (``loan_id``), y perderlo dejaría un dataset anónimo e inservible para conciliar contra el origen.
 
+Las celdas de TEXTO que una planilla leería como fórmula —un identificador o un nivel de
+categórica que empiece por ``=``, ``+``, ``-``, ``@``, tabulador o retorno de carro, y esos datos
+vienen del archivo del usuario— salen protegidas con una comilla simple delante, en el ``.csv`` y
+en el ``.xlsx`` (:mod:`nikodym.core.spreadsheet_safety`); el resto de las celdas, intactas.
+
 **Experimental (fuera de la garantía SemVer 1.x).**
 """
 
@@ -33,6 +38,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
+from nikodym.core.spreadsheet_safety import neutralize_formula_prefixes
 from nikodym.report.config import ReportConfig
 from nikodym.report.document import PER_OBSERVATION_TABLES, table_title
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
@@ -240,9 +246,7 @@ def _write_csv(table: DataFrameLike, path: Path) -> Path:
     try:
         # ``utf-8-sig``: el BOM hace que Excel abra el CSV con los acentos correctos en Windows,
         # que es donde lo va a abrir Validación. ``lineterminator`` fijo: el default depende del SO.
-        _with_named_index(table).to_csv(
-            temp_path, index=True, encoding="utf-8-sig", lineterminator="\n"
-        )
+        _exportable(table).to_csv(temp_path, index=True, encoding="utf-8-sig", lineterminator="\n")
         temp_path.replace(path)
     except OSError as exc:
         temp_path.unlink(missing_ok=True)
@@ -262,7 +266,7 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
     try:
         with pd.ExcelWriter(temp_path, engine="openpyxl") as writer:
             for sheet, table in sheets.items():
-                _with_named_index(table).to_excel(writer, sheet_name=sheet, index=True)
+                _exportable(table).to_excel(writer, sheet_name=sheet, index=True)
         temp_path.replace(path)
     except ImportError as exc:
         temp_path.unlink(missing_ok=True)
@@ -275,6 +279,11 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
             "acción='verifique permisos y espacio disponible'."
         ) from exc
     return path
+
+
+def _exportable(table: DataFrameLike) -> DataFrameLike:
+    """La tabla como sale al archivo: índice con nombre y celdas activas de planilla protegidas."""
+    return neutralize_formula_prefixes(_with_named_index(table))
 
 
 def _with_named_index(table: DataFrameLike) -> DataFrameLike:

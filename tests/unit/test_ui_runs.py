@@ -185,6 +185,51 @@ def test_la_tabla_completa_de_la_tasa_queda_como_archivo_de_la_corrida_si_se_rec
     ]
 
 
+def test_el_archivo_de_la_tasa_neutraliza_las_cohortes_que_excel_leeria_como_formula(
+    tmp_path: Path,
+) -> None:
+    """🔴 Pasada 2 de la revisión adversarial (d99bc9d): la etiqueta de cohorte viene del archivo
+    del usuario y el CSV lleva BOM «para Excel»: un valor `=HYPERLINK(...)` llegaba como fórmula
+    viva. Al exportar se antepone una comilla a las celdas de texto con prefijo activo; el
+    payload y el panel siguen mostrando la etiqueta tal cual."""
+    import pandas as pd
+    from _ui_f1 import NEAR_UNIQUE_COHORT_COL
+
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    frame = pd.read_parquet(parquet)
+    venenosas = {
+        "ID-00000": '=HYPERLINK("http://x.invalid";"ver")',
+        "ID-00002": "+1+1",
+        "ID-00004": "-cmd",
+        "ID-00006": "@SUM(A1)",
+    }
+    frame[NEAR_UNIQUE_COHORT_COL] = frame[NEAR_UNIQUE_COHORT_COL].map(lambda v: venenosas.get(v, v))
+    frame.to_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(study, workdir=workdir, governance=None)
+
+    payload = runs.load_results(run_id, workdir=workdir)
+    publicadas = {fila["period"] for fila in payload["eda"]["default_rate"]}
+    assert set(venenosas.values()) <= publicadas  # el payload no se altera: es el dato del motor
+    csv = runs.eda_default_rate_path(run_id, workdir=workdir)
+    assert csv is not None
+    # Se lee como lo leería una planilla (campos entrecomillados incluidos): cada cohorte con
+    # prefijo activo llega con la comilla delante, y ninguna celda de la primera columna empieza
+    # por un prefijo activo.
+    tabla = pd.read_csv(io.BytesIO(csv.read_bytes()), keep_default_na=False)
+    assert len(tabla) == payload["eda"]["default_rate_window"]["total_periods"]
+    periodos = tabla["period"].tolist()
+    for valor in venenosas.values():
+        assert f"'{valor}" in periodos, valor
+        assert valor not in periodos
+    assert not any(str(p).startswith(("=", "+", "-", "@", "\t", "\r")) for p in periodos)
+    assert any(str(p).startswith("ID-") for p in periodos)  # una etiqueta normal viaja tal cual
+
+
 def test_sin_recorte_no_hay_archivo_de_la_tasa(
     fake_binning_process: object, tmp_path: Path
 ) -> None:
