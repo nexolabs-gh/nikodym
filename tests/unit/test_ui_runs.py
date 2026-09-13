@@ -340,6 +340,39 @@ def test_si_falla_la_publicacion_la_corrida_previa_vuelve_a_su_sitio(
     assert not list(runs_root.glob(f".{run_id}.*.tmp")), "el temporal no queda a medias"
 
 
+def test_re_persistir_desde_el_trail_canonico_no_muta_la_corrida_previa_si_falla(
+    f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 Pasada 6 de la revisión adversarial (244f348): `save` MOVÍA el trail al temporal antes de
+    construir el reemplazo. Re-persistir un `Study` pasando el trail canónico de la corrida ya
+    publicada (`runs/<run_id>/audit_trail.jsonl`) y fallar después dejaba la corrida previa
+    restaurada pero sin su audit-trail (`load_audit_trail` → `None`). El trail que vive dentro
+    de la corrida que se reemplaza se COPIA, y la previa queda intacta byte a byte."""
+    workdir = tmp_path / "wd"
+    trail = runs.reservar_trail(workdir)
+    trail.write_text('{"event": "run_start"}\n', encoding="utf-8")
+    run_id = runs.save(f1_study, workdir=workdir, governance=None, trail=trail)
+    run_dir = workdir / "runs" / run_id
+    assert not trail.exists(), "el trail reservado se traslada a la corrida al publicarla"
+    previa = {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()}
+    assert "audit_trail.jsonl" in previa
+
+    def _revienta(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("falla después de archivar el trail")
+
+    monkeypatch.setattr(runs, "serialize_study", _revienta)
+    with pytest.raises(RuntimeError):
+        runs.save(
+            f1_study, workdir=workdir, governance=None, trail=run_dir / "audit_trail.jsonl"
+        )
+
+    assert {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()} == previa
+    assert runs.load_audit_trail(run_id, workdir=workdir) == '{"event": "run_start"}\n'
+    # El trail canónico era una copia en el temporal: no hay evidencia nueva que conservar, así
+    # que no queda ningún hermano `.failed.*`, `.old.*` ni `.tmp`.
+    assert sorted(p.name for p in (workdir / "runs").iterdir()) == [run_id]
+
+
 def test_una_corrida_publicada_no_deja_temporales_y_un_fallo_sin_evidencia_no_deja_rastro(
     f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

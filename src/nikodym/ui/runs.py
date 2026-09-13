@@ -169,8 +169,13 @@ def save(
     run_dir = _run_dir(workdir, run_id)
     run_dir.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", suffix=".tmp", dir=run_dir.parent))
+    # Un trail que ya vive DENTRO de la corrida que se va a reemplazar se copia, no se mueve: la
+    # corrida previa no se toca antes del swap, y si el reemplazo falla vuelve intacta con su
+    # evidencia (pasada 6 de la revisión adversarial). El reservado por `reservar_trail` —el caso
+    # normal— se traslada, que es lo que convierte su nombre provisional en el canónico.
+    trail_copiado = trail is not None and _esta_dentro(trail, run_dir)
     try:
-        trail_final = _archivar_trail(trail, staging)
+        trail_final = _archivar_trail(trail, staging, copiar=trail_copiado)
         payload = serialize_study(study, governance=governance, trail_path=trail_final)
         _save_eda_default_rate(study, payload, staging)
         (staging / _RESULTS_FILENAME).write_text(
@@ -188,9 +193,18 @@ def save(
             (staging / _REPORT_DOCX_FILENAME).write_bytes(docx)
         _publicar_corrida(staging, run_dir)
     except BaseException as exc:
-        _apartar_corrida_fallida(staging, run_dir, exc)
+        _apartar_corrida_fallida(staging, run_dir, exc, trail_copiado=trail_copiado)
         raise
     return run_id
+
+
+def _esta_dentro(ruta: Path, directorio: Path) -> bool:
+    """Dice si ``ruta`` cuelga de ``directorio`` (rutas resueltas; sin exigir que exista)."""
+    try:
+        ruta.resolve().relative_to(directorio.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def _publicar_corrida(staging: Path, run_dir: Path) -> None:
@@ -226,15 +240,18 @@ def _publicar_corrida(staging: Path, run_dir: Path) -> None:
         raise
 
 
-def _apartar_corrida_fallida(staging: Path, run_dir: Path, exc: BaseException) -> None:
+def _apartar_corrida_fallida(
+    staging: Path, run_dir: Path, exc: BaseException, *, trail_copiado: bool
+) -> None:
     """Cierra el temporal de una corrida que no llegó a publicarse: sin artefactos, con su trail.
 
     Los archivos que ``save`` produce se reconstruyen desde el ``Study`` —y el CSV de la tasa es
     grande a propósito—: dejarlos en un directorio que la UI no sirve sólo consume disco con cada
     reintento. El trail no se reconstruye: es la evidencia de la corrida (SDD-03 §8) y se conserva
-    como hermano ``.<run_id>.failed.*``, anotado en la excepción. Sin trail no queda rastro. Si el
-    propio rescate falla —disco lleno, permisos—, el temporal se queda donde está y se anota ESA
-    ruta: nunca se sustituye la excepción original.
+    como hermano ``.<run_id>.failed.*``, anotado en la excepción. Sin trail —o con un trail que
+    era una COPIA del que sigue viviendo en la corrida previa, restaurada intacta— no queda
+    rastro. Si el propio rescate falla —disco lleno, permisos—, el temporal se queda donde está
+    y se anota ESA ruta: nunca se sustituye la excepción original.
     """
     conservada = staging
     try:
@@ -246,7 +263,7 @@ def _apartar_corrida_fallida(staging: Path, run_dir: Path, exc: BaseException) -
             else:
                 ruta.unlink()
         trail = staging / _TRAIL_FILENAME
-        if not trail.is_file() or trail.stat().st_size == 0:
+        if trail_copiado or not trail.is_file() or trail.stat().st_size == 0:
             shutil.rmtree(staging, ignore_errors=True)
             return
         conservada = _missing_backup_path(run_dir, etiqueta="failed")
@@ -290,17 +307,22 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
     )
 
 
-def _archivar_trail(trail: Path | None, run_dir: Path) -> Path | None:
-    """Traslada el trail reservado a ``<run_dir>/audit_trail.jsonl``; devuelve su ruta final.
+def _archivar_trail(trail: Path | None, run_dir: Path, *, copiar: bool = False) -> Path | None:
+    """Lleva el trail reservado a ``<run_dir>/audit_trail.jsonl``; devuelve su ruta final.
 
     Es el paso que convierte el nombre provisional de :func:`reservar_trail` en la ubicación que
     SDD-03 §6 fija para el layout de la corrida. Un trail ausente —``audit`` apagado— no es un
-    error: devuelve ``None`` y el model card sale sin decisiones, como antes.
+    error: devuelve ``None`` y el model card sale sin decisiones, como antes. Con ``copiar`` el
+    origen se conserva: es el trail canónico de la corrida que se va a reemplazar, y no se retira
+    de ella antes de que el reemplazo se publique.
     """
     if trail is None or not trail.is_file():
         return None
     destino = run_dir / _TRAIL_FILENAME
-    shutil.move(str(trail), destino)
+    if copiar:
+        shutil.copy2(trail, destino)
+    else:
+        shutil.move(str(trail), destino)
     return destino
 
 
