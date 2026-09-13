@@ -17,12 +17,23 @@ posterior a la 1.14.0 (pasadas 2, 3 y 4).
 
 from __future__ import annotations
 
+import csv
+import re
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
     import pandas as pd
 
-__all__ = ["FORMULA_PREFIXES", "neutralize_formula_prefixes"]
+__all__ = ["CSV_QUOTING", "FORMULA_PREFIXES", "neutralize_formula_prefixes"]
+
+#: Cómo se citan los campos de todo CSV que Nikodym entrega para abrir en una planilla: TODO el
+#: texto entre comillas y los números sin ellas (``csv.QUOTE_NONNUMERIC``). Así ningún lector
+#: tiene que adivinar dónde termina un texto que trae comas, comillas o saltos, y los números se
+#: siguen leyendo como números. No basta por sí solo contra un separador regional —un Excel con
+#: ``;`` como separador de lista parte la línea por ``;`` ignorando el citado de comas—: de eso se
+#: ocupa la guarda tras cada ``;`` y tabulador (:data:`_CELL_START`; pasada 10 de la revisión
+#: adversarial).
+CSV_QUOTING: Final = csv.QUOTE_NONNUMERIC
 
 #: Primer carácter con el que una hoja de cálculo decide que la celda es una fórmula: los cuatro
 #: operadores, sus variantes de ancho completo (U+FF1D, U+FF0B, U+FF0D y U+FF20, que las planillas
@@ -50,11 +61,20 @@ _GUARD: Final = "'"
 #: 4 de la revisión adversarial). Las imágenes de los tres grupos —empieza por comilla, empieza
 #: por prefijo activo, el resto— no se cruzan.
 _ESCAPED_PREFIXES: Final[tuple[str, ...]] = (*FORMULA_PREFIXES, _GUARD)
+#: Dónde una planilla puede EMPEZAR una celda dentro de un texto: al principio, y tras un ``;`` o
+#: un tabulador. Un Excel cuyo separador de lista es ``;`` (es-CL, es-ES) abre un CSV de comas
+#: partiendo cada línea por ``;`` e ignorando el citado de comas, así que ``texto;=SUM(A1)``
+#: —aunque viaje entre comillas— se convertía en dos celdas, la segunda una fórmula viva (pasada
+#: 10 de la revisión adversarial). La guarda se antepone en cada uno de esos puntos; la coma no
+#: hace falta: es el separador del archivo y el citado la protege.
+_CELL_START: Final = re.compile(
+    "(^|[;\t])(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
+)
 
 
 def _neutralize_value(value: Any) -> Any:
-    if isinstance(value, str) and value.startswith(_ESCAPED_PREFIXES):
-        return _GUARD + value
+    if isinstance(value, str) and _CELL_START.search(value):
+        return _CELL_START.sub(lambda m: m.group(1) + _GUARD, value)
     return value
 
 

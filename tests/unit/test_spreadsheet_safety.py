@@ -18,7 +18,7 @@ _VENENOSOS = [
     "+1+1",
     "-cmd|' /C calc'!A0",
     "@SUM(A1)",
-    "\t=1",
+    "\tx",  # un tabulador delante; tras él, un texto cualquiera
     "\r=1",
 ]
 
@@ -133,6 +133,26 @@ def test_el_salto_de_linea_y_los_prefijos_de_ancho_completo_tambien_se_protegen(
     assert protegido["texto"].tolist() == [f"'{v}" for v in venenosos]
     assert protegido.index.tolist() == [f"'{v}" for v in venenosos]
     assert set(venenosos) <= {f"{p}{v[1:]}" for p in FORMULA_PREFIXES for v in venenosos}
+
+
+def test_la_guarda_va_tambien_tras_cada_punto_y_coma_y_tabulador_dentro_del_texto() -> None:
+    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel con `;` como separador de lista
+    parte la línea por `;` ignorando el citado de comas, así que `texto;=SUM(A1)` abría una celda
+    nueva con la fórmula. La guarda se antepone en cada inicio posible de celda —principio, tras
+    `;`, tras tabulador—, y sigue siendo inyectiva: `a;'=x` recibe otra comilla."""
+    casos = {
+        "texto;=SUM(A1)": "texto;'=SUM(A1)",
+        "a;'=x": "a;''=x",
+        "a\t=x": "a\t'=x",
+        "a;\t=x": "a;'\t'=x",
+        "a;b": "a;b",
+        "a,=x": "a,=x",  # la coma es el separador del archivo: el citado la protege
+        "x;": "x;",
+        "=a;=b": "'=a;'=b",
+    }
+    frame = pd.DataFrame({"texto": list(casos)})
+    assert neutralize_formula_prefixes(frame)["texto"].tolist() == list(casos.values())
+    assert len(set(casos.values())) == len(casos)
 
 
 def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:

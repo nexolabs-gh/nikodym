@@ -106,7 +106,7 @@ def _frame_con_celdas_activas() -> pd.DataFrame:
     frame.index = pd.Index(
         ['=HYPERLINK("http://x.invalid";"ver")', "op-000001", "-cmd", "@SUM(A1)"], name="loan_id"
     )
-    frame["segmento"] = ["+1+1", "normal", "\t=1", "-"]
+    frame["segmento"] = ["+1+1", "normal", "\tx", "-"]
     return frame
 
 
@@ -122,13 +122,18 @@ def test_csv_neutraliza_los_prefijos_de_formula_de_las_celdas_de_texto(tmp_path:
         output_dir=str(tmp_path),
     )
     texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
-    assert "'=HYPERLINK" in texto and "'-cmd" in texto and "'@SUM(A1)" in texto
-    assert "'+1+1" in texto and "'\t=1" in texto and ",'-\n" in texto
-    assert "op-000001" in texto and "normal" in texto
-    for linea in texto.splitlines()[1:]:
-        assert not linea.startswith(("=", "+", "-", "@", "\t", "\r")), linea
+    # Se lee como lo leería una planilla: campo a campo, comillas incluidas.
+    leido = pd.read_csv(io.StringIO(texto), keep_default_na=False)
+    assert leido["loan_id"].tolist() == [
+        '\'=HYPERLINK("http://x.invalid";"ver")',
+        "op-000001",
+        "'-cmd",
+        "'@SUM(A1)",
+    ]
+    assert leido["segmento"].tolist() == ["'+1+1", "normal", "'\tx", "'-"]
+    celdas = [c for fila in csv.reader(io.StringIO(texto)) for c in fila]
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r")) for c in celdas)
     # El número negativo sigue siendo un número: no se protege.
-    leido = pd.read_csv(io.StringIO(texto))
     assert leido["score"].tolist() == [600, 601, 602, 603]
 
 
@@ -276,6 +281,40 @@ def test_xlsx_protege_los_niveles_y_nombres_de_un_multiindex(tmp_path: Path) -> 
     assert "'=HYPERLINK(1)" in textos and "'+c" in textos and "'=n1" in textos
     assert "'=id" in textos and "'-x" in textos and "'@b" in textos
     assert not any(c.startswith(("=", "+", "-", "@")) for c in textos)
+
+
+def _campos_con_separador_regional(texto: str) -> list[str]:
+    """Lo que ve un Excel cuyo separador de lista es `;` (es-CL, es-ES) al abrir el CSV."""
+    return [campo for fila in csv.reader(io.StringIO(texto), delimiter=";") for campo in fila]
+
+
+def test_csv_un_separador_regional_no_abre_una_celda_con_formula_en_mitad_de_un_texto(
+    tmp_path: Path,
+) -> None:
+    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel cuyo separador de lista es `;`
+    (es-CL, es-ES) abre un CSV de comas partiendo cada línea por `;` e ignorando el citado, así
+    que `texto;=HYPERLINK(...)` se convertía en dos celdas, la segunda una fórmula viva. La guarda
+    se antepone también tras cada `;` y tabulador; y todo texto va entre comillas
+    (`QUOTE_NONNUMERIC`), con los números sin ellas para que se sigan leyendo como números."""
+    frame = _score_frame(rows=2)
+    frame["nota"] = ["texto;=HYPERLINK(1)", "otro,=SUM(A1)"]
+    exports = write_data_exports(
+        {"scorecard.score": frame},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    assert '"texto;\'=HYPERLINK(1)"' in texto and '"otro,=SUM(A1)"' in texto
+    # Lo que ve el Excel con `;`: ninguna celda empieza por un prefijo activo.
+    campos = _campos_con_separador_regional(texto)
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in campos)
+    # Lo que ve un lector de comas: el texto entero, con la guarda tras el `;`; la coma no la
+    # necesita, porque es el separador del archivo y el citado la protege.
+    leido = pd.read_csv(io.StringIO(texto), index_col=0)
+    assert leido["nota"].tolist() == ["texto;'=HYPERLINK(1)", "otro,=SUM(A1)"]
+    # Los números no llevan comillas: un lector los sigue leyendo como números.
+    assert ",600," in texto and '"600"' not in texto
+    assert leido["score"].tolist() == [600, 601]
 
 
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:

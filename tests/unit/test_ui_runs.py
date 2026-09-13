@@ -230,6 +230,36 @@ def test_el_archivo_de_la_tasa_neutraliza_las_cohortes_que_excel_leeria_como_for
     assert any(str(p).startswith("ID-") for p in periodos)  # una etiqueta normal viaja tal cual
 
 
+def test_el_archivo_de_la_tasa_no_deja_que_un_separador_regional_abra_una_formula(
+    tmp_path: Path,
+) -> None:
+    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel con `;` como separador de lista
+    partía la cohorte `x;=HYPERLINK(1)` en una celda de texto y una fórmula viva. La guarda va
+    también tras cada `;`, y todo texto viaja entre comillas."""
+    import csv
+
+    import pandas as pd
+    from _ui_f1 import NEAR_UNIQUE_COHORT_COL
+
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    frame = pd.read_parquet(parquet)
+    frame[NEAR_UNIQUE_COHORT_COL] = frame[NEAR_UNIQUE_COHORT_COL].map(
+        lambda v: "x;=HYPERLINK(1)" if v == "ID-00000" else v
+    )
+    frame.to_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+    workdir = tmp_path / "wd"
+    run_id = runs.save(study, workdir=workdir, governance=None)
+    csv_path = runs.eda_default_rate_path(run_id, workdir=workdir)
+    assert csv_path is not None
+    texto = csv_path.read_text(encoding="utf-8-sig")
+    assert '"x;\'=HYPERLINK(1)"' in texto
+    campos = [c for fila in csv.reader(io.StringIO(texto), delimiter=";") for c in fila]
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in campos)
+
+
 def test_un_fallo_al_escribir_el_csv_no_deja_la_corrida_publicada_a_medias(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

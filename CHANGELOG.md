@@ -37,7 +37,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   completo de esos cuatro caracteres—, y sólo a ellas: los números, las fechas y el resto del
   texto viajan intactos, y un archivo sin celdas de ese tipo es, byte a byte, el de siempre. Un
   texto que ya empezaba por comilla recibe otra, para que dos valores distintos nunca salgan
-  iguales.
+  iguales; la guarda va también tras cada `;` y tabulador dentro del texto, porque un Excel cuyo
+  separador de lista es `;` parte la línea por ahí, y en los CSV todo el texto viaja entre
+  comillas y los números sin ellas.
 
 - **Una corrida de la interfaz se guarda entera o no se guarda.** Sus archivos se construyen en
   un temporal y se publican de una vez; si el disco se llena a mitad de camino —la tabla completa

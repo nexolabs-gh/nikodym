@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
-from nikodym.core.spreadsheet_safety import neutralize_formula_prefixes
+from nikodym.core.spreadsheet_safety import CSV_QUOTING, neutralize_formula_prefixes
 from nikodym.report.config import ReportConfig
 from nikodym.report.document import PER_OBSERVATION_TABLES, table_title
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
@@ -246,7 +246,15 @@ def _write_csv(table: DataFrameLike, path: Path) -> Path:
     try:
         # ``utf-8-sig``: el BOM hace que Excel abra el CSV con los acentos correctos en Windows,
         # que es donde lo va a abrir Validación. ``lineterminator`` fijo: el default depende del SO.
-        _exportable(table).to_csv(temp_path, index=True, encoding="utf-8-sig", lineterminator="\n")
+        # ``quoting``: todo el texto entre comillas, para que un separador regional (``;``) no
+        # parta una celda de texto en dos (``spreadsheet_safety.CSV_QUOTING``).
+        _exportable(table).to_csv(
+            temp_path,
+            index=True,
+            encoding="utf-8-sig",
+            lineterminator="\n",
+            quoting=CSV_QUOTING,
+        )
         temp_path.replace(path)
     except OSError as exc:
         temp_path.unlink(missing_ok=True)

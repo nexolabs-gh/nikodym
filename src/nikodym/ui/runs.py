@@ -45,7 +45,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from nikodym.core.spreadsheet_safety import neutralize_formula_prefixes
+from nikodym.core.spreadsheet_safety import CSV_QUOTING, neutralize_formula_prefixes
 from nikodym.core.study import _missing_backup_path, _replace_path
 from nikodym.ui.exceptions import UiError, UiRunNotFoundError
 from nikodym.ui.serializers import eda_default_rate_frame, serialize_study
@@ -303,6 +303,7 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
         run_dir / _EDA_DEFAULT_RATE_FILENAME,
         index=False,
         encoding="utf-8-sig",
+        quoting=CSV_QUOTING,
         lineterminator="\n",
     )
 
