@@ -149,16 +149,25 @@ def _is_categorical(values: Any) -> bool:
 
 
 def _is_text_like(values: Any) -> bool:
-    """``object``, ``string`` o ``category``: donde vive un texto que una planilla lea como fórmula.
+    """Todo lo que NO sea numérico, lógico ni temporal: ahí puede vivir un texto.
 
-    ``object`` cubre también una columna MIXTA —cohortes enteras y textuales juntas—, en la que
-    ``is_string_dtype`` diría que no y dejaría pasar los textos que sí trae.
+    La clasificación va por exclusión a propósito: enumerar los dtypes de texto (``object``,
+    ``string``, ``category``) dejaba fuera los que la propia pila admite y nadie listó —una
+    columna Arrow de texto, ``pd.ArrowDtype(pa.string())``, pasaba con su fórmula intacta
+    (pasada 12 de la revisión adversarial)—. Recorrer de más no cuesta nada, porque el
+    neutralizador sólo toca ``str``; lo que sí es numérico, lógico o de fecha se salta para que
+    conserve su tipo. ``object`` cubre también una columna MIXTA —cohortes enteras y textuales
+    juntas—, en la que ``is_string_dtype`` diría que no y dejaría pasar los textos que sí trae.
     """
     import pandas as pd  # local: el módulo no arrastra pandas al importarse
 
     dtype = getattr(values, "dtype", None)
     if dtype is None:
         return False
-    return bool(pd.api.types.is_object_dtype(dtype)) or isinstance(
-        dtype, pd.StringDtype | pd.CategoricalDtype
+    tipos = pd.api.types
+    return not (
+        tipos.is_numeric_dtype(dtype)
+        or tipos.is_bool_dtype(dtype)
+        or tipos.is_datetime64_any_dtype(dtype)
+        or tipos.is_timedelta64_dtype(dtype)
     )

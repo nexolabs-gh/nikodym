@@ -342,6 +342,44 @@ def test_csv_un_texto_multilinea_no_abre_una_fila_con_formula_bajo_un_separador_
     assert leido["nota"].tolist() == ["'\n'=1+1;fin", "ok\r\n'=SUM(A1)"]
 
 
+def _frame_con_texto_arrow() -> pd.DataFrame:
+    import pyarrow as pa
+
+    frame = _score_frame(rows=2)
+    frame["nivel"] = pd.array(["=HYPERLINK(1)", "b"], dtype=pd.ArrowDtype(pa.string()))
+    return frame
+
+
+def test_csv_protege_una_columna_arrow_de_texto(tmp_path: Path) -> None:
+    """🔴 Pasada 12 de la revisión adversarial (2eed119): una columna Arrow de texto pasaba con
+    su fórmula intacta al CSV."""
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_texto_arrow()},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    leido = pd.read_csv(io.StringIO(texto), index_col=0, keep_default_na=False)
+    assert leido["nivel"].tolist() == ["'=HYPERLINK(1)", "b"]
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_protege_una_columna_arrow_de_texto(tmp_path: Path) -> None:
+    import openpyxl
+
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_texto_arrow()},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    encabezado = [hoja.cell(row=1, column=c).value for c in range(1, hoja.max_column + 1)]
+    columna = encabezado.index("nivel") + 1
+    assert [hoja.cell(row=f, column=columna).value for f in (2, 3)] == ["'=HYPERLINK(1)", "b"]
+
+
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
     """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
     exports = write_data_exports(

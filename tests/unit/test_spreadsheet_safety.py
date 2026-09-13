@@ -174,6 +174,35 @@ def test_la_guarda_va_tambien_tras_cada_salto_de_linea_sin_partir_el_crlf() -> N
     assert len(set(casos.values())) == len(casos)
 
 
+def test_cualquier_dtype_que_no_sea_numerico_ni_temporal_se_recorre() -> None:
+    """🔴 Pasada 12 de la revisión adversarial (2eed119): `_is_text_like` enumeraba `object`,
+    `string` y `category`, y una columna Arrow de texto (`pd.ArrowDtype(pa.string())`, con
+    `pyarrow` como dependencia base) quedaba fuera con su `=HYPERLINK(...)` intacto. La
+    clasificación se invierte: se recorre TODO lo que no sea numérico, lógico ni temporal —el
+    neutralizador sólo toca `str`, así que recorrer de más no cuesta nada— y los dtypes que sí
+    lo son siguen intactos, con su tipo."""
+    import pyarrow as pa
+
+    frame = pd.DataFrame(
+        {
+            "arrow": pd.array(["=1", "b"], dtype=pd.ArrowDtype(pa.string())),
+            "arrow_grande": pd.array(["+x", "y"], dtype=pd.ArrowDtype(pa.large_string())),
+            "entero_arrow": pd.array([1, 2], dtype=pd.ArrowDtype(pa.int64())),
+            "fecha": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "lapso": pd.to_timedelta([1, 2], unit="D"),
+            "flotante": [0.5, -1.5],
+        },
+        index=pd.Index(pd.array(["@a", "b"], dtype=pd.ArrowDtype(pa.string())), name="id"),
+    )
+    protegido = neutralize_formula_prefixes(frame)
+    assert protegido["arrow"].tolist() == ["'=1", "b"]
+    assert protegido["arrow_grande"].tolist() == ["'+x", "y"]
+    assert protegido.index.tolist() == ["'@a", "b"]
+    for columna in ("entero_arrow", "fecha", "lapso", "flotante"):
+        assert protegido[columna].dtype == frame[columna].dtype, columna
+        assert protegido[columna].tolist() == frame[columna].tolist(), columna
+
+
 def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:
     """🔴 Pasada 8 de la revisión adversarial (abe11fb): con una etiqueta repetida, `frame[col]`
     devuelve un DataFrame sin `dtype` y las dos columnas quedaban sin sanear. Se recorre por
