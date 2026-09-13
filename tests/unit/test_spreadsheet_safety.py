@@ -203,6 +203,29 @@ def test_cualquier_dtype_que_no_sea_numerico_ni_temporal_se_recorre() -> None:
         assert protegido[columna].tolist() == frame[columna].tolist(), columna
 
 
+def test_sin_cortes_de_celda_solo_se_protege_el_inicio() -> None:
+    """🔴 Pasada 13 de la revisión adversarial (f7da0d1): en un libro XLSX un `;`, un tabulador o
+    un salto de línea no abren otra celda, así que la guarda tras ellos sólo alteraba datos
+    legítimos (`texto;=SUM(A1)` → `texto;'=SUM(A1)`). Con `cell_breaks=False` se protege
+    únicamente el inicio real de la celda; el resto viaja intacto."""
+    casos = {
+        "texto;=SUM(A1)": "texto;=SUM(A1)",
+        "a\t=x": "a\t=x",
+        "a\n=x": "a\n=x",
+        "a\r\n=x": "a\r\n=x",
+        "=x": "'=x",
+        "'=x": "''=x",
+        "\n=x": "'\n=x",
+    }
+    frame = pd.DataFrame({"texto": list(casos)}, index=pd.Index(list(casos), name="a;=b"))
+    protegido = neutralize_formula_prefixes(frame, cell_breaks=False)
+    assert protegido["texto"].tolist() == list(casos.values())
+    assert protegido.index.tolist() == list(casos.values())
+    assert protegido.index.name == "a;=b"
+    # Y con los cortes (el CSV), lo de siempre.
+    assert neutralize_formula_prefixes(frame)["texto"].tolist()[0] == "texto;'=SUM(A1)"
+
+
 def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:
     """🔴 Pasada 8 de la revisión adversarial (abe11fb): con una etiqueta repetida, `frame[col]`
     devuelve un DataFrame sin `dtype` y las dos columnas quedaban sin sanear. Se recorre por

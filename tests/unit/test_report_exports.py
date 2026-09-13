@@ -380,6 +380,33 @@ def test_xlsx_protege_una_columna_arrow_de_texto(tmp_path: Path) -> None:
     assert [hoja.cell(row=f, column=columna).value for f in (2, 3)] == ["'=HYPERLINK(1)", "b"]
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_no_toca_el_texto_interno_solo_el_inicio_de_la_celda(tmp_path: Path) -> None:
+    """🔴 Pasada 13 de la revisión adversarial (f7da0d1): la guarda tras `;`, tabulador y salto
+    —necesaria en un CSV que un Excel regional reinterpreta— alteraba en el XLSX datos legítimos
+    que ahí nunca abren otra celda. Round-trip: sólo el inicio de la celda se protege."""
+    import openpyxl
+
+    frame = _score_frame(rows=4)
+    frame["nota"] = ["texto;=SUM(A1)", "a\t=x", "a\n=x", "=x"]
+    exports = write_data_exports(
+        {"scorecard.score": frame},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    encabezado = [hoja.cell(row=1, column=c).value for c in range(1, hoja.max_column + 1)]
+    columna = encabezado.index("nota") + 1
+    assert [hoja.cell(row=f, column=columna).value for f in (2, 3, 4, 5)] == [
+        "texto;=SUM(A1)",
+        "a\t=x",
+        "a\n=x",
+        "'=x",
+    ]
+
+
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
     """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
     exports = write_data_exports(

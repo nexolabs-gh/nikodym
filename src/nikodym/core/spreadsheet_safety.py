@@ -18,7 +18,9 @@ posterior a la 1.14.0 (pasadas 2, 3 y 4).
 from __future__ import annotations
 
 import csv
+import functools
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
@@ -68,27 +70,36 @@ _ESCAPED_PREFIXES: Final[tuple[str, ...]] = (*FORMULA_PREFIXES, _GUARD)
 #: celdas, la segunda una fórmula viva; y un texto multilínea abría una FILA nueva tras el salto
 #: (pasadas 10 y 11 de la revisión adversarial). La guarda se antepone en cada uno de esos puntos;
 #: la coma no hace falta: es el separador del archivo y el citado la protege.
-_CELL_START: Final = re.compile(
-    "(^|\r\n|\r(?!\n)|[;\t\n])(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
-)
+_ACTIVE: Final = "(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
+_CELL_START_WITH_BREAKS: Final = re.compile("(^|\r\n|\r(?!\n)|[;\t\n])" + _ACTIVE)
+#: En un libro XLSX cada celda es una celda: ``;``, el tabulador y los saltos no abren otra, y la
+#: guarda tras ellos sólo alteraba datos legítimos (pasada 13). Ahí se protege sólo el inicio.
+_CELL_START_ONLY: Final = re.compile("(^)" + _ACTIVE)
 
 
-def _neutralize_value(value: Any) -> Any:
-    if isinstance(value, str) and _CELL_START.search(value):
-        return _CELL_START.sub(lambda m: m.group(1) + _GUARD, value)
+def _neutralize_value(value: Any, *, cell_breaks: bool = True) -> Any:
+    patron = _CELL_START_WITH_BREAKS if cell_breaks else _CELL_START_ONLY
+    if isinstance(value, str) and patron.search(value):
+        return patron.sub(lambda m: m.group(1) + _GUARD, value)
     return value
 
 
-def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
+def neutralize_formula_prefixes(frame: pd.DataFrame, *, cell_breaks: bool = True) -> pd.DataFrame:
     """Copia de ``frame`` con cada celda de texto que empieza por un prefijo activo protegida.
 
     Cubre todo lo que se convierte en una celda al exportar: los valores de las columnas de texto
-    (``object``, ``string`` y ``category``, cuyos niveles son texto del usuario), los valores del
-    índice, los nombres de las columnas y el nombre del índice. Anteponer una comilla simple es lo
-    único que cambia; una categórica protegida sale como ``object`` en la copia. Devuelve el mismo
-    objeto cuando no hay nada que proteger —así un export sin celdas activas sigue siendo byte a
-    byte el de siempre— y nunca muta el frame recibido.
+    (``object``, ``string``, ``category`` y cualquier dtype que no sea numérico ni temporal), los
+    valores del índice, los nombres de las columnas y el nombre del índice. Anteponer una comilla
+    simple es lo único que cambia; una categórica protegida sale como ``object`` en la copia.
+    Devuelve el mismo objeto cuando no hay nada que proteger —así un export sin celdas activas
+    sigue siendo byte a byte el de siempre— y nunca muta el frame recibido.
+
+    ``cell_breaks`` es la política por formato: en un CSV (``True``) la guarda va también tras
+    cada ``;``, tabulador y salto de línea, porque una planilla con otro separador regional los
+    convierte en celda o fila nueva; en un libro XLSX (``False``) una celda es una celda, y sólo se
+    protege su inicio para no alterar datos legítimos.
     """
+    guard = functools.partial(_neutralize_value, cell_breaks=cell_breaks)
     result = frame
     # Por POSICIÓN, no por etiqueta: con una etiqueta repetida `frame[etiqueta]` devuelve un
     # DataFrame sin `dtype` y las dos columnas quedaban sin sanear (pasada 8 de la revisión
@@ -98,19 +109,19 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
         if not _is_text_like(serie):
             continue
         valores = serie.astype(object) if _is_categorical(serie) else serie
-        protegida = valores.map(_neutralize_value)
+        protegida = valores.map(guard)
         if not protegida.equals(valores):
             if result is frame:
                 result = frame.copy(deep=True)
             result.isetitem(position, protegida.to_numpy())
     # Las etiquetas de filas y de columnas también son celdas: valores y nombres, nivel a nivel
     # si son un `MultiIndex` (los writers de pandas separan cada nivel en su celda; pasada 9).
-    indice = _neutralize_labels(frame.index)
+    indice = _neutralize_labels(frame.index, guard)
     if indice is not None:
         if result is frame:
             result = frame.copy(deep=True)
         result.index = indice
-    columnas = _neutralize_labels(frame.columns)
+    columnas = _neutralize_labels(frame.columns, guard)
     if columnas is not None:
         if result is frame:
             result = frame.copy(deep=True)
@@ -118,7 +129,7 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _neutralize_labels(labels: pd.Index) -> pd.Index | None:
+def _neutralize_labels(labels: pd.Index, guard: Callable[[Any], Any]) -> pd.Index | None:
     """El índice con sus valores y nombres protegidos, o ``None`` si nada cambia.
 
     Un ``MultiIndex`` se reconstruye tupla a tupla y nombre a nombre, conservando su estructura;
@@ -126,16 +137,14 @@ def _neutralize_labels(labels: pd.Index) -> pd.Index | None:
     """
     import pandas as pd  # local: el módulo no arrastra pandas al importarse
 
-    nombres = [_neutralize_value(nombre) for nombre in labels.names]
+    nombres = [guard(nombre) for nombre in labels.names]
     nombres_cambian = nombres != list(labels.names)
     if isinstance(labels, pd.MultiIndex):
-        tuplas = [tuple(_neutralize_value(value) for value in tupla) for tupla in labels]
+        tuplas = [tuple(guard(value) for value in tupla) for tupla in labels]
         if tuplas != list(labels):
             return pd.MultiIndex.from_tuples(tuplas, names=nombres)
         return labels.set_names(nombres) if nombres_cambian else None
-    valores = (
-        [_neutralize_value(value) for value in labels] if _is_text_like(labels) else list(labels)
-    )
+    valores = [guard(value) for value in labels] if _is_text_like(labels) else list(labels)
     if valores != list(labels):
         protegido: pd.Index = pd.Index(valores, name=nombres[0])
         return protegido
