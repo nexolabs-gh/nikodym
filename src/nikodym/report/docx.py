@@ -307,11 +307,14 @@ def _section(
         _caption(word, chart["title"], points=points)
     for table in section["tables"]:
         _caption(word, table["title"], points=points, bold=True)
-        _table(word, tuple(table["columns"]), [tuple(row) for row in table["rows"]])
-        if table["truncated"]:
+        escritas = _table(word, tuple(table["columns"]), [tuple(row) for row in table["rows"]])
+        # La leyenda dice lo que el Word trae DE VERDAD: su cinturón puede cortar por debajo de
+        # lo que la vista canónica permitió, y decir «mostrando 1000» con 500 filas ocultaba
+        # evidencia (pasada 16 de la revisión adversarial).
+        if escritas < table["total_rows"]:
             _caption(
                 word,
-                f"… (mostrando {table['shown_rows']} de {table['total_rows']} filas)",
+                f"… (mostrando {escritas} de {table['total_rows']} filas)",
                 points=points,
             )
     if section["data_exports"]:
@@ -389,8 +392,12 @@ def _narration(word: Any, narration: Mapping[str, Any]) -> None:
 # ─────────────────────────── primitivas de Word ───────────────────────────
 
 
-def _table(word: Any, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> Any:
-    """Tabla NATIVA de Word (no una imagen): editable, copiable y con encabezado en negrita."""
+def _table(word: Any, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> int:
+    """Tabla NATIVA de Word (no una imagen): editable, copiable y con encabezado en negrita.
+
+    Devuelve cuántas filas de datos escribió: el cinturón :data:`_MAX_DOCX_TABLE_ROWS` puede
+    dejar fuera filas que la vista canónica sí permitía, y la leyenda tiene que contarlas.
+    """
     visible = list(rows)[:_MAX_DOCX_TABLE_ROWS]
     table = word.add_table(rows=1, cols=len(columns))
     table.style = _TABLE_STYLE
@@ -404,7 +411,7 @@ def _table(word: Any, columns: Sequence[str], rows: Sequence[Sequence[str]]) -> 
         cells = table.add_row().cells
         for index, value in enumerate(row):
             cells[index].text = str(value)
-    return table
+    return len(visible)
 
 
 def _key_value_table(word: Any, items: Sequence[tuple[str, str]]) -> None:

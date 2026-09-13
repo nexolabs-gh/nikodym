@@ -240,6 +240,58 @@ def test_docx_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
 
 
 @_SKIP_DOCX
+def test_docx_dice_las_filas_que_trae_de_verdad_si_su_cinturon_corta_bajo_la_vista() -> None:
+    """🔴 Pasada 16 de la revisión adversarial (0c47d9a): la vista canónica permite hasta 1.000
+    filas de la tasa por cohorte (y `max_table_rows` para las demás), pero Word tiene su propio
+    cinturón de 500; el documento traía 500 filas y la leyenda decía «mostrando 1000 de 1500».
+    La leyenda dice lo que el Word trae de verdad."""
+    import docx
+
+    from nikodym.report.config import SectionPolicyConfig
+    from nikodym.report.docx import _MAX_DOCX_TABLE_ROWS
+
+    n = 1_500
+    bundle = _bundle().model_copy(
+        update={
+            "cards": {"model": {"selected_features": ("mora",)}, "eda": {"axis": "cohort"}},
+            "tables": {
+                "eda.default_rate.by_period": pd.DataFrame(
+                    {
+                        "period": [f"ID-{i:05d}" for i in range(n)],
+                        "n_total": [1] * n,
+                        "n_eligible": [1] * n,
+                        "n_bad": [0] * n,
+                        "default_rate": [0.0] * n,
+                        "low_confidence": [True] * n,
+                    }
+                )
+            },
+            "sections": (
+                ReportSection(
+                    id="context.eda",
+                    title="Población y calidad de datos",
+                    status="included",
+                    source_domain="eda",
+                    source_key="eda_card",
+                    kind="data",
+                    level=2,
+                    number="2.2",
+                ),
+            ),
+        }
+    )
+    payload = DocxReportRenderer.from_config(
+        _config(sections=SectionPolicyConfig(max_table_rows=1_000))
+    ).render(bundle)
+    word = docx.Document(io.BytesIO(payload))
+    tabla = next(t for t in word.tables if t.rows[0].cells[0].text == "period")
+    assert len(tabla.rows) == _MAX_DOCX_TABLE_ROWS + 1  # cabecera + el cinturón de Word
+    texto = "\n".join(p.text for p in word.paragraphs)
+    assert f"(mostrando {_MAX_DOCX_TABLE_ROWS} de {n} filas)" in texto
+    assert "mostrando 1000 de" not in texto
+
+
+@_SKIP_DOCX
 def test_docx_marca_los_por_completar_e_inserta_el_indice_de_word() -> None:
     """Los POR COMPLETAR van sombreados y el índice es el campo TOC nativo, no una lista a mano."""
     payload = DocxReportRenderer.from_config(_config()).render(_bundle())
