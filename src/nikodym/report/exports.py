@@ -287,11 +287,24 @@ def _exportable(table: DataFrameLike) -> DataFrameLike:
 
 
 def _with_named_index(table: DataFrameLike) -> DataFrameLike:
-    """Garantiza que el índice tenga nombre: sin él, el identificador sale como columna anónima."""
-    if table.index.name:
+    """Garantiza que el índice tenga nombre: sin él, el identificador sale como columna anónima.
+
+    Un índice de varios niveles se nombra nivel a nivel (``id``, ``id_1``, …) sólo donde falta el
+    nombre: ``Index.rename`` con un texto revienta sobre un ``MultiIndex``.
+    """
+    nombres = list(table.index.names)
+    if all(nombres):
         return table
     renamed = table.copy(deep=True)
-    renamed.index = renamed.index.rename(_INDEX_FALLBACK_NAME)
+    if len(nombres) == 1:
+        renamed.index = renamed.index.rename(_INDEX_FALLBACK_NAME)
+        return renamed
+    renamed.index = renamed.index.set_names(
+        [
+            nombre or (_INDEX_FALLBACK_NAME if nivel == 0 else f"{_INDEX_FALLBACK_NAME}_{nivel}")
+            for nivel, nombre in enumerate(nombres)
+        ]
+    )
     return renamed
 
 

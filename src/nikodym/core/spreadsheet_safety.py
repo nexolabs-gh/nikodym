@@ -68,8 +68,6 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
     objeto cuando no hay nada que proteger —así un export sin celdas activas sigue siendo byte a
     byte el de siempre— y nunca muta el frame recibido.
     """
-    import pandas as pd  # local: el módulo no arrastra pandas al importarse
-
     result = frame
     # Por POSICIÓN, no por etiqueta: con una etiqueta repetida `frame[etiqueta]` devuelve un
     # DataFrame sin `dtype` y las dos columnas quedaban sin sanear (pasada 8 de la revisión
@@ -84,25 +82,43 @@ def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
             if result is frame:
                 result = frame.copy(deep=True)
             result.isetitem(position, protegida.to_numpy())
-    if _is_text_like(frame.index):
-        indice = pd.Index(
-            [_neutralize_value(value) for value in frame.index], name=frame.index.name
-        )
-        if list(indice) != list(frame.index):
-            if result is frame:
-                result = frame.copy(deep=True)
-            result.index = indice
-    nombre = _neutralize_value(frame.index.name)
-    if nombre != frame.index.name:
+    # Las etiquetas de filas y de columnas también son celdas: valores y nombres, nivel a nivel
+    # si son un `MultiIndex` (los writers de pandas separan cada nivel en su celda; pasada 9).
+    indice = _neutralize_labels(frame.index)
+    if indice is not None:
         if result is frame:
             result = frame.copy(deep=True)
-        result.index = result.index.rename(nombre)
-    columnas = [_neutralize_value(label) for label in frame.columns]
-    if columnas != list(frame.columns):
+        result.index = indice
+    columnas = _neutralize_labels(frame.columns)
+    if columnas is not None:
         if result is frame:
             result = frame.copy(deep=True)
-        result.columns = pd.Index(columnas, name=frame.columns.name)
+        result.columns = columnas
     return result
+
+
+def _neutralize_labels(labels: pd.Index) -> pd.Index | None:
+    """El índice con sus valores y nombres protegidos, o ``None`` si nada cambia.
+
+    Un ``MultiIndex`` se reconstruye tupla a tupla y nombre a nombre, conservando su estructura;
+    un índice plano se toca sólo si es de texto (o mixto), y su nombre siempre se mira.
+    """
+    import pandas as pd  # local: el módulo no arrastra pandas al importarse
+
+    nombres = [_neutralize_value(nombre) for nombre in labels.names]
+    nombres_cambian = nombres != list(labels.names)
+    if isinstance(labels, pd.MultiIndex):
+        tuplas = [tuple(_neutralize_value(value) for value in tupla) for tupla in labels]
+        if tuplas != list(labels):
+            return pd.MultiIndex.from_tuples(tuplas, names=nombres)
+        return labels.set_names(nombres) if nombres_cambian else None
+    valores = (
+        [_neutralize_value(value) for value in labels] if _is_text_like(labels) else list(labels)
+    )
+    if valores != list(labels):
+        protegido: pd.Index = pd.Index(valores, name=nombres[0])
+        return protegido
+    return labels.rename(nombres[0]) if nombres_cambian else None
 
 
 def _is_categorical(values: Any) -> bool:

@@ -230,6 +230,54 @@ def test_xlsx_protege_las_dos_columnas_homonimas(tmp_path: Path) -> None:
     assert [hoja.cell(row=3, column=c).value for c in (2, 3)] == ["b", "'@c"]
 
 
+def _frame_con_multiindex_hostil() -> pd.DataFrame:
+    return pd.DataFrame(
+        [[1, 2], [3, 4]],
+        columns=pd.MultiIndex.from_tuples(
+            [("=HYPERLINK(1)", "saldo"), ("b", "+c")], names=["=n1", "n2"]
+        ),
+        index=pd.MultiIndex.from_tuples([("=id", "-x"), ("q", "y")], names=["loan_id", "@b"]),
+    )
+
+
+def test_csv_protege_los_niveles_y_nombres_de_un_multiindex(tmp_path: Path) -> None:
+    """🔴 Pasada 9 de la revisión adversarial (231ee11): los niveles de un `MultiIndex` de
+    columnas o de filas salían como celdas activas."""
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_multiindex_hostil()},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    celdas = [c for fila in csv.reader(io.StringIO(texto)) for c in fila]
+    assert "'=HYPERLINK(1)" in celdas and "'+c" in celdas and "'=n1" in celdas
+    assert "'=id" in celdas and "'-x" in celdas and "'@b" in celdas
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in celdas)
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_protege_los_niveles_y_nombres_de_un_multiindex(tmp_path: Path) -> None:
+    import openpyxl
+
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_multiindex_hostil()},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    celdas = [
+        hoja.cell(row=r, column=c).value
+        for r in range(1, hoja.max_row + 1)
+        for c in range(1, hoja.max_column + 1)
+    ]
+    textos = [c for c in celdas if isinstance(c, str)]
+    assert "'=HYPERLINK(1)" in textos and "'+c" in textos and "'=n1" in textos
+    assert "'=id" in textos and "'-x" in textos and "'@b" in textos
+    assert not any(c.startswith(("=", "+", "-", "@")) for c in textos)
+
+
 def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
     """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
     exports = write_data_exports(

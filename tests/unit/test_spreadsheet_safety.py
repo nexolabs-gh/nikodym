@@ -148,6 +148,35 @@ def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:
     assert frame.values.tolist() == [["=1", "=2", 3, "+a"], ["b", "@c", 4, "d"]]
 
 
+def test_un_multiindex_se_protege_nivel_a_nivel_con_sus_nombres() -> None:
+    """🔴 Pasada 9 de la revisión adversarial (231ee11): en un `MultiIndex` cada etiqueta es una
+    tupla, `_neutralize_value` sólo toca `str`, y los writers de pandas separan los niveles en
+    celdas: la cadena activa llegaba al archivo. Se protege cada nivel y cada nombre, en columnas
+    y en filas, conservando la estructura."""
+    frame = pd.DataFrame(
+        [[1, 2], [3, 4]],
+        columns=pd.MultiIndex.from_tuples(
+            [("=HYPERLINK(1)", "saldo"), ("b", "+c")], names=["=n1", "n2"]
+        ),
+        index=pd.MultiIndex.from_tuples([("=id", "-x"), ("'q", "y")], names=["a", "@b"]),
+    )
+    protegido = neutralize_formula_prefixes(frame)
+    assert list(protegido.columns) == [("'=HYPERLINK(1)", "saldo"), ("b", "'+c")]
+    assert list(protegido.columns.names) == ["'=n1", "n2"]
+    assert list(protegido.index) == [("'=id", "'-x"), ("''q", "y")]
+    assert list(protegido.index.names) == ["a", "'@b"]
+    assert isinstance(protegido.columns, pd.MultiIndex)
+    assert isinstance(protegido.index, pd.MultiIndex)
+    assert protegido.values.tolist() == [[1, 2], [3, 4]]
+    assert list(frame.columns) == [("=HYPERLINK(1)", "saldo"), ("b", "+c")]
+    texto = protegido.to_csv()
+    assert not any(
+        celda.startswith(("=", "+", "-", "@"))
+        for linea in texto.splitlines()
+        for celda in linea.split(",")
+    )
+
+
 @pytest.mark.parametrize("prefijo", FORMULA_PREFIXES)
 def test_cada_prefijo_declarado_se_protege(prefijo: str) -> None:
     frame = pd.DataFrame({"texto": [f"{prefijo}x"]})
