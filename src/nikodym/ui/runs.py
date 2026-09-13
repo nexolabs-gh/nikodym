@@ -39,12 +39,14 @@ import io
 import json
 import re
 import shutil
+import tempfile
 import uuid
 import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from nikodym.core.spreadsheet_safety import neutralize_formula_prefixes
+from nikodym.core.study import _missing_backup_path, _replace_path
 from nikodym.ui.exceptions import UiError, UiRunNotFoundError
 from nikodym.ui.serializers import eda_default_rate_frame, serialize_study
 
@@ -144,6 +146,17 @@ def save(
     ``.docx`` de Word (``report.docx``). Si el payload recortó la tasa por período o cohorte, la
     tabla completa va al lado como ``eda_default_rate.csv`` (:func:`_save_eda_default_rate`). Un
     ``Study`` sin ``run_id`` (no ejecutado) es un error de uso.
+
+    **La corrida se publica entera o no se publica** (pasadas 3 y 4 de la revisión adversarial):
+    todos los archivos se construyen en un hermano temporal ``.<run_id>.*.tmp`` de
+    ``runs/<run_id>`` y el directorio se publica con un solo ``replace`` al final. Antes se
+    escribía directamente en el destino, y un disco que se llenaba a mitad —el CSV grande, el
+    JSON, un informe— dejaba una corrida a medias: servible con ``truncated: true`` sin su tabla, o
+    con el archivo grande huérfano en un directorio que la UI no puede servir, acumulándose con
+    cada reintento. Ante cualquier excepción el temporal se cierra sin dejar artefactos
+    reproducibles atrás; sólo el trail —evidencia, no reproducible— se conserva en un hermano
+    ``.<run_id>.failed.*`` anotado en la excepción (:func:`_apartar_corrida_fallida`). Son las
+    primitivas de ``nikodym.run`` para su ``run_dir``, para que las dos políticas no diverjan.
     """
     run_id = study.run_context.run_id
     if run_id is None:
@@ -154,27 +167,80 @@ def save(
         )
     asegurar_workdir(workdir)  # el veto de git se escribe también en el uso programático
     run_dir = _run_dir(workdir, run_id)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    trail_final = _archivar_trail(trail, run_dir)
-    payload = serialize_study(study, governance=governance, trail_path=trail_final)
-    # La tabla completa de la tasa va ANTES que `results.json`: el JSON es lo que publica la
-    # corrida para `load_results`, y un fallo al escribir el archivo grande —un disco que se llena
-    # a mitad— no puede dejar una corrida servible que declara `truncated: true` sin su tabla.
-    _save_eda_default_rate(study, payload, run_dir)
-    (run_dir / _RESULTS_FILENAME).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
-    )
-    html = _report_html(study)
-    if html is not None:
-        (run_dir / _REPORT_FILENAME).write_text(html, encoding="utf-8")
-    pdf = _report_pdf(study)
-    if pdf is not None:
-        (run_dir / _REPORT_PDF_FILENAME).write_bytes(pdf)
-    _save_markdown(study, run_dir)
-    docx = _report_artifact_bytes(study, "docx_path")
-    if docx is not None:
-        (run_dir / _REPORT_DOCX_FILENAME).write_bytes(docx)
+    run_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{run_id}.", suffix=".tmp", dir=run_dir.parent))
+    try:
+        trail_final = _archivar_trail(trail, staging)
+        payload = serialize_study(study, governance=governance, trail_path=trail_final)
+        _save_eda_default_rate(study, payload, staging)
+        (staging / _RESULTS_FILENAME).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
+        )
+        html = _report_html(study)
+        if html is not None:
+            (staging / _REPORT_FILENAME).write_text(html, encoding="utf-8")
+        pdf = _report_pdf(study)
+        if pdf is not None:
+            (staging / _REPORT_PDF_FILENAME).write_bytes(pdf)
+        _save_markdown(study, staging)
+        docx = _report_artifact_bytes(study, "docx_path")
+        if docx is not None:
+            (staging / _REPORT_DOCX_FILENAME).write_bytes(docx)
+        _publicar_corrida(staging, run_dir)
+    except BaseException as exc:
+        _apartar_corrida_fallida(staging, run_dir, exc)
+        raise
     return run_id
+
+
+def _publicar_corrida(staging: Path, run_dir: Path) -> None:
+    """Sustituye ``run_dir`` por el temporal completo con un solo ``replace``.
+
+    Un ``run_id`` es un uuid por corrida, así que un destino ya ocupado es una re-persistencia
+    del mismo estudio; lo que hubiera no se mezcla ni se borra: se aparta a un hermano
+    ``.<run_id>.old.*`` que se conserva —lleva un audit-trail, que es evidencia—, como hace
+    ``nikodym.run`` con su ``run_dir``. Un destino vacío se retira, porque ``os.replace`` no pisa
+    directorios en Windows.
+    """
+    if run_dir.exists():
+        if any(run_dir.iterdir()):
+            _replace_path(run_dir, _missing_backup_path(run_dir))
+        else:
+            run_dir.rmdir()
+    _replace_path(staging, run_dir)
+
+
+def _apartar_corrida_fallida(staging: Path, run_dir: Path, exc: BaseException) -> None:
+    """Cierra el temporal de una corrida que no llegó a publicarse: sin artefactos, con su trail.
+
+    Los archivos que ``save`` produce se reconstruyen desde el ``Study`` —y el CSV de la tasa es
+    grande a propósito—: dejarlos en un directorio que la UI no sirve sólo consume disco con cada
+    reintento. El trail no se reconstruye: es la evidencia de la corrida (SDD-03 §8) y se conserva
+    como hermano ``.<run_id>.failed.*``, anotado en la excepción. Sin trail no queda rastro. Si el
+    propio rescate falla —disco lleno, permisos—, el temporal se queda donde está y se anota ESA
+    ruta: nunca se sustituye la excepción original.
+    """
+    conservada = staging
+    try:
+        for ruta in sorted(staging.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+            if ruta.name == _TRAIL_FILENAME and ruta.parent == staging:
+                continue
+            if ruta.is_dir():
+                ruta.rmdir()
+            else:
+                ruta.unlink()
+        trail = staging / _TRAIL_FILENAME
+        if not trail.is_file() or trail.stat().st_size == 0:
+            shutil.rmtree(staging, ignore_errors=True)
+            return
+        conservada = _missing_backup_path(run_dir, etiqueta="failed")
+        _replace_path(staging, conservada)
+    except OSError:
+        conservada = staging
+    exc.add_note(
+        f"El audit-trail de la corrida que no se pudo persistir se conservó en '{conservada}'; "
+        f"'{run_dir}' no se publicó."
+    )
 
 
 def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path) -> None:
@@ -198,22 +264,14 @@ def _save_eda_default_rate(study: Study, payload: dict[str, Any], run_dir: Path)
     frame = eda_default_rate_frame(study)
     if frame is None:  # inalcanzable: la ventana sólo existe con el artefacto; no se fabrica
         return
-    # A un temporal y `replace` sólo al completarlo (pasada 3 de la revisión adversarial): el
-    # archivo existe porque la tabla puede ser enorme, y un disco que se llena a medio camino no
-    # puede dejar un CSV parcial con el nombre que el endpoint sirve.
-    destino = run_dir / _EDA_DEFAULT_RATE_FILENAME
-    temporal = run_dir / f".{_EDA_DEFAULT_RATE_FILENAME}.tmp"
-    try:
-        neutralize_formula_prefixes(frame).to_csv(
-            temporal,
-            index=False,
-            encoding="utf-8-sig",
-            lineterminator="\n",
-        )
-        temporal.replace(destino)
-    except BaseException:
-        temporal.unlink(missing_ok=True)
-        raise
+    # `run_dir` es el temporal de `save`: un disco que se llena a medio camino no deja un CSV
+    # parcial servible, porque la corrida entera se descarta sin publicarse.
+    neutralize_formula_prefixes(frame).to_csv(
+        run_dir / _EDA_DEFAULT_RATE_FILENAME,
+        index=False,
+        encoding="utf-8-sig",
+        lineterminator="\n",
+    )
 
 
 def _archivar_trail(trail: Path | None, run_dir: Path) -> Path | None:

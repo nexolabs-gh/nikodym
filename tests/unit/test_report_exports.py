@@ -158,6 +158,53 @@ def test_csv_neutraliza_encabezados_nombre_del_indice_y_categoricas(tmp_path: Pa
     assert leido["nivel"].tolist() == ["'@SUM(A1)", "b", "'-c"]
 
 
+def _frame_con_pares_que_colisionaban() -> pd.DataFrame:
+    """Identificadores, categorías y encabezados que la primera versión del escape fundía."""
+    frame = pd.DataFrame(
+        {
+            "=x": [1, 2],
+            "'=x": [3, 4],
+            "nivel": pd.Categorical(["=a", "'=a"]),
+            "texto": ["-b", "'-b"],
+        },
+        index=pd.Index(["=id", "'=id"], name="loan_id"),
+    )
+    return frame
+
+
+def test_csv_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
+    """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` y `'=x` salían byte-idénticos."""
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_pares_que_colisionaban()},
+        config=ReportConfig(formats=("csv",)),
+        output_dir=str(tmp_path),
+    )
+    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
+    leido = pd.read_csv(io.StringIO(texto), keep_default_na=False, index_col=0)
+    assert len(set(leido.index)) == 2
+    assert len(set(leido["nivel"])) == 2 and len(set(leido["texto"])) == 2
+    assert len(set(leido.columns)) == len(leido.columns) == 4
+    assert leido["texto"].tolist() == ["'-b", "''-b"]
+
+
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
+def test_xlsx_dos_valores_distintos_siguen_distintos_tras_exportar(tmp_path: Path) -> None:
+    import openpyxl
+
+    exports = write_data_exports(
+        {"scorecard.score": _frame_con_pares_que_colisionaban()},
+        config=ReportConfig(formats=("xlsx",)),
+        output_dir=str(tmp_path),
+    )
+    hoja = openpyxl.load_workbook(exports["scorecard_report__por_observacion.xlsx"])[
+        "scorecard_score"
+    ]
+    filas = [[hoja.cell(row=r, column=c).value for c in range(1, 6)] for r in range(1, 4)]
+    assert len(set(filas[0])) == 5  # encabezados distintos
+    assert filas[1][0] != filas[2][0]  # identificadores distintos
+    assert filas[1][3] != filas[2][3] and filas[1][4] != filas[2][4]
+
+
 @pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
 def test_xlsx_neutraliza_encabezados_nombre_del_indice_y_categoricas(tmp_path: Path) -> None:
     import openpyxl

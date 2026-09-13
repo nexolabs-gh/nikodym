@@ -266,6 +266,66 @@ def test_un_fallo_al_escribir_el_csv_no_deja_la_corrida_publicada_a_medias(
     assert not any(run_dir.glob("*.csv*")) if run_dir.exists() else True
 
 
+def test_un_fallo_despues_del_csv_no_deja_una_corrida_huerfana_con_el_archivo_grande(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 Pasada 4 de la revisión adversarial (d5047ff): el CSV grande ya estaba en su nombre final
+    cuando fallaba `results.json` o un informe, y quedaba en un directorio de corrida que la UI
+    no puede servir; cada reintento acumulaba otro. La corrida se construye en un hermano
+    temporal y se publica entera con un `replace`; si algo falla después del CSV, no queda
+    `runs/<run_id>` ni ningún CSV bajo `runs/`, y sólo se conserva el trail —la evidencia— en un
+    hermano `.<run_id>.failed.*` anotado en la excepción."""
+    import json
+
+    parquet = tmp_path / "cartera.parquet"
+    write_near_unique_cohort_parquet(parquet)
+    study = nikodym.run(eda_only_config(str(parquet)))
+    assert study.run_context.status == "done", study.run_context.error
+    workdir = tmp_path / "wd"
+    run_id = study.run_context.run_id
+    assert run_id is not None
+    trail = runs.reservar_trail(workdir)
+    trail.write_text('{"event": "run_start"}\n', encoding="utf-8")
+
+    def _disco_lleno(*_args: object, **_kwargs: object) -> str:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(json, "dumps", _disco_lleno)
+    with pytest.raises(OSError, match="No space left") as info:
+        runs.save(study, workdir=workdir, governance=None, trail=trail)
+
+    runs_root = workdir / "runs"
+    assert not (runs_root / run_id).exists()
+    assert not list(runs_root.rglob("*.csv*")), "el archivo grande no puede quedar huérfano"
+    assert not list(runs_root.glob(f".{run_id}.*.tmp")), "el temporal no queda a medias"
+    conservados = list(runs_root.glob(f".{run_id}.failed.*"))
+    assert len(conservados) == 1
+    assert [p.name for p in conservados[0].iterdir()] == ["audit_trail.jsonl"]
+    assert str(conservados[0]) in "".join(getattr(info.value, "__notes__", []))
+    with pytest.raises(UiRunNotFoundError):
+        runs.load_results(run_id, workdir=workdir)
+
+
+def test_una_corrida_publicada_no_deja_temporales_y_un_fallo_sin_evidencia_no_deja_rastro(
+    f1_study: Study, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    runs_root = workdir / "runs"
+    assert sorted(p.name for p in runs_root.iterdir()) == [run_id]
+
+    # Sin trail y con un fallo antes de escribir nada: el temporal se descarta sin rastro.
+    otro = tmp_path / "wd2"
+
+    def _revienta(*_args: object, **_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(runs, "serialize_study", _revienta)
+    with pytest.raises(RuntimeError):
+        runs.save(f1_study, workdir=otro, governance=None)
+    assert not list((otro / "runs").iterdir())
+
+
 def test_sin_recorte_no_hay_archivo_de_la_tasa(
     fake_binning_process: object, tmp_path: Path
 ) -> None:

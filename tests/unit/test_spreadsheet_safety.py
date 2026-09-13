@@ -90,6 +90,40 @@ def test_una_categorica_y_un_indice_categorico_se_protegen() -> None:
     assert frame["nivel"].tolist() == ["=1", "b", "@x"]
 
 
+def test_el_escape_es_inyectivo_dos_valores_distintos_siguen_distintos() -> None:
+    """🔴 Pasada 4 de la revisión adversarial (d5047ff): `=x` se protegía como `'=x` y un valor
+    original `'=x` quedaba intacto: dos operaciones distintas salían byte-idénticas, y una
+    conciliación o un join sobre el export las fundía sin ninguna señal. Se escapa también la
+    comilla de guarda —`'…` → `''…`—, así que las imágenes de los tres grupos (empieza por
+    comilla, empieza por prefijo activo, el resto) no se cruzan: la función es inyectiva."""
+    valores = ["=x", "'=x", "''=x", "'a", "a", "-1", "'-1", "'", ""]
+    frame = pd.DataFrame(
+        {"v": valores, "n": range(len(valores))},
+        index=pd.Index(valores, name="id"),
+        columns=pd.Index(["v", "n"]),
+    )
+    protegido = neutralize_formula_prefixes(frame)
+    assert protegido["v"].tolist() == [
+        "'=x",
+        "''=x",
+        "'''=x",
+        "''a",
+        "a",
+        "'-1",
+        "''-1",
+        "''",
+        "",
+    ]
+    assert len(set(protegido["v"])) == len(valores)
+    assert len(set(protegido.index)) == len(valores)
+    # Encabezados: `=x` y `'=x` como nombres de columna tampoco se funden.
+    otro = pd.DataFrame({"=x": [1], "'=x": [2]})
+    assert list(neutralize_formula_prefixes(otro).columns) == ["'=x", "''=x"]
+    # Y un frame sin celdas activas ni comillas iniciales sigue siendo el mismo objeto.
+    limpio = pd.DataFrame({"v": ["a", "b'c"]})
+    assert neutralize_formula_prefixes(limpio) is limpio
+
+
 @pytest.mark.parametrize("prefijo", FORMULA_PREFIXES)
 def test_cada_prefijo_declarado_se_protege(prefijo: str) -> None:
     frame = pd.DataFrame({"texto": [f"{prefijo}x"]})

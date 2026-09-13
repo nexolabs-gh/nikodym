@@ -9,9 +9,10 @@ del usuario —el identificador de la operación, los niveles de una categórica
 etiqueta la tasa, y también los NOMBRES de sus columnas, que salen como encabezado— y ninguno los
 produce el motor: por eso se neutralizan al EXPORTAR, no al calcular, y la mitigación es la que
 recomienda OWASP: anteponer una comilla simple, que fuerza la celda a texto y deja el valor legible
-tal cual. Sólo se tocan las celdas de texto que empiezan por uno de esos prefijos; los números,
-los lógicos, las fechas y el resto del texto viajan intactos. Hallazgo de la revisión adversarial
-de la serie de mantenimiento posterior a la 1.14.0 (pasadas 2 y 3).
+tal cual. Sólo se tocan las celdas de texto que empiezan por uno de esos prefijos —o por la propia
+comilla, para que la protección sea inyectiva—; los números, los lógicos, las fechas y el resto
+del texto viajan intactos. Hallazgo de la revisión adversarial de la serie de mantenimiento
+posterior a la 1.14.0 (pasadas 2, 3 y 4).
 """
 
 from __future__ import annotations
@@ -27,10 +28,17 @@ __all__ = ["FORMULA_PREFIXES", "neutralize_formula_prefixes"]
 FORMULA_PREFIXES: Final[tuple[str, ...]] = ("=", "+", "-", "@", "\t", "\r")
 
 _GUARD: Final = "'"
+#: Lo que recibe la comilla de guarda: un prefijo activo, o la propia comilla. Escapar también la
+#: comilla es lo que hace INYECTIVA la protección: `=x` sale como `'=x` y un valor original `'=x`
+#: como `''=x`, así que dos operaciones, cohortes, categorías o encabezados distintos nunca salen
+#: byte-idénticos —una conciliación o un join sobre el export no los fundiría en silencio— (pasada
+#: 4 de la revisión adversarial). Las imágenes de los tres grupos —empieza por comilla, empieza
+#: por prefijo activo, el resto— no se cruzan.
+_ESCAPED_PREFIXES: Final[tuple[str, ...]] = (*FORMULA_PREFIXES, _GUARD)
 
 
 def _neutralize_value(value: Any) -> Any:
-    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+    if isinstance(value, str) and value.startswith(_ESCAPED_PREFIXES):
         return _GUARD + value
     return value
 
