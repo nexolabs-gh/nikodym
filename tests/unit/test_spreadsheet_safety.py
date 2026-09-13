@@ -135,42 +135,27 @@ def test_el_salto_de_linea_y_los_prefijos_de_ancho_completo_tambien_se_protegen(
     assert set(venenosos) <= {f"{p}{v[1:]}" for p in FORMULA_PREFIXES for v in venenosos}
 
 
-def test_la_guarda_va_tambien_tras_cada_punto_y_coma_y_tabulador_dentro_del_texto() -> None:
-    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel con `;` como separador de lista
-    parte la línea por `;` ignorando el citado de comas, así que `texto;=SUM(A1)` abría una celda
-    nueva con la fórmula. La guarda se antepone en cada inicio posible de celda —principio, tras
-    `;`, tras tabulador—, y sigue siendo inyectiva: `a;'=x` recibe otra comilla."""
+def test_el_texto_interno_no_se_toca_solo_el_inicio_real_del_campo() -> None:
+    """La guarda va sólo al inicio real de la celda; `;`, tabulador y salto DENTRO del texto
+    quedan como están (pasada 14 de la revisión adversarial: anteponerla también tras ellos
+    —pasadas 10 y 11— alteraba datos legítimos, `segmento;=A` → `segmento;'=A`, y rompía la
+    conciliación). El límite —abrir el CSV con su separador— queda declarado en el módulo."""
     casos = {
-        "texto;=SUM(A1)": "texto;'=SUM(A1)",
-        "a;'=x": "a;''=x",
-        "a\t=x": "a\t'=x",
-        "a;\t=x": "a;'\t'=x",
-        "a;b": "a;b",
-        "a,=x": "a,=x",  # la coma es el separador del archivo: el citado la protege
-        "x;": "x;",
-        "=a;=b": "'=a;'=b",
+        "texto;=SUM(A1)": "texto;=SUM(A1)",
+        "segmento;=A": "segmento;=A",
+        "a\t=x": "a\t=x",
+        "a\n=x": "a\n=x",
+        "a\r\n=x": "a\r\n=x",
+        "a;'=x": "a;'=x",
+        "=a;=b": "'=a;=b",
+        "\n=1+1;fin": "'\n=1+1;fin",
+        "'=x": "''=x",
     }
-    frame = pd.DataFrame({"texto": list(casos)})
-    assert neutralize_formula_prefixes(frame)["texto"].tolist() == list(casos.values())
-    assert len(set(casos.values())) == len(casos)
-
-
-def test_la_guarda_va_tambien_tras_cada_salto_de_linea_sin_partir_el_crlf() -> None:
-    """🔴 Pasada 11 de la revisión adversarial (3ce7116): un texto multilínea `\\n=1+1;fin`
-    llevaba la guarda sólo al principio; reinterpretado por un Excel con `;`, el salto abría una
-    fila cuya primera celda seguía empezando por `=`. CR, LF y CRLF son límites de celda como el
-    `;`: la guarda va tras cada uno, y un CRLF no se parte en dos."""
-    casos = {
-        "\n=1+1;fin": "'\n'=1+1;fin",
-        "a\n=x": "a\n'=x",
-        "a\r=x": "a\r'=x",
-        "a\r\n=x": "a\r\n'=x",
-        "a\r\nb": "a\r\nb",
-        "\r\n=x": "'\r\n'=x",
-        "a\n'=x": "a\n''=x",
-    }
-    frame = pd.DataFrame({"texto": list(casos)})
-    assert neutralize_formula_prefixes(frame)["texto"].tolist() == list(casos.values())
+    frame = pd.DataFrame({"texto": list(casos)}, index=pd.Index(list(casos), name="a;=b"))
+    protegido = neutralize_formula_prefixes(frame)
+    assert protegido["texto"].tolist() == list(casos.values())
+    assert protegido.index.tolist() == list(casos.values())
+    assert protegido.index.name == "a;=b"
     assert len(set(casos.values())) == len(casos)
 
 
@@ -201,29 +186,6 @@ def test_cualquier_dtype_que_no_sea_numerico_ni_temporal_se_recorre() -> None:
     for columna in ("entero_arrow", "fecha", "lapso", "flotante"):
         assert protegido[columna].dtype == frame[columna].dtype, columna
         assert protegido[columna].tolist() == frame[columna].tolist(), columna
-
-
-def test_sin_cortes_de_celda_solo_se_protege_el_inicio() -> None:
-    """🔴 Pasada 13 de la revisión adversarial (f7da0d1): en un libro XLSX un `;`, un tabulador o
-    un salto de línea no abren otra celda, así que la guarda tras ellos sólo alteraba datos
-    legítimos (`texto;=SUM(A1)` → `texto;'=SUM(A1)`). Con `cell_breaks=False` se protege
-    únicamente el inicio real de la celda; el resto viaja intacto."""
-    casos = {
-        "texto;=SUM(A1)": "texto;=SUM(A1)",
-        "a\t=x": "a\t=x",
-        "a\n=x": "a\n=x",
-        "a\r\n=x": "a\r\n=x",
-        "=x": "'=x",
-        "'=x": "''=x",
-        "\n=x": "'\n=x",
-    }
-    frame = pd.DataFrame({"texto": list(casos)}, index=pd.Index(list(casos), name="a;=b"))
-    protegido = neutralize_formula_prefixes(frame, cell_breaks=False)
-    assert protegido["texto"].tolist() == list(casos.values())
-    assert protegido.index.tolist() == list(casos.values())
-    assert protegido.index.name == "a;=b"
-    # Y con los cortes (el CSV), lo de siempre.
-    assert neutralize_formula_prefixes(frame)["texto"].tolist()[0] == "texto;'=SUM(A1)"
 
 
 def test_dos_columnas_homonimas_se_protegen_las_dos() -> None:

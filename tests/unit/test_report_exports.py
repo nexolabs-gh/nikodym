@@ -283,63 +283,36 @@ def test_xlsx_protege_los_niveles_y_nombres_de_un_multiindex(tmp_path: Path) -> 
     assert not any(c.startswith(("=", "+", "-", "@")) for c in textos)
 
 
-def _campos_con_separador_regional(texto: str) -> list[str]:
-    """Lo que ve un Excel cuyo separador de lista es `;` (es-CL, es-ES) al abrir el CSV."""
-    return [campo for fila in csv.reader(io.StringIO(texto), delimiter=";") for campo in fila]
-
-
-def test_csv_un_separador_regional_no_abre_una_celda_con_formula_en_mitad_de_un_texto(
+def test_csv_conserva_el_texto_interno_y_protege_solo_el_inicio_real_del_campo(
     tmp_path: Path,
 ) -> None:
-    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel cuyo separador de lista es `;`
-    (es-CL, es-ES) abre un CSV de comas partiendo cada línea por `;` e ignorando el citado, así
-    que `texto;=HYPERLINK(...)` se convertía en dos celdas, la segunda una fórmula viva. La guarda
-    se antepone también tras cada `;` y tabulador; y todo texto va entre comillas
-    (`QUOTE_NONNUMERIC`), con los números sin ellas para que se sigan leyendo como números."""
-    frame = _score_frame(rows=2)
-    frame["nota"] = ["texto;=HYPERLINK(1)", "otro,=SUM(A1)"]
-    exports = write_data_exports(
-        {"scorecard.score": frame},
-        config=ReportConfig(formats=("csv",)),
-        output_dir=str(tmp_path),
-    )
-    texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_text(encoding="utf-8-sig")
-    assert '"texto;\'=HYPERLINK(1)"' in texto and '"otro,=SUM(A1)"' in texto
-    # Lo que ve el Excel con `;`: ninguna celda empieza por un prefijo activo.
-    campos = _campos_con_separador_regional(texto)
-    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in campos)
-    # Lo que ve un lector de comas: el texto entero, con la guarda tras el `;`; la coma no la
-    # necesita, porque es el separador del archivo y el citado la protege.
-    leido = pd.read_csv(io.StringIO(texto), index_col=0)
-    assert leido["nota"].tolist() == ["texto;'=HYPERLINK(1)", "otro,=SUM(A1)"]
-    # Los números no llevan comillas: un lector los sigue leyendo como números.
-    assert ",600," in texto and '"600"' not in texto
-    assert leido["score"].tolist() == [600, 601]
-
-
-def test_csv_un_texto_multilinea_no_abre_una_fila_con_formula_bajo_un_separador_regional(
-    tmp_path: Path,
-) -> None:
-    """🔴 Pasada 11 de la revisión adversarial (3ce7116): un valor `\\n=1+1;fin` en una columna
-    posterior, reinterpretado por un Excel con `;` como separador, abría una fila nueva cuya
-    primera celda empezaba por `=`. Tras CR/LF también va la guarda."""
-    frame = _score_frame(rows=2)
-    frame["nota"] = ["\n=1+1;fin", "ok\r\n=SUM(A1)"]
+    """Pasada 14 de la revisión adversarial: un `;`, un tabulador o un salto DENTRO de un texto no
+    son un inicio de campo en el dialecto emitido (coma, todo texto entre comillas), y anteponer
+    la guarda tras ellos alteraba datos legítimos. Round-trip exacto del texto interno; el inicio
+    real del campo sigue protegido; los números sin comillas."""
+    frame = _score_frame(rows=4)
+    frame["nota"] = ["texto;=HYPERLINK(1)", "otro,=SUM(A1)", "\n=1+1;fin", "ok\r\n=SUM(A1)"]
     exports = write_data_exports(
         {"scorecard.score": frame},
         config=ReportConfig(formats=("csv",)),
         output_dir=str(tmp_path),
     )
     # Bytes decodificados, no `read_text`: la lectura universal de saltos convertiría el CRLF
-    # de dentro de la celda en LF y el oráculo no vería el archivo real.
+    # de dentro de la celda en LF y el round-trip no sería el real.
     texto = Path(exports["scorecard_report__scorecard_score.csv"]).read_bytes().decode("utf-8-sig")
-    # Lo que ve el Excel con `;`, fila a fila y celda a celda: nada empieza por un prefijo activo.
-    for fila in csv.reader(io.StringIO(texto), delimiter=";"):
-        for celda in fila:
-            for linea in celda.splitlines():
-                assert not linea.startswith(("=", "+", "-", "@")), linea
+    assert '"texto;=HYPERLINK(1)"' in texto and '"otro,=SUM(A1)"' in texto
     leido = pd.read_csv(io.StringIO(texto), index_col=0)
-    assert leido["nota"].tolist() == ["'\n'=1+1;fin", "ok\r\n'=SUM(A1)"]
+    assert leido["nota"].tolist() == [
+        "texto;=HYPERLINK(1)",
+        "otro,=SUM(A1)",
+        "'\n=1+1;fin",
+        "ok\r\n=SUM(A1)",
+    ]
+    # En el dialecto emitido ningún campo empieza por un prefijo activo.
+    celdas = [c for fila in csv.reader(io.StringIO(texto)) for c in fila]
+    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in celdas)
+    assert ",600," in texto and '"600"' not in texto
+    assert leido["score"].tolist() == [600, 601, 602, 603]
 
 
 def _frame_con_texto_arrow() -> pd.DataFrame:

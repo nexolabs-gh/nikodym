@@ -230,12 +230,10 @@ def test_el_archivo_de_la_tasa_neutraliza_las_cohortes_que_excel_leeria_como_for
     assert any(str(p).startswith("ID-") for p in periodos)  # una etiqueta normal viaja tal cual
 
 
-def test_el_archivo_de_la_tasa_no_deja_que_un_separador_regional_abra_una_formula(
-    tmp_path: Path,
-) -> None:
-    """🔴 Pasada 10 de la revisión adversarial (5e5f033): un Excel con `;` como separador de lista
-    partía la cohorte `x;=HYPERLINK(1)` en una celda de texto y una fórmula viva. La guarda va
-    también tras cada `;`, y todo texto viaja entre comillas."""
+def test_el_archivo_de_la_tasa_conserva_el_texto_interno_de_una_cohorte(tmp_path: Path) -> None:
+    """Pasada 14 de la revisión adversarial: una cohorte `x;=HYPERLINK(1)` viaja tal cual —el `;`
+    interno no es un inicio de campo del dialecto emitido—, entre comillas; sólo un inicio real
+    de celda recibe la guarda."""
     import csv
 
     import pandas as pd
@@ -255,9 +253,10 @@ def test_el_archivo_de_la_tasa_no_deja_que_un_separador_regional_abra_una_formul
     csv_path = runs.eda_default_rate_path(run_id, workdir=workdir)
     assert csv_path is not None
     texto = csv_path.read_text(encoding="utf-8-sig")
-    assert '"x;\'=HYPERLINK(1)"' in texto
-    campos = [c for fila in csv.reader(io.StringIO(texto), delimiter=";") for c in fila]
-    assert not any(c.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for c in campos)
+    assert '"x;=HYPERLINK(1)"' in texto
+    periodos = [fila[0] for fila in csv.reader(io.StringIO(texto))][1:]
+    assert "x;=HYPERLINK(1)" in periodos
+    assert not any(p.startswith(("=", "+", "-", "@", "\t", "\r", "\n")) for p in periodos)
 
 
 def test_un_fallo_al_escribir_el_csv_no_deja_la_corrida_publicada_a_medias(

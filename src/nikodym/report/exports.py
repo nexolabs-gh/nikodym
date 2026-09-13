@@ -246,9 +246,9 @@ def _write_csv(table: DataFrameLike, path: Path) -> Path:
     try:
         # ``utf-8-sig``: el BOM hace que Excel abra el CSV con los acentos correctos en Windows,
         # que es donde lo va a abrir Validación. ``lineterminator`` fijo: el default depende del SO.
-        # ``quoting``: todo el texto entre comillas, para que un separador regional (``;``) no
-        # parta una celda de texto en dos (``spreadsheet_safety.CSV_QUOTING``).
-        _exportable(table, cell_breaks=True).to_csv(
+        # ``quoting``: todo el texto entre comillas, los números sin ellas
+        # (``spreadsheet_safety.CSV_QUOTING``).
+        _exportable(table).to_csv(
             temp_path,
             index=True,
             encoding="utf-8-sig",
@@ -274,7 +274,7 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
     try:
         with pd.ExcelWriter(temp_path, engine="openpyxl") as writer:
             for sheet, table in sheets.items():
-                _exportable(table, cell_breaks=False).to_excel(writer, sheet_name=sheet, index=True)
+                _exportable(table).to_excel(writer, sheet_name=sheet, index=True)
         temp_path.replace(path)
     except ImportError as exc:
         temp_path.unlink(missing_ok=True)
@@ -289,13 +289,9 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
     return path
 
 
-def _exportable(table: DataFrameLike, *, cell_breaks: bool) -> DataFrameLike:
-    """La tabla como sale al archivo: índice con nombre y celdas activas de planilla protegidas.
-
-    ``cell_breaks`` es la política por formato de :func:`neutralize_formula_prefixes`: el CSV
-    protege también tras ``;``, tabulador y salto de línea; el XLSX sólo el inicio de cada celda.
-    """
-    return neutralize_formula_prefixes(_with_named_index(table), cell_breaks=cell_breaks)
+def _exportable(table: DataFrameLike) -> DataFrameLike:
+    """La tabla como sale al archivo: índice con nombre y celdas activas de planilla protegidas."""
+    return neutralize_formula_prefixes(_with_named_index(table))
 
 
 def _with_named_index(table: DataFrameLike) -> DataFrameLike:

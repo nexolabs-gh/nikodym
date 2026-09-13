@@ -11,15 +11,24 @@ produce el motor: por eso se neutralizan al EXPORTAR, no al calcular, y la mitig
 recomienda OWASP: anteponer una comilla simple, que fuerza la celda a texto y deja el valor legible
 tal cual. Sólo se tocan las celdas de texto que empiezan por uno de esos prefijos —o por la propia
 comilla, para que la protección sea inyectiva—; los números, los lógicos, las fechas y el resto
-del texto viajan intactos. Hallazgo de la revisión adversarial de la serie de mantenimiento
-posterior a la 1.14.0 (pasadas 2, 3 y 4).
+del texto viajan intactos, incluido lo que un texto lleve DENTRO tras un ``;``, un tabulador o un
+salto de línea. Hallazgo de la revisión adversarial de la serie de mantenimiento posterior a la
+1.14.0 (pasadas 2 a 14).
+
+**Límite declarado.** El CSV se emite en un solo dialecto —coma, todo texto entre comillas— y la
+guarda protege el inicio real de cada campo de ESE dialecto. Una planilla que lo abra con otro
+separador (un Excel cuyo separador de lista es ``;`` y un doble clic, sin el asistente de
+importación) parte cada línea por ``;`` ignorando el citado: la tabla sale rota y un ``;=…``
+dentro de un texto quedaría al inicio de una celda de esa vista rota. Anteponer la guarda tras
+cada ``;``, tabulador y salto dentro del texto cerraba ese caso al precio de alterar datos
+legítimos —una cohorte ``segmento;=A`` dejaba de conciliar—: la política elegida conserva el dato
+y documenta el límite (abrir el CSV con su separador, la coma), y emitir el dialecto regional es
+una decisión de producto, no un arreglo.
 """
 
 from __future__ import annotations
 
 import csv
-import functools
-import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
@@ -29,12 +38,9 @@ if TYPE_CHECKING:
 __all__ = ["CSV_QUOTING", "FORMULA_PREFIXES", "neutralize_formula_prefixes"]
 
 #: Cómo se citan los campos de todo CSV que Nikodym entrega para abrir en una planilla: TODO el
-#: texto entre comillas y los números sin ellas (``csv.QUOTE_NONNUMERIC``). Así ningún lector
-#: tiene que adivinar dónde termina un texto que trae comas, comillas o saltos, y los números se
-#: siguen leyendo como números. No basta por sí solo contra un separador regional —un Excel con
-#: ``;`` como separador de lista parte la línea por ``;`` ignorando el citado de comas—: de eso se
-#: ocupa la guarda tras cada ``;`` y tabulador (:data:`_CELL_START`; pasada 10 de la revisión
-#: adversarial).
+#: texto entre comillas y los números sin ellas (``csv.QUOTE_NONNUMERIC``). Así ningún lector del
+#: dialecto emitido tiene que adivinar dónde termina un texto que trae comas, ``;``, comillas o
+#: saltos, y los números se siguen leyendo como números (pasada 10 de la revisión adversarial).
 CSV_QUOTING: Final = csv.QUOTE_NONNUMERIC
 
 #: Primer carácter con el que una hoja de cálculo decide que la celda es una fórmula: los cuatro
@@ -63,28 +69,22 @@ _GUARD: Final = "'"
 #: 4 de la revisión adversarial). Las imágenes de los tres grupos —empieza por comilla, empieza
 #: por prefijo activo, el resto— no se cruzan.
 _ESCAPED_PREFIXES: Final[tuple[str, ...]] = (*FORMULA_PREFIXES, _GUARD)
-#: Dónde una planilla puede EMPEZAR una celda dentro de un texto: al principio, tras un ``;``, un
-#: tabulador o un salto de línea (CRLF, CR o LF, sin partir el CRLF). Un Excel cuyo separador de
-#: lista es ``;`` (es-CL, es-ES) abre un CSV de comas partiendo cada línea por ``;`` e ignorando el
-#: citado de comas, así que ``texto;=SUM(A1)`` —aunque viaje entre comillas— se convertía en dos
-#: celdas, la segunda una fórmula viva; y un texto multilínea abría una FILA nueva tras el salto
-#: (pasadas 10 y 11 de la revisión adversarial). La guarda se antepone en cada uno de esos puntos;
-#: la coma no hace falta: es el separador del archivo y el citado la protege.
-_ACTIVE: Final = "(?=[" + "".join(re.escape(c) for c in _ESCAPED_PREFIXES) + "])"
-_CELL_START_WITH_BREAKS: Final = re.compile("(^|\r\n|\r(?!\n)|[;\t\n])" + _ACTIVE)
-#: En un libro XLSX cada celda es una celda: ``;``, el tabulador y los saltos no abren otra, y la
-#: guarda tras ellos sólo alteraba datos legítimos (pasada 13). Ahí se protege sólo el inicio.
-_CELL_START_ONLY: Final = re.compile("(^)" + _ACTIVE)
 
 
-def _neutralize_value(value: Any, *, cell_breaks: bool = True) -> Any:
-    patron = _CELL_START_WITH_BREAKS if cell_breaks else _CELL_START_ONLY
-    if isinstance(value, str) and patron.search(value):
-        return patron.sub(lambda m: m.group(1) + _GUARD, value)
+def _neutralize_value(value: Any) -> Any:
+    """La guarda va sólo al INICIO real de la celda; lo que el texto lleve dentro no se toca.
+
+    Las pasadas 10 y 11 de la revisión adversarial la anteponían también tras cada ``;``,
+    tabulador y salto de línea —por si una planilla reinterpretaba el CSV con otro separador— y
+    la 14 midió el precio: ``segmento;=A`` salía como ``segmento;'=A`` y dejaba de conciliar. El
+    límite queda declarado en el módulo; el dato, intacto.
+    """
+    if isinstance(value, str) and value.startswith(_ESCAPED_PREFIXES):
+        return _GUARD + value
     return value
 
 
-def neutralize_formula_prefixes(frame: pd.DataFrame, *, cell_breaks: bool = True) -> pd.DataFrame:
+def neutralize_formula_prefixes(frame: pd.DataFrame) -> pd.DataFrame:
     """Copia de ``frame`` con cada celda de texto que empieza por un prefijo activo protegida.
 
     Cubre todo lo que se convierte en una celda al exportar: los valores de las columnas de texto
@@ -92,14 +92,10 @@ def neutralize_formula_prefixes(frame: pd.DataFrame, *, cell_breaks: bool = True
     valores del índice, los nombres de las columnas y el nombre del índice. Anteponer una comilla
     simple es lo único que cambia; una categórica protegida sale como ``object`` en la copia.
     Devuelve el mismo objeto cuando no hay nada que proteger —así un export sin celdas activas
-    sigue siendo byte a byte el de siempre— y nunca muta el frame recibido.
-
-    ``cell_breaks`` es la política por formato: en un CSV (``True``) la guarda va también tras
-    cada ``;``, tabulador y salto de línea, porque una planilla con otro separador regional los
-    convierte en celda o fila nueva; en un libro XLSX (``False``) una celda es una celda, y sólo se
-    protege su inicio para no alterar datos legítimos.
+    sigue siendo byte a byte el de siempre— y nunca muta el frame recibido. La misma política para
+    el CSV y el XLSX: sólo el inicio real de cada celda.
     """
-    guard = functools.partial(_neutralize_value, cell_breaks=cell_breaks)
+    guard = _neutralize_value
     result = frame
     # Por POSICIÓN, no por etiqueta: con una etiqueta repetida `frame[etiqueta]` devuelve un
     # DataFrame sin `dtype` y las dos columnas quedaban sin sanear (pasada 8 de la revisión
