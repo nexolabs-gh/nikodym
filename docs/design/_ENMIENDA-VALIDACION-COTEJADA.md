@@ -557,7 +557,7 @@ veredicto. Detalle:
   aditivo: `OverallStatus` gana `not_evaluable`, que `_overall_status` devuelve cuando **no hay
   evidencia evaluable alguna**: `n_tests == 0` **y** el frame de estabilidad no trae ninguna fila
   con decisión `pass`/`warn`/`fail`. **`n_tests` pasa a contar decisiones evaluables en todas
-  las familias**: hoy `_test_counts` (`evaluator.py:848-857`) excluye los HL `not_evaluable` pero
+  las familias**: hoy `_test_counts` (`evaluator.py:858-869`) excluye los HL `not_evaluable` pero
   suma **todos** los `BacktestRecord`, aunque `ttest_realised_vs_predicted` y
   `binomial_realised_vs_predicted` devuelven `decision="not_evaluable"` por muestra insuficiente o
   degenerada (hallazgo 1 de la pasada 8, sostenido: con sólo backtests sin potencia, `n_tests > 0`
