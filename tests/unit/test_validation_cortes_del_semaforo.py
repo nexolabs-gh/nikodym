@@ -53,7 +53,13 @@ _COLUMNAS_PINTADAS: tuple[str, ...] = (
     "decision",
     "traffic_light",
 )
-_COLUMNAS_DE_AUDITORIA: tuple[str, ...] = ("green_alpha", "red_alpha")
+#: Las columnas que viajan en el JSON/CSV y en la card pero no se pintan: los dos cortes
+#: (capa A) y la causa de un Hosmer-Lemeshow sin veredicto (capa B, D-VAL-17).
+_COLUMNAS_DE_AUDITORIA: tuple[str, ...] = ("green_alpha", "red_alpha", "not_evaluable_reason")
+#: Mínimo por grupo del fixture: 60/30/30 filas en 5 grupos son grupos de 12/6/6, y desde D-VAL-17
+#: el mínimo protege cada grupo; con 6 los tres HL siguen evaluables y este archivo sigue midiendo
+#: sólo los cortes del semáforo (el HL sin veredicto tiene su propio gate del artefacto).
+_MIN_ROWS_FIXTURE = 6
 _FRASE_CORTES = "Los cortes son un parámetro de la política de validación de la institución"
 
 _HAS_DOCX = importlib.util.find_spec("docx") is not None
@@ -93,7 +99,7 @@ def _resultado(*, contraste: bool) -> ValidationResult:
         families=("calibration",),
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             binomial_by_grade=contraste,
             alpha=0.05,
             traffic_light_green_alpha=0.10,
@@ -202,7 +208,7 @@ def test_la_prosa_no_redondea_un_corte_hasta_describir_otra_politica() -> None:
         families=("calibration",),
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             traffic_light_green_alpha=0.05004,
             traffic_light_red_alpha=0.01004,
         ),

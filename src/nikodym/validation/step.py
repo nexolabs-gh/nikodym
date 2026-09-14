@@ -185,7 +185,7 @@ class ValidationStep(AuditableMixin):
     # --- auditoría (§9) ------------------------------------------------------------------------
 
     def _emit_decisions(self, result: ValidationResult) -> None:
-        """Registra el ``log_decision`` §9: tests fallados, semáforo, PSI, reúso y avisos.
+        """Registra el ``log_decision`` §9: fallos, HL sin veredicto, semáforo, PSI, reúso y avisos.
 
         El evento del semáforo lleva como ``umbral`` los dos cortes con que se decidió el color,
         leídos del record ya resellado (D-VAL-15): ``grade.alpha`` es la significancia del
@@ -204,6 +204,7 @@ class ValidationStep(AuditableMixin):
                     },
                     accion="revisar_calibracion",
                 )
+        self._emit_hl_not_evaluable_decisions(result)
         self._emit_traffic_light_cuts_decision(result)
         for grade in result.grade_records:
             if grade.traffic_light != "green":
@@ -271,6 +272,30 @@ class ValidationStep(AuditableMixin):
             },
             accion="publicar_cortes_del_semaforo",
         )
+
+    def _emit_hl_not_evaluable_decisions(self, result: ValidationResult) -> None:
+        """Audita cada Hosmer-Lemeshow sin veredicto con su causa (D-VAL-17: una regla, 4 causas).
+
+        Lee la misma lista que publica la card —``not_evaluable_partitions``— para que el trail y el
+        resultado no puedan decir cosas distintas.
+        El ``umbral`` es lo configurado (mínimo por grupo y grupos pedidos); el ``valor``, la
+        partición con sus operaciones, el tamaño de su grupo más chico —nulo si la partición entera
+        quedó bajo el mínimo y los grupos nunca se formaron— y la causa. Regla nueva de un dominio
+        experimental: su forma sigue la marca de ``validation`` (D-EST-5).
+        """
+        section = result.card.metric_sections.get("validation", {})
+        for item in section.get("not_evaluable_partitions", ()):
+            self.log_decision(
+                regla="calibration_hl_not_evaluable",
+                umbral={"min_rows": item.get("min_rows"), "n_groups": item.get("n_groups")},
+                valor={
+                    "partition": item.get("partition"),
+                    "n": item.get("n"),
+                    "min_group_size": item.get("min_group_size"),
+                    "reason": item.get("reason"),
+                },
+                accion="omitir_hosmer_lemeshow_no_evaluable",
+            )
 
     def _emit_not_evaluable_grade_decisions(self, result: ValidationResult) -> None:
         """Audita cada grado bajo mínimo omitido del semáforo/verdicto (SDD-22 §6/§8/§9).

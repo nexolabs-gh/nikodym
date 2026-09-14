@@ -13,9 +13,11 @@ arrastra ``scipy``/``sklearn``. ``numpy`` y ``pandas`` son dependencias base y s
 importar. El Brier score no requiere ``scipy``.
 
 Robustez regulatoria (§8): ningún grupo/grado produce división por cero ni ``NaN`` silencioso. Un
-grupo Hosmer-Lemeshow degenerado (``n_g = 0`` o ``mean_pd*(1-mean_pd) = 0``) o un estadístico no
-finito marca el test ``not_evaluable``; el ``z`` asintótico se vuelve ``None`` cuando su varianza es
-cero. Los floats publicados normalizan ``-0.0`` a ``0.0``.
+grupo Hosmer-Lemeshow degenerado (``n_g = 0`` o ``mean_pd*(1-mean_pd) = 0``), un grupo con menos
+operaciones que ``min_rows_per_group`` (D-VAL-17) o un estadístico no finito marca el test
+``not_evaluable`` **con su causa** y sin estadístico —``0.0`` sería el valor de un ajuste
+perfecto—; el ``z`` asintótico se vuelve ``None`` cuando su varianza es cero. Los floats publicados
+normalizan ``-0.0`` a ``0.0``.
 
 Cotejo contra las fuentes oficiales (enmienda VALIDACION-COTEJADA §2, 2026-09-13; registro en
 SDD-22 §12): el Jeffreys por grado es exactamente el del BCE (*Instructions for reporting the
@@ -40,7 +42,11 @@ import pandas as pd
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.validation.config import PdTest
 from nikodym.validation.exceptions import CalibrationTestError, ValidationDataError
-from nikodym.validation.results import CalibrationTestRecord, GradeBinomialRecord
+from nikodym.validation.results import (
+    CalibrationTestRecord,
+    GradeBinomialRecord,
+    HlNotEvaluableReason,
+)
 
 TrafficLight: TypeAlias = Literal["green", "amber", "red"]
 
@@ -65,20 +71,34 @@ _RED_TO_GREEN_RATIO: float = 0.2
 
 
 def hosmer_lemeshow(
-    y_true: np.ndarray, pd_pred: np.ndarray, *, n_groups: int = 10
+    y_true: np.ndarray,
+    pd_pred: np.ndarray,
+    *,
+    n_groups: int = 10,
+    min_rows_per_group: int = 1,
 ) -> CalibrationTestRecord:
     """Estadístico Hosmer-Lemeshow por ``G`` deciles de PD y su p-valor chi2 (SDD-22 §3.2).
 
     Ordena por PD predicha, forma ``G`` grupos de tamaño aproximadamente igual y calcula
     ``HL = sum_g (O_g - n_g*mean_pd_g)^2 / [n_g*mean_pd_g*(1-mean_pd_g)]`` con el factor
     ``(1-mean_pd_g)`` completo (nitpick b). El p-valor es la **cola superior** ``chi2.sf(HL, G-2)``
-    (nitpick d); ``G=10`` da ``8`` gl. Un grupo degenerado (``n_g=0`` o denominador cero) o un
-    estadístico no finito marca el test ``not_evaluable`` (§8), nunca división por cero. El verdicto
-    usa el alfa estándar 0.05 (D-VAL-4).
+    (nitpick d); ``G=10`` da ``8`` gl. El verdicto usa el alfa estándar 0.05 (D-VAL-4).
+
+    Sin potencia no hay veredicto (§8; D-VAL-17): el test queda ``not_evaluable`` con
+    ``statistic=None`` y una causa cerrada. Un grupo vacío es ``degenerate_group``; un grupo de PD
+    con menos operaciones que ``min_rows_per_group`` —la puerta mira el **menor** grupo que deja
+    ``np.array_split``; el default ``1`` es inerte y reproduce el comportamiento anterior— es
+    ``group_below_min``; un denominador ``n_g*mean_pd_g*(1-mean_pd_g) = 0`` es ``degenerate_group``;
+    y un estadístico que desborda con PD extremas es ``non_finite_statistic``. Nunca división por
+    cero. El evaluador añade la cuarta causa, ``partition_below_min``, antes de llamar aquí.
     """
     if n_groups < 3:
         raise CalibrationTestError(
             f"n_groups debe ser >= 3 para gl = G-2 >= 1; n_groups={n_groups}."
+        )
+    if min_rows_per_group < 1:
+        raise CalibrationTestError(
+            f"min_rows_per_group debe ser >= 1; min_rows_per_group={min_rows_per_group}."
         )
     y, p = _validate_pair(y_true, pd_pred)
     degrees_of_freedom = n_groups - 2
@@ -88,18 +108,20 @@ def hosmer_lemeshow(
     p_split = np.array_split(p[order], n_groups)
     counts = np.array([group.shape[0] for group in p_split], dtype=np.float64)
     if bool(np.any(counts == 0.0)):
-        return _hl_not_evaluable(n_groups, degrees_of_freedom)
+        return _hl_not_evaluable(n_groups, degrees_of_freedom, reason="degenerate_group")
+    if float(np.min(counts)) < min_rows_per_group:
+        return _hl_not_evaluable(n_groups, degrees_of_freedom, reason="group_below_min")
 
     observed = np.array([float(np.sum(group)) for group in y_split], dtype=np.float64)
     mean_pd = np.array([float(np.mean(group)) for group in p_split], dtype=np.float64)
     denom = counts * mean_pd * (1.0 - mean_pd)
     if bool(np.any(denom <= 0.0)):
-        return _hl_not_evaluable(n_groups, degrees_of_freedom)
+        return _hl_not_evaluable(n_groups, degrees_of_freedom, reason="degenerate_group")
 
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         statistic = float(np.sum((observed - counts * mean_pd) ** 2 / denom))
     if not math.isfinite(statistic):
-        return _hl_not_evaluable(n_groups, degrees_of_freedom)
+        return _hl_not_evaluable(n_groups, degrees_of_freedom, reason="non_finite_statistic")
 
     stats = _import_scipy_stats()
     p_value = min(1.0, max(0.0, float(stats.chi2.sf(statistic, degrees_of_freedom))))
@@ -228,17 +250,24 @@ def traffic_light(p_value: float, *, green_alpha: float, red_alpha: float) -> Tr
     return "red"
 
 
-def _hl_not_evaluable(n_groups: int, degrees_of_freedom: int) -> CalibrationTestRecord:
-    """Construye el registro Hosmer-Lemeshow ``not_evaluable`` de un grupo degenerado (§8)."""
+def _hl_not_evaluable(
+    n_groups: int, degrees_of_freedom: int, *, reason: HlNotEvaluableReason
+) -> CalibrationTestRecord:
+    """Construye el registro Hosmer-Lemeshow ``not_evaluable`` con su causa (§8; D-VAL-17).
+
+    Sin estadístico: el ``0.0`` que publicaba antes es el valor de un ajuste perfecto y ninguna
+    superficie podía distinguirlo de una prueba que no corrió.
+    """
     return CalibrationTestRecord(
         partition=_DEFAULT_PARTITION,
         test="hosmer_lemeshow",
         n_groups=n_groups,
         degrees_of_freedom=degrees_of_freedom,
-        statistic=0.0,
+        statistic=None,
         p_value=None,
         alpha=None,
         decision="not_evaluable",
+        not_evaluable_reason=reason,
     )
 
 

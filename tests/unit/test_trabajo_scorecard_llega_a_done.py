@@ -125,6 +125,16 @@ def test_la_corrida_publica_la_validacion_formal(corrida: dict[str, Any]) -> Non
     assert validation["calibration"], "la calibración no publicó ninguna fila"
     # El backtesting NO corre en este trabajo (su familia no está activa): tabla vacía, no ausente.
     assert validation["backtesting"] == []
+    # D-VAL-17 sobre la corrida real: las tres particiones (4.019 / 973 / 1.008 operaciones en diez
+    # grupos) están sobre el mínimo por grupo, así que los tres Hosmer-Lemeshow siguen con
+    # veredicto, con su estadístico y sin causa, y la card no enumera ninguna partición sin él.
+    hl = [fila for fila in validation["calibration"] if fila["test"] == "hosmer_lemeshow"]
+    assert len(hl) == 3
+    assert all(fila["decision"] in {"pass", "fail"} for fila in hl), hl
+    assert all(fila["statistic"] is not None for fila in hl), hl
+    assert all(fila["not_evaluable_reason"] is None for fila in hl), hl
+    assert validation["metric_sections"]["validation"]["not_evaluable_partitions"] == []
+    assert validation["n_tests"] == 3
 
 
 def test_la_corrida_publica_el_analisis_exploratorio_con_el_eje_inferido(

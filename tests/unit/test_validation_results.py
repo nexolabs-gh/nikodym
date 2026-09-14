@@ -92,6 +92,7 @@ def test_calibration_test_record_hl_y_brier_golden() -> None:
         "p_value": 0.5,
         "alpha": 0.05,
         "decision": "pass",
+        "not_evaluable_reason": None,
     }
 
     brier = _calibration_record(
@@ -112,11 +113,15 @@ def test_calibration_test_record_hl_y_brier_golden() -> None:
         "p_value": None,
         "alpha": None,
         "decision": "not_evaluable",
+        "not_evaluable_reason": None,
     }
+    assert brier.statistic is not None
     assert math.copysign(1.0, brier.statistic) == 1.0
 
-    hl_not_evaluable = _calibration_record(decision="not_evaluable", p_value=None, alpha=None)
+    hl_not_evaluable = _hl_not_evaluable_record()
     assert hl_not_evaluable.p_value is None
+    assert hl_not_evaluable.statistic is None
+    assert hl_not_evaluable.not_evaluable_reason == "group_below_min"
 
     with pytest.raises(ValidationError, match="frozen"):
         hl.statistic = 1.0
@@ -124,6 +129,70 @@ def test_calibration_test_record_hl_y_brier_golden() -> None:
         _calibration_record(extra="no permitido")
     with pytest.raises(ValidationError, match="finitos"):
         _calibration_record(statistic=math.nan)
+
+
+def _hl_not_evaluable_record(**updates: Any) -> CalibrationTestRecord:
+    """Un Hosmer-Lemeshow sin veredicto tal como lo publica el motor desde D-VAL-17."""
+    payload: dict[str, Any] = {
+        "decision": "not_evaluable",
+        "statistic": None,
+        "p_value": None,
+        "alpha": None,
+        "not_evaluable_reason": "group_below_min",
+    }
+    payload.update(updates)
+    return _calibration_record(**payload)
+
+
+@pytest.mark.parametrize(
+    "reason",
+    ["partition_below_min", "group_below_min", "degenerate_group", "non_finite_statistic"],
+)
+def test_calibration_test_record_hl_not_evaluable_publica_una_de_las_cuatro_causas(
+    reason: str,
+) -> None:
+    """D-VAL-17: las cuatro causas cerradas, y ninguna otra."""
+    record = _hl_not_evaluable_record(not_evaluable_reason=reason)
+    assert record.not_evaluable_reason == reason
+    assert record.statistic is None
+    with pytest.raises(ValidationError):
+        _hl_not_evaluable_record(not_evaluable_reason="otra_causa")
+
+
+def test_calibration_test_record_hl_not_evaluable_no_publica_estadistico_y_exige_causa() -> None:
+    """Antes un HL no evaluable publicaba ``statistic=0.0`` —el valor de un ajuste perfecto— y
+    ninguna superficie decía por qué (hallazgo 3 de Codex sobre la enmienda, sostenido)."""
+    with pytest.raises(ValidationError, match="not_evaluable no publica statistic"):
+        _hl_not_evaluable_record(statistic=0.0)
+    with pytest.raises(ValidationError, match="exige not_evaluable_reason"):
+        _hl_not_evaluable_record(not_evaluable_reason=None)
+    # Y al revés: un HL con veredicto lleva su estadístico y ninguna causa.
+    with pytest.raises(ValidationError, match="evaluable exige"):
+        _calibration_record(statistic=None)
+    with pytest.raises(ValidationError, match="no lleva not_evaluable_reason"):
+        _calibration_record(not_evaluable_reason="group_below_min")
+    # El Brier es un puntaje: conserva su estadístico y no tiene causa que declarar.
+    with pytest.raises(ValidationError, match=r"Brier score .*statistic"):
+        _calibration_record(
+            test="brier",
+            n_groups=None,
+            degrees_of_freedom=None,
+            statistic=None,
+            p_value=None,
+            alpha=None,
+            decision="not_evaluable",
+        )
+    with pytest.raises(ValidationError, match=r"Brier score .*not_evaluable_reason"):
+        _calibration_record(
+            test="brier",
+            n_groups=None,
+            degrees_of_freedom=None,
+            statistic=0.1,
+            p_value=None,
+            alpha=None,
+            decision="not_evaluable",
+            not_evaluable_reason="degenerate_group",
+        )
 
 
 def test_calibration_test_record_invariantes_rechazan_incoherencias() -> None:
@@ -333,7 +402,7 @@ def test_validation_card_section_golden_copias_y_no_finitos() -> None:
         "model_ref": "scorecard@2c8c7cc",
         "families_run": ["discrimination", "calibration", "stability", "backtesting"],
         "overall_status": "pass",
-        "n_tests": 5,
+        "n_tests": 3,
         "n_failed": 0,
         "dependency_versions": {"numpy": "2.4.6", "pandas": "2.3.3", "scipy": "1.14.1"},
         "falta_dato": ["DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'"],
@@ -588,13 +657,14 @@ def test_validation_result_reconcilia_las_filas_de_grado_con_los_records_y_la_ca
                 }
             )
         )
-    # Sin grade_records no hay semáforo que reconciliar: una card mínima sigue valiendo.
+    # Sin grade_records no hay semáforo que reconciliar: una card mínima sigue valiendo (con el
+    # conteo que sus records derivan: el HL y el backtest).
     assert (
         _result(
             calibration=_calibration_frame().iloc[:2],
             calibration_records=_calibration_records(),
             grade_records=(),
-            card=_card(metric_sections={}),
+            card=_card(n_tests=2, metric_sections={}),
         ).card.metric_sections
         == {}
     )
@@ -608,6 +678,160 @@ def test_validation_result_reconcilia_las_filas_de_grado_con_los_records_y_la_ca
             grade_records=(_grade_record(green_alpha=0.10), _grade_record()),
             card=_card(metric_sections={}),
         )
+
+
+def _hl_no_evaluable() -> tuple[pd.DataFrame, tuple[CalibrationTestRecord, ...]]:
+    """Tabla y records con el HL de ``desarrollo`` sin veredicto por un grupo bajo el mínimo."""
+    tabla = _calibration_frame()
+    tabla["statistic"] = tabla["statistic"].astype(object)
+    tabla.loc[0, "statistic"] = None
+    tabla.loc[0, "p_value"] = None
+    tabla.loc[0, "alpha"] = None
+    tabla.loc[0, "decision"] = "not_evaluable"
+    tabla.loc[0, "not_evaluable_reason"] = "group_below_min"
+    records = (_hl_not_evaluable_record(), *_calibration_records()[1:])
+    return tabla, records
+
+
+def _card_hl_no_evaluable(**updates: Any) -> ValidationCardSection:
+    """La card coherente con :func:`_hl_no_evaluable`: el HL sale de ``n_tests`` y la sección CT-2
+    enumera la partición con su causa."""
+    section: dict[str, Any] = {
+        "traffic_light": {"green": 1, "amber": 0, "red": 0},
+        "not_evaluable_grades": [],
+        "traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01},
+        "not_evaluable_partitions": [
+            {
+                "partition": "desarrollo",
+                "n": 1000,
+                "n_groups": 10,
+                "min_group_size": 100,
+                "min_rows": 200,
+                "reason": "group_below_min",
+            }
+        ],
+    }
+    payload: dict[str, Any] = {"n_tests": 2, "metric_sections": {"validation": section}}
+    payload.update(updates)
+    return _card(**payload)
+
+
+def test_validation_result_reconcilia_las_filas_de_hosmer_lemeshow_con_los_records_y_la_card() -> (
+    None
+):
+    """D-VAL-17 extiende la reconciliación de la pasada 4 a las filas sin semáforo: la tabla (lo
+    que pinta el informe), los records (lo que lee el trail) y la card (lo que leen la prosa y el
+    panel) dicen lo mismo del estadístico, el veredicto y la causa de cada Hosmer-Lemeshow."""
+    tabla, records = _hl_no_evaluable()
+    coherente = _result(
+        calibration=tabla, calibration_records=records, card=_card_hl_no_evaluable()
+    )
+    assert coherente.calibration_records[0].not_evaluable_reason == "group_below_min"
+
+    # La tabla dice otra cosa que el record: estadístico, veredicto o causa.
+    alterada = tabla.copy()
+    alterada.loc[0, "statistic"] = 0.0
+    with pytest.raises(ValidationError, match=r"fila 'hosmer_lemeshow'.*'desarrollo'.*statistic"):
+        _result(calibration=alterada, calibration_records=records, card=_card_hl_no_evaluable())
+    alterada = tabla.copy()
+    alterada.loc[0, "decision"] = "pass"
+    with pytest.raises(ValidationError, match=r"fila 'hosmer_lemeshow'.*decision"):
+        _result(calibration=alterada, calibration_records=records, card=_card_hl_no_evaluable())
+    alterada = tabla.copy()
+    alterada.loc[0, "not_evaluable_reason"] = "degenerate_group"
+    with pytest.raises(ValidationError, match=r"fila 'hosmer_lemeshow'.*not_evaluable_reason"):
+        _result(calibration=alterada, calibration_records=records, card=_card_hl_no_evaluable())
+
+    # La card perdió la partición sin veredicto, o la lista con otra causa.
+    with pytest.raises(ValidationError, match="not_evaluable_partitions"):
+        _result(
+            calibration=tabla,
+            calibration_records=records,
+            card=_card_hl_no_evaluable(
+                metric_sections={
+                    "validation": {
+                        "traffic_light": {"green": 1, "amber": 0, "red": 0},
+                        "traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01},
+                        "not_evaluable_partitions": [],
+                    }
+                }
+            ),
+        )
+    section = dict(_card_hl_no_evaluable().metric_sections["validation"])
+    section["not_evaluable_partitions"] = [
+        {**section["not_evaluable_partitions"][0], "reason": "partition_below_min"}
+    ]
+    with pytest.raises(ValidationError, match="not_evaluable_partitions"):
+        _result(
+            calibration=tabla,
+            calibration_records=records,
+            card=_card_hl_no_evaluable(metric_sections={"validation": section}),
+        )
+    # Sin HL sin veredicto, una card con la lista vacía —o sin la clave— vale.
+    assert _result().calibration_records[0].decision == "pass"
+
+
+def test_validation_result_exige_que_la_card_cuente_solo_decisiones_evaluables() -> None:
+    """D-VAL-17: ``n_tests``/``n_failed`` y ``overall_status`` son derivables de los records y del
+    frame de estabilidad, y la card no puede decir otra cosa (una card rehidratada con ``n_tests``
+    inflado publicaría «0 de 5 pruebas fallidas» sobre tres pruebas)."""
+    with pytest.raises(ValidationError, match=r"n_tests.*3"):
+        _result(card=_card(n_tests=5))
+    with pytest.raises(ValidationError, match=r"n_failed"):
+        _result(card=_card(n_tests=3, n_failed=1))
+    with pytest.raises(ValidationError, match=r"overall_status.*'pass'"):
+        _result(card=_card(overall_status="warn"))
+    # Un HL sin veredicto no cuenta: con él fuera, la card dice 2 y no 3.
+    tabla, records = _hl_no_evaluable()
+    with pytest.raises(ValidationError, match=r"n_tests.*2"):
+        _result(
+            calibration=tabla, calibration_records=records, card=_card_hl_no_evaluable(n_tests=3)
+        )
+    # Y la sección CT-2, cuando repite el resumen, tiene que repetirlo igual.
+    section = {
+        **_card().metric_sections["validation"],
+        "overall_status": "fail",
+        "n_tests": 3,
+        "n_failed": 0,
+    }
+    with pytest.raises(ValidationError, match=r"metric_sections.*overall_status"):
+        _result(card=_card(metric_sections={"validation": section}))
+
+
+def test_validation_result_sin_evidencia_evaluable_es_not_evaluable() -> None:
+    """§8-9: una validación sin ninguna prueba evaluable no dice «Pasa»: su estado es la cuarta
+    palabra, y la card tiene que llevarla."""
+    tabla, records = _hl_no_evaluable()
+    solo_hl = tabla.iloc[:2]
+    solo_hl_records = records
+    stability_sin_decision = _stability_frame()
+    stability_sin_decision.loc[0, "band"] = "not_evaluable"
+    stability_sin_decision.loc[0, "decision"] = "not_evaluable"
+    stability_sin_decision.loc[0, "status"] = "not_evaluable"
+    kwargs: dict[str, Any] = {
+        "calibration": solo_hl,
+        "calibration_records": solo_hl_records,
+        "grade_records": (),
+        "stability": stability_sin_decision,
+        "backtesting": _backtesting_frame().iloc[:0],
+        "backtest_records": (),
+    }
+    card = _card_hl_no_evaluable(
+        overall_status="not_evaluable",
+        n_tests=0,
+        n_failed=0,
+        metric_sections={
+            "validation": {
+                "not_evaluable_partitions": _card_hl_no_evaluable().metric_sections["validation"][
+                    "not_evaluable_partitions"
+                ]
+            }
+        },
+    )
+    result = _result(card=card, **kwargs)
+    assert result.card.overall_status == "not_evaluable"
+    with pytest.raises(ValidationError, match=r"overall_status.*'not_evaluable'"):
+        _result(card=card.model_copy(update={"overall_status": "pass"}), **kwargs)
 
 
 def test_validation_results_lazy_exports_y_nucleo_liviano_por_subprocess() -> None:
@@ -721,7 +945,8 @@ def _card(**updates: Any) -> ValidationCardSection:
         "model_ref": "scorecard@2c8c7cc",
         "families_run": ("discrimination", "calibration", "stability", "backtesting"),
         "overall_status": "pass",
-        "n_tests": 5,
+        # Lo derivado de los records de ``_result()``: un HL con veredicto, un grado y un backtest.
+        "n_tests": 3,
         "n_failed": 0,
         "dependency_versions": {"pandas": "2.3.3", "numpy": "2.4.6", "scipy": "1.14.1"},
         "falta_dato": ("DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'",),
@@ -836,6 +1061,7 @@ def _calibration_frame() -> pd.DataFrame:
             "traffic_light": [None, None, "green"],
             "green_alpha": [None, None, 0.05],
             "red_alpha": [None, None, 0.01],
+            "not_evaluable_reason": [None, None, None],
         }
     )
 

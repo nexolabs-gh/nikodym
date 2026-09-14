@@ -120,11 +120,22 @@ def _psi_table() -> pd.DataFrame:
     return pd.DataFrame({"comparison": ["dev_vs_holdout"], "psi": [0.05]})
 
 
+#: Mínimo por grupo de los fixtures de este archivo. ``_calibrated_pd_frame`` reparte 40/25/25
+#: filas y ``hl_n_groups=5`` deja grupos de 8/5/5: desde D-VAL-17 el mínimo protege también cada
+#: grupo de Hosmer-Lemeshow, así que con el mínimo 10 de antes los tres HL quedarían sin veredicto
+#: y estos tests dejarían de ejercitar el HL fallado y su decisión del trail. Con 5 los tres se
+#: evalúan y ningún número cambia (el mínimo no entra al estadístico); los grados (20/36/34)
+#: tampoco se mueven.
+_MIN_ROWS_FIXTURE = 5
+
+
 def _scorecard_config(**overrides: Any) -> ValidationConfig:
     """Config de validación de scorecard con HL de 5 grupos y mínimo bajo."""
     params: dict[str, Any] = {
         "families": ("discrimination", "calibration", "stability"),
-        "calibration": CalibrationValidationConfig(hl_n_groups=5, min_rows_per_group=10),
+        "calibration": CalibrationValidationConfig(
+            hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE
+        ),
     }
     params.update(overrides)
     return ValidationConfig(**params)
@@ -395,7 +406,7 @@ def test_execute_emite_log_decision_semaforo_hl_y_psi() -> None:
     cfg = _scorecard_config(
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             traffic_light_green_alpha=0.99,
             traffic_light_red_alpha=0.90,
         ),
@@ -447,7 +458,9 @@ def test_el_trail_registra_los_cortes_aunque_todos_los_grados_queden_verdes() ->
     dos cortes (``calibration_semaforo_cortes``); sin contraste, ninguna."""
     cfg = _scorecard_config(
         families=("calibration",),
-        calibration=CalibrationValidationConfig(hl_n_groups=5, min_rows_per_group=10),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE
+        ),
     )
     study = _scorecard_study(config=cfg, include_performance=False, include_stability=False)
     sink = InMemoryAuditSink()
@@ -466,7 +479,7 @@ def test_el_trail_registra_los_cortes_aunque_todos_los_grados_queden_verdes() ->
     apagado = _scorecard_config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
-            hl_n_groups=5, min_rows_per_group=10, binomial_by_grade=False
+            hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE, binomial_by_grade=False
         ),
     )
     sink_apagado = InMemoryAuditSink()
@@ -493,7 +506,7 @@ def test_el_evento_del_semaforo_registra_los_dos_cortes_y_no_la_significancia() 
         families=("calibration",),
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             alpha=0.05,
             traffic_light_green_alpha=0.10,
             traffic_light_red_alpha=0.02,
@@ -517,6 +530,68 @@ def test_el_evento_del_semaforo_registra_los_dos_cortes_y_no_la_significancia() 
     assert eventos[0]["valor"]["traffic_light"] == "amber"
     assert eventos[0]["valor"]["p_value"] == pytest.approx(grado_a.p_value)
     assert 0.05 not in eventos[0]["umbral"].values()
+
+
+def test_execute_audita_cada_hosmer_lemeshow_sin_veredicto_con_su_causa() -> None:
+    """D-VAL-17: un HL que no se evaluó deja en el trail la regla
+    ``calibration_hl_not_evaluable`` —una regla, cuatro causas— con la partición, sus números y la
+    causa, y no la regla del HL fallado. Con 40/25/25 filas, 5 grupos y mínimo 10 las tres
+    particiones quedan sin veredicto: ``desarrollo`` por sus grupos de 8 y las otras dos por sus
+    grupos de 5; con mínimo 30, ``holdout`` y ``oot`` (25 filas) por la partición entera.
+    """
+    cfg = _scorecard_config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5, min_rows_per_group=30, brier=False, binomial_by_grade=False
+        ),
+    )
+    study = _scorecard_study(config=cfg, include_performance=False, include_stability=False)
+    sink = InMemoryAuditSink()
+    step = ValidationStep.from_config(cfg)
+    step._audit = sink
+    result = step.execute(study, np.random.default_rng(3))
+
+    assert all(record.decision == "not_evaluable" for record in result.calibration_records)
+    assert result.card.overall_status == "not_evaluable"
+    decisiones = [event.payload for event in sink.events if event.kind == "decision"]
+    assert not [d for d in decisiones if d["regla"] == "calibration_hosmer_lemeshow"]
+    eventos = [d for d in decisiones if d["regla"] == "calibration_hl_not_evaluable"]
+    assert [e["valor"]["partition"] for e in eventos] == ["desarrollo", "holdout", "oot"]
+    assert eventos[0]["umbral"] == {"min_rows": 30, "n_groups": 5}
+    assert eventos[0]["valor"] == {
+        "partition": "desarrollo",
+        "n": 40,
+        "min_group_size": 8,
+        "reason": "group_below_min",
+    }
+    assert eventos[1]["valor"] == {
+        "partition": "holdout",
+        "n": 25,
+        "min_group_size": None,
+        "reason": "partition_below_min",
+    }
+    assert {e["accion"] for e in eventos} == {"omitir_hosmer_lemeshow_no_evaluable"}
+    # El evento reproduce lo que la card publica: la misma lista, en el mismo orden.
+    publicadas = result.card.metric_sections["validation"]["not_evaluable_partitions"]
+    assert [(p["partition"], p["reason"]) for p in publicadas] == [
+        (e["valor"]["partition"], e["valor"]["reason"]) for e in eventos
+    ]
+
+    # Con el mínimo del fixture los tres HL se evalúan y la regla nueva no se emite.
+    sink_ok = InMemoryAuditSink()
+    step_ok = ValidationStep.from_config(_scorecard_config())
+    step_ok._audit = sink_ok
+    result_ok = step_ok.execute(_scorecard_study(), np.random.default_rng(3))
+    assert all(
+        record.decision != "not_evaluable"
+        for record in result_ok.calibration_records
+        if record.test == "hosmer_lemeshow"
+    )
+    assert not [
+        event
+        for event in sink_ok.events
+        if event.kind == "decision" and event.payload["regla"] == "calibration_hl_not_evaluable"
+    ]
 
 
 def test_execute_audita_grado_bajo_minimo_como_not_evaluable() -> None:

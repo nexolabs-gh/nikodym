@@ -749,7 +749,7 @@ informe promete.
 """
 
 _AUDIT_ONLY_COLUMNS_BY_TABLE: Final[Mapping[str, frozenset[str]]] = {
-    "validation.calibration": frozenset({"green_alpha", "red_alpha"}),
+    "validation.calibration": frozenset({"green_alpha", "red_alpha", "not_evaluable_reason"}),
 }
 """Columnas de auditoría que NO se pintan en UNA tabla concreta (alcance por clave de tabla).
 
@@ -762,6 +762,9 @@ correlaciones (hallazgo de la revisión adversarial de la enmienda VALIDACION-CO
 cada fila de grado (D-VAL-15). Viajan en el JSON, en el CSV y en la card; en el documento van
 nulos en Hosmer-Lemeshow y Brier —dos encabezados crudos con celdas vacías para toda corrida sin
 contraste, incluida la demo— y el capítulo los nombra en prosa cuando corrió el contraste.
+`not_evaluable_reason` es la causa por la que un Hosmer-Lemeshow quedó sin veredicto (D-VAL-17):
+un identificador cerrado que la prosa de la familia traduce a palabras con sus números, y que en la
+tabla habría sido una columna de slugs vacía en toda corrida con potencia, incluida la demo.
 """
 
 

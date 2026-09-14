@@ -103,6 +103,8 @@ import {
   stabilityMetricLabel,
   temporalScore,
   gradeCoverage,
+  hlNotEvaluablePartitions,
+  hlNotEvaluableReasonLabel,
   trafficLightCuts,
   validationFamilies,
   validationFamiliesWithoutRows,
@@ -312,6 +314,7 @@ export function ResultsPanel({
   const valCalibration = calibrationRowsSplit(val)
   const valCoverage = gradeCoverage(val)
   const valCuts = trafficLightCuts(val)
+  const valHlSinVeredicto = hlNotEvaluablePartitions(val)
   const valSinFilas = validationFamiliesWithoutRows(val)
   const valAvisos = val?.falta_dato ?? []
 
@@ -1098,14 +1101,71 @@ export function ResultsPanel({
                         <NumCell>{formatCount(row.n)}</NumCell>
                         <NumCell>{formatMetric(row.statistic)}</NumCell>
                         <NumCell>{formatPValue(row.p_value)}</NumCell>
+                        {/* D-VAL-17: un Hosmer-Lemeshow sin veredicto dice por qué, en palabras,
+                            junto a la palabra del veredicto. El identificador de la causa es el
+                            dato y viaja en el JSON; aquí se lee su traducción. */}
                         <td className="py-2 pl-3 text-muted-foreground">
                           {VALIDATION_DECISION_LABELS[row.decision] ?? row.decision}
+                          {row.not_evaluable_reason ? (
+                            <span className="block text-xs text-muted-foreground/80">
+                              {hlNotEvaluableReasonLabel(row.not_evaluable_reason)}
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* 🔴 Las muestras cuyo Hosmer-Lemeshow quedó sin veredicto NO cuentan en las
+                  pruebas (sin potencia no hay prueba): sin esta enumeración, «Pasa · 0 de 1» podría
+                  convivir con dos muestras de tres sin evaluar. Los números que explican la causa
+                  salen de la card, no se recalculan. */}
+              {valHlSinVeredicto.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                    Hosmer-Lemeshow sin veredicto ({valHlSinVeredicto.length})
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                          <th className="py-2 pr-3 font-medium">Muestra</th>
+                          <NumHead>Operaciones</NumHead>
+                          <NumHead>Grupos</NumHead>
+                          <NumHead>Grupo más chico</NumHead>
+                          <NumHead>Mínimo</NumHead>
+                          <th className="py-2 pl-3 font-medium">Causa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {valHlSinVeredicto.map((item) => (
+                          <tr key={item.partition} className="border-b border-border">
+                            <td className="py-2 pr-3 text-foreground">
+                              {partitionLabel(item.partition)}
+                            </td>
+                            <NumCell>{formatCount(item.n)}</NumCell>
+                            <NumCell>{formatCount(item.n_groups)}</NumCell>
+                            <NumCell>
+                              {item.min_group_size === null ? EMPTY : formatCount(item.min_group_size)}
+                            </NumCell>
+                            <NumCell>{formatCount(item.min_rows)}</NumCell>
+                            <td className="py-2 pl-3 text-muted-foreground">
+                              {hlNotEvaluableReasonLabel(item.reason)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Una muestra cuyo grupo de PD más chico queda bajo el mínimo no recibe veredicto
+                    ni cuenta en las pruebas: sin esa población, cualquier resultado sería ruido.
+                    Con diez grupos y el mínimo de fábrica hacen falta al menos 300 operaciones.
+                  </p>
+                </div>
+              ) : null}
             </Subchart>
           ) : null}
 

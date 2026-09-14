@@ -407,9 +407,11 @@ una sola fuente: `nikodym.validation.results`.
 | `pass` | Pasa | Estado técnico agregado de la corrida |
 | `warn` | Revisar | Ídem |
 | `fail` | Falla | Ídem |
+| `not_evaluable` | No evaluable | Ídem: ninguna prueba alcanzó potencia y la estabilidad no dejó decisión |
 | `pass` | Pasa | Veredicto de una fila de calibración o de backtesting |
 | `fail` | Falla | Ídem |
 | `not_evaluable` | Sin veredicto | Ídem: sin potencia estadística, o una fila que no es una prueba de pasa/falla (el puntaje de Brier) |
+| `partition_below_min` / `group_below_min` / `degenerate_group` / `non_finite_statistic` | la muestra quedó bajo el mínimo de operaciones / un grupo de PD quedó bajo el mínimo de operaciones / un grupo de PD quedó sin variabilidad / el estadístico no fue finito con PD extremas | Por qué un Hosmer-Lemeshow quedó sin veredicto (`not_evaluable_reason`); la card las enumera en `metric_sections.validation.not_evaluable_partitions` |
 | `green` / `amber` / `red` | Verde / Ámbar / Rojo | Semáforo de un grado de rating |
 
 El **estado técnico es evidencia del motor**, no el veredicto sobre el modelo: aprobar, aprobar con
@@ -426,7 +428,9 @@ observaciones o rechazar es una decisión de quien valida, y el informe lo decla
 
 Los grados sin potencia estadística **no** entran en la tabla de calibración ni en el conteo de
 pruebas: viajan aparte, en `card.metric_sections.validation.not_evaluable_grades`, con sus conteos
-y el mínimo técnico que los dejó fuera.
+y el mínimo técnico que los dejó fuera. Un Hosmer-Lemeshow sin veredicto **sí** está en la tabla
+—con `statistic` nulo y su causa— pero tampoco cuenta: `n_tests` y `n_failed` cuentan sólo las
+decisiones evaluables de las cuatro familias.
 
 ::: nikodym.validation.config.ValidationConfig
     options:

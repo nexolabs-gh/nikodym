@@ -144,6 +144,8 @@ export const VALIDATION_STATUS_COLORS: Record<string, string> = {
   pass: BAND_COLORS.stable,
   warn: BAND_COLORS.review,
   fail: BAND_COLORS.redevelop,
+  // D-VAL-17: sin evidencia evaluable, el gris neutro de la banda homónima; nunca verde.
+  not_evaluable: BAND_COLORS.not_evaluable,
 } as const
 
 /** Color del estado técnico; fallback neutro si el enum crece (robustez). */

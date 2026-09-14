@@ -27,6 +27,7 @@ import type {
   ResultsResponse,
   ValidationCalibrationRow,
   ValidationNotEvaluableGrade,
+  ValidationNotEvaluablePartition,
   ValidationResult,
 } from "@/lib/results-types"
 import { VALIDATION_F1 } from "@/lib/validation.fixture"
@@ -793,6 +794,125 @@ describe("los cortes del semáforo por grado (D-VAL-15): la fila explica su prop
   const conValidacionSinCortes = (): ResultsResponse => ({
     ...(demoF1 as unknown as ResultsResponse),
     validation: VALIDATION_F1,
+  })
+})
+
+describe("un Hosmer-Lemeshow sin veredicto (D-VAL-17): la causa se traduce junto a la fila", () => {
+  /** La fila de HL de `oot` del fixture real, dejada sin veredicto por un grupo bajo el mínimo. */
+  const hlSinVeredicto = (
+    reason: ValidationCalibrationRow["not_evaluable_reason"],
+  ): ValidationCalibrationRow[] =>
+    (VALIDATION_F1.calibration ?? []).map((row) =>
+      row.test === "hosmer_lemeshow" && row.partition === "oot"
+        ? {
+            ...row,
+            statistic: null,
+            p_value: null,
+            alpha: null,
+            decision: "not_evaluable",
+            not_evaluable_reason: reason,
+          }
+        : row,
+    )
+
+  const particionSinVeredicto: ValidationNotEvaluablePartition = {
+    partition: "oot",
+    n: 1008,
+    n_groups: 10,
+    min_group_size: 100,
+    min_rows: 200,
+    reason: "group_below_min",
+  }
+
+  const conHl = (
+    reason: ValidationCalibrationRow["not_evaluable_reason"],
+    particiones: ValidationNotEvaluablePartition[],
+    overall: ValidationResult["overall_status"] = "pass",
+    nTests = 2,
+  ): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation: {
+      ...VALIDATION_F1,
+      overall_status: overall,
+      n_tests: nTests,
+      n_failed: 0,
+      calibration: hlSinVeredicto(reason),
+      metric_sections: {
+        validation: {
+          ...VALIDATION_F1.metric_sections?.validation,
+          overall_status: overall,
+          n_tests: nTests,
+          n_failed: 0,
+          not_evaluable_partitions: particiones,
+        },
+      },
+    },
+  })
+
+  it("la fila dice «Sin veredicto» y la causa en palabras, nunca el identificador", () => {
+    const html = render(conHl("group_below_min", [particionSinVeredicto]))
+    expect(html).toContain("Sin veredicto")
+    expect(html).toContain("un grupo de PD quedó bajo el mínimo")
+    expect(html).not.toContain("group_below_min")
+  })
+
+  it("enumera las muestras sin veredicto con sus números: el grupo más chico y el mínimo", () => {
+    const html = render(conHl("group_below_min", [particionSinVeredicto]))
+    expect(html).toContain("Hosmer-Lemeshow sin veredicto (1)")
+    expect(html).toContain("OOT")
+    expect(html).toContain("1,008")
+    expect(html).toContain("100")
+    expect(html).toContain("200")
+    // Y el conteo del motor no se recalcula por tener una prueba fuera: «0 de 2».
+    expect(html).toContain("0 de 2")
+  })
+
+  it("cada una de las cuatro causas tiene su frase y ninguna sale cruda", () => {
+    const causas = [
+      ["partition_below_min", "la muestra quedó bajo el mínimo"],
+      ["group_below_min", "un grupo de PD quedó bajo el mínimo"],
+      ["degenerate_group", "un grupo de PD quedó sin variabilidad"],
+      ["non_finite_statistic", "el estadístico no fue finito"],
+    ] as const
+    for (const [reason, frase] of causas) {
+      const html = render(conHl(reason, [{ ...particionSinVeredicto, reason }]))
+      expect(html).toContain(frase)
+      expect(html).not.toContain(reason)
+    }
+  })
+
+  it("sin ninguna prueba evaluable el estado técnico dice «No evaluable», nunca «Pasa»", () => {
+    const html = render(conHl("group_below_min", [particionSinVeredicto], "not_evaluable", 0))
+    // La píldora del estado técnico cierra con la palabra; las celdas de veredicto de las filas
+    // son `<td>`, así que «Pasa</span>» sólo puede ser la píldora.
+    expect(html).toContain("No evaluable</span>")
+    expect(html).not.toContain("Pasa</span>")
+    expect(html).toContain("Sin pruebas de pasa o falla")
+    // El slug del estado no sobrevive en la píldora (la ficha del modelo del fixture sí nombra
+    // claves de evidencia del motor, y ésas son el dato).
+    expect(html).not.toContain("not_evaluable</span>")
+  })
+
+  it("con todos los Hosmer-Lemeshow evaluables no se pinta la enumeración", () => {
+    const html = render({
+      ...(demoF1 as unknown as ResultsResponse),
+      validation: {
+        ...VALIDATION_F1,
+        metric_sections: {
+          validation: {
+            ...VALIDATION_F1.metric_sections?.validation,
+            not_evaluable_partitions: [],
+          },
+        },
+      },
+    })
+    expect(html).not.toContain("Hosmer-Lemeshow sin veredicto")
+  })
+
+  it("un fixture capturado antes de la clave —la demo publicada— sigue renderizando", () => {
+    const html = render({ ...(demoF1 as unknown as ResultsResponse), validation: VALIDATION_F1 })
+    expect(html).toContain("Calibración por muestra")
+    expect(html).not.toContain("Hosmer-Lemeshow sin veredicto")
   })
 })
 

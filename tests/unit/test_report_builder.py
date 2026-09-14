@@ -639,6 +639,8 @@ def _validation_result() -> ValidationResult:
             # D-VAL-15: los cortes del semáforo, nulos en una fila de Hosmer-Lemeshow.
             "green_alpha": [None],
             "red_alpha": [None],
+            # D-VAL-17: la causa de un HL sin veredicto, nula en uno con veredicto.
+            "not_evaluable_reason": [None],
         }
     )
     stability = pd.DataFrame(
@@ -675,7 +677,9 @@ def _validation_result() -> ValidationResult:
         model_ref="scorecard@oracle",
         families_run=("discrimination", "calibration", "stability", "backtesting"),
         overall_status="pass",
-        n_tests=4,
+        # Lo derivado de los records: un HL con veredicto y un backtest (D-VAL-17 exige que la
+        # card cuente sólo decisiones evaluables, y `ValidationResult` lo reconcilia).
+        n_tests=2,
         n_failed=0,
         dependency_versions={"pandas": "2.3.3"},
         falta_dato=(),

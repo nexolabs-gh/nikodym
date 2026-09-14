@@ -108,9 +108,18 @@ def _stability_metrics(*, review: bool = True) -> pd.DataFrame:
     )
 
 
+#: Mínimo por grupo de los fixtures de este archivo. ``_analytic_frame`` reparte 60/30/30 filas y
+#: ``hl_n_groups=5`` deja grupos de 12/6/6: desde D-VAL-17 el mínimo protege también cada grupo de
+#: Hosmer-Lemeshow, así que con el mínimo 10 de antes ``holdout`` y ``oot`` quedarían sin veredicto
+#: y los goldens de este archivo dejarían de medir lo que miden. Con 6 los tres HL siguen
+#: evaluables y ningún número cambia (el mínimo no entra al estadístico); los grados (48/36/36)
+#: tampoco se mueven.
+_MIN_ROWS_FIXTURE = 6
+
+
 def _config(**overrides: Any) -> ValidationConfig:
     """Config de validación con HL de 5 grupos y mínimo bajo para fixtures pequeños."""
-    calibration = CalibrationValidationConfig(hl_n_groups=5, min_rows_per_group=10)
+    calibration = CalibrationValidationConfig(hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE)
     params: dict[str, Any] = {
         "families": ("discrimination", "calibration", "stability"),
         "calibration": calibration,
@@ -162,7 +171,7 @@ def test_grade_records_resellan_los_cortes_del_semaforo_junto_al_color() -> None
         families=("calibration",),
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             alpha=0.05,
             traffic_light_green_alpha=0.10,
             traffic_light_red_alpha=0.02,
@@ -206,14 +215,14 @@ def test_la_tabla_y_la_card_publican_los_cortes_solo_cuando_corrio_el_contraste(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
             hl_n_groups=5,
-            min_rows_per_group=10,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
             traffic_light_green_alpha=0.10,
             traffic_light_red_alpha=0.02,
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
     table = result.calibration
-    assert list(table.columns)[-2:] == ["green_alpha", "red_alpha"]
+    assert list(table.columns)[-3:] == ["green_alpha", "red_alpha", "not_evaluable_reason"]
     por_grado = table[table["grade"] != "ALL"]
     assert por_grado["green_alpha"].tolist() == [0.10] * 3
     assert por_grado["red_alpha"].tolist() == [0.02] * 3
@@ -226,7 +235,7 @@ def test_la_tabla_y_la_card_publican_los_cortes_solo_cuando_corrio_el_contraste(
     apagado = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
-            hl_n_groups=5, min_rows_per_group=10, binomial_by_grade=False
+            hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE, binomial_by_grade=False
         ),
     )
     sin_contraste = ValidationEvaluator.from_config(apagado).validate(
@@ -234,7 +243,11 @@ def test_la_tabla_y_la_card_publican_los_cortes_solo_cuando_corrio_el_contraste(
     )
     assert "traffic_light_cuts" in sin_contraste.card.metric_sections["validation"]
     assert sin_contraste.card.metric_sections["validation"]["traffic_light_cuts"] is None
-    assert list(sin_contraste.calibration.columns)[-2:] == ["green_alpha", "red_alpha"]
+    assert list(sin_contraste.calibration.columns)[-3:] == [
+        "green_alpha",
+        "red_alpha",
+        "not_evaluable_reason",
+    ]
     assert sin_contraste.calibration["green_alpha"].tolist() == [None] * len(
         sin_contraste.calibration
     )
@@ -365,7 +378,10 @@ def test_validate_calibracion_frame_invalido(mutation: str, match: str) -> None:
 
 
 def test_validate_calibracion_hl_bajo_minimo_es_not_evaluable() -> None:
-    """Una partición con menos filas que ``min_rows_per_group`` deja el HL ``not_evaluable``."""
+    """Una partición con menos filas que ``min_rows_per_group`` deja el HL ``not_evaluable``, con
+    ``statistic`` nulo y la causa ``partition_below_min``; y desde D-VAL-17 una partición que sí
+    cumple pero cuyos grupos no (60 filas en 5 grupos de 12 < 40) queda sin veredicto por
+    ``group_below_min``."""
     cfg = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
@@ -373,10 +389,261 @@ def test_validate_calibracion_hl_bajo_minimo_es_not_evaluable() -> None:
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
-    hl = [r for r in result.calibration_records if r.test == "hosmer_lemeshow"]
-    holdout = next(r for r in hl if r.partition == "holdout")  # 30 filas < 40
+    hl = {r.partition: r for r in result.calibration_records if r.test == "hosmer_lemeshow"}
+    holdout = hl["holdout"]  # 30 filas < 40
     assert holdout.decision == "not_evaluable"
     assert holdout.p_value is None
+    assert holdout.statistic is None
+    assert holdout.not_evaluable_reason == "partition_below_min"
+    desarrollo = hl["desarrollo"]  # 60 filas >= 40, pero grupos de 12 < 40
+    assert desarrollo.decision == "not_evaluable"
+    assert desarrollo.statistic is None
+    assert desarrollo.not_evaluable_reason == "group_below_min"
+    # La tabla tidy dice lo mismo: estadístico nulo (nunca 0.0) y la causa en su columna.
+    filas = result.calibration.set_index(["partition", "test"])
+    assert filas.loc[("holdout", "hosmer_lemeshow"), "statistic"] is None
+    assert filas.loc[("holdout", "hosmer_lemeshow"), "not_evaluable_reason"] == (
+        "partition_below_min"
+    )
+    assert filas.loc[("desarrollo", "brier"), "not_evaluable_reason"] is None
+    # Y la card enumera las tres particiones con su causa y sus números (la prosa y el panel leen
+    # de aquí); sin grupos formados, ``min_group_size`` va nulo.
+    section = result.card.metric_sections["validation"]
+    assert section["not_evaluable_partitions"] == [
+        {
+            "partition": "desarrollo",
+            "n": 60,
+            "n_groups": 5,
+            "min_group_size": 12,
+            "min_rows": 40,
+            "reason": "group_below_min",
+        },
+        {
+            "partition": "holdout",
+            "n": 30,
+            "n_groups": 5,
+            "min_group_size": None,
+            "min_rows": 40,
+            "reason": "partition_below_min",
+        },
+        {
+            "partition": "oot",
+            "n": 30,
+            "n_groups": 5,
+            "min_group_size": None,
+            "min_rows": 40,
+            "reason": "partition_below_min",
+        },
+    ]
+
+
+def _particiones_de_cien() -> pd.DataFrame:
+    """Tres particiones de 100 operaciones bien calibradas (PD 0,1; un default cada diez)."""
+    n = 300
+    return pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * 100 + ["holdout"] * 100 + ["oot"] * 100,
+            "target": [1 if index % 10 == 0 else 0 for index in range(n)],
+            "pd_calibrated": [0.1] * n,
+            "grade": ["A"] * n,
+        },
+        index=[f"c{i}" for i in range(n)],
+    )
+
+
+def test_validate_hl_con_grupos_bajo_el_minimo_queda_sin_veredicto_y_fuera_del_conteo() -> None:
+    """D-VAL-17 con los defaults (10 grupos, mínimo 30): una partición de 100 operaciones recibía
+    veredicto con grupos de 10 (§0-21 del scorecard completo). Ahora queda ``not_evaluable`` con
+    su causa, ``n_tests`` no la cuenta y la card la enumera."""
+    cfg = _config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(binomial_by_grade=False),
+    )
+    frame = _particiones_de_cien().iloc[:100]
+    result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=frame)
+    hl = next(r for r in result.calibration_records if r.test == "hosmer_lemeshow")
+    assert hl.decision == "not_evaluable"
+    assert hl.statistic is None
+    assert hl.not_evaluable_reason == "group_below_min"
+    assert result.card.n_tests == 0
+    assert result.card.n_failed == 0
+    assert result.card.metric_sections["validation"]["not_evaluable_partitions"] == [
+        {
+            "partition": "desarrollo",
+            "n": 100,
+            "n_groups": 10,
+            "min_group_size": 10,
+            "min_rows": 30,
+            "reason": "group_below_min",
+        }
+    ]
+    # Con 300 operaciones los grupos son de 30 y el HL se evalúa como siempre.
+    sobre_el_minimo = ValidationEvaluator.from_config(cfg).validate(
+        calibrated_pd=_particiones_de_cien().assign(partition="desarrollo")
+    )
+    hl_ok = next(r for r in sobre_el_minimo.calibration_records if r.test == "hosmer_lemeshow")
+    assert hl_ok.decision == "pass"
+    assert hl_ok.statistic == pytest.approx(0.0, abs=1e-12)  # ajuste perfecto, con su redondeo
+    assert sobre_el_minimo.card.n_tests == 1
+    assert sobre_el_minimo.card.metric_sections["validation"]["not_evaluable_partitions"] == []
+
+
+def test_validate_sin_ninguna_prueba_evaluable_no_dice_pasa() -> None:
+    """§8-9: 100 filas por partición, 10 grupos, mínimo 30 y sólo calibración → todos los HL sin
+    veredicto, ``n_tests == 0`` y estado ``not_evaluable``, nunca ``pass``.
+
+    Control negativo preespecificado: devolver ``pass`` con ``n_tests == 0`` pone esto rojo.
+    """
+    cfg = _config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(binomial_by_grade=False),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_particiones_de_cien())
+    hl = [r for r in result.calibration_records if r.test == "hosmer_lemeshow"]
+    assert len(hl) == 3 and all(r.decision == "not_evaluable" for r in hl)
+    assert result.card.n_tests == 0
+    assert result.card.overall_status == "not_evaluable"
+    assert result.card.metric_sections["validation"]["overall_status"] == "not_evaluable"
+    assert [
+        p["partition"]
+        for p in result.card.metric_sections["validation"]["not_evaluable_partitions"]
+    ] == ["desarrollo", "holdout", "oot"]
+
+
+def test_validate_solo_backtests_sin_potencia_es_not_evaluable() -> None:
+    """Sólo backtesting con LGD/EAD constantes (dispersión nula) y PD estimada en cero (varianza
+    binomial nula) → ninguna decisión evaluable: ``n_tests == 0`` y ``not_evaluable``.
+
+    Hallazgo 1 de la pasada 8 de Codex sobre la enmienda: ``n_tests`` contaba también los
+    backtests ``not_evaluable`` y el consolidado caía en ``pass``. Control negativo: volver a
+    contarlos pone esto rojo.
+    """
+    detail = _ifrs9_detail(decimals=False)
+    detail["pd_12m"] = 0.0
+    constante = pd.DataFrame(
+        {
+            "realised_default": [0.0] * 80,
+            "realised_lgd": [0.55] * 80,
+            "realised_ead": [1100.0] * 80,
+        },
+        index=[f"r{i}" for i in range(80)],
+    )
+    cfg = _config(
+        families=("backtesting",),
+        backtesting=BacktestingValidationConfig(enabled=True, segment_col="portfolio"),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(ifrs9_detail=detail, realised=constante)
+    assert result.backtest_records and all(
+        r.decision == "not_evaluable" for r in result.backtest_records
+    )
+    assert result.card.n_tests == 0
+    assert result.card.n_failed == 0
+    assert result.card.overall_status == "not_evaluable"
+
+
+def test_validate_mixto_un_backtest_evaluable_decide_y_la_cobertura_lo_dice() -> None:
+    """Un backtest evaluable junto a HL sin veredicto: el estado es el del evaluable y
+    ``n_tests`` cuenta 1 (la cobertura del panel dice «1 de N»)."""
+    cfg = _config(
+        families=("calibration", "backtesting"),
+        calibration=CalibrationValidationConfig(binomial_by_grade=False),
+        backtesting=BacktestingValidationConfig(
+            enabled=True, segment_col="portfolio", parameters=("lgd",)
+        ),
+    )
+    detail = _ifrs9_detail(decimals=False).assign(portfolio="retail")
+    result = ValidationEvaluator.from_config(cfg).validate(
+        calibrated_pd=_particiones_de_cien(),
+        ifrs9_detail=detail,
+        realised=_realised(underestimated=True),
+    )
+    assert all(
+        r.decision == "not_evaluable"
+        for r in result.calibration_records
+        if r.test == "hosmer_lemeshow"
+    )
+    assert [r.decision for r in result.backtest_records] == ["fail"]
+    assert (result.card.n_tests, result.card.n_failed) == (1, 1)
+    assert result.card.overall_status == "fail"
+
+
+def test_validate_con_estabilidad_evaluable_y_sin_pruebas_el_estado_es_el_de_la_estabilidad() -> (
+    None
+):
+    """Con ``n_tests == 0`` pero un PSI en banda de revisión, el estado sigue siendo ``warn``."""
+    cfg = _config(
+        families=("calibration", "stability"),
+        calibration=CalibrationValidationConfig(binomial_by_grade=False),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(
+        calibrated_pd=_particiones_de_cien(), stability_metrics=_stability_metrics(review=True)
+    )
+    assert result.card.n_tests == 0
+    assert result.card.overall_status == "warn"
+
+
+def test_test_counts_excluye_las_decisiones_no_evaluables_de_las_cuatro_familias() -> None:
+    """``n_tests``/``n_failed`` cuentan decisiones evaluables: ni el Brier, ni un HL sin veredicto,
+    ni un backtest ``not_evaluable`` entran."""
+    hl_ok = CalibrationTestRecord(
+        partition="desarrollo",
+        test="hosmer_lemeshow",
+        n_groups=10,
+        degrees_of_freedom=8,
+        statistic=20.0,
+        p_value=0.01,
+        alpha=0.05,
+        decision="fail",
+    )
+    hl_ne = CalibrationTestRecord(
+        partition="oot",
+        test="hosmer_lemeshow",
+        n_groups=10,
+        degrees_of_freedom=8,
+        statistic=None,
+        p_value=None,
+        alpha=None,
+        decision="not_evaluable",
+        not_evaluable_reason="group_below_min",
+    )
+    brier = CalibrationTestRecord(
+        partition="oot",
+        test="brier",
+        n_groups=None,
+        degrees_of_freedom=None,
+        statistic=0.1,
+        p_value=None,
+        alpha=None,
+        decision="not_evaluable",
+    )
+    bt_ne = BacktestRecord(
+        parameter="lgd",
+        segment="retail",
+        n=40,
+        predicted_mean=0.45,
+        realised_mean=0.45,
+        test="t_test",
+        statistic=0.0,
+        p_value=1.0,
+        alpha=0.05,
+        one_sided=True,
+        decision="not_evaluable",
+    )
+    n_tests, n_failed = evaluator_module._test_counts(
+        calibration_records=(hl_ok, hl_ne, brier),
+        grade_records=(_grade("red"),),
+        backtest_records=(bt_ne,),
+    )
+    assert (n_tests, n_failed) == (2, 2)
+    assert (
+        evaluator_module._overall_status(
+            calibration_records=(hl_ne, brier),
+            grade_records=(),
+            backtest_records=(bt_ne,),
+            stability_frame=pd.DataFrame({"decision": ["not_evaluable"]}),
+        )
+        == "not_evaluable"
+    )
 
 
 def test_validate_calibracion_sin_binomial_ni_brier_solo_hl() -> None:
@@ -384,7 +651,10 @@ def test_validate_calibracion_sin_binomial_ni_brier_solo_hl() -> None:
     cfg = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
-            hl_n_groups=5, min_rows_per_group=10, brier=False, binomial_by_grade=False
+            hl_n_groups=5,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
+            brier=False,
+            binomial_by_grade=False,
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
@@ -399,7 +669,7 @@ def test_validate_calibracion_binomial_bcbs_sigue_sin_marca() -> None:
     cfg = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
-            hl_n_groups=5, min_rows_per_group=10, pd_test="binomial"
+            hl_n_groups=5, min_rows_per_group=_MIN_ROWS_FIXTURE, pd_test="binomial"
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
@@ -751,8 +1021,10 @@ def test_deep_copy_rechaza_no_dataframe() -> None:
         evaluator_module._deep_copy(object())  # type: ignore[arg-type]
 
 
-def test_grade_row_z_none_publica_estadistico_cero() -> None:
-    """Un grado sin ``z`` asintótico (Jeffreys) publica estadístico 0.0, no ``None``."""
+def test_grade_row_z_none_publica_estadistico_nulo() -> None:
+    """Un grado sin ``z`` asintótico (Jeffreys) publica estadístico nulo, no un ``0.0`` que se
+    leería como «observado igual a esperado» (mismo defecto que el HL sin veredicto, D-VAL-17;
+    hasta entonces la columna no admitía la ausencia)."""
     record = GradeBinomialRecord(
         grade="A",
         n=40,
@@ -768,8 +1040,10 @@ def test_grade_row_z_none_publica_estadistico_cero() -> None:
         red_alpha=0.01,
     )
     row = evaluator_module._grade_row(record)
-    assert row["statistic"] == 0.0
+    assert row["statistic"] is None
     assert row["decision"] == "pass"
+    con_z = evaluator_module._grade_row(record.model_copy(update={"z_stat": -0.48}))
+    assert con_z["statistic"] == -0.48
 
 
 def test_grade_row_red_es_fail() -> None:
@@ -885,8 +1159,11 @@ def test_dependency_versions_omite_libreria_ausente(monkeypatch: pytest.MonkeyPa
 
 
 def test_stability_has_frame_vacio_es_falso() -> None:
-    """Un frame de estabilidad vacío no registra ninguna decisión."""
-    assert evaluator_module._stability_has(pd.DataFrame({"decision": []}), "fail") is False
+    """Un frame de estabilidad vacío no registra ninguna decisión (la regla vive en ``results``,
+    junto a la consolidación que el DTO exige; el evaluador la delega)."""
+    from nikodym.validation import results as results_module
+
+    assert results_module._stability_has(pd.DataFrame({"decision": []}), "fail") is False
 
 
 def test_validate_calibracion_sin_hosmer_lemeshow_solo_brier() -> None:
@@ -894,7 +1171,10 @@ def test_validate_calibracion_sin_hosmer_lemeshow_solo_brier() -> None:
     cfg = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
-            hl_n_groups=5, min_rows_per_group=10, hosmer_lemeshow=False, binomial_by_grade=False
+            hl_n_groups=5,
+            min_rows_per_group=_MIN_ROWS_FIXTURE,
+            hosmer_lemeshow=False,
+            binomial_by_grade=False,
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
@@ -933,13 +1213,15 @@ def test_reseal_hosmer_lemeshow_not_evaluable_conserva_estado() -> None:
         test="hosmer_lemeshow",
         n_groups=5,
         degrees_of_freedom=3,
-        statistic=0.0,
+        statistic=None,
         p_value=None,
         alpha=None,
         decision="not_evaluable",
+        not_evaluable_reason="degenerate_group",
     )
     resealed = evaluator_module._reseal_hosmer_lemeshow(record, partition="oot", alpha=0.05)
     assert resealed.partition == "oot"
+    assert resealed.not_evaluable_reason == "degenerate_group"
     assert resealed.decision == "not_evaluable"
     assert resealed.p_value is None
 

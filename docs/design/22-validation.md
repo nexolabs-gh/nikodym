@@ -439,8 +439,10 @@ class ValidationConfig(NikodymBaseConfig):
 | `test` | `hosmer_lemeshow`, `binomial`/`jeffreys`, `brier` |
 | `grade` | grado de rating (binomial) o `ALL` |
 | `n`, `observed_defaults`, `expected_pd`, `observed_dr` | conteos y tasas |
-| `statistic`, `degrees_of_freedom`, `p_value` | estadístico y p-valor |
+| `statistic`, `degrees_of_freedom`, `p_value` | estadístico y p-valor; `statistic` es **nulo** en un Hosmer-Lemeshow sin veredicto (D-VAL-17: antes publicaba `0.0`, el valor de un ajuste perfecto) |
 | `alpha`, `decision`, `traffic_light` | umbral, verdicto y semáforo |
+| `green_alpha`, `red_alpha` | los dos cortes con que se decidió el color de cada fila de grado (D-VAL-15); nulos en HL y Brier. Columnas de auditoría: el informe no las pinta, la prosa nombra los cortes |
+| `not_evaluable_reason` | por qué un Hosmer-Lemeshow quedó sin veredicto (D-VAL-17): `partition_below_min`, `group_below_min`, `degenerate_group` o `non_finite_statistic`; nula en toda otra fila. Columna de auditoría: el informe no la pinta, la prosa la traduce con sus números y el panel la muestra junto al «Sin veredicto» |
 
 **Output `backtesting`.** `pandas.DataFrame`, una fila por `parameter × segment`:
 
@@ -459,7 +461,8 @@ class ValidationConfig(NikodymBaseConfig):
 **Invariantes.**
 - Índice único y alineado entre `calibrated_pd_frame`, `labels` y (si aplica) `ifrs9.detail`.
 - `0 < pd_calibrated < 1`, finita; `target ∈ {0,1}`.
-- Grupos HL/grados con `n < min_rows_per_group` → estado `not_evaluable` auditado, **nunca** métrica engañosa ni `NaN` silencioso.
+- Grupos HL/grados con `n < min_rows_per_group` → estado `not_evaluable` auditado, **nunca** métrica engañosa ni `NaN` silencioso. **Desde D-VAL-17 el mínimo protege también cada grupo de PD del Hosmer-Lemeshow** (la puerta mira el menor grupo que deja `np.array_split`), no sólo la partición entera: con diez grupos y el mínimo de fábrica una partición necesita ≥ 300 operaciones. El HL sin veredicto publica `statistic=None` y su causa; la card enumera esas particiones en `metric_sections.validation.not_evaluable_partitions` (partición, `n`, `n_groups`, `min_group_size`, `min_rows`, `reason`).
+- `n_tests`/`n_failed` cuentan **sólo decisiones evaluables** en las cuatro familias (D-VAL-17): un HL o un backtest `not_evaluable` no es una prueba corrida sin veredicto sino una que no se pudo correr; el Brier tampoco cuenta. `overall_status` gana `not_evaluable` («No evaluable») cuando no hay evidencia evaluable alguna —ninguna decisión `pass`/`fail` y ninguna fila de estabilidad con decisión—; antes ese caso decía `pass`. La regla vive en `results.derive_test_counts`/`derive_overall_status`, la usa el evaluador y `ValidationResult` la exige a la card (también rehidratada).
 - Ningún Step escribe bajo dominios aguas arriba.
 - Floats publicados normalizan `-0.0 → 0.0`; jamás se publica `NaN`/`inf` (se usa `None`/`not_evaluable`).
 - Orden estable de grupos/grados; empates por índice estable, no por orden accidental de pandas.
@@ -497,7 +500,7 @@ class ValidationConfig(NikodymBaseConfig):
 
 - **Faltan artefactos aguas arriba:** `ArtifactNotFoundError` por CT-1 antes de ejecutar (contrato incumplido nombrado).
 - **`performance`/`stability` ausentes (modelo no scorecard):** fallback por reúso de evaluadores SDD-11; se audita `source="recomputed"`.
-- **Grupo HL/grado con una sola clase o bajo mínimo:** `not_evaluable` auditado; no aborta salvo que **todas** las particiones sean no evaluables.
+- **Grupo HL/grado con una sola clase o bajo mínimo:** `not_evaluable` auditado con su causa (D-VAL-17: `partition_below_min` cuando la partición entera queda bajo `min_rows_per_group`; `group_below_min` cuando lo hace el menor de los `G` grupos; `degenerate_group` con un grupo vacío o `n_g·p̄_g·(1−p̄_g) = 0`; `non_finite_statistic` cuando el cociente desborda con PD extremas), `statistic` nulo, fuera de `n_tests`. No aborta: si **ninguna** prueba de ninguna familia es evaluable y la estabilidad no trae decisión, el estado consolidado es `not_evaluable`, nunca `pass`.
 - **`pd_calibrated` fuera de `(0,1)` o no finita:** `ValidationDataError` ruidoso; SDD-22 no corrige PD aguas arriba.
 - **`p̄_g·(1−p̄_g)=0` en HL (grupo degenerado):** grupo `not_evaluable`; nunca división por cero silenciosa.
 - **Backtesting activo sin columnas realizadas:** `ValidationConfigError`/`DATO-INSTITUCIONAL` según `fail_on_falta_dato`; no se inventa el realizado.
@@ -517,6 +520,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Normalización numérica.** Publicar `-0.0` como `0.0`; floats finitos salvo estados `not_evaluable` (representados por `None`, nunca `NaN`/`inf`). Si algún módulo emite hashes auxiliares para goldens, usar endianness explícito (`astype("<u8")`) y nunca `hash()` builtin.
 - **Audit trail (`log_decision`).** Registrar:
   - cada test de calibración fallado (HL/binomial/Brier) con `regla`, `umbral`(α), `valor`(p/estadístico), `accion`;
+  - cada Hosmer-Lemeshow sin veredicto (`calibration_hl_not_evaluable`; una regla, cuatro causas; D-VAL-17) con `umbral={min_rows, n_groups}` y `valor={partition, n, min_group_size, reason}`, leído de la misma lista que publica la card;
   - cada grado que cruza banda del semáforo (verde→ámbar→rojo);
   - cada backtest fallado (t-test/binomial) por parámetro/segmento;
   - PSI consumido que cae en `review`/`redevelop`;

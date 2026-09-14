@@ -28,6 +28,7 @@ import type {
   StabilityMetricRow,
   StabilityResponse,
   ValidationCalibrationRow,
+  ValidationNotEvaluablePartition,
   ValidationTrafficLightCuts,
   ValidationFamily,
   ValidationNotEvaluableGrade,
@@ -1907,11 +1908,16 @@ export function selectionDecisionRows(
 // estas funciones calcula nada: el veredicto, el conteo de pruebas y la cobertura por grado son
 // los que publicó el motor, y aquí sólo se ordenan y se traducen.
 
-/** Espejo de `nikodym.validation.results.VALIDATION_STATUS_LABELS` (D-SC-9). */
+/**
+ * Espejo de `nikodym.validation.results.VALIDATION_STATUS_LABELS` (D-SC-9). La cuarta palabra
+ * (D-VAL-17) es la misma que las bandas del PSI y sale sólo cuando no hay evidencia evaluable
+ * alguna: antes ese caso decía «Pasa».
+ */
 export const VALIDATION_STATUS_LABELS: Record<string, string> = {
   pass: "Pasa",
   warn: "Revisar",
   fail: "Falla",
+  not_evaluable: "No evaluable",
 } as const
 
 /** Estado técnico en palabras; fallback al slug (no oculta nada). */
@@ -1933,6 +1939,22 @@ export const VALIDATION_DECISION_LABELS: Record<string, string> = {
   fail: "Falla",
   not_evaluable: "Sin veredicto",
 } as const
+
+/**
+ * Espejo de `nikodym.validation.results.HL_NOT_EVALUABLE_REASON_LABELS` (D-VAL-17): por qué un
+ * Hosmer-Lemeshow quedó sin veredicto, en palabras. La fila lo dice junto a «Sin veredicto».
+ */
+export const HL_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
+  partition_below_min: "la muestra quedó bajo el mínimo de operaciones",
+  group_below_min: "un grupo de PD quedó bajo el mínimo de operaciones",
+  degenerate_group: "un grupo de PD quedó sin variabilidad",
+  non_finite_statistic: "el estadístico no fue finito con PD extremas",
+} as const
+
+/** Causa de un Hosmer-Lemeshow sin veredicto en palabras; fallback al slug (no oculta nada). */
+export function hlNotEvaluableReasonLabel(reason: string): string {
+  return HL_NOT_EVALUABLE_REASON_LABELS[reason] ?? reason
+}
 
 /** Espejo de `nikodym.validation.results.CALIBRATION_TEST_LABELS`. */
 export const CALIBRATION_TEST_LABELS: Record<string, string> = {
@@ -2081,6 +2103,24 @@ export function gradeCoverage(
   ).size
   if (evaluados === 0 && noEvaluados.length === 0) return null
   return { evaluados, total: evaluados + noEvaluados.length, noEvaluados }
+}
+
+/**
+ * Los Hosmer-Lemeshow sin veredicto que la card enumera (D-VAL-17), con sus números, para que el
+ * panel diga qué muestra quedó sin prueba y por qué: `[]` sin ninguno, con un fixture anterior a la
+ * clave o con una entrada malformada. Presentación pura: la lista es la del motor.
+ */
+export function hlNotEvaluablePartitions(
+  validation: ValidationResult | null | undefined,
+): ValidationNotEvaluablePartition[] {
+  const items = validation?.metric_sections?.validation?.not_evaluable_partitions ?? []
+  return items.filter(
+    (item): item is ValidationNotEvaluablePartition =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof item.partition === "string" &&
+      typeof item.reason === "string",
+  )
 }
 
 /**

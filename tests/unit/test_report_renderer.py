@@ -252,6 +252,8 @@ def test_document_view_renderiza_validacion_formal_y_control_negativo() -> None:
     assert VALIDATION_STATUS_LABELS["pass"] == metric["band"]
     assert renderer_module._band_class(VALIDATION_STATUS_LABELS["warn"]) == "band-warn"
     assert renderer_module._band_class(VALIDATION_STATUS_LABELS["fail"]) == "band-alert"
+    # D-VAL-17: la cuarta palabra es una banda neutra, nunca verde.
+    assert renderer_module._band_class(VALIDATION_STATUS_LABELS["not_evaluable"]) == "band-none"
     section = next(item for item in view["sections"] if item["id"] == "validation.discrimination")
     assert section["tables"][0]["rows"][0][3:6] == ("0.810000", "0.620000", "0.480000")
     assert section["placeholder"] is None

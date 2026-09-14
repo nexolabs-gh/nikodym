@@ -95,13 +95,16 @@ def test_hosmer_lemeshow_not_evaluable_grupo_degenerado() -> None:
     assert record.decision == "not_evaluable"
     assert record.p_value is None
     assert record.alpha is None
-    assert record.statistic == 0.0
+    # D-VAL-17: un HL que no se evaluó no publica un estadístico —``0.0`` es el valor de un ajuste
+    # perfecto— y dice por qué no se evaluó.
+    assert record.statistic is None
+    assert record.not_evaluable_reason == "degenerate_group"
     assert record.n_groups == 10
     assert record.degrees_of_freedom == 8
 
 
 def test_hosmer_lemeshow_not_evaluable_muestra_pequena() -> None:
-    # 5 observaciones y 10 grupos → grupos vacíos (n_g = 0) → not_evaluable.
+    # 5 observaciones y 10 grupos → grupos vacíos (n_g = 0): un grupo vacío es degenerado.
     record = hosmer_lemeshow(
         np.array([1.0, 0.0, 1.0, 0.0, 1.0]),
         np.array([0.1, 0.2, 0.3, 0.4, 0.5]),
@@ -110,6 +113,8 @@ def test_hosmer_lemeshow_not_evaluable_muestra_pequena() -> None:
 
     assert record.decision == "not_evaluable"
     assert record.p_value is None
+    assert record.statistic is None
+    assert record.not_evaluable_reason == "degenerate_group"
 
 
 def test_hosmer_lemeshow_not_evaluable_estadistico_no_finito() -> None:
@@ -121,6 +126,62 @@ def test_hosmer_lemeshow_not_evaluable_estadistico_no_finito() -> None:
 
     assert record.decision == "not_evaluable"
     assert record.p_value is None
+    assert record.statistic is None
+    assert record.not_evaluable_reason == "non_finite_statistic"
+
+
+def _cien_filas_bien_calibradas(n: int = 100) -> tuple[np.ndarray, np.ndarray]:
+    """``n`` operaciones con PD 0,1 y un default cada diez: HL = 0 si se evalúa."""
+    return np.tile(np.array([1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), n // 10), np.full(n, 0.1)
+
+
+def test_hosmer_lemeshow_grupo_bajo_minimo_es_not_evaluable_con_causa() -> None:
+    """D-VAL-17: 100 filas en 10 grupos son grupos de 10; con mínimo 30 no hay veredicto.
+
+    Es la lectura literal del título del campo («Mínimo de operaciones para evaluar») y el mismo
+    trato que el test por grado: sin potencia no hay veredicto, y el resultado dice por qué.
+    """
+    y_true, pd_pred = _cien_filas_bien_calibradas()
+
+    record = hosmer_lemeshow(y_true, pd_pred, n_groups=10, min_rows_per_group=30)
+
+    assert record.decision == "not_evaluable"
+    assert record.statistic is None
+    assert record.p_value is None
+    assert record.alpha is None
+    assert record.not_evaluable_reason == "group_below_min"
+    assert record.n_groups == 10
+    assert record.degrees_of_freedom == 8
+
+
+def test_hosmer_lemeshow_con_grupos_sobre_el_minimo_da_el_mismo_record_que_sin_minimo() -> None:
+    """300 filas en 10 grupos son grupos de 30: el mínimo 30 no cambia ni un bit del record."""
+    y_true, pd_pred = _cien_filas_bien_calibradas(300)
+
+    con_minimo = hosmer_lemeshow(y_true, pd_pred, n_groups=10, min_rows_per_group=30)
+    sin_minimo = hosmer_lemeshow(y_true, pd_pred, n_groups=10)
+
+    assert con_minimo == sin_minimo
+    assert con_minimo.decision == "pass"
+    assert con_minimo.not_evaluable_reason is None
+
+
+def test_hosmer_lemeshow_la_puerta_mira_el_grupo_mas_chico() -> None:
+    """``np.array_split`` reparte 105 filas en 10 grupos de 11 y 10: con mínimo 11 el más chico
+    (10) decide, aunque la mayoría de los grupos cumpla."""
+    y_true = np.concatenate([_cien_filas_bien_calibradas()[0], np.zeros(5)])
+    pd_pred = np.full(105, 0.1)
+
+    assert hosmer_lemeshow(y_true, pd_pred, n_groups=10, min_rows_per_group=10).decision == "pass"
+    record = hosmer_lemeshow(y_true, pd_pred, n_groups=10, min_rows_per_group=11)
+    assert record.decision == "not_evaluable"
+    assert record.not_evaluable_reason == "group_below_min"
+
+
+def test_hosmer_lemeshow_rechaza_minimo_por_grupo_invalido() -> None:
+    y_true, pd_pred = _cien_filas_bien_calibradas()
+    with pytest.raises(CalibrationTestError, match="min_rows_per_group"):
+        hosmer_lemeshow(y_true, pd_pred, n_groups=10, min_rows_per_group=0)
 
 
 def test_hosmer_lemeshow_rechaza_n_groups_menor_a_tres() -> None:

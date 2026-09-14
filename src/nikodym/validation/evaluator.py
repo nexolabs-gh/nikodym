@@ -6,7 +6,10 @@
 * **discriminación** -- reúsa/consume SDD-11 vía :mod:`nikodym.validation.discrimination` (nunca
   reimplementa AUC/Gini/KS);
 * **calibración** -- Hosmer-Lemeshow y Brier por partición y binomial/Jeffreys por grado, reúsando
-  los kernels de :mod:`nikodym.validation.calibration_tests`. El **semáforo se recomputa aquí** con
+  los kernels de :mod:`nikodym.validation.calibration_tests`. ``min_rows_per_group`` protege la
+  partición entera **y cada grupo de PD** del Hosmer-Lemeshow (D-VAL-17): sin potencia no hay
+  veredicto, el ``statistic`` va nulo y la causa se publica en la fila, en la card
+  (``not_evaluable_partitions``) y en el trail. El **semáforo se recomputa aquí** con
   los cortes independientes de la config (``traffic_light_green_alpha``/``red_alpha``) y no con el
   semáforo provisional que guarda ``binomial_by_grade``; cada fila de grado publica los dos cortes
   con que se decidió su color y la card los resume en ``traffic_light_cuts`` (D-VAL-15: los cortes
@@ -75,6 +78,7 @@ from nikodym.validation.results import (
     _CALIBRATION_COLUMNS,
     _DISCRIMINATION_COLUMNS,
     _STABILITY_COLUMNS,
+    NOT_EVALUABLE_PARTITION_FIELDS,
     BacktestRecord,
     CalibrationTestRecord,
     DiscriminationRecord,
@@ -82,6 +86,8 @@ from nikodym.validation.results import (
     OverallStatus,
     ValidationCardSection,
     ValidationResult,
+    derive_overall_status,
+    derive_test_counts,
 )
 from nikodym.validation.stability import evaluate_stability
 
@@ -160,6 +166,7 @@ class ValidationEvaluator:
         calibration_records: tuple[CalibrationTestRecord, ...] = ()
         grade_records: tuple[GradeBinomialRecord, ...] = ()
         not_evaluable_grades: tuple[dict[str, Any], ...] = ()
+        not_evaluable_partitions: tuple[dict[str, Any], ...] = ()
         backtest_records: tuple[BacktestRecord, ...] = ()
         calibration_frame = _empty_frame(_CALIBRATION_COLUMNS)
         stability_frame_out = _empty_frame(_STABILITY_COLUMNS)
@@ -168,9 +175,13 @@ class ValidationEvaluator:
             discrimination_records = self._run_discrimination(analytic, performance_metrics)
         traffic_light_cuts: dict[str, float] | None = None
         if "calibration" in self.families:
-            calibration_records, grade_records, calibration_frame, not_evaluable_grades = (
-                self._run_calibration(analytic)
-            )
+            (
+                calibration_records,
+                grade_records,
+                calibration_frame,
+                not_evaluable_grades,
+                not_evaluable_partitions,
+            ) = self._run_calibration(analytic)
             traffic_light_cuts = self._traffic_light_cuts()
         if "stability" in self.families:
             stability_frame_out = self._run_stability(stability_metrics, stability_frame)
@@ -208,6 +219,7 @@ class ValidationEvaluator:
                 grade_records=grade_records,
                 not_evaluable_grades=not_evaluable_grades,
                 traffic_light_cuts=traffic_light_cuts,
+                not_evaluable_partitions=not_evaluable_partitions,
             ),
         )
         return ValidationResult(
@@ -269,13 +281,17 @@ class ValidationEvaluator:
         tuple[GradeBinomialRecord, ...],
         pd.DataFrame,
         tuple[dict[str, Any], ...],
+        tuple[dict[str, Any], ...],
     ]:
         """Calcula HL/Brier por partición y binomial/Jeffreys por grado, y arma el frame tidy §6.
 
         El semáforo por grado se **recomputa** con los cortes independientes de la config vía
         ``model_copy`` (nitpick B22.3): ``binomial_by_grade`` sólo entrega un semáforo provisional.
-        Devuelve además la tupla de grados bajo mínimo (``not_evaluable``) que el step auditará:
-        éstos NO entran al frame tidy ni a ``grade_records`` (ver :meth:`_grade_records`).
+        Devuelve además la tupla de grados bajo mínimo (``not_evaluable``) que el step auditará
+        —éstos NO entran al frame tidy ni a ``grade_records`` (ver :meth:`_grade_records`)— y la
+        de particiones cuyo Hosmer-Lemeshow quedó sin veredicto, con su causa y sus números
+        (D-VAL-17): éstas SÍ están en la tabla, con ``statistic`` nulo; la lista es lo que leen la
+        prosa, el panel y el trail.
         """
         if analytic is None:
             raise ValidationDataError(
@@ -290,6 +306,7 @@ class ValidationEvaluator:
         )
 
         calibration_records: list[CalibrationTestRecord] = []
+        partition_sizes: list[int] = []
         rows: list[dict[str, Any]] = []
         for partition in _ordered_partitions(frame, calib.partition_column):
             subset = frame[frame[calib.partition_column] == partition]
@@ -299,12 +316,14 @@ class ValidationEvaluator:
             if calib.hosmer_lemeshow:
                 hl_record = self._hosmer_lemeshow_record(partition, y_true, pd_pred)
                 calibration_records.append(hl_record)
+                partition_sizes.append(stats[0])
                 rows.append(_hl_row(hl_record, partition, stats))
             if calib.brier:
                 brier_record = brier_score(y_true, pd_pred).model_copy(
                     update={"partition": partition}
                 )
                 calibration_records.append(brier_record)
+                partition_sizes.append(stats[0])
                 rows.append(_brier_row(brier_record, partition, stats))
 
         grade_records, not_evaluable_grades = self._grade_records(frame)
@@ -313,26 +332,41 @@ class ValidationEvaluator:
         calibration_frame = _build_frame(
             rows,
             _CALIBRATION_COLUMNS,
+            # ``statistic`` entra a las nulas desde D-VAL-17: un HL sin veredicto no lo publica y
+            # el invariante §6/§9 prohíbe degradar esa ausencia a ``NaN``.
             nullable=(
+                "statistic",
                 "degrees_of_freedom",
                 "p_value",
                 "alpha",
                 "traffic_light",
                 "green_alpha",
                 "red_alpha",
+                "not_evaluable_reason",
             ),
+        )
+        not_evaluable_partitions = tuple(
+            _not_evaluable_partition(record, n=n, min_rows=self.min_rows)
+            for record, n in zip(calibration_records, partition_sizes, strict=True)
+            if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable"
         )
         return (
             tuple(calibration_records),
             grade_records,
             calibration_frame,
             not_evaluable_grades,
+            not_evaluable_partitions,
         )
 
     def _hosmer_lemeshow_record(
         self, partition: str, y_true: np.ndarray, pd_pred: np.ndarray
     ) -> CalibrationTestRecord:
-        """Evalúa Hosmer-Lemeshow re-sellando partición y alfa; bajo mínimo → ``not_evaluable``."""
+        """Evalúa Hosmer-Lemeshow re-sellando partición y alfa; sin potencia → ``not_evaluable``.
+
+        Dos puertas con el mismo mínimo (D-VAL-17): la partición entera aquí
+        (``partition_below_min``, sin llamar al kernel) y cada grupo de PD dentro del kernel
+        (``group_below_min``), al que se le pasa ``min_rows`` explícito.
+        """
         calib = self.config.calibration
         if y_true.shape[0] < self.min_rows:
             return CalibrationTestRecord(
@@ -340,12 +374,15 @@ class ValidationEvaluator:
                 test="hosmer_lemeshow",
                 n_groups=calib.hl_n_groups,
                 degrees_of_freedom=calib.hl_n_groups - 2,
-                statistic=0.0,
+                statistic=None,
                 p_value=None,
                 alpha=None,
                 decision="not_evaluable",
+                not_evaluable_reason="partition_below_min",
             )
-        record = hosmer_lemeshow(y_true, pd_pred, n_groups=calib.hl_n_groups)
+        record = hosmer_lemeshow(
+            y_true, pd_pred, n_groups=calib.hl_n_groups, min_rows_per_group=self.min_rows
+        )
         return _reseal_hosmer_lemeshow(record, partition=partition, alpha=calib.alpha)
 
     def _grade_records(
@@ -700,7 +737,27 @@ def _hl_row(
         "traffic_light": None,
         "green_alpha": None,
         "red_alpha": None,
+        "not_evaluable_reason": record.not_evaluable_reason,
     }
+
+
+def _not_evaluable_partition(
+    record: CalibrationTestRecord, *, n: int, min_rows: int
+) -> dict[str, Any]:
+    """Descriptor de un Hosmer-Lemeshow sin veredicto para la card, la prosa, el panel y el trail.
+
+    D-VAL-17: las claves son las de :data:`NOT_EVALUABLE_PARTITION_FIELDS`, en su orden.
+    ``min_group_size`` es el tamaño del grupo más chico que ``np.array_split`` forma con ``n``
+    operaciones en ``n_groups`` grupos —``n // n_groups``, determinista—; va ``None`` cuando la
+    partición entera quedó bajo el mínimo y los grupos nunca se formaron.
+    """
+    n_groups = record.n_groups if record.n_groups is not None else 0
+    reason = record.not_evaluable_reason
+    min_group_size = None if reason == "partition_below_min" or n_groups == 0 else n // n_groups
+    # Se arma sobre la tupla de claves del contrato para que el orden y el censo salgan de una
+    # sola fuente (el tipo del front las espeja).
+    valores = (record.partition, n, n_groups, min_group_size, min_rows, reason)
+    return dict(zip(NOT_EVALUABLE_PARTITION_FIELDS, valores, strict=True))
 
 
 def _brier_row(
@@ -724,11 +781,18 @@ def _brier_row(
         "traffic_light": None,
         "green_alpha": None,
         "red_alpha": None,
+        "not_evaluable_reason": None,
     }
 
 
 def _grade_row(record: GradeBinomialRecord) -> dict[str, Any]:
-    """Proyecta un registro binomial/Jeffreys por grado a una fila tidy de ``calibration``."""
+    """Proyecta un registro binomial/Jeffreys por grado a una fila tidy de ``calibration``.
+
+    El ``statistic`` de la fila es el ``z`` asintótico; el Jeffreys no lo define (``z_stat=None``)
+    y la fila lo publica nulo. Hasta D-VAL-17 publicaba ``0.0`` porque la columna no admitía la
+    ausencia: era el mismo defecto que el HL sin veredicto —``z = 0`` es «observado igual a
+    esperado», no «sin ``z``»—.
+    """
     decision: Literal["pass", "fail"] = "fail" if record.traffic_light == "red" else "pass"
     return {
         "partition": _POOLED_PARTITION,
@@ -738,7 +802,7 @@ def _grade_row(record: GradeBinomialRecord) -> dict[str, Any]:
         "observed_defaults": record.observed_defaults,
         "expected_pd": record.expected_pd,
         "observed_dr": record.observed_dr,
-        "statistic": record.z_stat if record.z_stat is not None else 0.0,
+        "statistic": record.z_stat,
         "degrees_of_freedom": None,
         "p_value": record.p_value,
         "alpha": record.alpha,
@@ -746,6 +810,7 @@ def _grade_row(record: GradeBinomialRecord) -> dict[str, Any]:
         "traffic_light": record.traffic_light,
         "green_alpha": record.green_alpha,
         "red_alpha": record.red_alpha,
+        "not_evaluable_reason": None,
     }
 
 
@@ -865,26 +930,17 @@ def _overall_status(
     backtest_records: tuple[BacktestRecord, ...],
     stability_frame: pd.DataFrame,
 ) -> OverallStatus:
-    """Consolida el verdicto: ``fail`` ante cualquier test crítico rechazado; ``warn`` si ámbar."""
-    hard_fail = (
-        any(record.decision == "fail" for record in calibration_records)
-        or any(record.decision == "fail" for record in backtest_records)
-        or any(record.traffic_light == "red" for record in grade_records)
-        or _stability_has(stability_frame, "fail")
-    )
-    if hard_fail:
-        return "fail"
-    warn = any(record.traffic_light == "amber" for record in grade_records) or _stability_has(
-        stability_frame, "warn"
-    )
-    return "warn" if warn else "pass"
+    """Consolida el verdicto (SDD-22 §7; D-VAL-17).
 
-
-def _stability_has(stability_frame: pd.DataFrame, decision: str) -> bool:
-    """Indica si el frame de estabilidad consumido registra alguna decisión dada."""
-    if stability_frame.shape[0] == 0:
-        return False
-    return bool((stability_frame["decision"] == decision).any())
+    La regla vive en :func:`nikodym.validation.results.derive_overall_status`, la misma que
+    ``ValidationResult`` exige a la card, para que el evaluador y el DTO no puedan discrepar.
+    """
+    return derive_overall_status(
+        calibration_records=calibration_records,
+        grade_records=grade_records,
+        backtest_records=backtest_records,
+        stability_frame=stability_frame,
+    )
 
 
 def _test_counts(
@@ -893,15 +949,16 @@ def _test_counts(
     grade_records: tuple[GradeBinomialRecord, ...],
     backtest_records: tuple[BacktestRecord, ...],
 ) -> tuple[int, int]:
-    """Cuenta tests ejecutados y rechazados (Brier no es test pass/fail: no cuenta)."""
-    hl_records = [record for record in calibration_records if record.test == "hosmer_lemeshow"]
-    n_tests = len(hl_records) + len(grade_records) + len(backtest_records)
-    n_failed = (
-        sum(record.decision == "fail" for record in hl_records)
-        + sum(record.traffic_light == "red" for record in grade_records)
-        + sum(record.decision == "fail" for record in backtest_records)
+    """Cuenta decisiones evaluables y rechazadas (D-VAL-17).
+
+    La regla vive en :func:`nikodym.validation.results.derive_test_counts`; un HL o backtest
+    ``not_evaluable`` y el Brier no cuentan.
+    """
+    return derive_test_counts(
+        calibration_records=calibration_records,
+        grade_records=grade_records,
+        backtest_records=backtest_records,
     )
-    return n_tests, n_failed
 
 
 def _metric_sections(
@@ -913,6 +970,7 @@ def _metric_sections(
     grade_records: tuple[GradeBinomialRecord, ...],
     not_evaluable_grades: tuple[dict[str, Any], ...] = (),
     traffic_light_cuts: dict[str, float] | None = None,
+    not_evaluable_partitions: tuple[dict[str, Any], ...] = (),
 ) -> dict[str, Any]:
     """Arma la puerta CT-2 ``metric_sections`` tidy para report/governance (SDD-22 §4).
 
@@ -920,6 +978,9 @@ def _metric_sections(
     constancia de que existían pero se omitieron por falta de potencia, sin inflar el semáforo ni el
     verdicto. El step los audita además con ``log_decision`` §9. ``traffic_light_cuts`` lleva los
     dos cortes del semáforo cuando corrió el contraste por grado y ``None`` sin él (D-VAL-15).
+    ``not_evaluable_partitions`` enumera cada Hosmer-Lemeshow sin veredicto con su causa y sus
+    números (D-VAL-17; lista siempre presente, como ``not_evaluable_grades``): es lo que leen la
+    prosa del informe, el panel y el trail.
     """
     return {
         "validation": {
@@ -934,6 +995,7 @@ def _metric_sections(
             },
             "not_evaluable_grades": [dict(item) for item in not_evaluable_grades],
             "traffic_light_cuts": None if traffic_light_cuts is None else dict(traffic_light_cuts),
+            "not_evaluable_partitions": [dict(item) for item in not_evaluable_partitions],
         }
     }
 

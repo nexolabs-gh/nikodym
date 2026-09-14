@@ -66,6 +66,16 @@ probabilidad.
 grupo, los incumplimientos esperados con los observados. Un p-valor bajo significa que la PD
 predicha y la observada no cuadran.
 
+El **mínimo de operaciones para evaluar** —30 de fábrica— protege la muestra entera **y cada grupo
+de PD**: si el grupo más chico queda bajo el mínimo, esa muestra no recibe veredicto. Sin esa
+población, un p-valor sería ruido. Con diez grupos y el mínimo de fábrica, una muestra necesita al
+menos 300 operaciones. La fila sale **Sin veredicto**, sin estadístico, y dice **por qué**: la
+muestra quedó bajo el mínimo, un grupo de PD quedó bajo el mínimo, un grupo quedó sin variabilidad
+(vacío o con una PD media de 0 o 1) o el estadístico desbordó con PD extremas. El panel enumera
+esas muestras con sus números —operaciones, grupo más chico, mínimo— y el informe lo cuenta en
+prosa. Esas pruebas **no** cuentan en las fallidas: una prueba que no se pudo correr no es una
+prueba corrida.
+
 **El puntaje de Brier** es el error cuadrático medio entre la PD predicha y lo que ocurrió. Más bajo
 es mejor. No es una prueba de pasa o falla: es un puntaje, y por eso su fila sale **Sin veredicto**.
 
@@ -82,6 +92,13 @@ Esa corrida termina con **Estado técnico: Falla** y «1 de 3 pruebas fallidas»
 la configuración: el rechazo está en la muestra fuera de tiempo y es deriva temporal de la cartera
 —lo que la validación existe para detectar—. La pantalla y el informe lo publican tal cual; no se
 maquilla ni se esconde.
+
+!!! note "Una validación sin ninguna prueba evaluable no «Pasa»"
+    Si ninguna prueba alcanzó potencia —todos los Hosmer-Lemeshow sin veredicto, los backtests
+    sin dispersión— y la estabilidad tampoco dejó una decisión, el estado técnico es **No
+    evaluable**: la misma palabra que usan las bandas del PSI. Antes ese caso decía «Pasa», que
+    era cierto sólo porque no había nada que fallar. Si alguna familia sí produjo evidencia, el
+    estado se consolida sobre ella y la cobertura lo dice al lado.
 
 ### Por grado de rating
 

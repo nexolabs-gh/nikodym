@@ -54,10 +54,42 @@ DiscriminationSource: TypeAlias = Literal["performance_artifact", "recomputed"]
 DiscriminationStatus: TypeAlias = Literal["ok", "not_evaluable"]
 CalibrationTest: TypeAlias = Literal["hosmer_lemeshow", "brier"]
 CalibrationDecision: TypeAlias = Literal["pass", "fail", "not_evaluable"]
+#: Por qué un Hosmer-Lemeshow quedó sin veredicto (D-VAL-17): la partición entera bajo el mínimo
+#: de operaciones, el grupo de PD más chico bajo ese mismo mínimo, un grupo degenerado (vacío o
+#: con ``n_g * p_g * (1 - p_g) = 0``) o un estadístico que desbordó con PD extremas. Cuatro valores
+#: cerrados; el kernel fija los tres últimos y el evaluador el primero.
+HlNotEvaluableReason: TypeAlias = Literal[
+    "partition_below_min",
+    "group_below_min",
+    "degenerate_group",
+    "non_finite_statistic",
+]
 TrafficLight: TypeAlias = Literal["green", "amber", "red"]
 BacktestTest: TypeAlias = Literal["t_test", "binomial", "jeffreys"]
 BacktestDecision: TypeAlias = Literal["pass", "fail", "not_evaluable"]
-OverallStatus: TypeAlias = Literal["pass", "warn", "fail"]
+#: Estado técnico consolidado. ``not_evaluable`` (D-VAL-17, §8-9 de la enmienda) es «no hay
+#: evidencia evaluable alguna»: ninguna decisión ``pass``/``fail`` en calibración, grado o
+#: backtesting y ninguna fila de estabilidad con decisión; antes ese caso terminaba en ``pass``.
+OverallStatus: TypeAlias = Literal["pass", "warn", "fail", "not_evaluable"]
+
+#: Las decisiones que cuentan como evidencia: ``not_evaluable`` no es una prueba corrida sin
+#: veredicto, es una prueba que no se pudo correr, y no entra a ``n_tests`` ni al estado.
+_EVALUABLE_DECISIONS: frozenset[str] = frozenset({"pass", "fail"})
+_EVALUABLE_STABILITY_DECISIONS: frozenset[str] = frozenset({"pass", "warn", "fail"})
+
+#: Claves —y su orden— de cada entrada de ``metric_sections.validation.not_evaluable_partitions``:
+#: la partición, sus operaciones, los grupos pedidos, el tamaño del grupo más chico (``None``
+#: cuando la partición entera quedó bajo el mínimo y los grupos nunca se formaron), el mínimo
+#: configurado y la causa. El evaluador las escribe, la prosa y el panel las leen, el tipo del
+#: front las espeja (gate en ``test_vocabulario_en_pantalla``).
+NOT_EVALUABLE_PARTITION_FIELDS: tuple[str, ...] = (
+    "partition",
+    "n",
+    "n_groups",
+    "min_group_size",
+    "min_rows",
+    "reason",
+)
 
 # Familias de validación válidas para ``card.families_run`` (SDD-22 §4), derivadas del Literal.
 _VALID_FAMILIES: frozenset[str] = frozenset(get_args(ValidationFamily))
@@ -92,6 +124,10 @@ _CALIBRATION_COLUMNS: tuple[str, ...] = (
     # informe no las pinta (son de auditoría: el hecho va en prosa) y el JSON, el CSV y la card sí.
     "green_alpha",
     "red_alpha",
+    # D-VAL-17: por qué un Hosmer-Lemeshow quedó sin veredicto; nula en toda otra fila. Misma
+    # condición que las dos anteriores: el informe no la pinta y el hecho va en prosa, con la
+    # causa en palabras; el panel la traduce junto al «Sin veredicto» de la fila.
+    "not_evaluable_reason",
 )
 _STABILITY_COLUMNS: tuple[str, ...] = (
     "metric",
@@ -120,14 +156,17 @@ _BACKTESTING_COLUMNS: tuple[str, ...] = (
     "decision",
 )
 
-#: Rótulo público del estado técnico: la **única** fuente de esas tres palabras (D-SC-9).
+#: Rótulo público del estado técnico: la **única** fuente de esas cuatro palabras (D-SC-9).
 #:
-#: El slug (``pass``/``warn``/``fail``) es el dato y no se toca —viaja en la card, en el JSON y en
-#: el anexo—; estas palabras son el copy que lee una persona. Hasta la capa 2 convivían dos
-#: vocabularios: la prosa del informe decía «Pass técnico / Requiere revisión / Falla técnica» y la
-#: pantalla no decía nada, porque no había panel. Consumidores: :mod:`nikodym.report.prose`, el
-#: panel de Resultados (espejo en ``web/src/lib/results-format.ts``, gateado en los dos sentidos
-#: por ``tests/unit/test_vocabulario_en_pantalla.py``) y la guía del sitio.
+#: El slug (``pass``/``warn``/``fail``/``not_evaluable``) es el dato y no se toca —viaja en la
+#: card, en el JSON y en el anexo—; estas palabras son el copy que lee una persona. Hasta la capa 2
+#: convivían dos vocabularios: la prosa del informe decía «Pass técnico / Requiere revisión / Falla
+#: técnica» y la pantalla no decía nada, porque no había panel. La cuarta, «No evaluable» (D-VAL-17,
+#: aprobada por Cami el 2026-09-14), es la misma palabra que las bandas del PSI y sale sólo cuando
+#: no hay evidencia evaluable alguna: antes ese caso decía «Pasa». Consumidores:
+#: :mod:`nikodym.report.prose`, el panel de Resultados (espejo en ``web/src/lib/results-format.ts``,
+#: gateado en los dos sentidos por ``tests/unit/test_vocabulario_en_pantalla.py``) y la guía del
+#: sitio.
 #:
 #: ⚠️ Va bajo el rótulo **«Estado técnico»** y no «Resultado»: es evidencia del motor, y el
 #: veredicto sobre el modelo lo firma quien valida.
@@ -135,6 +174,17 @@ VALIDATION_STATUS_LABELS: dict[str, str] = {
     "pass": "Pasa",
     "warn": "Revisar",
     "fail": "Falla",
+    "not_evaluable": "No evaluable",
+}
+
+#: Por qué un Hosmer-Lemeshow quedó sin veredicto, en palabras (D-VAL-17). El panel las pinta junto
+#: al «Sin veredicto» de la fila y la prosa del informe las completa con los números de la
+#: partición (operaciones, grupo más chico, mínimo). Espejo en el front, gateado en ambos sentidos.
+HL_NOT_EVALUABLE_REASON_LABELS: dict[str, str] = {
+    "partition_below_min": "la muestra quedó bajo el mínimo de operaciones",
+    "group_below_min": "un grupo de PD quedó bajo el mínimo de operaciones",
+    "degenerate_group": "un grupo de PD quedó sin variabilidad",
+    "non_finite_statistic": "el estadístico no fue finito con PD extremas",
 }
 
 #: Rótulo público de cada familia de pruebas. En la pantalla titula su sección; en la prosa del
@@ -208,6 +258,8 @@ __all__ = [
     "CALIBRATION_TEST_LABELS",
     "DISCRIMINATION_SOURCE_LABELS",
     "DISCRIMINATION_STATUS_LABELS",
+    "HL_NOT_EVALUABLE_REASON_LABELS",
+    "NOT_EVALUABLE_PARTITION_FIELDS",
     "PD_TEST_LABELS",
     "TRAFFIC_LIGHT_LABELS",
     "VALIDATION_DECISION_LABELS",
@@ -218,10 +270,13 @@ __all__ = [
     "CalibrationTestRecord",
     "DiscriminationRecord",
     "GradeBinomialRecord",
+    "HlNotEvaluableReason",
     "PdTest",
     "ValidationCardSection",
     "ValidationFamily",
     "ValidationResult",
+    "derive_overall_status",
+    "derive_test_counts",
 ]
 
 
@@ -276,6 +331,11 @@ class CalibrationTestRecord(BaseModel):
     Brier es un puntaje, no un test: ``n_groups``/``degrees_of_freedom``/``p_value``/``alpha`` son
     ``None`` y ``decision`` es ``not_evaluable``. El binomial/Jeffreys por grado vive en
     :class:`GradeBinomialRecord`, no aquí.
+
+    Un Hosmer-Lemeshow **sin veredicto** (D-VAL-17) publica ``statistic=None`` —antes publicaba
+    ``0.0``, que es el valor de un ajuste perfecto, y ninguna superficie decía por qué no se
+    evaluó— y una de las cuatro causas cerradas en ``not_evaluable_reason``. Un HL con veredicto y
+    el Brier no llevan causa.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -284,10 +344,11 @@ class CalibrationTestRecord(BaseModel):
     test: CalibrationTest
     n_groups: int | None
     degrees_of_freedom: int | None
-    statistic: float
+    statistic: float | None
     p_value: float | None
     alpha: float | None
     decision: CalibrationDecision
+    not_evaluable_reason: HlNotEvaluableReason | None = None
 
     @field_validator("partition")
     @classmethod
@@ -299,8 +360,14 @@ class CalibrationTestRecord(BaseModel):
 
     @field_validator("statistic", mode="before")
     @classmethod
-    def _normaliza_statistic(cls, value: Any) -> float:
-        """Exige estadístico float finito y publica ``-0.0`` como ``0.0``."""
+    def _normaliza_statistic(cls, value: Any) -> float | None:
+        """Admite ``None`` (HL sin veredicto); un número debe ser finito, y ``-0.0`` sale ``0.0``.
+
+        Un ``NaN``/``inf`` no se degrada a ``None`` en silencio: sería declarar «sin veredicto» lo
+        que es un defecto del productor.
+        """
+        if value is None:
+            return None
         return _normalize_required_float(value)
 
     @field_validator("p_value", "alpha", mode="before")
@@ -327,22 +394,35 @@ class CalibrationTestRecord(BaseModel):
                 raise ValueError("El Brier score no publica n_groups, gl, p_value ni alpha.")
             if self.decision != "not_evaluable":
                 raise ValueError("El Brier score no es pass/fail: decision debe ser not_evaluable.")
+            if self.statistic is None:
+                raise ValueError("El Brier score es un puntaje: exige statistic.")
             if not 0.0 <= self.statistic <= 1.0:
                 raise ValueError("El Brier score debe estar en [0, 1].")
+            if self.not_evaluable_reason is not None:
+                raise ValueError("El Brier score no es una prueba: no lleva not_evaluable_reason.")
             return self
 
         if self.n_groups is None or self.degrees_of_freedom is None:
             raise ValueError("Hosmer-Lemeshow exige n_groups y degrees_of_freedom.")
         if self.degrees_of_freedom != self.n_groups - 2 or self.degrees_of_freedom < 1:
             raise ValueError("degrees_of_freedom debe ser G-2 (>=1) en Hosmer-Lemeshow.")
-        if self.statistic < 0.0:
-            raise ValueError("El estadístico Hosmer-Lemeshow no puede ser negativo.")
         if self.decision == "not_evaluable":
             if self.p_value is not None:
                 raise ValueError("Un Hosmer-Lemeshow not_evaluable no publica p_value.")
+            if self.statistic is not None:
+                raise ValueError(
+                    "Un Hosmer-Lemeshow not_evaluable no publica statistic: 0.0 sería el valor de "
+                    "un ajuste perfecto."
+                )
+            if self.not_evaluable_reason is None:
+                raise ValueError("Un Hosmer-Lemeshow not_evaluable exige not_evaluable_reason.")
             return self
-        if self.p_value is None or self.alpha is None:
-            raise ValueError("Un Hosmer-Lemeshow evaluable exige p_value y alpha.")
+        if self.statistic is None or self.p_value is None or self.alpha is None:
+            raise ValueError("Un Hosmer-Lemeshow evaluable exige statistic, p_value y alpha.")
+        if self.statistic < 0.0:
+            raise ValueError("El estadístico Hosmer-Lemeshow no puede ser negativo.")
+        if self.not_evaluable_reason is not None:
+            raise ValueError("Un Hosmer-Lemeshow evaluable no lleva not_evaluable_reason.")
         return self
 
 
@@ -640,7 +720,108 @@ class ValidationResult(BaseModel):
         if len(self.stability) > 0 and "stability" not in declared:
             raise ValueError("stability exige 'stability' en card.families_run.")
         self._check_semaforo_reconciliado()
+        self._check_calibracion_reconciliada()
+        self._check_consolidado_derivado()
         return self
+
+    def _check_calibracion_reconciliada(self) -> None:
+        """Las filas sin semáforo, sus records y la card dicen lo mismo de cada HL/Brier.
+
+        D-VAL-17; misma clase que la pasada 4 de Codex sobre la capa A, extendida a las filas de HL
+        y Brier y a la lista de particiones sin veredicto de la card. La tabla es lo que pinta el
+        informe; los records, lo que lee el trail; ``metric_sections.validation.
+        not_evaluable_partitions``, lo que leen la prosa y el panel. Se exige que las filas de
+        HL/Brier coincidan una a una y en orden con ``calibration_records`` en partición, prueba,
+        estadístico, p-valor, veredicto y causa —``None`` y ``NaN`` cuentan como la misma
+        ausencia—, y que la lista de la card tenga exactamente las particiones sin veredicto de los
+        records, en su orden y con su causa. Sin HL sin veredicto, una card sin la clave vale.
+        """
+        frame = super().__getattribute__("calibration")
+        filas = frame[frame["traffic_light"].isna()]
+        if len(filas) != len(self.calibration_records):
+            raise ValueError(
+                "calibration debe traer exactamente una fila sin semáforo por calibration_record."
+            )
+        campos = ("partition", "test", "statistic", "p_value", "decision", "not_evaluable_reason")
+        for (_, fila), record in zip(filas.iterrows(), self.calibration_records, strict=True):
+            for campo in campos:
+                if not _same_cell(fila[campo], getattr(record, campo)):
+                    raise ValueError(
+                        f"La fila {record.test!r} de {record.partition!r} de calibration no "
+                        f"coincide con su record en {campo}: {fila[campo]!r} frente a "
+                        f"{getattr(record, campo)!r}."
+                    )
+        esperadas = [
+            (record.partition, record.not_evaluable_reason)
+            for record in self.calibration_records
+            if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable"
+        ]
+        section = self.card.metric_sections.get("validation")
+        publicadas_raw = (
+            section.get("not_evaluable_partitions") if isinstance(section, Mapping) else None
+        )
+        if publicadas_raw is None:
+            if esperadas:
+                raise ValueError(
+                    "Un resultado con Hosmer-Lemeshow sin veredicto exige "
+                    "metric_sections['validation']['not_evaluable_partitions'] en la card."
+                )
+            return
+        publicadas = [
+            (str(item.get("partition")), item.get("reason"))
+            for item in publicadas_raw
+            if isinstance(item, Mapping)
+        ]
+        if publicadas != esperadas:
+            raise ValueError(
+                "not_evaluable_partitions de la card no coincide con los Hosmer-Lemeshow sin "
+                f"veredicto de los records: {publicadas!r} frente a {esperadas!r}."
+            )
+
+    def _check_consolidado_derivado(self) -> None:
+        """La card cuenta y consolida exactamente lo que sus records y su estabilidad derivan.
+
+        D-VAL-17: ``n_tests``, ``n_failed`` y ``overall_status`` son derivables, y la card no puede
+        decir otra cosa.
+        Antes ``n_tests`` contaba también los HL y backtests ``not_evaluable`` y el estado caía en
+        ``pass`` sin evidencia alguna; ahora la regla vive en :func:`derive_test_counts` y
+        :func:`derive_overall_status` —la misma que usa el evaluador— y aquí se exige que la card
+        (y la sección CT-2, cuando repite el resumen) la cumpla, también rehidratada.
+        """
+        n_tests, n_failed = derive_test_counts(
+            calibration_records=self.calibration_records,
+            grade_records=self.grade_records,
+            backtest_records=self.backtest_records,
+        )
+        if (self.card.n_tests, self.card.n_failed) != (n_tests, n_failed):
+            raise ValueError(
+                f"La card cuenta n_tests={self.card.n_tests}, n_failed={self.card.n_failed}; las "
+                f"decisiones evaluables de los records son n_tests={n_tests}, n_failed={n_failed}."
+            )
+        esperado = derive_overall_status(
+            calibration_records=self.calibration_records,
+            grade_records=self.grade_records,
+            backtest_records=self.backtest_records,
+            stability_frame=super().__getattribute__("stability"),
+        )
+        if self.card.overall_status != esperado:
+            raise ValueError(
+                f"La card publica overall_status={self.card.overall_status!r}; lo derivado de los "
+                f"records y de la estabilidad es {esperado!r}."
+            )
+        section = self.card.metric_sections.get("validation")
+        if not isinstance(section, Mapping):
+            return
+        for clave, valor in (
+            ("overall_status", self.card.overall_status),
+            ("n_tests", self.card.n_tests),
+            ("n_failed", self.card.n_failed),
+        ):
+            if clave in section and section[clave] != valor:
+                raise ValueError(
+                    f"metric_sections['validation'][{clave!r}] dice {section[clave]!r} y la card "
+                    f"{valor!r}: el resumen repetido tiene que ser el mismo."
+                )
 
     def _check_semaforo_reconciliado(self) -> None:
         """Las tres copias del semáforo por grado dicen lo mismo (D-VAL-15; pasada 4 de Codex).
@@ -714,6 +895,101 @@ class ValidationResult(BaseModel):
         if name in super().__getattribute__("_DATAFRAME_FIELDS") and _is_dataframe_like(value):
             return _copy_dataframe(value)
         return value
+
+
+def derive_test_counts(
+    *,
+    calibration_records: tuple[CalibrationTestRecord, ...],
+    grade_records: tuple[GradeBinomialRecord, ...],
+    backtest_records: tuple[BacktestRecord, ...],
+) -> tuple[int, int]:
+    """Cuenta las decisiones **evaluables** y las rechazadas en las cuatro familias (D-VAL-17).
+
+    Un Hosmer-Lemeshow o un backtest ``not_evaluable`` no es una prueba corrida sin veredicto: es
+    una prueba que no se pudo correr, y no entra a ``n_tests`` ni a ``n_failed`` —como no entraban
+    ya los grados bajo mínimo, que nunca llegan a ``grade_records``—. El Brier es un puntaje y
+    tampoco cuenta. Es la regla única que usa el evaluador y que :class:`ValidationResult` exige.
+    """
+    hl_evaluables = [
+        record
+        for record in calibration_records
+        if record.test == "hosmer_lemeshow" and record.decision in _EVALUABLE_DECISIONS
+    ]
+    bt_evaluables = [
+        record for record in backtest_records if record.decision in _EVALUABLE_DECISIONS
+    ]
+    n_tests = len(hl_evaluables) + len(grade_records) + len(bt_evaluables)
+    n_failed = (
+        sum(record.decision == "fail" for record in hl_evaluables)
+        + sum(record.traffic_light == "red" for record in grade_records)
+        + sum(record.decision == "fail" for record in bt_evaluables)
+    )
+    return n_tests, n_failed
+
+
+def derive_overall_status(
+    *,
+    calibration_records: tuple[CalibrationTestRecord, ...],
+    grade_records: tuple[GradeBinomialRecord, ...],
+    backtest_records: tuple[BacktestRecord, ...],
+    stability_frame: Any,
+) -> OverallStatus:
+    """Consolida el estado técnico en una de las cuatro palabras (SDD-22 §7; D-VAL-17).
+
+    ``fail`` ante cualquier prueba rechazada, ``warn`` si hay ámbar o PSI en revisión,
+    ``not_evaluable`` si no hay evidencia evaluable alguna (§8-9 de la enmienda) y ``pass`` en otro
+    caso.
+    «Evidencia evaluable» es una decisión ``pass``/``fail`` de calibración, grado o backtesting, o
+    una fila de estabilidad con decisión ``pass``/``warn``/``fail``. Antes, con ``n_tests == 0`` y
+    sin estabilidad con decisión, el estado caía en ``pass``: una validación que no evaluó nada
+    decía que pasaba.
+    """
+    hard_fail = (
+        any(record.decision == "fail" for record in calibration_records)
+        or any(record.decision == "fail" for record in backtest_records)
+        or any(record.traffic_light == "red" for record in grade_records)
+        or _stability_has(stability_frame, "fail")
+    )
+    if hard_fail:
+        return "fail"
+    warn = any(record.traffic_light == "amber" for record in grade_records) or _stability_has(
+        stability_frame, "warn"
+    )
+    if warn:
+        return "warn"
+    n_tests, _ = derive_test_counts(
+        calibration_records=calibration_records,
+        grade_records=grade_records,
+        backtest_records=backtest_records,
+    )
+    if n_tests == 0 and not any(
+        _stability_has(stability_frame, decision) for decision in _EVALUABLE_STABILITY_DECISIONS
+    ):
+        return "not_evaluable"
+    return "pass"
+
+
+def _stability_has(stability_frame: Any, decision: str) -> bool:
+    """Indica si el frame de estabilidad consumido registra alguna decisión dada."""
+    if stability_frame.shape[0] == 0:
+        return False
+    return bool((stability_frame["decision"] == decision).any())
+
+
+def _same_cell(observado: Any, esperado: Any) -> bool:
+    """Compara una celda de la tabla con el campo del record; ``None`` y ``NaN`` son lo mismo.
+
+    Una columna float degrada ``None`` a ``NaN``; una ``object`` lo conserva.
+    """
+    if _is_missing(observado) or _is_missing(esperado):
+        return _is_missing(observado) and _is_missing(esperado)
+    return bool(observado == esperado)
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    return isinstance(value, float) and math.isnan(value)
 
 
 def _copy_and_validate_dataframe(

@@ -37,6 +37,28 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   en prosa—; viajan en el JSON, en el CSV y en la card, y una variable del usuario que se llame
   igual en otra tabla se sigue pintando. El copy de «Contrastar la PD por grado de rating» y de
   «Ejecutar backtesting IFRS 9» deja de hablar de una brecha del motor.
+- **El mínimo de operaciones para evaluar protege también cada grupo de PD de Hosmer-Lemeshow, y
+  una prueba que no se pudo correr lo dice.** Hasta ahora el mínimo (30 de fábrica) protegía la
+  muestra entera y cada grado de rating, pero no los grupos de la prueba de Hosmer-Lemeshow: una
+  muestra de 100 operaciones recibía veredicto con grupos de 10. Ahora, si el grupo más chico queda
+  bajo el mínimo, esa muestra queda **sin veredicto** —con diez grupos y el mínimo de fábrica hacen
+  falta al menos 300 operaciones—; la demo pública (4.019 / 973 / 1.008 operaciones) no cambia. Un
+  Hosmer-Lemeshow sin veredicto ya no publica un estadístico `0.0` —que es el valor de un ajuste
+  perfecto— sino ninguno, y dice **por qué** con una de cuatro causas cerradas: la muestra bajo el
+  mínimo, un grupo de PD bajo el mínimo, un grupo sin variabilidad o un estadístico que desbordó
+  con PD extremas. La causa viaja en la tabla `calibration` (columna `not_evaluable_reason`, al
+  final; en el documento no se pinta y la prosa la cuenta con sus números), en la card
+  (`metric_sections.validation.not_evaluable_partitions`, siempre presente) y en el trail (regla
+  nueva `calibration_hl_not_evaluable`), y Resultados la muestra junto al «Sin veredicto» de la
+  fila. Las pruebas que no se pudieron correr **no cuentan** en «pruebas fallidas»: `n_tests` y
+  `n_failed` cuentan sólo las decisiones con veredicto en las cuatro familias (antes contaban
+  también los Hosmer-Lemeshow y los backtests sin veredicto). Y una validación sin ninguna prueba
+  evaluable y sin decisión de estabilidad ya no dice «Pasa»: su estado técnico es **«No
+  evaluable»**, la misma palabra que las bandas del PSI, en Resultados, en el informe y en la
+  card (`overall_status` gana el valor `not_evaluable`). Por la misma razón, una fila del
+  contraste de Jeffreys por grado —cuyo `z` asintótico no está definido— publica el estadístico
+  nulo en vez de un `0.0` que se leería como «observado igual a esperado». El copy de «Mínimo de
+  operaciones para evaluar» dice lo que el motor hace.
 
 ## [1.15.1] — 2026-09-13
 

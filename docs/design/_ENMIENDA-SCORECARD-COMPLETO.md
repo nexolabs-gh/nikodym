@@ -174,7 +174,10 @@
     (`:340`); sólo el test por grado lo aplica grado a grado (`:346-355`). Una partición de 100
     operaciones con 10 grupos y mínimo 30 recibe veredicto con grupos de 10. El copy de §3.7
     decía «un grupo o un grado…»; acotado al comportamiento real, con gate. Cambiar la
-    metodología sería otra decisión (§8-12).
+    metodología sería otra decisión (§8-12). **Superado por D-VAL-17 (enmienda
+    VALIDACION-COTEJADA, capa B, 2026-09-14):** el mínimo protege también cada grupo de
+    Hosmer-Lemeshow, la partición de 100 con 10 grupos y mínimo 30 queda sin veredicto con su
+    causa publicada, y el copy del campo dice lo contrario de lo que decía aquí.
 22. **«Eso detiene siempre» era falso para las columnas realizadas del backtesting**
     (decimocuarta revisión adversarial, 2026-09-09, verificada): con el backtesting activo, IFRS 9
     presente, el flag apagado y una columna realizada ausente, `_backtesting_blocker` devuelve la

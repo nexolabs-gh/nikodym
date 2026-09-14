@@ -69,6 +69,7 @@ from nikodym.validation.results import (
     CALIBRATION_TEST_LABELS,
     DISCRIMINATION_SOURCE_LABELS,
     DISCRIMINATION_STATUS_LABELS,
+    HL_NOT_EVALUABLE_REASON_LABELS,
     PD_TEST_LABELS,
     TRAFFIC_LIGHT_LABELS,
     VALIDATION_DECISION_LABELS,
@@ -79,6 +80,7 @@ from nikodym.validation.results import (
     CalibrationTest,
     DiscriminationSource,
     DiscriminationStatus,
+    HlNotEvaluableReason,
     OverallStatus,
     PdTest,
     TrafficLight,
@@ -156,6 +158,8 @@ def _titulo_del_formulario(modelo: type[BaseModel], ruta: str) -> str | None:
         (BACKTEST_PARAMETER_LABELS, BacktestParameter, "BACKTEST_PARAMETER_LABELS"),
         (BACKTEST_TEST_LABELS, BacktestTest, "BACKTEST_TEST_LABELS"),
         (PD_TEST_LABELS, PdTest, "PD_TEST_LABELS"),
+        # D-VAL-17: las cuatro causas por las que un Hosmer-Lemeshow queda sin veredicto.
+        (HL_NOT_EVALUABLE_REASON_LABELS, HlNotEvaluableReason, "HL_NOT_EVALUABLE_REASON_LABELS"),
         # D-SC-5: los cuatro vocabularios del análisis exploratorio.
         (AXIS_LABELS, EdaAxis, "AXIS_LABELS"),
         (STABILITY_INDICATOR_LABELS, StabilityMetric, "STABILITY_INDICATOR_LABELS"),
@@ -179,6 +183,7 @@ def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, no
         (VALIDATION_STATUS_LABELS, "VALIDATION_STATUS_LABELS"),
         (VALIDATION_FAMILY_LABELS, "VALIDATION_FAMILY_LABELS"),
         (VALIDATION_DECISION_LABELS, "VALIDATION_DECISION_LABELS"),
+        (HL_NOT_EVALUABLE_REASON_LABELS, "HL_NOT_EVALUABLE_REASON_LABELS"),
         (TRAFFIC_LIGHT_LABELS, "TRAFFIC_LIGHT_LABELS"),
         (DISCRIMINATION_STATUS_LABELS, "DISCRIMINATION_STATUS_LABELS"),
         (DISCRIMINATION_SOURCE_LABELS, "DISCRIMINATION_SOURCE_LABELS"),
@@ -205,17 +210,22 @@ def test_las_cuatro_palabras_de_las_bandas_son_las_aprobadas() -> None:
     }
 
 
-def test_las_tres_palabras_del_estado_tecnico_son_las_aprobadas() -> None:
-    """D-SC-9, respuesta 3 de Cami del 2026-09-09: «Pasa · Revisar · Falla», bajo «Estado técnico».
+def test_las_cuatro_palabras_del_estado_tecnico_son_las_aprobadas() -> None:
+    """D-SC-9, respuesta 3 de Cami del 2026-09-09: «Pasa · Revisar · Falla», bajo «Estado técnico»;
+    y D-VAL-17, respuesta 9 del 2026-09-14: «No evaluable» —la misma palabra que las bandas del
+    PSI— cuando no hay evidencia evaluable alguna, en vez de un «Pasa» sin pruebas.
 
-    Sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el vocabulario que la
-    prosa del informe usaba en solitario: la pantalla no decía nada porque no había panel.
+    Las tres primeras sustituyen a «Pass técnico / Requiere revisión / Falla técnica», que era el
+    vocabulario que la prosa del informe usaba en solitario: la pantalla no decía nada porque no
+    había panel.
     """
     assert VALIDATION_STATUS_LABELS == {
         "pass": "Pasa",
         "warn": "Revisar",
         "fail": "Falla",
+        "not_evaluable": "No evaluable",
     }
+    assert VALIDATION_STATUS_LABELS["not_evaluable"] == BAND_LABELS["not_evaluable"]
 
 
 # ───────────────────────── 2. espejo Python ↔ TypeScript ─────────────────────────
@@ -254,6 +264,7 @@ def test_el_front_espeja_lo_que_mide_cada_fila_de_estabilidad() -> None:
         ("VALIDATION_STATUS_LABELS", VALIDATION_STATUS_LABELS),
         ("VALIDATION_FAMILY_LABELS", VALIDATION_FAMILY_LABELS),
         ("VALIDATION_DECISION_LABELS", VALIDATION_DECISION_LABELS),
+        ("HL_NOT_EVALUABLE_REASON_LABELS", HL_NOT_EVALUABLE_REASON_LABELS),
         ("CALIBRATION_TEST_LABELS", CALIBRATION_TEST_LABELS),
         ("TRAFFIC_LIGHT_LABELS", TRAFFIC_LIGHT_LABELS),
         ("DISCRIMINATION_STATUS_LABELS", DISCRIMINATION_STATUS_LABELS),
@@ -266,9 +277,10 @@ def test_el_front_espeja_lo_que_mide_cada_fila_de_estabilidad() -> None:
 def test_el_front_espeja_el_vocabulario_de_la_validacion(
     nombre: str, fuente: dict[str, str]
 ) -> None:
-    """Los diez mapas que el panel «Validación formal» consume (D-SC-9).
+    """Los once mapas que el panel «Validación formal» consume (D-SC-9; el undécimo, las causas
+    de un Hosmer-Lemeshow sin veredicto, es de D-VAL-17).
 
-    Diez y no uno: cada columna de las cuatro tablas traduce un enum distinto del motor, y una
+    Once y no uno: cada columna de las cuatro tablas traduce un enum distinto del motor, y una
     palabra cambiada de un solo lado deja la pantalla diciendo algo que el informe no dice.
     """
     assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
@@ -295,7 +307,7 @@ def test_el_front_espeja_el_vocabulario_del_analisis_exploratorio(
     assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
 
 
-def test_los_colores_del_estado_tecnico_cubren_las_tres_palabras() -> None:
+def test_los_colores_del_estado_tecnico_cubren_las_cuatro_palabras() -> None:
     """El semáforo del panel no puede tener un estado sin color: se pintaría gris y mentiría.
 
     ⚠️ Se comprueban las CLAVES, no los valores, y por eso NO se usa `_mapa_ts`: los colores se
@@ -323,6 +335,7 @@ def test_los_colores_del_estado_tecnico_cubren_las_tres_palabras() -> None:
         (OverallStatus, "ValidationOverallStatus"),
         (ValidationFamily, "ValidationFamily"),
         (CalibrationDecision, "ValidationDecision"),
+        (HlNotEvaluableReason, "HlNotEvaluableReason"),
         (TrafficLight, "TrafficLight"),
         (DiscriminationSource, "DiscriminationSource"),
         (DiscriminationStatus, "DiscriminationStatus"),
@@ -535,6 +548,19 @@ def test_la_fila_de_calibracion_y_los_cortes_del_semaforo_espejan_al_motor() -> 
 
     assert _claves_de_la_interfaz_ts("ValidationCalibrationRow") == list(_CALIBRATION_COLUMNS)
     assert _claves_de_la_interfaz_ts("ValidationTrafficLightCuts") == ["green_alpha", "red_alpha"]
+
+
+def test_la_particion_sin_veredicto_espeja_lo_que_la_card_publica() -> None:
+    """D-VAL-17: ``not_evaluable_partitions`` lleva, por Hosmer-Lemeshow sin veredicto, la
+    partición, sus números y la causa; el tipo del front espeja esas claves en su orden, y la
+    columna de la causa cierra la tabla ``calibration`` (el informe no la pinta; el panel la
+    traduce)."""
+    from nikodym.validation.results import _CALIBRATION_COLUMNS, NOT_EVALUABLE_PARTITION_FIELDS
+
+    assert _claves_de_la_interfaz_ts("ValidationNotEvaluablePartition") == list(
+        NOT_EVALUABLE_PARTITION_FIELDS
+    )
+    assert _CALIBRATION_COLUMNS[-1] == "not_evaluable_reason"
 
 
 def test_la_fila_del_perfil_espeja_lo_que_el_serializer_aplana() -> None:

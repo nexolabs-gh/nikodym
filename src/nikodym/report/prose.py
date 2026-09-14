@@ -36,6 +36,7 @@ from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 # `selection` sí lo haría y por eso vive dentro de `_reason_label`.
 from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS
 from nikodym.validation.results import (
+    HL_NOT_EVALUABLE_REASON_LABELS,
     VALIDATION_FAMILY_LABELS,
     VALIDATION_STATUS_LABELS,
 )
@@ -272,13 +273,19 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
         status = _text(validation.get("overall_status"))
         model_ref = _text(validation.get("model_ref")) or "Modelo evaluado"
         if n_tests is not None and n_failed is not None:
+            # «0 de 0 pruebas fallidas» sería cierto y engañoso a la vez (D-VAL-17): sin ninguna
+            # decisión evaluable el conteo se dice en palabras, como en el panel de Resultados.
             metrics.append(
                 ExecutiveMetric(
                     label="Estado técnico de validación formal",
                     scope=model_ref,
                     value=(
-                        f"{_miles(n_failed)} de {_miles(n_tests)} "
-                        f"{_plural(n_tests, 'prueba fallida', 'pruebas fallidas')}"
+                        "Sin pruebas evaluables"
+                        if n_tests == 0
+                        else (
+                            f"{_miles(n_failed)} de {_miles(n_tests)} "
+                            f"{_plural(n_tests, 'prueba fallida', 'pruebas fallidas')}"
+                        )
                     ),
                     band=VALIDATION_STATUS_LABELS.get(status or "", _NOT_AVAILABLE),
                 )
@@ -1142,12 +1149,24 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         f"El estado técnico agregado publicado por el motor es «{status}».",
     ]
     if n_tests is not None and n_failed is not None:
-        paragraphs.append(
-            f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'prueba', 'pruebas')}, "
-            f"de las cuales {_miles(n_failed)} "
-            f"{_plural(n_failed, 'quedó fallida', 'quedaron fallidas')}. Las tablas se copian del "
-            "resultado que publicó la validación, sin recalcular métricas ni decisiones."
-        )
+        if n_tests == 0:
+            # D-VAL-17: las pruebas que no se pudieron correr no cuentan; el capítulo lo dice y
+            # las particiones sin veredicto se enumeran, con su causa, en la familia de calibración.
+            paragraphs.append(
+                "El resultado no registra ninguna prueba con veredicto de pasa o falla: las "
+                "pruebas que no alcanzaron potencia estadística quedan sin veredicto y se "
+                "enumeran, con su causa, en la sección de su familia. Las tablas se copian del "
+                "resultado que publicó la validación, sin recalcular métricas ni decisiones."
+            )
+        else:
+            # La frase de siempre, byte a byte: la corrida F1 de la demo la lleva con «3 pruebas»
+            # y cambiarla exigiría recapturar (§1.4 de la enmienda).
+            paragraphs.append(
+                f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'prueba', 'pruebas')}, "
+                f"de las cuales {_miles(n_failed)} "
+                f"{_plural(n_failed, 'quedó fallida', 'quedaron fallidas')}. Las tablas se copian "
+                "del resultado que publicó la validación, sin recalcular métricas ni decisiones."
+            )
     gaps = _declared_warning_descriptions(
         tuple(str(item) for item in _sequence(card.get("falta_dato")))
     )
@@ -1186,13 +1205,78 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
     if description is None:
         return ()
     cortes = _traffic_light_cuts_prose(bundle) if family == "calibration" else ()
+    sin_veredicto = _hl_not_evaluable_prose(bundle) if family == "calibration" else ()
     if rows == 0:
         return (
             f"{description} La familia fue ejecutada, pero no publicó filas evaluables; las "
             "brechas quedan declaradas en la síntesis del capítulo.",
+            *sin_veredicto,
             *cortes,
         )
-    return (f"{description} Filas evaluadas: {_miles(rows)}.", *cortes)
+    return (f"{description} Filas evaluadas: {_miles(rows)}.", *sin_veredicto, *cortes)
+
+
+def _hl_not_evaluable_prose(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Una frase por Hosmer-Lemeshow sin veredicto, con su causa en palabras y sus números.
+
+    D-VAL-17: se lee de ``metric_sections.validation.not_evaluable_partitions`` de la card.
+    La tabla del documento no pinta la columna ``not_evaluable_reason`` —es de auditoría, como los
+    cortes— así que el hecho se dice aquí, en el idioma del lector: qué muestra, cuántas
+    operaciones, qué grupo quedó corto y contra qué mínimo. Ningún identificador del motor llega a
+    la prosa; sin particiones sin veredicto, nada.
+    """
+    card = _card(bundle, "validation")
+    if card is None:
+        return ()
+    items = _sequence(
+        _mapping(_mapping(card.get("metric_sections")).get("validation")).get(
+            "not_evaluable_partitions"
+        )
+    )
+    frases: list[str] = []
+    for raw in items:
+        item = _mapping(raw)
+        partition = _partition_label(_text(item.get("partition")) or "sin nombre")
+        reason = _text(item.get("reason")) or ""
+        causa = HL_NOT_EVALUABLE_REASON_LABELS.get(reason, "no se pudo evaluar")
+        n = _int(item.get("n"))
+        n_groups = _int(item.get("n_groups"))
+        min_group = _int(item.get("min_group_size"))
+        min_rows = _int(item.get("min_rows"))
+        operaciones = (
+            f"{_miles(n)} {_plural(n, 'operación', 'operaciones')}"
+            if n is not None
+            else "la muestra"
+        )
+        grupos = f"{_miles(n_groups)} grupos de PD" if n_groups is not None else "los grupos de PD"
+        minimo = (
+            f"bajo el mínimo de {_miles(min_rows)}" if min_rows is not None else "bajo el mínimo"
+        )
+        if reason == "partition_below_min":
+            detalle = f"{operaciones}, {minimo}"
+        elif reason == "group_below_min":
+            corto = (
+                f"quedó con {_miles(min_group)} {_plural(min_group, 'operación', 'operaciones')}"
+                if min_group is not None
+                else "quedó corto"
+            )
+            detalle = f"con {operaciones} en {grupos}, el grupo de PD más chico {corto}, {minimo}"
+        elif reason == "degenerate_group":
+            detalle = (
+                f"con {operaciones} en {grupos}, un grupo quedó vacío o con una PD media de 0 o 1, "
+                "con la que el estadístico no está definido"
+            )
+        elif reason == "non_finite_statistic":
+            detalle = (
+                f"con {operaciones} en {grupos}, una PD media pegada a cero o a uno desbordó el "
+                "cálculo"
+            )
+        else:
+            detalle = operaciones
+        frases.append(
+            f"Hosmer-Lemeshow no se evaluó en la muestra {partition}: {causa} ({detalle})."
+        )
+    return tuple(frases)
 
 
 def _traffic_light_cuts_prose(bundle: ReportInputBundle) -> tuple[str, ...]:

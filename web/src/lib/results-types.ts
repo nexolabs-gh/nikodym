@@ -307,7 +307,7 @@ export interface EdaResult {
  * dato; su palabra la resuelve `validationStatusLabel`, espejo de
  * `nikodym.validation.results.VALIDATION_STATUS_LABELS`.
  */
-export type ValidationOverallStatus = "pass" | "warn" | "fail"
+export type ValidationOverallStatus = "pass" | "warn" | "fail" | "not_evaluable"
 
 /** Familia de pruebas que la validación ejecuta (`ValidationFamily` del backend). */
 export type ValidationFamily =
@@ -318,6 +318,18 @@ export type ValidationFamily =
 
 /** Veredicto de una fila de calibración o de backtesting (`CalibrationDecision`/`BacktestDecision`). */
 export type ValidationDecision = "pass" | "fail" | "not_evaluable"
+
+/**
+ * Por qué un Hosmer-Lemeshow quedó sin veredicto (`HlNotEvaluableReason` del backend, D-VAL-17):
+ * la muestra entera bajo el mínimo, el grupo de PD más chico bajo el mínimo, un grupo degenerado
+ * (vacío o con PD media 0/1) o un estadístico que desbordó con PD extremas. Su palabra la resuelve
+ * `hlNotEvaluableReasonLabel`, espejo de `nikodym.validation.results.HL_NOT_EVALUABLE_REASON_LABELS`.
+ */
+export type HlNotEvaluableReason =
+  | "partition_below_min"
+  | "group_below_min"
+  | "degenerate_group"
+  | "non_finite_statistic"
 
 /** Semáforo de un grado de rating (`TrafficLight` del backend). */
 export type TrafficLight = "green" | "amber" | "red"
@@ -355,8 +367,11 @@ export interface ValidationDiscriminationRow {
  * `grade: "ALL"` y `traffic_light: null`; las del contraste por grado traen el grado y su semáforo.
  *
  * `green_alpha`/`red_alpha` son los dos cortes con que se decidió el color de la fila (D-VAL-15;
- * `alpha` es la significancia del contraste, no un corte). Van opcionales porque los fixtures de
- * la demo se capturaron antes de que el motor los publicara y no se recapturan sin un OK propio.
+ * `alpha` es la significancia del contraste, no un corte). `not_evaluable_reason` es la causa por
+ * la que un Hosmer-Lemeshow quedó sin veredicto (D-VAL-17; `statistic` va nulo en esa fila: el
+ * motor ya no publica un 0 que se leería como ajuste perfecto). Las tres van opcionales porque
+ * los fixtures de la demo se capturaron antes de que el motor las publicara y no se recapturan
+ * sin un OK propio.
  */
 export interface ValidationCalibrationRow {
   partition: string
@@ -374,6 +389,26 @@ export interface ValidationCalibrationRow {
   traffic_light: TrafficLight | null
   green_alpha?: number | null
   red_alpha?: number | null
+  not_evaluable_reason?: HlNotEvaluableReason | null
+}
+
+/**
+ * Un Hosmer-Lemeshow sin veredicto, tal como lo publica
+ * `card.metric_sections.validation.not_evaluable_partitions` (D-VAL-17): la muestra, sus
+ * operaciones, los grupos pedidos, el tamaño del grupo de PD más chico (`null` cuando la muestra
+ * entera quedó bajo el mínimo y los grupos nunca se formaron), el mínimo configurado y la causa.
+ *
+ * 🔴 Esa fila SÍ está en la tabla de calibración —con «Sin veredicto» y el estadístico ausente—,
+ * pero no cuenta en `n_tests`/`n_failed`: sin potencia no hay prueba. El panel traduce la causa
+ * junto a la fila y enumera aquí los números que la explican.
+ */
+export interface ValidationNotEvaluablePartition {
+  partition: string
+  n: number
+  n_groups: number
+  min_group_size: number | null
+  min_rows: number
+  reason: HlNotEvaluableReason
 }
 
 /**
@@ -460,6 +495,7 @@ export interface ValidationResult {
       traffic_light?: Record<string, number>
       not_evaluable_grades?: ValidationNotEvaluableGrade[]
       traffic_light_cuts?: ValidationTrafficLightCuts | null
+      not_evaluable_partitions?: ValidationNotEvaluablePartition[]
     }
   }
   discrimination?: ValidationDiscriminationRow[] | null

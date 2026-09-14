@@ -5,7 +5,17 @@
 > `HANDOFF` privado, «Respuestas de Cami» → S12). Se implementa por capas A → B → C (§6), cada una
 > entera, y la release 1.16.0 exige su propio OK. **Capa A implementada en S13 (2026-09-14)**
 > —D-VAL-13/14/15/18, con los seis tests nacidos rojos y los cinco controles negativos de §6—;
-> B y C, pendientes. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> **capa B implementada en S14 (2026-09-14)** —D-VAL-17: el kernel con `min_rows_per_group`, el
+> `statistic` nulo y las cuatro causas en `CalibrationTestRecord`, `not_evaluable_partitions` en
+> la card, la regla `calibration_hl_not_evaluable` del trail, `n_tests`/`n_failed` sobre decisiones
+> evaluables en las cuatro familias, la cuarta palabra «No evaluable» del estado consolidado con
+> espejo en el front, la prosa que enumera cada partición con su causa y sus números, el filtro
+> del renderer con `not_evaluable_reason`, el panel con la causa junto a la fila, el copy de
+> `min_rows_per_group`, la guía y §0-21 del scorecard completo superado; además, `ValidationResult`
+> reconcilia las filas de HL/Brier con sus records y la card, y exige que `n_tests`/`n_failed`/
+> `overall_status` sean los derivados (misma clase que la pasada 4 de Codex sobre la capa A,
+> anticipada); la revisión de Codex sobre esta capa se anota más abajo—; C, pendiente. Codex sobre
+> el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

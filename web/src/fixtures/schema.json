@@ -11713,7 +11713,7 @@
             "title": "Mínimo de operaciones para evaluar",
             "type": "integer",
             "ui_group": "Calibración",
-            "ui_help": "Mínimo de operaciones para evaluar: una partición entera con menos que esto no recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no recibe el test por grado. Quedan marcados como no evaluados en vez de dar un número engañoso. No se aplica a cada grupo de PD dentro de la prueba de Hosmer-Lemeshow.",
+            "ui_help": "Mínimo de operaciones para evaluar: una partición entera con menos que esto no recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no recibe el test por grado. Protege también cada grupo de PD dentro de la prueba de Hosmer-Lemeshow: si el grupo más chico queda bajo el mínimo, esa muestra queda sin veredicto. Todo lo que no se evalúa sale marcado con su causa en vez de dar un número engañoso. Con diez grupos y el mínimo de fábrica, una muestra necesita al menos 300 operaciones.",
             "ui_order": 10,
             "ui_widget": "number_input"
           },
