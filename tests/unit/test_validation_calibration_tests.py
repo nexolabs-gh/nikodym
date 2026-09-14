@@ -185,6 +185,22 @@ def test_binomial_by_grade_golden_binomial() -> None:
     assert record.traffic_light == "amber"
 
 
+def test_binomial_by_grade_publica_los_cortes_con_que_decidio_el_semaforo() -> None:
+    """D-VAL-15: el kernel decide su semáforo provisional con ``green_alpha = alpha`` y
+    ``red_alpha = 0.2·alpha`` y lo DICE en la fila: la fila explica su propio color. El evaluador
+    los resella luego con los cortes de la config, junto al color."""
+    frame = _single_grade_frame(0.05, 100, 10)
+    record = binomial_by_grade(
+        frame, grade_col="grade", pd_col="pd", target_col="target", test="jeffreys", alpha=0.10
+    )[0]
+    assert record.alpha == 0.10
+    assert record.green_alpha == 0.10
+    assert record.red_alpha == pytest.approx(0.02)
+    assert record.traffic_light == traffic_light(
+        record.p_value, green_alpha=record.green_alpha, red_alpha=record.red_alpha
+    )
+
+
 def test_binomial_by_grade_golden_jeffreys() -> None:
     frame = _single_grade_frame(0.05, 100, 10)
 

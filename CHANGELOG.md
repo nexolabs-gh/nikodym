@@ -5,6 +5,35 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Cambiado
+
+- **Los tres avisos de brecha del motor de la validación formal se retiran, porque el cotejo los
+  cerró.** La validación declaraba desde su diseño que la forma del contraste de medias del
+  backtesting, la orientación del p-valor de Jeffreys y los cortes del semáforo por grado no
+  estaban verificados contra el documento oficial. Se cotejaron por doble vía —texto extraído y
+  página renderizada del PDF del BCE de febrero de 2019, más las fórmulas de Excel de sus
+  plantillas oficiales de reporte; Basilea 1996 y BCBS WP14 para el semáforo y el binomial—: el
+  t-test y el Jeffreys del motor **coinciden** con el BCE en forma, ponderación, orientación y
+  distribución, y los cortes del semáforo **no tienen anclaje regulatorio que verificar**. La card
+  de validación ya no lleva esos tres códigos, el informe ya no dice que los cortes «siguen la
+  convención de Basilea (1996)» —no la seguían: Basilea 1996 define zonas sobre el conteo de
+  excepciones de un VaR, otra herramienta—, y el catálogo de avisos declarados los retira (sus
+  números no se reutilizan). El registro del cotejo, con fuente, URL, sha256, página y método,
+  vive en el SDD de la validación.
+- **Cada fila del contraste por grado publica los dos cortes con que se decidió su color.** La
+  tabla `calibration` gana `green_alpha` y `red_alpha` al final (nulas en Hosmer-Lemeshow y
+  Brier), la card publica `traffic_light_cuts` cuando corrió el contraste y `null` sin él, el
+  trail registra los dos cortes como umbral del semáforo —antes registraba el nivel de
+  significancia, que no es un corte— y el informe y Resultados nombran los cortes de la corrida
+  junto a la cobertura por grado, diciendo cuáles trae el motor por defecto (0,05 y 0,01) y sin
+  atribuir la elección a nadie: son un parámetro de la política de validación de cada institución,
+  no un umbral fijado por norma. En el documento las dos columnas nuevas no se pintan —el hecho va
+  en prosa—; viajan en el JSON, en el CSV y en la card, y una variable del usuario que se llame
+  igual en otra tabla se sigue pintando. El copy de «Contrastar la PD por grado de rating» y de
+  «Ejecutar backtesting IFRS 9» deja de hablar de una brecha del motor.
+
 ## [1.15.1] — 2026-09-13
 
 ### Corregido

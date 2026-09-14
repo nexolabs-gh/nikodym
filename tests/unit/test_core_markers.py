@@ -30,7 +30,7 @@ def test_las_dos_marcas_son_distintas_y_ninguna_prefija_a_la_otra() -> None:
     [
         "FALTA-DATO",
         "FALTA-DATO-IFRS-4",
-        "FALTA-DATO-VAL-1",
+        "FALTA-DATO-ML-1",
         "DATO-INSTITUCIONAL",
         "DATO-INSTITUCIONAL-FWD-1",
         "DATO-INSTITUCIONAL-PROV-3",

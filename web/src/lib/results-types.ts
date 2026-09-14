@@ -353,6 +353,10 @@ export interface ValidationDiscriminationRow {
  * Fila de `validation.calibration`. La tabla canónica del motor mezcla dos formas y la columna
  * `grade` es la que las distingue: las filas de Hosmer-Lemeshow y del puntaje de Brier traen
  * `grade: "ALL"` y `traffic_light: null`; las del contraste por grado traen el grado y su semáforo.
+ *
+ * `green_alpha`/`red_alpha` son los dos cortes con que se decidió el color de la fila (D-VAL-15;
+ * `alpha` es la significancia del contraste, no un corte). Van opcionales porque los fixtures de
+ * la demo se capturaron antes de que el motor los publicara y no se recapturan sin un OK propio.
  */
 export interface ValidationCalibrationRow {
   partition: string
@@ -368,6 +372,18 @@ export interface ValidationCalibrationRow {
   alpha: number | null
   decision: ValidationDecision
   traffic_light: TrafficLight | null
+  green_alpha?: number | null
+  red_alpha?: number | null
+}
+
+/**
+ * Los dos cortes del semáforo por grado, tal como los publica
+ * `card.metric_sections.validation.traffic_light_cuts` cuando corrió el contraste (`null` sin él).
+ * Son los mismos de cada fila de grado; el panel los lee de aquí para decirlos una vez.
+ */
+export interface ValidationTrafficLightCuts {
+  green_alpha: number
+  red_alpha: number
 }
 
 /** Fila de `validation.stability`: el PSI que la etapa de estabilidad ya calculó, con su banda. */
@@ -443,6 +459,7 @@ export interface ValidationResult {
       n_failed?: number
       traffic_light?: Record<string, number>
       not_evaluable_grades?: ValidationNotEvaluableGrade[]
+      traffic_light_cuts?: ValidationTrafficLightCuts | null
     }
   }
   discrimination?: ValidationDiscriminationRow[] | null

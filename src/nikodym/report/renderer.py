@@ -733,7 +733,7 @@ def _thousands(value: int) -> str:
 
 
 _AUDIT_ONLY_COLUMNS: Final[frozenset[str]] = frozenset({"warning_codes"})
-"""Columnas de audit-trail que NO se pintan en las tablas del informe.
+"""Columnas de audit-trail que NO se pintan en NINGUNA tabla del informe (alcance global).
 
 `warning_codes` es un contrato legítimo de los resultados (`provisioning/ifrs9/results.py`) y sigue
 viajando entero en el JSON serializado, en el audit y en el `ModelCard`: **no se pierde nada**. Lo
@@ -748,6 +748,27 @@ esa condición, esto sería ocultar una limitación, que es exactamente lo contr
 informe promete.
 """
 
+_AUDIT_ONLY_COLUMNS_BY_TABLE: Final[Mapping[str, frozenset[str]]] = {
+    "validation.calibration": frozenset({"green_alpha", "red_alpha"}),
+}
+"""Columnas de auditoría que NO se pintan en UNA tabla concreta (alcance por clave de tabla).
+
+Misma condición que arriba —el hecho está en prosa— y una razón más para indexar por tabla y no
+por nombre: un nombre de columna es también un nombre de variable del usuario. Con el filtro
+global, una cartera con una variable llamada `green_alpha` la habría perdido de la matriz de
+correlaciones (hallazgo de la revisión adversarial de la enmienda VALIDACION-COTEJADA).
+
+`validation.calibration`: `green_alpha`/`red_alpha` son los cortes con que se decidió el color de
+cada fila de grado (D-VAL-15). Viajan en el JSON, en el CSV y en la card; en el documento van
+nulos en Hosmer-Lemeshow y Brier —dos encabezados crudos con celdas vacías para toda corrida sin
+contraste, incluida la demo— y el capítulo los nombra en prosa cuando corrió el contraste.
+"""
+
+
+def _audit_only_columns(key: str) -> frozenset[str]:
+    """Las columnas que la tabla ``key`` no pinta: las globales más las suyas."""
+    return _AUDIT_ONLY_COLUMNS | _AUDIT_ONLY_COLUMNS_BY_TABLE.get(key, frozenset())
+
 
 def _table_view(
     key: str,
@@ -760,7 +781,8 @@ def _table_view(
         raise ReportRenderError(
             f"Tabla no renderizable en report: clave='{key}', acción='publique un DataFrame'."
         )
-    columns = tuple(c for c in table.columns if str(c) not in _AUDIT_ONLY_COLUMNS)
+    audit_only = _audit_only_columns(key)
+    columns = tuple(c for c in table.columns if str(c) not in audit_only)
     total_rows = len(table.index)
     # Se recorta ANTES de formatear: la tasa por una cohorte casi única trae una fila por
     # operación, y formatear el millón de celdas para mostrar doscientas costaba 5,9 s medidos

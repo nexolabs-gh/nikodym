@@ -7,7 +7,7 @@
 | **Dominio** | Validación |
 | **Fase** | F6 |
 | **Tanda de producción** | T6 (Validación + UI) |
-| **Estado** | ✅ Implementado; API experimental |
+| **Estado** | ✅ Implementado; API experimental. Enmendado por [`_ENMIENDA-VALIDACION-COTEJADA.md`](_ENMIENDA-VALIDACION-COTEJADA.md) (D-VAL-13…18, aprobada el 2026-09-14): la capa A (D-VAL-13/14/15/18) está implementada; B y C, pendientes |
 | **Depende de** | SDD-01 (`core`), SDD-05 (convenciones + config), SDD-11 (`performance` + `stability`), SDD-16 (`provisioning/ifrs9`); SDD-02 (`data`), SDD-10 (`calibration`) como proveedores de PD/target/outcomes |
 | **Lo consumen** | SDD-26 (`report`), SDD-23 (`ui`), SDD-03 (`governance`, vía card) |
 | **Autor / Fecha** | DanIA (redacción SDD-22 para T6/F6) / 2026-07-03 |
@@ -89,7 +89,7 @@ Cada bloque cierra con ruff (regla `D`, docstrings en español), mypy `--strict`
 
 ## 3. Conceptos y fundamentos
 
-> **Regla dura del proyecto (principio #11):** cada fórmula y umbral se cita contra su fuente oficial. Donde la convención numérica exacta requiera verificación por **render visual** del documento original (pendiente en este Borrador), se marca **`FALTA-DATO`** y se enumera como decisión para Cami — **no se rellena con un número inventado**.
+> **Regla dura del proyecto (principio #11):** cada fórmula y umbral se cita contra su fuente oficial. Donde la convención numérica exacta requiera verificación por **render visual** del documento original, se marca **`FALTA-DATO`** y se enumera como decisión para Cami — **no se rellena con un número inventado**. Las tres marcas que este SDD llevó desde el Borrador (`VAL-1/2/3`) se cotejaron el 2026-09-13 por doble vía y se retiraron con D-VAL-13/14/15 (registro del cotejo en §12).
 
 ### 3.1 Discriminación (reúso de SDD-11)
 
@@ -113,9 +113,9 @@ z = (D − N·p̂) / sqrt( N · p̂ · (1 − p̂) )
 
 Se reporta el p-valor exacto (`scipy.stats.binomtest`, unilateral superior) y el `z` asintótico. *Fuente:* BCBS Working Paper No. 14, *Studies on the Validation of Internal Rating Systems* (2005), test binomial para PD por grado.
 
-**Jeffreys (variante regulatoria ECB para PD).** El estándar de la ECB para *predictive ability* de PD es el **Jeffreys test**: partiendo del prior de Jeffreys `Beta(½, ½)`, la posterior de la tasa de default es `Beta(D + ½, N − D + ½)` y el p-valor unilateral se deriva de esa posterior evaluada en la PD estimada. Es un test binomial regularizado que se comporta mejor con `D=0`. *Fuente:* ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019), sección de *predictive ability* de PD (Jeffreys test). **`FALTA-DATO-VAL-3`**: orientación exacta del p-valor (CDF de la posterior evaluada en `p̂`) a verificar por render del PDF oficial.
+**Jeffreys (variante regulatoria ECB para PD).** El estándar de la ECB para *predictive ability* de PD es el **Jeffreys test**: partiendo del prior de Jeffreys `Beta(½, ½)`, la posterior de la tasa de default es `Beta(D + ½, N − D + ½)` y el p-valor unilateral se deriva de esa posterior evaluada en la PD estimada. Es un test binomial regularizado que se comporta mejor con `D=0`. *Fuente:* ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019), §2.5.3.1 (Jeffreys test). **Cotejado el 2026-09-13 por doble vía (D-VAL-13, §12):** `p = β_{D+½, N−D+½}(PD)`, la CDF de la posterior evaluada en la PD media del grado, con `H0: PD aplicada ≥ PD verdadera`; la plantilla oficial lo calcula como `BETA.DIST(PD, D+0.5, N−D+0.5, TRUE)`. Es exactamente `calibration_tests.py::binomial_by_grade` con `test="jeffreys"` (reproducido: N=200, D=7, PD=0,025 → 0,177852704399066 en motor, fórmula e integral numérica).
 
-**Semáforo / traffic-light (verde/ámbar/rojo).** El concepto de semáforo nace del backtesting de riesgo de mercado de Basilea (zonas verde/amarillo/rojo por nº de excepciones, probabilidad binomial acumulada; *fuente:* BCBS, *Supervisory framework for the use of "backtesting"...*, 1996) y la ECB lo usa para reportar *predictive ability*. **No existe un umbral regulatorio único y universal para el semáforo de calibración de PD por grado**; SDD-22 lo mapea al p-valor del test por grado con bandas configurables (default en §5, D-VAL-5) y **marca `FALTA-DATO-VAL-2`** para el anclaje regulatorio exacto de los cortes.
+**Semáforo / traffic-light (verde/ámbar/rojo).** El concepto de semáforo nace del backtesting de riesgo de mercado de Basilea (zonas verde/amarillo/rojo por nº de excepciones, probabilidad binomial acumulada; *fuente:* BCBS, *Supervisory framework for the use of "backtesting"...*, 1996) y la ECB lo usa para reportar *predictive ability*. **No existe un umbral regulatorio para el semáforo de calibración de PD por grado, y está verificado (D-VAL-15, §12):** el BCE no fija cortes sobre el p-valor, las zonas de Basilea 1996 son fronteras discretas e inclusivas sobre el conteo de excepciones de un VaR (dependientes de `N`; no equivalen a ningún corte fijo de p-valor) y el *traffic lights* de BCBS WP14 es otra herramienta. SDD-22 lo mapea al p-valor del test por grado con dos cortes configurables (default en §5, D-VAL-5), y **cada fila de grado publica los dos cortes con que se decidió su color** (`green_alpha`/`red_alpha`), la card los resume en `traffic_light_cuts`, el trail los registra y el informe los nombra sin atribuir la elección a nadie: el motor no sabe si un corte lo declaró la institución o es el default.
 
 **Brier score.** Error cuadrático medio de la probabilidad:
 
@@ -139,8 +139,8 @@ Compara los parámetros **estimados** por IFRS 9 (SDD-16) contra los **realizado
 T = sqrt(N) · ē / s          # H0: el parámetro no está subestimado; contraste unilateral
 ```
 
-comparado con una `t` de Student (`N−1` gl) o la normal para `N` grande. *Fuente:* ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019), *predictive ability* de LGD y CCF (t-test).
-**`FALTA-DATO-VAL-1`**: forma exacta del estadístico (ponderación por exposición vs simple), orientación unilateral (H0 subestimación) y valor crítico según la versión vigente del documento ECB — a verificar por render del PDF oficial.
+comparado con una `t` de Student (`N−1` gl) o la normal para `N` grande. *Fuente:* ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019), §2.6.2.1 (LGD) y §2.9.3.2 (EAD).
+**Cotejado el 2026-09-13 por doble vía (D-VAL-14, §12):** `T = √N · ē / s` con `s²` muestral (`N−1`), **sin ponderar por exposición** (promedios *number-weighted* en la plantilla oficial), unilateral con `H0: estimado ≥ realizado` y p-valor `1 − S_{N−1}(T)`. Es exactamente `backtesting.py::ttest_realised_vs_predicted` con `one_sided=True` (reproducido con N=50: `T` 2,70272856597448 y `p` 0,00471202123926); `one_sided=False` es la convención bilateral del ELBE (§2.7.2.1). La fórmula del CCF impresa en §2.9.3.1 omite el `1/R` del numerador: errata del PDF (la plantilla calcula con la diferencia de medias); el motor sigue la forma con media.
 
 **Test binomial/Jeffreys para PD.** Para PD, el backtesting realizado-vs-estimado usa el mismo contraste binomial/Jeffreys de §3.2 (defaults observados vs PD estimada por grado). El spec (ESPEC §5.5/§5.7) escopa el **t-test a LGD/EAD**; para PD el contraste natural es el binomial (BCBS) / Jeffreys (ECB), no un t-test (D-VAL-6).
 
@@ -389,7 +389,7 @@ class ValidationConfig(NikodymBaseConfig):
 - `hl_n_groups=10`: deciles, convención estándar de Hosmer-Lemeshow (§3.2) → `G−2=8` gl.
 - `pd_test="jeffreys"`: alineado con la ECB (feb 2019) para *predictive ability* de PD; `binomial` (BCBS WP14) como alternativa.
 - `alpha=0.05`: nivel de significancia estándar; configurable.
-- `traffic_light_green_alpha=0.05`, `red_alpha=0.01`: **default institucional propuesto** mapeado al p-valor del test por grado — **el anclaje regulatorio exacto es `FALTA-DATO-VAL-2`** (D-VAL-5).
+- `traffic_light_green_alpha=0.05`, `red_alpha=0.01`: **default institucional** mapeado al p-valor del test por grado, **persistido en el resultado** (cada fila de grado, la card, el trail y la prosa; D-VAL-15). Verificado que no existe corte regulatorio que cotejar (D-VAL-5, §12).
 - PSI `0.10/0.25`: heredado de SDD-11/ESPEC §5.2, criterio institucional configurable.
 - `one_sided=True`: el interés supervisor es la **subestimación** del parámetro (ECB); configurable.
 
@@ -487,7 +487,7 @@ class ValidationConfig(NikodymBaseConfig):
 **Alternativas descartadas.**
 - *Recomputar AUC/KS/Gini/PSI en `validation`:* **descartado** (duplicaría lógica de SDD-11 y arriesgaría divergencia numérica); se consume/reúsa. D-VAL-1/D-VAL-2.
 - *Un t-test para PD:* descartado; el spec escopa el t-test a LGD/EAD y para PD el contraste correcto es binomial/Jeffreys (§3.4).
-- *Hardcodear cortes del semáforo desde el traffic-light de riesgo de mercado (Basilea 1996):* descartado por *category error* (VaR ≠ calibración de PD); se propone default configurable y se marca `FALTA-DATO-VAL-2`.
+- *Hardcodear cortes del semáforo desde el traffic-light de riesgo de mercado (Basilea 1996):* descartado por *category error* (VaR ≠ calibración de PD; verificado en §12): default configurable, publicado en cada fila con su color (D-VAL-15).
 - *Usar `eval`/`df.eval` para reglas de bandas/tests:* descartado por seguridad y consistencia con SDD-02/SDD-11; toda regla es operación estructurada.
 - *Varios Steps por familia:* descartado como default; un `ValidationStep` con toggles comparte el frame alineado y produce un card consolidado (D-VAL-8).
 
@@ -503,7 +503,7 @@ class ValidationConfig(NikodymBaseConfig):
 - **Backtesting activo sin columnas realizadas:** `ValidationConfigError`/`DATO-INSTITUCIONAL` según `fail_on_falta_dato`; no se inventa el realizado.
 - **Backtesting activo con `provisioning_ifrs9.detail` sin columnas estimadas:** `ValidationConfigError`/`FALTA-DATO` según `fail_on_falta_dato`. Es el único motivo del blocker que **no** es institucional: lo que falta es una salida del propio motor IFRS 9.
 - **`N` pequeño en t-test:** se reporta el estadístico con `not_evaluable` si `N < min` técnico; no se afirma significancia con muestras degeneradas.
-- **Semáforo sin anclaje regulatorio:** el `traffic_light` sale de default institucional configurable, etiquetado como tal, con `FALTA-DATO-VAL-2` en el card.
+- **Semáforo sin anclaje regulatorio:** el `traffic_light` sale de los dos cortes configurables (default institucional 0,05/0,01) y cada fila publica los cortes con que se decidió su color; la card lleva `traffic_light_cuts` cuando corrió el contraste y `null` sin él (D-VAL-15). No hay marca: no hay nada que verificar.
 - **Índices no alineables:** `ValidationDataError`; no se hace merge ambiguo.
 
 Toda excepción propia desciende de `NikodymError`; mensajes en español e incluyen test, partición/grado/segmento, estadístico, umbral, valor observado y verdicto.
@@ -580,25 +580,31 @@ Fixtures: `validation_calibration_small.parquet` (PD, target, grado, partición)
 
 **Riesgos.**
 - **Duplicar métricas de SDD-11 y divergir numéricamente.** Mitigación: consumir el artefacto canónico; fallback por **reúso** del evaluador, nunca reimplementación (D-VAL-1/2, tests AST).
-- **Inventar umbrales regulatorios.** Mitigación: HL/Brier son estadística estándar; semáforo y convención exacta ECB marcados `FALTA-DATO` y como default institucional configurable, jamás hardcodeados como norma.
+- **Inventar umbrales regulatorios.** Mitigación: HL/Brier son estadística estándar; el semáforo es un default institucional configurable y publicado con cada fila, jamás hardcodeado como norma; las convenciones del BCE están cotejadas (abajo).
 - **Backtesting sin panel longitudinal.** Mitigación: v1 soporta backtesting de cohorte única sobre realizados declarados; el panel multi-fecha se difiere a la capa longitudinal (CT-3, D-VAL-9), documentado, no simulado.
-- **Semáforo mal fundado.** Mitigación: no portar el traffic-light de VaR (Basilea 1996) a PD sin mapeo explícito; `FALTA-DATO-VAL-2`.
+- **Semáforo mal fundado.** Mitigación: no portar el traffic-light de VaR (Basilea 1996) a PD; verificado que no hay mapeo posible (zonas discretas sobre un conteo, dependientes de `N`), y la prosa ya no lo atribuye.
 - **Muestras pequeñas.** Mitigación: estados `not_evaluable` auditados, no p-valores engañosos.
 
 **Fuentes verificadas / citas.**
 - **Hosmer-Lemeshow:** Hosmer, D.W. & Lemeshow, S., *Applied Logistic Regression* (Wiley). Estadístico `Σ(O−E)²/E` por deciles, **χ² con `G−2` gl** (verificado: `G=10` → 8 gl). Definición estadística estándar confirmada 2026-07-03.
 - **Brier score:** Brier, G.W. (1950), *Verification of forecasts expressed in terms of probability*, Monthly Weather Review 78(1):1–3.
 - **Test binomial por grado (PD):** BCBS Working Paper No. 14, *Studies on the Validation of Internal Rating Systems* (2005).
-- **Jeffreys (PD) + t-test (LGD/CCF/EAD):** ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019). URL oficial: `https://www.bankingsupervision.europa.eu/activities/internal_models/shared/pdf/instructions_validation_reporting_credit_risk.en.pdf`. Confirmado 2026-07-03: Jeffreys test para *predictive ability* de PD; t-test para LGD y CCF. **Pendiente de verificación por render (FALTA-DATO-VAL-1/3):** forma exacta del estadístico t (ponderación por exposición), orientación unilateral y convención del p-valor Jeffreys en la versión vigente.
-- **Traffic-light (concepto):** BCBS, *Supervisory framework for the use of "backtesting" in conjunction with the internal models approach to market risk capital requirements* (1996) — origen del semáforo verde/amarillo/rojo; **no directamente aplicable** a calibración de PD (FALTA-DATO-VAL-2).
+- **Jeffreys (PD) + t-test (LGD/CCF/EAD):** ECB, *Instructions for reporting the validation results of internal models — credit risk* (feb 2019). URL oficial: `https://www.bankingsupervision.europa.eu/activities/internal_models/shared/pdf/instructions_validation_reporting_credit_risk.en.pdf`. Confirmado 2026-07-03: Jeffreys test para *predictive ability* de PD; t-test para LGD y CCF. **Verificado por render y por las plantillas oficiales el 2026-09-13** (tabla del cotejo, abajo): forma, ponderación, orientación y distribución coinciden con el motor.
+- **Traffic-light (concepto):** BCBS, *Supervisory framework for the use of "backtesting" in conjunction with the internal models approach to market risk capital requirements* (1996) — origen del semáforo verde/amarillo/rojo; **no aplicable** a la calibración de PD (verificado: zonas discretas sobre el conteo de excepciones de VaR; tabla del cotejo, abajo).
 - **Discriminación / PSI:** ESPEC §5.2/§5.7; SDD-11 §3 (reúso).
 - **CMF:** CNC B-1 exige validación y backtesting de metodologías internas, sin fijar umbrales numéricos (consistente con SDD-11 §2/§12).
 - **_CONTRATOS-TRANSVERSALES.md:** CT-1 (`requires`/`provides`) y CT-2 (`metric_sections`).
 
-**`FALTA-DATO` (a resolver por verificación de render oficial antes de aprobar).**
-- **FALTA-DATO-VAL-1:** forma exacta del estadístico t-test ECB para LGD y CCF/EAD (simple vs ponderado por exposición), orientación unilateral y valor crítico según la versión vigente del documento ECB.
-- **FALTA-DATO-VAL-2:** anclaje regulatorio y cortes exactos del semáforo verde/ámbar/rojo para calibración de PD por grado (no hay número universal único).
-- **FALTA-DATO-VAL-3:** convención exacta del p-valor del Jeffreys test (CDF de `Beta(D+½, N−D+½)` evaluada en `p̂`) tal como la enuncia la ECB.
+**Cotejo doble y trazado de las convenciones del motor (D-VAL-18; sustituye al bloque «`FALTA-DATO` a resolver por verificación de render» que este SDD llevó desde el Borrador).** Todo se descargó de la URL oficial el 2026-09-13 y se verificó por dos vías independientes: extracción de texto (`pypdf`) del PDF oficial y render de la página a PNG (`pymupdf 1.28.2`, zoom 2×) leído visualmente; para el BCE, además, las fórmulas de Excel de sus plantillas oficiales de reporte. Verificador: Claude Code, sesión S12; revisión adversarial de Codex sobre la enmienda (ocho pasadas, anotadas en el `HANDOFF` privado). Regla para los cotejos siguientes: toda convención del motor que no sea normativa local (las de CMF tienen manifiesto propio, D-COT/D-FTE) se registra aquí con este formato mínimo —fuente, URL oficial, sha256, página/sección, método, verificador, fecha—; sin ese registro, la convención sigue marcada.
+
+| # | Fuente | URL oficial | sha256 del archivo descargado | Qué se leyó (página del PDF · sección) | Resultado |
+|---|---|---|---|---|---|
+| F1 | BCE, *Instructions for reporting the validation results of internal models — IRB Pillar I models for credit risk*, febrero 2019 (70 pp.; metadata `creationDate 2019-02-28`, `modDate 2019-03-05`) | `https://www.bankingsupervision.europa.eu/activities/internal_models/shared/pdf/instructions_validation_reporting_credit_risk.en.pdf` (enlazado desde `…/activities/internal_models/omm/html/index.en.html`; no existe versión posterior) | `f0bef87b1c636b8dc493e0d8e8b0690a5660a0663086ea6f676ccae2a7685d01` | p. 20-21 (impresas; 21-22 del PDF) · §2.5.3.1 «PD back-testing using a Jeffreys test»; p. 31 (impresa; 32 del PDF) · §2.6.2.1 «LGD back-testing using a t-test»; p. 53 (impresa; 54 del PDF) · §2.9.3.1 (CCF); p. 55 (impresa; 56 del PDF) · §2.9.3.2 (EAD); p. 40-41 · §2.7.2.1 (ELBE, bilateral) | Jeffreys y t-test **coinciden** con el motor (§3.2/§3.4); errata del `1/R` en CCF; ningún corte de semáforo |
+| F2 | BCE, plantillas oficiales de reporte (ZIP, 6 libros `.xlsx`, 2020-11-24 … 2021-03-16) | `https://www.bankingsupervision.europa.eu/banking/tasks/internal_models/shared/pdf/templates_validation_reporting_credit_risk.zip` | `68a86250453166c6dde3f0e45d8d2c7cd44bde0b73f575808f3786a77119e5fa` | `LEICode_PD_…xlsx` hoja `3.0`, col. N (`BETA.DIST(E,G+0.5,F−G+0.5,TRUE)` con E = PD media, F = N, G = D) y col. O (tolerancia 10⁻⁵); `LEICode_LGD_…xlsx` hoja `2.0` col. AI (`1−T.DIST(SQRT(E)*(H−G)/SQRT(U),E−1,TRUE)` con H/G promedios *number-weighted*); `LEICode_CCF_…xlsx` hojas `3.1` col. AI y `3.2` fila 12 | **Coinciden** con el motor; confirma la errata de F1 §2.9.3.1 |
+| F3 | BCBS, *Supervisory framework for the use of "backtesting" in conjunction with the internal models approach to market risk capital requirements*, enero 1996 (15 pp.) | `https://www.bis.org/publications/199601-standards-supervisory-framework-use-backtesting-conjunction-internal-models-approach-market-risk-capital.pdf` (landing `https://www.bis.org/publ/bcbs22.htm`) | `e3dd0e08100ad19dd88f0305cf25c0af5384b5272f2e72aa9c10daa79fd73f28` | p. 7-8 (impresas) · (c)-(f) definición de zonas; p. 15 del PDF · Tabla 2 | Zonas discretas e inclusivas sobre el conteo de excepciones de VaR, definidas por `P(X ≤ k) ≥ 95 %` (amarilla, k = 5 con N = 250) y `≥ 99,99 %` (roja, k = 10); colas superiores en la frontera `P(X ≥ 5) = 0,1078` y `P(X ≥ 10) = 0,00025`, dependientes de `N`; **no aplica** a la calibración de PD y no equivale a ningún corte fijo de p-valor, menos aún a 0,05/0,01 |
+| F4 | BCBS, Working Paper No. 14, *Studies on the Validation of Internal Rating Systems* (revised), mayo 2005 (120 pp.) | `https://www.bis.org/publications/studies-validation-internal-rating-systems-revised.pdf` (landing `https://www.bis.org/publ/bcbs_wp14.htm`) | `49cfd1cea68f7e7491f34d97b9660dfb4d4a0b23041868012c835728d9358188` | p. 47 (impresa; 55 del PDF) · «Binomial test»; p. 34-35 (impresas; 42-43 del PDF) · «traffic lights approach» (Blochwitz, Hohl y Wehn 2003) | Binomial **coincide** con el motor; el traffic lights de WP14 es multi-período, cuatro colores, otra herramienta: no ancla el semáforo por p-valor |
+
+Lo que **no** se pudo verificar y se declara: el texto de Hosmer & Lemeshow (*Applied Logistic Regression*) no está en línea; el estadístico y los `G − 2` gl ya estaban confirmados arriba (2026-07-03). La regla de «mínimo por grupo» de D-VAL-17 es una elección metodológica del motor, no una prescripción de fuente.
 
 ## Decisiones para revisión de Cami
 
@@ -608,9 +614,9 @@ Fixtures: `validation_calibration_small.parquet` (PD, target, grado, partición)
 - **D-VAL-2 — Estabilidad: reúso vs recálculo.** *Recomendación:* **consumir** `("stability","stability_metrics")`/`psi_table`; fallback por reúso de `StabilityEvaluator`. No reimplementar PSI.
 - **D-VAL-3 — Nº de grupos Hosmer-Lemeshow.** *Recomendación:* `G=10` deciles (convención estándar) → `G−2=8` gl. Configurable `5..20`; agrupación alternativa por bandas fijas reservada.
 - **D-VAL-4 — Nivel de significancia.** *Recomendación:* `α=0.05` (HL bilateral; binomial/t-test unilateral hacia subestimación). Configurable.
-- **D-VAL-5 — Bandas del semáforo.** *Recomendación (default institucional):* verde `p ≥ 0.05`, ámbar `0.01 ≤ p < 0.05`, rojo `p < 0.01`, sobre el p-valor del test por grado. **`FALTA-DATO-VAL-2`**: el anclaje regulatorio exacto se verifica contra ECB antes de aprobar; hasta entonces, default configurable etiquetado como institucional.
+- **D-VAL-5 — Bandas del semáforo.** *Recomendación (default institucional):* verde `p ≥ 0.05`, ámbar `0.01 ≤ p < 0.05`, rojo `p < 0.01`, sobre el p-valor del test por grado. **Cerrada con D-VAL-15 (2026-09-14):** default institucional **persistido en el resultado**, sin marca; verificado que no existe corte regulatorio (F1, F3, F4 del cotejo de §12).
 - **D-VAL-6 — Test de PD (binomial vs Jeffreys).** *Recomendación:* **Jeffreys** por defecto (alineado con ECB feb 2019, robusto con `D=0`); `binomial` (BCBS WP14) como alternativa. El t-test se reserva a LGD/EAD (spec).
-- **D-VAL-7 — Convención del t-test LGD/EAD.** *Recomendación:* t-test pareado sobre `e_i = realizado − estimado`, unilateral (subestimación). **`FALTA-DATO-VAL-1`**: ponderación por exposición y valor crítico exacto a verificar por render ECB.
+- **D-VAL-7 — Convención del t-test LGD/EAD.** *Recomendación:* t-test pareado sobre `e_i = realizado − estimado`, unilateral (subestimación). **Confirmada con D-VAL-14 (2026-09-14):** pareado simple, sin ponderación por exposición, Student con `N − 1` gl; `one_sided=False` es la convención bilateral del ELBE, no una desviación.
 - **D-VAL-8 — Un Step vs Steps por familia.** *Recomendación:* **un** `ValidationStep` con toggles `families`; comparte el frame alineado y consolida un card. Steps separados aumentarían superficie sin beneficio.
 - **D-VAL-9 — Fuente y ventana del realizado (backtesting).** *Recomendación:* v1 = backtesting de **cohorte única** desde columnas realizadas declaradas en `data.frame`; el **panel longitudinal multi-fecha** (SICR dinámico, migraciones) se difiere a la capa de datos longitudinal (CT-3, F4/F5). Documentado, no simulado.
 - **D-VAL-10 — Extra de empaquetado.** *Recomendación:* reúsar el extra `[scoring]` (ya arrastra scipy/sklearn) en vez de crear `[validation]`. Confirmar al cablear B22.1.

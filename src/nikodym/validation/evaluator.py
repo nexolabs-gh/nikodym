@@ -8,7 +8,10 @@
 * **calibración** -- Hosmer-Lemeshow y Brier por partición y binomial/Jeffreys por grado, reúsando
   los kernels de :mod:`nikodym.validation.calibration_tests`. El **semáforo se recomputa aquí** con
   los cortes independientes de la config (``traffic_light_green_alpha``/``red_alpha``) y no con el
-  semáforo provisional que guarda ``binomial_by_grade``;
+  semáforo provisional que guarda ``binomial_by_grade``; cada fila de grado publica los dos cortes
+  con que se decidió su color y la card los resume en ``traffic_light_cuts`` (D-VAL-15: los cortes
+  son un parámetro con default, sin anclaje regulatorio que cotejar, y el resultado tiene que
+  bastar para reconstruir el color sin el config);
 * **estabilidad** -- reúsa/consume el PSI de SDD-11 vía :mod:`nikodym.validation.stability`;
 * **backtesting** -- t-test LGD/EAD y binomial/Jeffreys PD contra las salidas IFRS 9 (SDD-16),
   reúsando :mod:`nikodym.validation.backtesting`.
@@ -104,10 +107,6 @@ _POOLED_PARTITION: str = "ALL"
 _POOLED_GRADE: str = "ALL"
 # Dependencias cuya versión se registra en la card (evidencia reproducible; SDD-22 §8/§9).
 _DEPENDENCY_LIBRARIES: tuple[str, ...] = ("pandas", "numpy", "scipy")
-# Brechas del motor: convención metodológica aún no verificada por render oficial (§3/§12).
-_FALTA_DATO_TRAFFIC_LIGHT: str = "FALTA-DATO-VAL-2"
-_FALTA_DATO_JEFFREYS: str = "FALTA-DATO-VAL-3"
-_FALTA_DATO_TTEST: str = "FALTA-DATO-VAL-1"
 
 
 class ValidationEvaluator:
@@ -167,11 +166,12 @@ class ValidationEvaluator:
 
         if "discrimination" in self.families:
             discrimination_records = self._run_discrimination(analytic, performance_metrics)
+        traffic_light_cuts: dict[str, float] | None = None
         if "calibration" in self.families:
             calibration_records, grade_records, calibration_frame, not_evaluable_grades = (
                 self._run_calibration(analytic)
             )
-            falta_dato.extend(self._calibration_falta_dato())
+            traffic_light_cuts = self._traffic_light_cuts()
         if "stability" in self.families:
             stability_frame_out = self._run_stability(stability_metrics, stability_frame)
         if "backtesting" in self.families:
@@ -207,6 +207,7 @@ class ValidationEvaluator:
                 n_failed=n_failed,
                 grade_records=grade_records,
                 not_evaluable_grades=not_evaluable_grades,
+                traffic_light_cuts=traffic_light_cuts,
             ),
         )
         return ValidationResult(
@@ -312,7 +313,14 @@ class ValidationEvaluator:
         calibration_frame = _build_frame(
             rows,
             _CALIBRATION_COLUMNS,
-            nullable=("degrees_of_freedom", "p_value", "alpha", "traffic_light"),
+            nullable=(
+                "degrees_of_freedom",
+                "p_value",
+                "alpha",
+                "traffic_light",
+                "green_alpha",
+                "red_alpha",
+            ),
         )
         return (
             tuple(calibration_records),
@@ -379,15 +387,22 @@ class ValidationEvaluator:
                 evaluable.append(_reseal_traffic_light(record, calib))
         return tuple(evaluable), tuple(not_evaluable)
 
-    def _calibration_falta_dato(self) -> list[str]:
-        """Enumera las brechas metodológicas de la calibración (semáforo / Jeffreys)."""
+    def _traffic_light_cuts(self) -> dict[str, float] | None:
+        """Los dos cortes del semáforo cuando corrió el contraste por grado; ``None`` sin él.
+
+        Son los mismos con que :func:`_reseal_traffic_light` decide cada fila (D-VAL-15). Se
+        publican en ``metric_sections.validation.traffic_light_cuts`` —clave siempre presente, como
+        ``not_evaluable_grades``— para que la prosa del informe y el panel los lean del resultado y
+        no del config. El motor no sabe si un corte lo declaró la institución o es el default (todo
+        valor llega explícito desde el formulario), así que ningún consumidor atribuye la elección.
+        """
         calib = self.config.calibration
-        marks: list[str] = []
-        if calib.binomial_by_grade:
-            marks.append(_FALTA_DATO_TRAFFIC_LIGHT)
-            if calib.pd_test == "jeffreys":
-                marks.append(_FALTA_DATO_JEFFREYS)
-        return marks
+        if not calib.binomial_by_grade:
+            return None
+        return {
+            "green_alpha": calib.traffic_light_green_alpha,
+            "red_alpha": calib.traffic_light_red_alpha,
+        }
 
     # --- Estabilidad (reúso/consumo SDD-11) ----------------------------------------------------
 
@@ -415,7 +430,12 @@ class ValidationEvaluator:
     def _resolve_backtesting(
         self, ifrs9_detail: pd.DataFrame | None, realised: pd.DataFrame | None
     ) -> tuple[tuple[BacktestRecord, ...], list[str]]:
-        """Corre el backtesting IFRS 9 o lo difiere a un aviso según ``fail_on_falta_dato``."""
+        """Corre el backtesting IFRS 9 o lo difiere a un aviso según ``fail_on_falta_dato``.
+
+        El backtesting que corre no declara brecha alguna: el t-test de LGD/EAD y el Jeffreys de PD
+        son los del BCE, cotejados por doble vía (D-VAL-13/14). El único aviso posible es el del
+        bloqueo, con la marca de quien debe el dato.
+        """
         blocked = self._backtesting_blocker(ifrs9_detail, realised)
         if blocked is not None:
             marker, blocker = blocked
@@ -426,13 +446,7 @@ class ValidationEvaluator:
         records = self._run_backtesting(
             cast(pd.DataFrame, ifrs9_detail), cast(pd.DataFrame, realised)
         )
-        marks: list[str] = []
-        parameters = self.config.backtesting.parameters
-        if "lgd" in parameters or "ead" in parameters:
-            marks.append(_FALTA_DATO_TTEST)
-        if "pd" in parameters and self.config.backtesting.pd_test == "jeffreys":
-            marks.append(_FALTA_DATO_JEFFREYS)
-        return records, marks
+        return records, []
 
     def _backtesting_blocker(
         self, ifrs9_detail: pd.DataFrame | None, realised: pd.DataFrame | None
@@ -624,13 +638,18 @@ def _reseal_hosmer_lemeshow(
 def _reseal_traffic_light(
     record: GradeBinomialRecord, calib: CalibrationValidationConfig
 ) -> GradeBinomialRecord:
-    """Recompone el semáforo con los cortes independientes de config (nitpick B22.3)."""
-    light = traffic_light(
-        record.p_value,
-        green_alpha=calib.traffic_light_green_alpha,
-        red_alpha=calib.traffic_light_red_alpha,
+    """Recompone el semáforo con los cortes independientes de config (nitpick B22.3).
+
+    Reescribe el color **y los dos cortes** con que se decidió (D-VAL-15): resellar sólo el color
+    dejaría en la fila los cortes provisionales del kernel (``alpha``/``0.2·alpha``) explicando un
+    color que no decidieron.
+    """
+    green_alpha = calib.traffic_light_green_alpha
+    red_alpha = calib.traffic_light_red_alpha
+    light = traffic_light(record.p_value, green_alpha=green_alpha, red_alpha=red_alpha)
+    return record.model_copy(
+        update={"traffic_light": light, "green_alpha": green_alpha, "red_alpha": red_alpha}
     )
-    return record.model_copy(update={"traffic_light": light})
 
 
 def _not_evaluable_grade(record: GradeBinomialRecord, min_rows: int) -> dict[str, Any]:
@@ -672,6 +691,8 @@ def _hl_row(
         "alpha": record.alpha,
         "decision": record.decision,
         "traffic_light": None,
+        "green_alpha": None,
+        "red_alpha": None,
     }
 
 
@@ -694,6 +715,8 @@ def _brier_row(
         "alpha": None,
         "decision": record.decision,
         "traffic_light": None,
+        "green_alpha": None,
+        "red_alpha": None,
     }
 
 
@@ -714,6 +737,8 @@ def _grade_row(record: GradeBinomialRecord) -> dict[str, Any]:
         "alpha": record.alpha,
         "decision": decision,
         "traffic_light": record.traffic_light,
+        "green_alpha": record.green_alpha,
+        "red_alpha": record.red_alpha,
     }
 
 
@@ -880,12 +905,14 @@ def _metric_sections(
     n_failed: int,
     grade_records: tuple[GradeBinomialRecord, ...],
     not_evaluable_grades: tuple[dict[str, Any], ...] = (),
+    traffic_light_cuts: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Arma la puerta CT-2 ``metric_sections`` tidy para report/governance (SDD-22 §4).
 
     Publica los grados bajo mínimo como ``not_evaluable_grades`` (traza aditiva CT-2): deja
     constancia de que existían pero se omitieron por falta de potencia, sin inflar el semáforo ni el
-    verdicto. El step los audita además con ``log_decision`` §9.
+    verdicto. El step los audita además con ``log_decision`` §9. ``traffic_light_cuts`` lleva los
+    dos cortes del semáforo cuando corrió el contraste por grado y ``None`` sin él (D-VAL-15).
     """
     return {
         "validation": {
@@ -899,6 +926,7 @@ def _metric_sections(
                 "red": sum(record.traffic_light == "red" for record in grade_records),
             },
             "not_evaluable_grades": [dict(item) for item in not_evaluable_grades],
+            "traffic_light_cuts": None if traffic_light_cuts is None else dict(traffic_light_cuts),
         }
     }
 

@@ -384,8 +384,13 @@ def test_execute_discriminacion_fallback_recomputed_audita_reuso() -> None:
     assert "discrimination_source" in rules
 
 
-def test_execute_emite_log_decision_semaforo_hl_backtest_y_falta_dato() -> None:
-    """El step emite las decisiones §9: semáforo, HL fallado, PSI review y FALTA-DATO."""
+def test_execute_emite_log_decision_semaforo_hl_y_psi() -> None:
+    """El step emite las decisiones §9: semáforo, HL fallado y PSI review.
+
+    Un scorecard ya no emite ``validation_falta_dato``: los tres códigos ``FALTA-DATO-VAL-1/2/3``
+    se retiraron con el cotejo (D-VAL-13/14/15). La regla sigue viva para el aviso que sí queda
+    —el backtesting bloqueado con ``fail_on_falta_dato=False``— y se prueba abajo.
+    """
     # Cortes de semáforo agresivos para forzar bandas ámbar/rojo de forma determinista.
     cfg = _scorecard_config(
         calibration=CalibrationValidationConfig(
@@ -404,7 +409,71 @@ def test_execute_emite_log_decision_semaforo_hl_backtest_y_falta_dato() -> None:
     rules = {event.payload["regla"] for event in sink.events if event.kind == "decision"}
     assert "calibration_semaforo" in rules
     assert "stability_psi" in rules
-    assert "validation_falta_dato" in rules
+    assert "validation_falta_dato" not in rules
+
+
+def test_execute_audita_el_aviso_declarado_del_backtesting_bloqueado() -> None:
+    """``validation_falta_dato`` sigue registrando el único aviso que ``validation`` conserva:
+    el backtesting pedido y apagado con ``fail_on_falta_dato=False`` (el evaluador lo difiere con
+    la marca ``DATO-INSTITUCIONAL`` y su motivo; con ``True`` es el ``DATO-INSTITUCIONAL-VAL-4``
+    del config, que detiene la corrida).
+    """
+    cfg = ValidationConfig(
+        families=("backtesting",),
+        backtesting=BacktestingValidationConfig(enabled=False),
+        fail_on_falta_dato=False,
+    )
+    study = Study(NikodymConfig(validation=cfg))
+    sink = InMemoryAuditSink()
+    step = ValidationStep.from_config(cfg)
+    step._audit = sink
+    result = step.execute(study, np.random.default_rng(3))
+
+    assert [gap.split(":")[0] for gap in result.card.falta_dato] == ["DATO-INSTITUCIONAL"]
+    assert "backtesting.enabled=False" in result.card.falta_dato[0]
+    avisos = [
+        event.payload
+        for event in sink.events
+        if event.kind == "decision" and event.payload["regla"] == "validation_falta_dato"
+    ]
+    assert len(avisos) == 1
+    assert avisos[0]["valor"] == result.card.falta_dato[0]
+
+
+def test_el_evento_del_semaforo_registra_los_dos_cortes_y_no_la_significancia() -> None:
+    """(e) de la capa A (D-VAL-15): ``calibration_semaforo`` lleva como ``umbral`` los dos cortes
+    con que se decidió el color —leídos del record ya resellado— y no ``alpha``, que es la
+    significancia del contraste y no un corte. Con ``alpha=0.05`` y cortes 0,10/0,02 el grado A
+    (p = 0,0819, medido) queda en ámbar: el trail tiene que nombrar 0,10 y 0,02, nunca 0,05.
+    """
+    cfg = _scorecard_config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5,
+            min_rows_per_group=10,
+            alpha=0.05,
+            traffic_light_green_alpha=0.10,
+            traffic_light_red_alpha=0.02,
+        ),
+    )
+    study = _scorecard_study(config=cfg, include_performance=False, include_stability=False)
+    sink = InMemoryAuditSink()
+    step = ValidationStep.from_config(cfg)
+    step._audit = sink
+    result = step.execute(study, np.random.default_rng(3))
+
+    grado_a = next(record for record in result.grade_records if record.grade == "A")
+    assert grado_a.traffic_light == "amber"
+    eventos = [
+        event.payload
+        for event in sink.events
+        if event.kind == "decision" and event.payload["regla"] == "calibration_semaforo"
+    ]
+    assert [evento["valor"]["grade"] for evento in eventos] == ["A"]
+    assert eventos[0]["umbral"] == {"green_alpha": 0.10, "red_alpha": 0.02}
+    assert eventos[0]["valor"]["traffic_light"] == "amber"
+    assert eventos[0]["valor"]["p_value"] == pytest.approx(grado_a.p_value)
+    assert 0.05 not in eventos[0]["umbral"].values()
 
 
 def test_execute_audita_grado_bajo_minimo_como_not_evaluable() -> None:

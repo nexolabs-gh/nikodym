@@ -636,6 +636,9 @@ def _validation_result() -> ValidationResult:
             "alpha": [0.05],
             "decision": ["pass"],
             "traffic_light": [None],
+            # D-VAL-15: los cortes del semáforo, nulos en una fila de Hosmer-Lemeshow.
+            "green_alpha": [None],
+            "red_alpha": [None],
         }
     )
     stability = pd.DataFrame(

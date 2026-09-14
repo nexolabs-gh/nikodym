@@ -40,12 +40,14 @@ _CODIGO_INTERNO: Final = re.compile("|".join(re.escape(m) for m in DECLARED_MARK
 #: tenía tabulado. Sin este caso el gate quedaría verde con los diccionarios de hoy y se rompería
 #: en silencio con el próximo código nuevo.
 _CODIGO_DESCONOCIDO: Final = "FALTA-DATO-XXX-99"
+_CODIGO_DESCONOCIDO_2: Final = "FALTA-DATO-XXX-98"
 
 #: Avisos que llegan a la prosa **pelados**, sin mensaje que recortar: si no tienen frase propia en
 #: el informe, no hay ninguna otra vía que pueda redactarlos. Se enumeran por capa para que añadir
-#: un código al motor sin darle frase caiga en rojo aquí.
+#: un código al motor sin darle frase caiga en rojo aquí. ``validation`` ya no está: sus tres
+#: códigos pelados (``FALTA-DATO-VAL-1/2/3``) se retiraron con el cotejo contra el BCE
+#: (D-VAL-13/14/15); su único aviso, ``DATO-INSTITUCIONAL-VAL-4``, viaja con mensaje.
 _AVISOS_PELADOS: Final[dict[str, tuple[str, ...]]] = {
-    "validation": ("FALTA-DATO-VAL-1", "FALTA-DATO-VAL-2", "FALTA-DATO-VAL-3"),
     "provisioning_ifrs9": (
         "FALTA-DATO-IFRS-4",
         "FALTA-DATO-IFRS-6",
@@ -86,10 +88,12 @@ def _lineage() -> LineageBundle:
 
 def _cards_envenenadas() -> dict[str, Any]:
     """Cards con **todos** los avisos que cada capa puede publicar, más uno desconocido."""
+    # Dos desconocidos distintos: los dos caen en la frase genérica, y la prosa tiene que
+    # enunciarla UNA vez (la deduplicación es por frase, no por código).
     validation_gaps = (
-        *_AVISOS_PELADOS["validation"],
         "DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting' pero backtesting.enabled=False.",
         _CODIGO_DESCONOCIDO,
+        _CODIGO_DESCONOCIDO_2,
     )
     return {
         "validation": {
@@ -149,6 +153,24 @@ def informe() -> str:
     return _html()
 
 
+def test_no_queda_ningun_codigo_val_retirado_en_el_motor() -> None:
+    """Control de completitud de la retirada (D-VAL-13/14/15): ningún ``.py`` del paquete nombra
+    ``FALTA-DATO-VAL-1/2/3`` —ni como constante, ni en docstrings ni en comentarios—, porque el
+    gate del catálogo censa el texto entero del paquete y una mención suelta lo obligaría a
+    documentar un código que ya no se emite."""
+    from pathlib import Path
+
+    paquete = Path(__file__).resolve().parents[2] / "src" / "nikodym"
+    retirados = re.compile(r"FALTA-DATO-VAL-[123]\b")
+    ofensores = [
+        f"{modulo.relative_to(paquete)}:{n}"
+        for modulo in sorted(paquete.rglob("*.py"))
+        for n, linea in enumerate(modulo.read_text(encoding="utf-8").splitlines(), start=1)
+        if retirados.search(linea)
+    ]
+    assert ofensores == []
+
+
 def test_el_informe_tiene_cuerpo_y_anexo_que_revisar(informe: str) -> None:
     """Sin esto, un render vacío o un `data-kind` renombrado dejaría el gate barriendo nada."""
     assert len(_cuerpo(informe)) >= 5
@@ -180,18 +202,16 @@ def test_el_anexo_de_auditoria_conserva_los_codigos(informe: str) -> None:
     """
     anexo = "".join(_anexo(informe))
     esperados = (
-        *_AVISOS_PELADOS["validation"],
+        "DATO-INSTITUCIONAL-VAL-4",
         *_AVISOS_PELADOS["provisioning_ifrs9"],
         _CODIGO_DESCONOCIDO,
+        _CODIGO_DESCONOCIDO_2,
     )
     ausentes = [codigo for codigo in esperados if codigo not in anexo]
     assert ausentes == []
 
 
-@pytest.mark.parametrize(
-    "codigo",
-    (*_AVISOS_PELADOS["validation"], *_AVISOS_PELADOS["provisioning_ifrs9"]),
-)
+@pytest.mark.parametrize("codigo", _AVISOS_PELADOS["provisioning_ifrs9"])
 def test_cada_aviso_pelado_tiene_frase_propia(codigo: str) -> None:
     """Completitud en el otro sentido: un código pelado sin frase degradaría al texto genérico.
 
@@ -223,13 +243,19 @@ def test_la_frase_no_termina_en_punto() -> None:
     assert not _declared_warning_prose(_AVISOS_CON_MENSAJE[0]).endswith(".")
 
 
-def test_el_mismo_aviso_repetido_no_duplica_la_frase(informe: str) -> None:
-    """`validation` puede declarar dos veces el mismo código; el lector no gana leyéndolo dos veces.
+def test_la_misma_frase_repetida_no_se_duplica(informe: str) -> None:
+    """La deduplicación es por FRASE: dos códigos que caen en el mismo texto —aquí, dos
+    desconocidos en la frase genérica— se enuncian una sola vez en todo el cuerpo.
 
-    Se comprueba sobre el HTML real: la frase del semáforo aparece una sola vez en todo el cuerpo.
+    Hasta la capa A de VALIDACION-COTEJADA el caso natural era ``validation`` declarando dos veces
+    ``FALTA-DATO-VAL-3`` (semáforo y backtesting); retirado ese código, la propiedad se prueba con
+    la rama genérica, que es la que cualquier código futuro sin frase usaría.
     """
     cuerpo = "".join(_cuerpo(informe))
-    assert cuerpo.count("los cortes del semáforo verde/ámbar/rojo") == 1
+    parrafo = next(
+        p for p in re.findall(r"<p>(.*?)</p>", cuerpo, re.S) if "declaradas por la validación" in p
+    )
+    assert parrafo.count(_DECLARED_WARNING_SIN_TEXTO.removesuffix(".")) == 1
 
 
 def test_la_ficha_del_modelo_no_imprime_tags_ni_slugs_de_gobernanza() -> None:

@@ -87,6 +87,11 @@ _CALIBRATION_COLUMNS: tuple[str, ...] = (
     "alpha",
     "decision",
     "traffic_light",
+    # D-VAL-15: los dos cortes con que se decidió el color de cada fila de grado, nulos en las filas
+    # de Hosmer-Lemeshow y Brier. Van al final para que las trece anteriores no se muevan; el
+    # informe no las pinta (son de auditoría: el hecho va en prosa) y el JSON, el CSV y la card sí.
+    "green_alpha",
+    "red_alpha",
 )
 _STABILITY_COLUMNS: tuple[str, ...] = (
     "metric",
@@ -342,7 +347,15 @@ class CalibrationTestRecord(BaseModel):
 
 
 class GradeBinomialRecord(BaseModel):
-    """Fila de ``calibration`` para el test binomial/Jeffreys de PD por grado (SDD-22 §4)."""
+    """Fila de ``calibration`` para el test binomial/Jeffreys de PD por grado (SDD-22 §4).
+
+    ``alpha`` es el nivel de significancia con que corrió el contraste; **no** es un corte del
+    semáforo. Los cortes con que se decidió ``traffic_light`` viajan aparte —``green_alpha`` y
+    ``red_alpha``— para que la fila explique su propio color (D-VAL-15): antes el resultado sólo
+    guardaba el color, y con cortes personalizados no había forma de reconstruirlo sin el config.
+    El kernel los fija con los que usó (``alpha`` y ``0.2·alpha``) y el evaluador los resella,
+    junto al color, con los de ``CalibrationValidationConfig``.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -356,6 +369,8 @@ class GradeBinomialRecord(BaseModel):
     z_stat: float | None
     alpha: float
     traffic_light: TrafficLight
+    green_alpha: float
+    red_alpha: float
 
     @field_validator("grade")
     @classmethod
@@ -365,7 +380,9 @@ class GradeBinomialRecord(BaseModel):
             raise ValueError("grade no puede estar vacío.")
         return value
 
-    @field_validator("expected_pd", "observed_dr", "p_value", "alpha", mode="before")
+    @field_validator(
+        "expected_pd", "observed_dr", "p_value", "alpha", "green_alpha", "red_alpha", mode="before"
+    )
     @classmethod
     def _normaliza_requeridos(cls, value: Any) -> float:
         """Exige floats finitos y publica ``-0.0`` como ``0.0``."""
@@ -379,7 +396,7 @@ class GradeBinomialRecord(BaseModel):
 
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
-        """Valida conteos y rangos de probabilidad/p-valor del grado."""
+        """Valida conteos, rangos de probabilidad/p-valor y los cortes del semáforo del grado."""
         if self.observed_defaults > self.n:
             raise ValueError("observed_defaults no puede exceder n.")
         if not 0.0 <= self.expected_pd <= 1.0:
@@ -390,6 +407,12 @@ class GradeBinomialRecord(BaseModel):
             raise ValueError("p_value debe estar en [0, 1].")
         if not 0.0 < self.alpha < 1.0:
             raise ValueError("alpha debe estar en (0, 1).")
+        if not 0.0 < self.green_alpha < 1.0:
+            raise ValueError("green_alpha debe estar en (0, 1).")
+        if not 0.0 < self.red_alpha < 1.0:
+            raise ValueError("red_alpha debe estar en (0, 1).")
+        if not self.red_alpha < self.green_alpha:
+            raise ValueError("El semáforo exige red_alpha < green_alpha.")
         return self
 
 

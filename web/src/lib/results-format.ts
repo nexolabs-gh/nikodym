@@ -28,6 +28,7 @@ import type {
   StabilityMetricRow,
   StabilityResponse,
   ValidationCalibrationRow,
+  ValidationTrafficLightCuts,
   ValidationFamily,
   ValidationNotEvaluableGrade,
   ValidationResult,
@@ -2080,6 +2081,27 @@ export function gradeCoverage(
   ).size
   if (evaluados === 0 && noEvaluados.length === 0) return null
   return { evaluados, total: evaluados + noEvaluados.length, noEvaluados }
+}
+
+/**
+ * Los dos cortes con que el motor decidió el semáforo de cada grado (D-VAL-15), leídos de la card y
+ * no del config: `null` cuando el contraste por grado no corrió, cuando el fixture es anterior a la
+ * clave o cuando llega incompleta. Presentación pura: no se recalcula ningún color.
+ */
+export function trafficLightCuts(
+  validation: ValidationResult | null | undefined,
+): ValidationTrafficLightCuts | null {
+  const cuts = validation?.metric_sections?.validation?.traffic_light_cuts ?? null
+  if (
+    cuts === null ||
+    typeof cuts.green_alpha !== "number" ||
+    typeof cuts.red_alpha !== "number" ||
+    !Number.isFinite(cuts.green_alpha) ||
+    !Number.isFinite(cuts.red_alpha)
+  ) {
+    return null
+  }
+  return { green_alpha: cuts.green_alpha, red_alpha: cuts.red_alpha }
 }
 
 // --- análisis exploratorio (D-SC-5) --------------------------------------------

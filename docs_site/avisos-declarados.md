@@ -50,14 +50,16 @@ Los códigos siguen la forma `MARCA-FAMILIA-N`. La familia dice de qué capacida
 | `FALTA-DATO-ML-1` | `feature_source='data_raw'` está diferido. El modo crudo exige una política de imputación por variable que la librería todavía no ofrece; usa `binning_woe` o `selection_woe`. |
 | `FALTA-DATO-FWD-6` | La precedencia entre la LGD de forward y la de IFRS 9 está pendiente de diseño. No se emite en runtime: queda documentado en el código que la fija. |
 | `FALTA-DATO-FWD-8` | `kind='vecm'` exige `vecm_rank` explícito, porque el motor todavía **no selecciona el rango de cointegración**. |
-| `FALTA-DATO-VAL-1` | La forma exacta del t-test ECB —simple o ponderado por exposición, y su orientación— no está verificada contra el render oficial. |
-| `FALTA-DATO-VAL-2` | Los cortes del semáforo de VaR (Basilea-1996) no están verificados contra el render oficial. |
-| `FALTA-DATO-VAL-3` | La orientación exacta del p-valor de Jeffreys —la CDF de la posterior en `p_hat`— no está verificada contra el render oficial. |
 | `FALTA-DATO-STR-5` | Falta la ECL de referencia que el ejercicio de stress necesita para el cálculo. |
 
-Las tres de `VAL` son la misma clase de brecha: la convención metodológica está implementada, pero
-no cotejada contra el documento original. Es la aplicación literal de nuestra regla de verificación
-—una fuente externa se coteja contra el render oficial o se declara sin verificar—, no un descuido.
+Hasta la 1.15.1 esta tabla traía tres brechas de la validación formal —la forma del t-test del
+BCE, la orientación del p-valor de Jeffreys y los cortes del semáforo por grado—, declaradas
+mientras la convención no estuviera cotejada contra el documento oficial. El cotejo se hizo: el
+t-test y el Jeffreys del motor **coinciden** con el BCE (instrucciones de febrero de 2019 y sus
+plantillas de reporte), y los cortes del semáforo **no tienen anclaje regulatorio que verificar**
+—son un parámetro de tu política de validación, con 0,05 y 0,01 por defecto, y cada fila de grado
+los publica junto a su color—. Los tres códigos se retiraron y sus números no se reutilizan; una
+corrida anterior que los traiga en su anexo los lleva por esa razón, no por una brecha vigente.
 
 Fuera de esta tabla quedan dos brechas normativas del motor CMF que no viajan como código de fila
 sino como parámetro marcado: los aforos y *haircuts* de garantías financieras, y las tablas del

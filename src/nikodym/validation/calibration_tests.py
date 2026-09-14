@@ -17,9 +17,13 @@ grupo Hosmer-Lemeshow degenerado (``n_g = 0`` o ``mean_pd*(1-mean_pd) = 0``) o u
 finito marca el test ``not_evaluable``; el ``z`` asintótico se vuelve ``None`` cuando su varianza es
 cero. Los floats publicados normalizan ``-0.0`` a ``0.0``.
 
-FALTA-DATO-VAL-2 (cortes del semáforo) y FALTA-DATO-VAL-3 (orientación exacta del p-valor Jeffreys)
-se documentan en las funciones respectivas: son defaults institucionales defendibles, no normas
-regulatorias fijas.
+Cotejo contra las fuentes oficiales (enmienda VALIDACION-COTEJADA §2, 2026-09-13; registro en
+SDD-22 §12): el Jeffreys por grado es exactamente el del BCE (*Instructions for reporting the
+validation results of internal models*, feb. 2019, §2.5.3.1, y su plantilla de reporte de PD) y el
+binomial es el de BCBS WP14 (2005, p. 47). Los cortes del semáforo **no tienen anclaje regulatorio
+que cotejar**: el BCE no fija cortes sobre el p-valor y las zonas de Basilea 1996 son otra
+herramienta (conteo de excepciones de VaR); son un parámetro con default (D-VAL-5) que cada fila
+de grado publica junto a su color (D-VAL-15).
 
 **Experimental (fuera de la garantía SemVer 1.x).**
 """
@@ -54,8 +58,9 @@ _DEFAULT_ALPHA: float = 0.05
 # Partición-marcador: los kernels no conocen la partición; el evaluador la re-sella por model_copy.
 _DEFAULT_PARTITION: str = "ALL"
 # Corte rojo del semáforo por defecto = 0.2*verde: reproduce el default institucional D-VAL-5 (verde
-# 0.05 / rojo 0.01) para cualquier alfa y garantiza red_alpha < green_alpha. FALTA-DATO-VAL-2: no es
-# anclaje regulatorio (el traffic-light de VaR de Basilea-1996 no aplica a calibración de PD).
+# 0.05 / rojo 0.01) para cualquier alfa y garantiza red_alpha < green_alpha. No es un anclaje
+# regulatorio: no existe corte normativo sobre el p-valor (cotejado; el traffic-light de VaR de
+# Basilea-1996 es otra herramienta y no aplica a la calibración de PD).
 _RED_TO_GREEN_RATIO: float = 0.2
 
 
@@ -125,11 +130,12 @@ def binomial_by_grade(
     Por cada grado con ``N`` operaciones, PD media ``p_hat`` y ``D`` defaults observados:
     ``test='binomial'`` usa ``binomtest(D, N, p_hat, alternative='greater')`` más el ``z``
     asintótico; ``test='jeffreys'`` (default ECB, robusto con ``D=0``) usa la posterior
-    ``Beta(D+1/2, N-D+1/2)`` con p-valor unilateral ``beta.cdf(p_hat, D+1/2, N-D+1/2)``.
-    FALTA-DATO-VAL-3: la orientación exacta del p-valor Jeffreys (CDF de la posterior en ``p_hat``)
-    queda por verificar contra el render del PDF ECB; este es el default defendible, no bloquea. El
-    semáforo usa ``green_alpha=alpha`` y ``red_alpha=0.2*alpha`` (default institucional D-VAL-5,
-    FALTA-DATO-VAL-2). El ``z`` es ``None`` cuando ``p_hat*(1-p_hat)=0``. Los grados se recorren en
+    ``Beta(D+1/2, N-D+1/2)`` con p-valor unilateral ``beta.cdf(p_hat, D+1/2, N-D+1/2)``: es la
+    forma literal del BCE (§2.5.3.1; la plantilla oficial calcula ``BETA.DIST(PD, D+0.5, N-D+0.5,
+    TRUE)`` sobre la PD media del grado), cotejada por doble vía (D-VAL-13). El semáforo
+    provisional usa ``green_alpha=alpha`` y ``red_alpha=0.2*alpha`` (default institucional D-VAL-5)
+    y cada record publica esos dos cortes junto a su color (D-VAL-15); el evaluador los resella con
+    los de la config. El ``z`` es ``None`` cuando ``p_hat*(1-p_hat)=0``. Los grados se recorren en
     orden de aparición.
     """
     if test not in ("binomial", "jeffreys"):
@@ -170,6 +176,8 @@ def binomial_by_grade(
                 z_stat=z_stat,
                 alpha=green_alpha,
                 traffic_light=light,
+                green_alpha=green_alpha,
+                red_alpha=red_alpha,
             )
         )
     return records
@@ -201,9 +209,10 @@ def traffic_light(p_value: float, *, green_alpha: float, red_alpha: float) -> Tr
     """Mapea un p-valor a semáforo verde/ámbar/rojo, monótono (SDD-22 §3.2, D-VAL-5).
 
     ``p >= green_alpha`` da ``'green'``; ``red_alpha <= p < green_alpha`` da ``'amber'``;
-    ``p < red_alpha`` da ``'red'``. FALTA-DATO-VAL-2: los cortes del semáforo de VaR (Basilea-1996)
-    NO aplican a la calibración de PD; ``green_alpha``/``red_alpha`` son un default institucional
-    configurable, no una norma regulatoria. Exige ``red_alpha < green_alpha``.
+    ``p < red_alpha`` da ``'red'``. Las zonas de Basilea-1996 (conteo de excepciones de VaR) NO
+    aplican a la calibración de PD y el BCE no fija cortes sobre el p-valor: ``green_alpha``/
+    ``red_alpha`` son un parámetro con default institucional (D-VAL-5), no una norma. Exige
+    ``red_alpha < green_alpha``.
     """
     probability = _as_finite_probability(p_value, label="p_value")
     green = _as_open_unit(green_alpha, label="green_alpha")

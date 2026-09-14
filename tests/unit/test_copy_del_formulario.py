@@ -219,13 +219,14 @@ def test_el_gate_caza_lo_que_promete() -> None:
 
 
 def test_ningun_campo_visible_publica_una_marca_de_aviso_declarado() -> None:
-    """`FALTA-DATO-VAL-2` no es una frase: es un identificador para el anexo de auditoría.
+    """`DATO-INSTITUCIONAL-VAL-4` no es una frase: es un identificador para el anexo de auditoría.
 
     El contrato del repo lo dice desde AGENTS.md —«los códigos internos no van al copy público»— y
     la superficie donde más fácil se cuela es ésta: el tooltip de un campo cuyo interruptor
-    enciende justo la prueba que declara la brecha. Al poner `validation` en pantalla (D-SC-7) el
-    copy aprobado dice «está declarado como brecha del motor: el resultado sale con ese aviso»,
-    que es la misma información en idioma de negocio; el código lo lleva el anexo, con su marca.
+    enciende justo la prueba que declara el aviso. Al poner `validation` en pantalla (D-SC-7) el
+    copy aprobado decía «está declarado como brecha del motor: el resultado sale con ese aviso»
+    para los tres `FALTA-DATO-VAL`, retirados luego con el cotejo (D-VAL-13/14/15); hoy dice
+    lo que el motor sabe —los cortes del semáforo son un parámetro con default— sin código.
 
     ⚠️ El detector se deriva de :mod:`nikodym.core.markers`, que es la fuente de las dos marcas:
     escribir la lista al lado la dejaría stale el día que nazca una tercera.
@@ -248,13 +249,13 @@ def test_ningun_campo_visible_publica_una_marca_de_aviso_declarado() -> None:
 def test_el_gate_de_marcas_caza_lo_que_promete() -> None:
     """Ancla del detector contra los códigos reales que la sección `validation` puede emitir."""
     marcas = re.compile("|".join(re.escape(m) for m in DECLARED_MARKERS))
-    assert marcas.search("Activa el contraste (FALTA-DATO-VAL-2) por grado.")
+    assert marcas.search("La EAD se despliega constante (FALTA-DATO-IFRS-4) por período.")
     assert marcas.search("DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'.")
     assert marcas.search("Deja el aviso FALTA-DATO registrado.")
     # Y no acusa a la frase aprobada, que dice lo mismo sin el código.
     assert not marcas.search(
-        "Los cortes del semáforo están declarados como brecha del motor: el resultado sale con "
-        "ese aviso."
+        "El semáforo usa los dos cortes de abajo; el motor trae 0,05 y 0,01 y tu política de "
+        "validación puede cambiarlos."
     )
 
 

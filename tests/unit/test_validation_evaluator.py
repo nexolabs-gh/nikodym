@@ -17,7 +17,7 @@ import pandas as pd
 import pytest
 
 import nikodym.validation.evaluator as evaluator_module
-from nikodym.validation.calibration_tests import binomial_by_grade, hosmer_lemeshow
+from nikodym.validation.calibration_tests import binomial_by_grade, hosmer_lemeshow, traffic_light
 from nikodym.validation.config import (
     BacktestingValidationConfig,
     CalibrationValidationConfig,
@@ -148,8 +148,75 @@ def test_validate_scorecard_consume_y_semaforo_con_cortes_de_config() -> None:
     # El semáforo se recomputa con los cortes independientes de la config.
     for grade in result.grade_records:
         assert grade.traffic_light in ("green", "amber", "red")
-    assert "FALTA-DATO-VAL-2" in result.card.falta_dato
-    assert "FALTA-DATO-VAL-3" in result.card.falta_dato
+    # D-VAL-13/15: el Jeffreys es el del BCE y el semáforo no tiene anclaje que verificar; ningún
+    # código `FALTA-DATO-VAL-*` vuelve a la card.
+    assert result.card.falta_dato == ()
+
+
+def test_grade_records_resellan_los_cortes_del_semaforo_junto_al_color() -> None:
+    """(a) de la capa A (D-VAL-15): cada fila de grado lleva los cortes con que se decidió su color,
+    tomados de la config —y distintos de ``alpha`` cuando la config los separa—. El kernel había
+    decidido con ``alpha``/``0.2·alpha``; el resellado reescribe color Y cortes, nunca sólo el
+    color: con cortes personalizados el resultado tiene que bastar para reconstruir el semáforo."""
+    cfg = _config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5,
+            min_rows_per_group=10,
+            alpha=0.05,
+            traffic_light_green_alpha=0.10,
+            traffic_light_red_alpha=0.02,
+        ),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
+    assert len(result.grade_records) == 3
+    for grade in result.grade_records:
+        assert grade.alpha == 0.05
+        assert (grade.green_alpha, grade.red_alpha) == (0.10, 0.02)
+        assert grade.traffic_light == traffic_light(grade.p_value, green_alpha=0.10, red_alpha=0.02)
+
+
+def test_la_tabla_y_la_card_publican_los_cortes_solo_cuando_corrio_el_contraste() -> None:
+    """(b) de la capa A (D-VAL-15): ``calibration`` gana ``green_alpha``/``red_alpha`` al final
+    —llenas en las filas de grado, nulas en Hosmer-Lemeshow y Brier— y
+    ``metric_sections.validation.traffic_light_cuts`` lleva los dos cortes con el contraste por
+    grado corrido y ``None`` sin él (la clave está siempre, como ``not_evaluable_grades``)."""
+    cfg = _config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5,
+            min_rows_per_group=10,
+            traffic_light_green_alpha=0.10,
+            traffic_light_red_alpha=0.02,
+        ),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
+    table = result.calibration
+    assert list(table.columns)[-2:] == ["green_alpha", "red_alpha"]
+    por_grado = table[table["grade"] != "ALL"]
+    assert por_grado["green_alpha"].tolist() == [0.10] * 3
+    assert por_grado["red_alpha"].tolist() == [0.02] * 3
+    agregadas = table[table["grade"] == "ALL"]
+    assert agregadas["green_alpha"].tolist() == [None] * len(agregadas)
+    assert agregadas["red_alpha"].tolist() == [None] * len(agregadas)
+    section = result.card.metric_sections["validation"]
+    assert section["traffic_light_cuts"] == {"green_alpha": 0.10, "red_alpha": 0.02}
+
+    apagado = _config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5, min_rows_per_group=10, binomial_by_grade=False
+        ),
+    )
+    sin_contraste = ValidationEvaluator.from_config(apagado).validate(
+        calibrated_pd=_analytic_frame()
+    )
+    assert "traffic_light_cuts" in sin_contraste.card.metric_sections["validation"]
+    assert sin_contraste.card.metric_sections["validation"]["traffic_light_cuts"] is None
+    assert list(sin_contraste.calibration.columns)[-2:] == ["green_alpha", "red_alpha"]
+    assert sin_contraste.calibration["green_alpha"].tolist() == [None] * len(
+        sin_contraste.calibration
+    )
 
 
 def test_validate_estabilidad_review_da_overall_warn() -> None:
@@ -305,8 +372,9 @@ def test_validate_calibracion_sin_binomial_ni_brier_solo_hl() -> None:
     assert result.card.falta_dato == ()
 
 
-def test_validate_calibracion_binomial_bcbs_no_marca_jeffreys() -> None:
-    """El test binomial (BCBS) marca sólo FALTA-DATO-VAL-2 (semáforo), no el de Jeffreys."""
+def test_validate_calibracion_binomial_bcbs_sigue_sin_marca() -> None:
+    """El test binomial (BCBS WP14) coincide con la fuente y no lleva marca; con D-VAL-15 tampoco
+    la lleva ya el semáforo, así que la card sale sin aviso alguno."""
     cfg = _config(
         families=("calibration",),
         calibration=CalibrationValidationConfig(
@@ -314,7 +382,7 @@ def test_validate_calibracion_binomial_bcbs_no_marca_jeffreys() -> None:
         ),
     )
     result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
-    assert result.card.falta_dato == ("FALTA-DATO-VAL-2",)
+    assert result.card.falta_dato == ()
     assert all(r.z_stat is not None for r in result.grade_records)
 
 
@@ -465,8 +533,9 @@ def test_validate_backtesting_ttest_y_binomial_por_segmento() -> None:
     assert tests[("pd", "retail")].test == "jeffreys"
     # Dispersión genuina + sesgo al alza → el t-test de LGD rechaza legítimamente (no por ruido).
     assert tests[("lgd", "retail")].decision == "fail"
-    assert "FALTA-DATO-VAL-1" in result.card.falta_dato
-    assert "FALTA-DATO-VAL-3" in result.card.falta_dato
+    # D-VAL-13/14: el t-test y el Jeffreys son los del BCE (cotejo de §2 de la enmienda); el
+    # backtesting que corrió no declara ninguna brecha del motor.
+    assert result.card.falta_dato == ()
 
 
 def test_validate_backtesting_constante_es_not_evaluable() -> None:
@@ -584,8 +653,8 @@ def test_validate_backtesting_indices_no_alineados_falla() -> None:
         )
 
 
-def test_validate_backtesting_solo_pd_no_marca_ttest() -> None:
-    """Con sólo PD activo el backtesting marca Jeffreys pero no el FALTA-DATO del t-test."""
+def test_validate_backtesting_solo_pd_no_declara_brechas() -> None:
+    """Con sólo PD activo el backtesting corre el Jeffreys del BCE y no declara brecha alguna."""
     cfg = _config(
         families=("backtesting",),
         backtesting=BacktestingValidationConfig(
@@ -595,8 +664,8 @@ def test_validate_backtesting_solo_pd_no_marca_ttest() -> None:
     result = ValidationEvaluator.from_config(cfg).validate(
         ifrs9_detail=_ifrs9_detail(), realised=_realised()
     )
-    assert "FALTA-DATO-VAL-1" not in result.card.falta_dato
-    assert "FALTA-DATO-VAL-3" in result.card.falta_dato
+    assert result.card.falta_dato == ()
+    assert {r.parameter for r in result.backtest_records} == {"pd"}
 
 
 # ─────────────────────────── ramas defensivas y helpers puros ───────────────────────────
@@ -674,6 +743,8 @@ def test_grade_row_z_none_publica_estadistico_cero() -> None:
         z_stat=None,
         alpha=0.05,
         traffic_light="green",
+        green_alpha=0.05,
+        red_alpha=0.01,
     )
     row = evaluator_module._grade_row(record)
     assert row["statistic"] == 0.0
@@ -693,10 +764,13 @@ def test_grade_row_red_es_fail() -> None:
         z_stat=4.0,
         alpha=0.05,
         traffic_light="red",
+        green_alpha=0.05,
+        red_alpha=0.01,
     )
     row = evaluator_module._grade_row(record)
     assert row["statistic"] == 4.0
     assert row["decision"] == "fail"
+    assert (row["green_alpha"], row["red_alpha"]) == (0.05, 0.01)
 
 
 @pytest.mark.parametrize(
@@ -765,6 +839,8 @@ def _grade(light: str) -> GradeBinomialRecord:
         z_stat=None,
         alpha=0.05,
         traffic_light=light,  # type: ignore[arg-type]
+        green_alpha=0.05,
+        red_alpha=0.01,
     )
 
 
@@ -800,8 +876,8 @@ def test_validate_calibracion_sin_hosmer_lemeshow_solo_brier() -> None:
     assert {r.test for r in result.calibration_records} == {"brier"}
 
 
-def test_validate_backtesting_lgd_ead_sin_pd_no_marca_jeffreys() -> None:
-    """Con sólo LGD/EAD el backtesting marca el t-test pero nunca el FALTA-DATO de Jeffreys."""
+def test_validate_backtesting_lgd_ead_sin_pd_no_declara_brechas() -> None:
+    """Con sólo LGD/EAD el backtesting corre el t-test del BCE y no declara brecha alguna."""
     cfg = _config(
         families=("backtesting",),
         backtesting=BacktestingValidationConfig(
@@ -811,8 +887,7 @@ def test_validate_backtesting_lgd_ead_sin_pd_no_marca_jeffreys() -> None:
     result = ValidationEvaluator.from_config(cfg).validate(
         ifrs9_detail=_ifrs9_detail(), realised=_realised()
     )
-    assert "FALTA-DATO-VAL-1" in result.card.falta_dato
-    assert "FALTA-DATO-VAL-3" not in result.card.falta_dato
+    assert result.card.falta_dato == ()
     assert {r.parameter for r in result.backtest_records} == {"lgd", "ead"}
 
 

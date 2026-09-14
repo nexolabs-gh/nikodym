@@ -101,10 +101,14 @@ el formulario te pide la columna y la comprueba contra tu archivo **antes** de c
     línea, un «Pasa · 0 de 1 pruebas fallidas» podría convivir con media cartera sin evaluar.
 
 Dos ajustes finos, los dos institucionales y no fijados por norma: los **cortes del semáforo** sobre
-el p-valor (verde/ámbar y ámbar/rojo) y **qué prueba** se usa —la de Jeffreys, que se comporta bien
-cuando un grado no registró ningún incumplimiento, o la binomial clásica—. Los dos salen del
-resultado con un aviso declarado: son una brecha del motor que Nikodym prefiere decir en voz alta
-antes que resolver por su cuenta.
+el p-valor —verde con un p-valor de al menos 0,05 y rojo por debajo de 0,01, de fábrica; tu
+política de validación puede cambiarlos— y **qué prueba** se usa —la de Jeffreys, que se comporta
+bien cuando un grado no registró ningún incumplimiento, o la binomial clásica—. Ninguna norma fija
+los cortes: el BCE no los prescribe y las zonas de Basilea de 1996 son otra herramienta, para el
+conteo de excepciones de un VaR. Por eso el resultado no los esconde: cada fila de grado lleva los
+dos cortes con que se decidió su color, el panel los muestra junto a la cobertura y el informe los
+nombra en el capítulo de validación. Las dos pruebas son las que el BCE describe para la
+capacidad predictiva de la PD, cotejadas contra sus instrucciones y sus plantillas de reporte.
 
 ## 4. Estabilidad
 

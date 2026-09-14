@@ -102,6 +102,7 @@ import {
   stabilityMetricLabel,
   temporalScore,
   gradeCoverage,
+  trafficLightCuts,
   validationFamilies,
   validationFamiliesWithoutRows,
   validationStatusLabel,
@@ -309,6 +310,7 @@ export function ResultsPanel({
   const valFamilies = validationFamilies(val)
   const valCalibration = calibrationRowsSplit(val)
   const valCoverage = gradeCoverage(val)
+  const valCuts = trafficLightCuts(val)
   const valSinFilas = validationFamiliesWithoutRows(val)
   const valAvisos = val?.falta_dato ?? []
 
@@ -985,7 +987,9 @@ export function ResultsPanel({
             />
           </dl>
 
-          {/* 🔴 La marca sí, el CÓDIGO no (D-SC-9). Los `FALTA-DATO-VAL-*` son el identificador con
+          {/* 🔴 La marca sí, el CÓDIGO no (D-SC-9). Los códigos de aviso —hoy sólo el del
+              backtesting pedido y apagado, o una carencia del artefacto de IFRS 9; los tres
+              `FALTA-DATO-VAL` se retiraron con el cotejo (D-VAL-13/14/15)— son el identificador con
               el que el motor transporta la salvedad, no una frase: viajan enteros en la card, en el
               anexo de auditoría del informe y —cuando la gobernanza está encendida— en la ficha del
               modelo de esta misma pantalla, que es la superficie donde S4 decidió conservarlos. Aquí
@@ -1108,6 +1112,18 @@ export function ResultsPanel({
             <Subchart
               title={`Calibración por grado de rating — ${valCoverage.evaluados} de ${valCoverage.total} evaluados`}
             >
+              {/* D-VAL-15: los cortes con que el motor decidió cada semáforo, leídos de la card
+                  (no del config) y dichos una vez junto a la cobertura. El texto no atribuye la
+                  elección: el motor no sabe si el corte es declarado o default. */}
+              {valCuts ? (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  <span className="uppercase tracking-wide">Cortes del semáforo</span>: verde con
+                  p-valor ≥ {formatPValue(valCuts.green_alpha)} · ámbar desde{" "}
+                  {formatPValue(valCuts.red_alpha)} · rojo por debajo de{" "}
+                  {formatPValue(valCuts.red_alpha)}. Son un parámetro de la política de validación
+                  de tu institución, no un umbral fijado por norma.
+                </p>
+              ) : null}
               {valCalibration.porGrado.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

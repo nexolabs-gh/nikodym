@@ -11537,7 +11537,7 @@
           },
           "enabled": {
             "default": false,
-            "description": "Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La forma exacta de la prueba de severidad y exposición está declarada como brecha del motor: el resultado sale con ese aviso.",
+            "description": "Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado.",
             "title": "Ejecutar backtesting IFRS 9",
             "type": "boolean",
             "ui_group": "Backtesting",
@@ -11647,7 +11647,7 @@
           },
           "binomial_by_grade": {
             "default": true,
-            "description": "Contrasta, grado por grado, si los incumplimientos observados caben en la PD estimada. Exige una columna de grado de rating en tu archivo. Los cortes del semáforo y la convención exacta de la prueba están declarados como brecha del motor: el resultado sale con ese aviso.",
+            "description": "Contrasta, grado por grado, si los incumplimientos observados caben en la PD estimada. Exige una columna de grado de rating en tu archivo. El semáforo usa los dos cortes de abajo; el motor trae 0,05 y 0,01 y tu política de validación puede cambiarlos.",
             "title": "Contrastar la PD por grado de rating",
             "type": "boolean",
             "ui_group": "Calibración",

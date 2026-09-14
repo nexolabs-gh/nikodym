@@ -182,6 +182,8 @@ def test_grade_binomial_record_golden_y_rangos() -> None:
         "z_stat": 0.0,
         "alpha": 0.05,
         "traffic_light": "green",
+        "green_alpha": 0.05,
+        "red_alpha": 0.01,
     }
     assert math.copysign(1.0, record.observed_dr) == 1.0
     assert math.copysign(1.0, record.z_stat) == 1.0
@@ -210,6 +212,25 @@ def test_grade_binomial_record_golden_y_rangos() -> None:
         _grade_record(alpha=1.0)
     with pytest.raises(ValidationError, match="finitos"):
         _grade_record(p_value=math.nan)
+
+
+def test_grade_binomial_record_persiste_los_cortes_con_que_se_decidio_el_color() -> None:
+    """D-VAL-15: la fila explica su propio color. ``alpha`` es la significancia del contraste y no
+    un corte; los cortes viajan aparte, abiertos en (0, 1) y con el rojo más estricto que el verde.
+    Sin ellos, con cortes personalizados el color no se podía reconstruir desde el resultado."""
+    record = _grade_record(alpha=0.05, green_alpha=0.10, red_alpha=0.02)
+    assert (record.alpha, record.green_alpha, record.red_alpha) == (0.05, 0.10, 0.02)
+
+    with pytest.raises(ValidationError, match="green_alpha debe estar"):
+        _grade_record(green_alpha=1.0)
+    with pytest.raises(ValidationError, match="red_alpha debe estar"):
+        _grade_record(red_alpha=0.0)
+    with pytest.raises(ValidationError, match="red_alpha < green_alpha"):
+        _grade_record(green_alpha=0.01, red_alpha=0.05)
+    with pytest.raises(ValidationError, match="red_alpha < green_alpha"):
+        _grade_record(green_alpha=0.05, red_alpha=0.05)
+    with pytest.raises(ValidationError, match="finitos"):
+        _grade_record(green_alpha=math.nan)
 
 
 def test_backtest_record_golden_y_test_por_parametro() -> None:
@@ -274,7 +295,7 @@ def test_validation_card_section_golden_copias_y_no_finitos() -> None:
         "n_tests": 5,
         "n_failed": 0,
         "dependency_versions": {"numpy": "2.4.6", "pandas": "2.3.3", "scipy": "1.14.1"},
-        "falta_dato": ["FALTA-DATO-VAL-2"],
+        "falta_dato": ["DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'"],
         "metric_sections": {
             "resumen": {
                 "delta": 0.0,
@@ -543,6 +564,8 @@ def _grade_record(**updates: Any) -> GradeBinomialRecord:
         "z_stat": -0.48,
         "alpha": 0.05,
         "traffic_light": "green",
+        "green_alpha": 0.05,
+        "red_alpha": 0.01,
     }
     payload.update(updates)
     return GradeBinomialRecord(**payload)
@@ -574,7 +597,7 @@ def _card(**updates: Any) -> ValidationCardSection:
         "n_tests": 5,
         "n_failed": 0,
         "dependency_versions": {"pandas": "2.3.3", "numpy": "2.4.6", "scipy": "1.14.1"},
-        "falta_dato": ("FALTA-DATO-VAL-2",),
+        "falta_dato": ("DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'",),
         "metric_sections": {},
     }
     payload.update(updates)
@@ -677,6 +700,8 @@ def _calibration_frame() -> pd.DataFrame:
             "alpha": [0.05, math.nan, 0.05],
             "decision": ["pass", "not_evaluable", "pass"],
             "traffic_light": [None, None, "green"],
+            "green_alpha": [None, None, 0.05],
+            "red_alpha": [None, None, 0.01],
         }
     )
 

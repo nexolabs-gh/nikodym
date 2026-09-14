@@ -185,7 +185,13 @@ class ValidationStep(AuditableMixin):
     # --- auditoría (§9) ------------------------------------------------------------------------
 
     def _emit_decisions(self, result: ValidationResult) -> None:
-        """Registra el ``log_decision`` §9: tests fallados, semáforo, PSI, reúso y FALTA-DATO."""
+        """Registra el ``log_decision`` §9: tests fallados, semáforo, PSI, reúso y avisos.
+
+        El evento del semáforo lleva como ``umbral`` los dos cortes con que se decidió el color,
+        leídos del record ya resellado (D-VAL-15): ``grade.alpha`` es la significancia del
+        contraste y registrarla como umbral —lo que hacía hasta la capa A de VALIDACION-COTEJADA—
+        impedía reconstruir el color desde el trail con cortes personalizados.
+        """
         for record in result.calibration_records:
             if record.test == "hosmer_lemeshow" and record.decision == "fail":
                 self.log_decision(
@@ -202,7 +208,7 @@ class ValidationStep(AuditableMixin):
             if grade.traffic_light != "green":
                 self.log_decision(
                     regla="calibration_semaforo",
-                    umbral=grade.alpha,
+                    umbral={"green_alpha": grade.green_alpha, "red_alpha": grade.red_alpha},
                     valor={
                         "grade": grade.grade,
                         "p_value": grade.p_value,

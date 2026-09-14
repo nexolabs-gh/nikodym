@@ -27,10 +27,16 @@ degeneración se decide en el **origen** (rango de errores nulo en el t-test; ``
 cancelación catastrófica NO produzca un ``fail`` regulatorio falso ni un veredicto no reproducible
 entre plataformas. Los floats normalizan ``-0.0`` a ``0.0`` y jamás escapa ``NaN``/``inf``.
 
-FALTA-DATO-VAL-1: la forma exacta del t-test ECB (simple vs ponderado por exposición, orientación y
-valor crítico según la versión vigente del PDF) queda por verificar; el default es el t-test pareado
-simple unilateral (``e_i = realizado - estimado``), configurable vía ``one_sided`` -- no bloquea ni
-escala. FALTA-DATO-VAL-3: la orientación del p-valor Jeffreys se hereda de ``calibration_tests``.
+Cotejo contra la fuente oficial (enmienda VALIDACION-COTEJADA §2, 2026-09-13; registro en SDD-22
+§12): el t-test es exactamente el del BCE (*Instructions for reporting the validation results of
+internal models*, feb. 2019, §2.6.2.1 para LGD y §2.9.3.2 para EAD, y sus plantillas de reporte):
+pareado simple sobre ``e_i = realizado - estimado``, **sin ponderar por exposición** (promedios
+*number-weighted* en la plantilla), unilateral con ``H0: estimado >= realizado`` y p-valor
+``1 - S_{N-1}(T)`` (D-VAL-14). ``one_sided=False`` es la convención bilateral del ELBE (§2.7.2.1),
+no una desviación. La fórmula del CCF impresa en el PDF (§2.9.3.1) omite el ``1/R`` del numerador:
+es una errata del documento —LGD, ELBE, LGD in-default y EAD llevan la media y la plantilla de CCF
+calcula con la diferencia de medias—; el motor sigue la forma con media, la única consistente con
+una ``t`` de ``R - 1`` gl. El Jeffreys de PD se hereda de ``calibration_tests`` (cotejado allí).
 
 **Experimental (fuera de la garantía SemVer 1.x).**
 """
@@ -88,7 +94,8 @@ def ttest_realised_vs_predicted(
 
     Con ``N < min_obs`` o degenerada (``N < 2`` o ``s = 0``) el verdicto es ``not_evaluable``: §8
     no afirma significancia con ellas, pero reporta el estadístico/p-valor si son computables
-    (``N >= 2`` con ``s > 0``). FALTA-DATO-VAL-1: la forma ECB exacta queda por verificar.
+    (``N >= 2`` con ``s > 0``). Es la forma literal del BCE (§2.6.2.1/§2.9.3.2), cotejada por
+    doble vía (D-VAL-14); el bilateral es la convención del ELBE (§2.7.2.1).
     """
     if parameter not in ("lgd", "ead"):
         raise BacktestError(

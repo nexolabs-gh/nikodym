@@ -1056,29 +1056,18 @@ _DECLARED_WARNING_PROSE: Final[dict[str, str]] = {
         "probabilidad de incumplimiento, de modo que la pérdida esperada a 12 meses del Stage 1 "
         "no cubre exactamente ese plazo: revise cuántos períodos de su curva equivalen a un año"
     ),
-    # Los tres avisos de `validation` llegan **pelados**, sin mensaje que recortar (los arma
-    # `validation/evaluator.py` como constantes), así que su frase tiene que vivir aquí o no
-    # existe. Son la misma clase de brecha —convención implementada, no cotejada contra el render
-    # oficial— y por eso se enuncian igual: qué se calculó y qué queda por verificar.
-    "FALTA-DATO-VAL-1": (
-        "el contraste de medias del backtesting sigue la convención del BCE, cuya forma exacta "
-        "—simple o ponderada por exposición, y su orientación— todavía no se cotejó contra el "
-        "documento oficial"
-    ),
-    "FALTA-DATO-VAL-2": (
-        "los cortes del semáforo verde/ámbar/rojo del contraste por grado siguen la convención de "
-        "Basilea (1996), cuyos umbrales todavía no se cotejaron contra el documento oficial"
-    ),
-    "FALTA-DATO-VAL-3": (
-        "el p-valor de Jeffreys del contraste de calibración se calcula sobre la posterior "
-        "beta-binomial, cuya orientación exacta todavía no se cotejó contra el documento oficial"
-    ),
 }
 """Frase pública de los avisos declarados que llegan a la prosa **sin mensaje propio**.
 
 Registro **único**: un código nuevo se añade aquí y queda redactado en todos los capítulos a la vez.
 Antes había un diccionario por capítulo y cada uno traía su propio ``.get(code, code)``, de modo que
 el código nuevo de una capa se publicaba crudo en el capítulo de otra.
+
+Los tres avisos pelados de ``validation`` (la familia ``VAL``, números 1 a 3) vivieron aquí hasta
+la capa A de VALIDACION-COTEJADA: el cotejo contra el BCE, Basilea 1996 y BCBS WP14 los cerró o los
+retiró (D-VAL-13/14/15), y la frase del semáforo —«siguen la convención de Basilea (1996)»— era
+además falsa. Lo que el semáforo sí tiene que decir —sus cortes— lo dice
+:func:`validation_family_body` leyendo el resultado, no un aviso.
 
 No duplica el catálogo de ``docs_site/avisos-declarados.md``: allí el lector busca un código que vio
 en su ``warning_codes``; aquí el informe redacta la limitación para quien nunca verá el código. Sólo
@@ -1121,9 +1110,9 @@ def _declared_warning_prose(entry: str) -> str:
 def _declared_warning_descriptions(entries: Sequence[str]) -> tuple[str, ...]:
     """Traduce una lista de avisos declarados, sin repetir frase.
 
-    La deduplicación es por **frase**, no por código: ``validation`` puede declarar dos veces el
-    mismo aviso —el semáforo por grado y el backtesting comparten ``FALTA-DATO-VAL-3``— y el lector
-    no gana nada leyendo la misma limitación dos veces.
+    La deduplicación es por **frase**, no por código: dos avisos que caen en el mismo texto —dos
+    códigos sin frase propia caen los dos en :data:`_DECLARED_WARNING_SIN_TEXTO`— se enuncian una
+    vez, porque el lector no gana nada leyendo la misma limitación dos veces.
     """
     descripciones: dict[str, None] = {}
     for entry in entries:
@@ -1196,12 +1185,48 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
     description = descriptions.get(family)
     if description is None:
         return ()
+    cortes = _traffic_light_cuts_prose(bundle) if family == "calibration" else ()
     if rows == 0:
         return (
             f"{description} La familia fue ejecutada, pero no publicó filas evaluables; las "
             "brechas quedan declaradas en la síntesis del capítulo.",
+            *cortes,
         )
-    return (f"{description} Filas evaluadas: {_miles(rows)}.",)
+    return (f"{description} Filas evaluadas: {_miles(rows)}.", *cortes)
+
+
+def _traffic_light_cuts_prose(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Con qué p-valor un grado queda en verde, ámbar o rojo, **sólo si corrió el contraste**.
+
+    Lee ``metric_sections.validation.traffic_light_cuts`` de la card —los cortes con que el motor
+    decidió cada fila (D-VAL-15)—, no el config. No atribuye la elección a nadie: el motor no sabe
+    si un corte lo declaró la institución o es el default (todo valor llega explícito desde el
+    formulario, y una institución que elija justo 0,05/0,01 quedaría marcada para siempre), así
+    que nombra los cortes de la corrida y dice cuáles trae el motor por defecto. Sin contraste la
+    clave es ``None`` y no hay semáforo que explicar. Los defaults se leen del propio campo del
+    config para que esta frase no pueda decir un número distinto del que el motor trae.
+    """
+    card = _card(bundle, "validation")
+    if card is None:
+        return ()
+    cuts = _mapping(_mapping(card.get("metric_sections")).get("validation")).get(
+        "traffic_light_cuts"
+    )
+    green = _float(_mapping(cuts).get("green_alpha"))
+    red = _float(_mapping(cuts).get("red_alpha"))
+    if green is None or red is None:
+        return ()
+    from nikodym.validation.config import CalibrationValidationConfig
+
+    fields = CalibrationValidationConfig.model_fields
+    default_green = _cut(fields["traffic_light_green_alpha"].default)
+    default_red = _cut(fields["traffic_light_red_alpha"].default)
+    return (
+        f"Un grado queda en verde con un p-valor de al menos {_cut(green)}, en ámbar entre "
+        f"{_cut(red)} y {_cut(green)}, y en rojo por debajo de {_cut(red)}. Los cortes son un "
+        "parámetro de la política de validación de la institución —el motor trae "
+        f"{default_green} y {default_red} por defecto— y no un umbral fijado por norma.",
+    )
 
 
 def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
@@ -2698,6 +2723,20 @@ def _num(value: Any, *, decimals: int = 4) -> str:
     # Coma decimal (es-CL), coherente con `_pct`/`_clp`/`_miles`. `_num` no usa separador de miles,
     # así que el único punto del formato fijo es el decimal.
     return f"{numeric:.{decimals}f}".replace(".", ",")
+
+
+def _cut(value: Any) -> str:
+    """Formatea un corte de p-valor sin perder dígitos: ``0,05``, ``0,01``, ``0,025``, ``0,10``.
+
+    Cuatro decimales como máximo —la resolución del panel— recortando los ceros finales, pero
+    nunca por debajo de dos: ``0,1`` se lee peor que ``0,10`` al lado de ``0,05``.
+    """
+    numeric = _float(value)
+    if numeric is None:
+        return _NOT_AVAILABLE
+    texto = f"{numeric:.4f}".rstrip("0")
+    entero, _, decimales = texto.partition(".")
+    return f"{entero},{decimales.ljust(2, '0')}"
 
 
 def _pct(value: Any, *, decimals: int = 2) -> str:

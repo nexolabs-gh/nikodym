@@ -175,9 +175,9 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         title="Contrastar la PD por grado de rating",
         description=(
             "Contrasta, grado por grado, si los incumplimientos observados caben en la PD "
-            "estimada. Exige una columna de grado de rating en tu archivo. Los cortes del "
-            "semáforo y la convención exacta de la prueba están declarados como brecha del "
-            "motor: el resultado sale con ese aviso."
+            "estimada. Exige una columna de grado de rating en tu archivo. El semáforo usa los "
+            "dos cortes de abajo; el motor trae 0,05 y 0,01 y tu política de validación puede "
+            "cambiarlos."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Calibración", "ui_order": 4},
     )
@@ -396,9 +396,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
         title="Ejecutar backtesting IFRS 9",
         description=(
             "Compara lo estimado por IFRS 9 con lo que de verdad ocurrió. Exige que la corrida "
-            "calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado. La "
-            "forma exacta de la prueba de severidad y exposición está declarada como brecha del "
-            "motor: el resultado sale con ese aviso."
+            "calcule IFRS 9 y que tu archivo traiga las columnas con el resultado realizado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 1},
     )
@@ -603,8 +601,10 @@ class ValidationConfig(NikodymBaseConfig):
         ):
             # D-CRP6-6: el mensaje nombra su marca, como sus pares. Sin el código, esta carencia
             # no aparecía en el volcado de auditoría al mismo nivel que las demás. El número sigue
-            # la familia VAL sin reutilizar el 1-3, ya tomados por `FALTA-DATO-VAL-*`: son marcas
-            # distintas y el par no colisiona, pero dos «VAL-1» en la misma página se leen mal.
+            # la familia VAL sin reutilizar el 1-3: los tomaron los tres avisos de brecha del
+            # motor de `validation`, retirados por el cotejo (D-VAL-13/14/15), y un número
+            # retirado no se reasigna —el catálogo histórico y los trails viejos lo siguen
+            # nombrando—.
             raise ValidationConfigError(
                 "DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting' pero "
                 "backtesting.enabled=False; el backtesting IFRS 9 exige enabled=True y las "

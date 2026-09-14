@@ -958,9 +958,10 @@ No autoriza START ni mueve la puerta global.
 > SDD de ningún bloque: cada uno exige su enmienda. Cinco decisiones para Cami en §8.
 
 > **Las deudas declaradas de `validation`, cotejadas y cerradas en diseño (2026-09-13; APROBADA
-> por Cami el 2026-09-14 con la recomendación de cada uno de sus nueve puntos; pendiente de
-> implementar por capas A → B → C; nace de las respuestas 5, 11 y 12 de Cami del 2026-09-09 al
-> scorecard completo).** [`_ENMIENDA-VALIDACION-COTEJADA.md`](_ENMIENDA-VALIDACION-COTEJADA.md),
+> por Cami el 2026-09-14 con la recomendación de cada uno de sus nueve puntos; se implementa por
+> capas A → B → C: la A —cierre y retirada de los tres códigos, cortes del semáforo persistidos—
+> está implementada desde S13 (2026-09-14), B y C pendientes; nace de las respuestas 5, 11 y 12
+> de Cami del 2026-09-09 al scorecard completo).** [`_ENMIENDA-VALIDACION-COTEJADA.md`](_ENMIENDA-VALIDACION-COTEJADA.md),
 > D-VAL-13…D-VAL-18. Cotejo **doble y trazado** —texto extraído y página renderizada del PDF
 > oficial, más las plantillas de reporte del BCE con sus fórmulas de Excel— contra las
 > *Instructions for reporting the validation results of internal models* (BCE, febrero 2019, la

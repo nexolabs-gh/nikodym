@@ -526,6 +526,17 @@ def test_las_filas_de_la_tasa_y_de_la_calidad_espejan_las_columnas_del_motor() -
     assert _claves_de_la_interfaz_ts("EdaQualityRow") == list(_COLUMNAS_CALIDAD)
 
 
+def test_la_fila_de_calibracion_y_los_cortes_del_semaforo_espejan_al_motor() -> None:
+    """D-VAL-15: ``calibration`` gana ``green_alpha``/``red_alpha`` al final y la card publica
+    ``traffic_light_cuts``; el tipo del front espeja las columnas del motor, en su orden, y el
+    tipo de los cortes lleva exactamente las dos claves. Un fixture capturado antes de estas claves
+    sigue siendo válido: el panel las lee como opcionales."""
+    from nikodym.validation.results import _CALIBRATION_COLUMNS
+
+    assert _claves_de_la_interfaz_ts("ValidationCalibrationRow") == list(_CALIBRATION_COLUMNS)
+    assert _claves_de_la_interfaz_ts("ValidationTrafficLightCuts") == ["green_alpha", "red_alpha"]
+
+
 def test_la_fila_del_perfil_espeja_lo_que_el_serializer_aplana() -> None:
     """El perfil por variable no es un frame del motor sino la proyección plana del serializer
     (columna delante, un tramo por fila): el tipo espeja esa proyección, medida sobre su código."""

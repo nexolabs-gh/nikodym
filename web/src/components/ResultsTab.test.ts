@@ -570,11 +570,15 @@ describe("«Validación formal» (D-SC-9) sobre una corrida real", () => {
   it("los avisos declarados se marcan, pero su código no se publica", () => {
     // AGENTS.md §copy público y D-SC-9: el identificador con el que el motor transporta la
     // salvedad es dato de auditoría, no una frase. Viaja entero en la card y en el anexo; aquí
-    // sólo tiene que verse que hay salvedades y dónde se leen.
+    // sólo tiene que verse que hay salvedades y dónde se leen. Los dos avisos son los que
+    // `validation` puede emitir de verdad (D-VAL-13/14/15 retiraron los tres `FALTA-DATO-VAL`).
     const html = render(
       conValidacion({
         ...VALIDATION_F1,
-        falta_dato: ["FALTA-DATO-VAL-2", "FALTA-DATO-VAL-3"],
+        falta_dato: [
+          "DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting' pero backtesting.enabled=False.",
+          "FALTA-DATO: provisioning_ifrs9.detail no contiene columnas estimadas (pd_12m).",
+        ],
       }),
     )
     expect(html).toContain("2 salvedades declaradas")
@@ -703,6 +707,72 @@ describe("cobertura por grado (§0-20): la tabla sola escondería media cartera"
     const html = render(conGrados([], []))
     expect(html).not.toContain("evaluados")
     expect(html).not.toContain("Grados no evaluados")
+  })
+})
+
+describe("los cortes del semáforo por grado (D-VAL-15): la fila explica su propio color", () => {
+  const conCortes = (
+    cuts: { green_alpha: number; red_alpha: number } | null,
+    porGrado: ValidationCalibrationRow[],
+  ): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation: {
+      ...VALIDATION_F1,
+      calibration: [...(VALIDATION_F1.calibration ?? []), ...porGrado],
+      metric_sections: {
+        validation: {
+          ...VALIDATION_F1.metric_sections?.validation,
+          traffic_light_cuts: cuts,
+        },
+      },
+    },
+  })
+
+  const gradoAmbar: ValidationCalibrationRow = {
+    partition: "ALL",
+    test: "jeffreys",
+    grade: "A",
+    n: 500,
+    observed_defaults: 52,
+    expected_pd: 0.08,
+    observed_dr: 0.104,
+    statistic: 1.98,
+    degrees_of_freedom: null,
+    p_value: 0.0819,
+    alpha: 0.05,
+    decision: "pass",
+    traffic_light: "amber",
+    green_alpha: 0.1,
+    red_alpha: 0.02,
+  }
+
+  it("con el contraste corrido publica los dos cortes de la card, no la significancia", () => {
+    const html = render(conCortes({ green_alpha: 0.1, red_alpha: 0.02 }, [gradoAmbar]))
+    expect(html).toContain("Cortes del semáforo")
+    expect(html).toContain("verde con p-valor ≥ 0.1000")
+    expect(html).toContain("rojo por debajo de 0.0200")
+    // El texto no atribuye la elección: el motor no sabe si el corte es declarado o default.
+    expect(html).toContain("política de validación")
+    expect(html).not.toContain("la institución fijó")
+    // Y el color de la fila es el que esos cortes deciden.
+    expect(html).toContain("Ámbar")
+  })
+
+  it("sin contraste (`traffic_light_cuts: null`) no se pintan cortes", () => {
+    const html = render(conCortes(null, []))
+    expect(html).not.toContain("Cortes del semáforo")
+    expect(html).not.toContain("verde con p-valor")
+  })
+
+  it("un fixture capturado antes de la clave —la demo publicada— sigue renderizando sin ella", () => {
+    const html = render(conValidacionSinCortes())
+    expect(html).toContain("Validación formal")
+    expect(html).not.toContain("Cortes del semáforo")
+  })
+
+  const conValidacionSinCortes = (): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation: VALIDATION_F1,
   })
 })
 
