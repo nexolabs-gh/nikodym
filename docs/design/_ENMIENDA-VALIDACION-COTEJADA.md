@@ -8,7 +8,10 @@
 > B y C, pendientes. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
-> los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—. Nace de las
+> los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2
+> (`c9b8596`): un hallazgo, verificado y absorbido —`formatCut` expandía la notación científica con
+> `toFixed`, que sólo admite 100 decimales, y un corte `1e-101` (válido) derribaba el panel—. Nace
+> de las
 > respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea
 > aparte para `FALTA-DATO-VAL-1/2/3`», «el recálculo del PSI queda oculto, con tarea aparte para el

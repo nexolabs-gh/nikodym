@@ -189,6 +189,9 @@ def test_la_prosa_no_redondea_un_corte_hasta_describir_otra_politica() -> None:
     assert _cut(0.00001) == "0,00001"
     assert _cut(1.5e-7) == "0,00000015"
     assert _cut(0.123456789) == "0,123456789"
+    # Pasada 2 de Codex: un exponente menor que −100 es válido para la config y tiene que salir
+    # entero, en posicional, sin que ningún formateador reviente.
+    assert _cut(1e-101) == "0," + "0" * 100 + "1"
 
     cfg = ValidationConfig(
         families=("calibration",),

@@ -766,6 +766,14 @@ describe("los cortes del semáforo por grado (D-VAL-15): la fila explica su prop
     expect(html).not.toContain("0.0500 ")
   })
 
+  it("un corte con exponente menor que −100 no derriba el panel: se expande sin `toFixed`", () => {
+    // Pasada 2 de Codex sobre la capa A: `toFixed(101)` lanza `RangeError` y no hay error boundary.
+    const html = render(conCortes({ green_alpha: 2e-101, red_alpha: 1e-101 }, [gradoAmbar]))
+    expect(html).toContain("Cortes del semáforo")
+    expect(html).toContain(`verde con p-valor ≥ 0.${"0".repeat(100)}2`)
+    expect(html).toContain(`rojo por debajo de 0.${"0".repeat(100)}1`)
+  })
+
   it("sin contraste (`traffic_light_cuts: null`) no se pintan cortes", () => {
     const html = render(conCortes(null, []))
     expect(html).not.toContain("Cortes del semáforo")

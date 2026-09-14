@@ -2092,15 +2092,29 @@ export function gradeCoverage(
  */
 export function formatCut(x: number | null | undefined): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
-  let texto = String(x)
-  if (texto.includes("e")) {
-    // `String(1.5e-7)` es científica: los decimales exactos son los de la mantisa más el exponente.
-    const [mantisa, exponente] = texto.split("e")
-    const decimalesMantisa = mantisa.split(".")[1]?.length ?? 0
-    texto = x.toFixed(Math.max(0, decimalesMantisa - Number(exponente)))
-  }
-  const [entero, decimales = ""] = texto.split(".")
+  const texto = String(x)
+  const posicional = texto.includes("e") ? expandirCientifica(texto) : texto
+  const [entero, decimales = ""] = posicional.split(".")
   return `${entero}.${decimales.padEnd(2, "0")}`
+}
+
+/**
+ * Pasa `1.5e-7` a `0.00000015` moviendo el punto sobre los dígitos de la mantisa, sin `toFixed`:
+ * `toFixed` sólo admite hasta 100 decimales y un corte `1e-101` —válido para la config— lanzaba
+ * `RangeError` en pleno render (pasada 2 de Codex sobre la capa A). Sólo dígitos: ningún redondeo.
+ */
+function expandirCientifica(texto: string): string {
+  const [mantisa, exponente] = texto.split("e")
+  const negativo = mantisa.startsWith("-")
+  const sinSigno = negativo ? mantisa.slice(1) : mantisa
+  const [parteEntera, parteDecimal = ""] = sinSigno.split(".")
+  const digitos = parteEntera + parteDecimal
+  const punto = parteEntera.length + Number(exponente)
+  let resultado: string
+  if (punto <= 0) resultado = `0.${"0".repeat(-punto)}${digitos}`
+  else if (punto >= digitos.length) resultado = digitos + "0".repeat(punto - digitos.length)
+  else resultado = `${digitos.slice(0, punto)}.${digitos.slice(punto)}`
+  return (negativo ? "-" : "") + resultado
 }
 
 /**
