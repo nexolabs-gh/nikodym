@@ -681,6 +681,10 @@ def _decile_records_for_partition(
             if total_bad > 0 and total_good > 0
             else 0.0
         )
+        min_pd = _series_stat(bucket[cfg.pd_column], "min")
+        max_pd = _series_stat(bucket[cfg.pd_column], "max")
+        min_score = _series_stat(bucket[cfg.score_column], "min")
+        max_score = _series_stat(bucket[cfg.score_column], "max")
 
         records.append(
             DecilePerformanceRecord(
@@ -691,12 +695,16 @@ def _decile_records_for_partition(
                 n_good=bucket_good,
                 bad_rate=bad_rate,
                 good_rate=good_rate,
-                mean_pd=_series_stat(bucket[cfg.pd_column], "mean"),
-                min_pd=_series_stat(bucket[cfg.pd_column], "min"),
-                max_pd=_series_stat(bucket[cfg.pd_column], "max"),
-                mean_score=_series_stat(bucket[cfg.score_column], "mean"),
-                min_score=_series_stat(bucket[cfg.score_column], "min"),
-                max_score=_series_stat(bucket[cfg.score_column], "max"),
+                mean_pd=_mean_within_range(
+                    _series_stat(bucket[cfg.pd_column], "mean"), min_pd, max_pd
+                ),
+                min_pd=min_pd,
+                max_pd=max_pd,
+                mean_score=_mean_within_range(
+                    _series_stat(bucket[cfg.score_column], "mean"), min_score, max_score
+                ),
+                min_score=min_score,
+                max_score=max_score,
                 cum_total=cum_total,
                 cum_bad=cum_bad,
                 cum_good=cum_good,
@@ -720,6 +728,18 @@ def _series_stat(series: Series, stat: str) -> float:
     if not math.isfinite(value):
         raise PerformanceMetricError(f"El estadístico {stat} produjo un valor no finito.")
     return _normalize_float(value)
+
+
+def _mean_within_range(mean: float, minimum: float, maximum: float) -> float:
+    """Proyecta una media en coma flotante al rango ``[minimum, maximum]`` de sus valores.
+
+    La media exacta de un conjunto está siempre dentro de su rango; la calculada no: la suma en
+    coma flotante acumula redondeo y, con muchos valores idénticos —puntajes empatados en masa—,
+    ``Series.mean()`` puede quedar uno o dos ULP fuera (medido: 99 PD iguales,
+    ``mean - max = 1,1e-16``), y :class:`DecilePerformanceRecord` rechaza la fila con razón. La
+    proyección corrige sólo ese redondeo: una media ya dentro del rango viaja intacta.
+    """
+    return _normalize_float(min(max(mean, minimum), maximum))
 
 
 def _compute_discriminant_metrics(

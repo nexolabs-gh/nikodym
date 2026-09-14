@@ -5,6 +5,19 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Corregido
+
+- **Una cartera con muchos puntajes empatados ya no tumba la evaluación del desempeño.** Cuando
+  un decil traía decenas de operaciones con exactamente la misma PD calibrada —una cartera pequeña
+  apilada, un scorecard con pocos valores distintos de puntaje—, la corrida moría en `performance`
+  con «min_pd <= mean_pd <= max_pd debe cumplirse»: la media de N valores idénticos, calculada en
+  coma flotante, quedaba una o dos unidades de redondeo por encima del máximo (medido: 99 PD
+  iguales, 1,1·10⁻¹⁶ de diferencia). La media de cada decil se proyecta ahora al rango de sus
+  propios valores, en la PD y en el puntaje; una media que ya estaba dentro del rango —toda
+  corrida que antes terminaba— viaja intacta, byte a byte.
+
 ## [1.15.0] — 2026-09-13
 
 ### Cambiado

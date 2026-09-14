@@ -191,6 +191,26 @@ def failing_config(source: str) -> NikodymConfig:
     )
 
 
+def _stacked_behavior_frame(repeats: int) -> pd.DataFrame:
+    """El frame de comportamiento apilado ``repeats`` veces, con el índice vuelto único."""
+    base = _behavior_frame()
+    frame = pd.concat([base] * repeats, ignore_index=True)
+    frame.index = pd.Index([f"op-{position:05d}" for position in range(len(frame))], name="loan_id")
+    return frame
+
+
+def write_stacked_behavior_parquet(path: Path, *, repeats: int = 50) -> int:
+    """Materializa el frame de comportamiento apilado ``repeats`` veces (1.500 filas de fábrica).
+
+    Es el observado de S10: con cuatro valores distintos de ``score`` y 1.500 filas, cada decil
+    del F1 trae decenas de PD calibradas bit a bit idénticas, y ``performance`` moría porque la
+    media en coma flotante quedaba 2 ULP por encima del máximo. Devuelve el número de filas.
+    """
+    frame = _stacked_behavior_frame(repeats)
+    frame.to_parquet(path)
+    return len(frame)
+
+
 #: Columna casi única que los tests del tope de EDA usan como eje de cohorte: un identificador.
 NEAR_UNIQUE_COHORT_COL = "operacion"
 
@@ -205,9 +225,7 @@ def write_near_unique_cohort_parquet(path: Path, *, repeats: int = 80) -> int:
     defaults de ``eda`` —población de desarrollo— quedan más de 1.000 cohortes, que es lo que el
     tope de la respuesta tiene que recortar.
     """
-    base = _behavior_frame()
-    frame = pd.concat([base] * repeats, ignore_index=True)
-    frame.index = pd.Index([f"op-{position:05d}" for position in range(len(frame))], name="loan_id")
+    frame = _stacked_behavior_frame(repeats)
     frame[NEAR_UNIQUE_COHORT_COL] = [f"ID-{position:05d}" for position in range(len(frame))]
     frame.to_parquet(path)
     return len(frame)
@@ -216,10 +234,10 @@ def write_near_unique_cohort_parquet(path: Path, *, repeats: int = 80) -> int:
 def eda_only_config(source: str, *, cohort_col: str = NEAR_UNIQUE_COHORT_COL) -> NikodymConfig:
     """Config ``data`` + ``eda`` con la tasa agrupada por ``cohort_col`` (sin modelar nada).
 
-    Sólo corre el análisis exploratorio: es lo que el tope de la respuesta acota, y correr el F1
-    entero sobre un frame apilado no aporta —su desempeño por deciles ni siquiera es evaluable con
-    tantos empates de puntaje—. ``min_obs_per_period=1`` para que cada cohorte de una sola
-    operación tenga tasa y la tabla sea tan larga como el identificador.
+    Sólo corre el análisis exploratorio: es lo que el tope de la respuesta acota; el F1 entero
+    sobre un frame apilado es el otro caso, el de :func:`write_stacked_behavior_parquet`.
+    ``min_obs_per_period=1`` para que cada cohorte de una sola operación tenga tasa y la tabla sea
+    tan larga como el identificador.
     """
     from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
 

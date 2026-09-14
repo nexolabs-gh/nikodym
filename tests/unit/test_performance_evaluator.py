@@ -165,6 +165,86 @@ def test_tabla_deciles_20_filas_golden_y_shuffle_determinista() -> None:
     assert last["ks_at_decile"] == pytest.approx(0.0)
 
 
+def test_deciles_con_puntajes_empatados_en_masa_publican_la_media_dentro_del_rango() -> None:
+    """Un decil de valores idénticos publica ``mean == min == max``, no una media a 2 ULP.
+
+    Es el observado de S10: el F1 sobre un frame apilado 50 veces moría en ``performance`` con
+    «min_pd <= mean_pd <= max_pd debe cumplirse». La media exacta de N valores iguales es ese
+    valor; la de ``Series.mean()`` no siempre —la suma en coma flotante acumula redondeo—, y el
+    record rechaza la fila con razón. El caso se busca en esta plataforma y se afirma como
+    precondición: si ningún candidato reproduce el redondeo, el test no demuestra nada y lo dice.
+    """
+    pd_value, bucket_rows = _valor_y_tamano_con_media_fuera_del_rango()
+    n_deciles = 2  # el mínimo del config; cada decil recibe exactamente ``bucket_rows`` copias
+    n_rows = n_deciles * bucket_rows
+    score_value = 1_000.0 * pd_value
+    frame = pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * n_rows,
+            "target": [1] + [0] * (n_rows - 1),
+            "score": [score_value] * n_rows,
+            "pd_calibrated": [pd_value] * n_rows,
+        },
+        index=[f"e{i:04d}" for i in range(n_rows)],
+    )
+    evaluator = PerformanceEvaluator(
+        partitions=("desarrollo",),
+        n_deciles=n_deciles,
+        min_rows_per_partition=1,
+    )
+
+    result = evaluator.evaluate(
+        frame,
+        score_column="score",
+        pd_column="pd_calibrated",
+        target_column="target",
+        partition_column="partition",
+    )
+
+    table = result.performance_table
+    assert table["n_total"].tolist() == [bucket_rows] * n_deciles
+    assert table["min_pd"].tolist() == [pd_value] * n_deciles
+    assert table["max_pd"].tolist() == [pd_value] * n_deciles
+    assert table["mean_pd"].tolist() == [pd_value] * n_deciles
+    assert table["min_score"].tolist() == [score_value] * n_deciles
+    assert table["max_score"].tolist() == [score_value] * n_deciles
+    assert table["mean_score"].tolist() == [score_value] * n_deciles
+
+
+def test_mean_within_range_proyecta_solo_el_redondeo() -> None:
+    """La proyección corrige una media a ULP del rango y deja intacta una media interior."""
+    value = 0.47287422809759916
+    above = math.nextafter(math.nextafter(value, 1.0), 1.0)
+    below = math.nextafter(value, 0.0)
+
+    assert evaluator_module._mean_within_range(above, value, value) == value
+    assert evaluator_module._mean_within_range(below, value, value) == value
+    assert evaluator_module._mean_within_range(0.5, 0.1, 0.9) == 0.5
+    assert evaluator_module._mean_within_range(0.1, 0.1, 0.9) == 0.1
+    assert evaluator_module._mean_within_range(0.9, 0.1, 0.9) == 0.9
+    assert evaluator_module._mean_within_range(-0.0, -0.0, 0.0) == 0.0
+
+
+def _valor_y_tamano_con_media_fuera_del_rango() -> tuple[float, int]:
+    """Busca un ``(valor, n)`` cuya media de ``n`` copias sale del rango en esta plataforma.
+
+    El primer candidato es el del observado real (99 PD iguales, ``mean - max = 1,1e-16``); el
+    resto es una rejilla determinista. La precondición se afirma en vez de suponerse: un test
+    verde sobre un candidato que no reproduce el redondeo no probaría el arreglo.
+    """
+    candidates = [(0.47287422809759916, 99)] + [
+        (value / 1_000, n_rows) for value in range(1, 400) for n_rows in (10, 30, 50, 99, 150)
+    ]
+    for value, n_rows in candidates:
+        series = pd.Series([value] * n_rows, dtype="float64")
+        if not float(series.min()) <= float(series.mean()) <= float(series.max()):
+            return value, n_rows
+    raise AssertionError(
+        "ningún candidato saca la media del rango en esta plataforma: el test no ejercita el "
+        "redondeo que dice cubrir; ampliar la rejilla"
+    )
+
+
 @pytest.mark.parametrize(
     ("score_direction", "scores", "expected_risk_cutoff", "expected_score_cutoff"),
     [

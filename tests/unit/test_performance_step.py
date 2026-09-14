@@ -6,12 +6,14 @@ import subprocess
 import sys
 import textwrap
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+from _ui_f1 import full_f1_config, write_stacked_behavior_parquet
 from pandas.testing import assert_frame_equal
 
 import nikodym.core.study as study_module
@@ -185,6 +187,37 @@ def test_execute_publica_result_card_goldens_audit_y_no_consume_rng() -> None:
 
     rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
     assert rules == ["performance_auc_min", "performance_gini_min"]
+
+
+def test_f1_completo_con_puntajes_empatados_en_masa_llega_a_done(
+    fake_binning_process: object, tmp_path: Path
+) -> None:
+    """El observado de S10: el frame de 30 filas apilado 50 veces corre el F1 entero a ``done``.
+
+    Con 1.500 filas y cuatro valores distintos de ``score``, cada decil trae decenas de PD
+    calibradas bit a bit idénticas, y ``performance`` moría con «min_pd <= mean_pd <= max_pd debe
+    cumplirse»: la media en coma flotante quedaba 2 ULP por encima del máximo. El artefacto que
+    la persona consume es la corrida entera —``status="done"`` y la tabla de deciles publicada—,
+    no el evaluador aislado; y en un decil de valores idénticos la media publicada es ese valor.
+    """
+    del fake_binning_process
+    source = tmp_path / "behavior_apilado.parquet"
+    n_rows = write_stacked_behavior_parquet(source, repeats=50)
+
+    study = Study(full_f1_config(str(source))).run()
+
+    assert study.run_context.status == "done", study.run_context.error
+    result = study.artifacts.get("performance", "result")
+    assert isinstance(result, PerformanceResult)
+    table = result.performance_table
+    assert int(table["n_total"].sum()) <= n_rows
+    assert (table["min_pd"] <= table["mean_pd"]).all()
+    assert (table["mean_pd"] <= table["max_pd"]).all()
+    assert (table["min_score"] <= table["mean_score"]).all()
+    assert (table["mean_score"] <= table["max_score"]).all()
+    tied = table.loc[table["min_pd"].eq(table["max_pd"])]
+    assert not tied.empty, "el caso tiene que traer al menos un decil con la PD empatada entera"
+    assert tied["mean_pd"].eq(tied["min_pd"]).all()
 
 
 def test_execute_no_muta_artefactos_upstream() -> None:
