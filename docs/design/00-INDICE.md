@@ -957,6 +957,25 @@ No autoriza START ni mueve la puerta global.
 > copy público no cambia antes de entregar cada bloque y se propone atarlo al catálogo. No es el
 > SDD de ningún bloque: cada uno exige su enmienda. Cinco decisiones para Cami en §8.
 
+> **Las deudas declaradas de `validation`, cotejadas y cerradas en diseño (2026-09-13; PROPUESTA,
+> pendiente de Cami; nace de las respuestas 5, 11 y 12 de Cami del 2026-09-09 al scorecard
+> completo).** [`_ENMIENDA-VALIDACION-COTEJADA.md`](_ENMIENDA-VALIDACION-COTEJADA.md),
+> D-VAL-13…D-VAL-18. Cotejo **doble y trazado** —texto extraído y página renderizada del PDF
+> oficial, más las plantillas de reporte del BCE con sus fórmulas de Excel— contra las
+> *Instructions for reporting the validation results of internal models* (BCE, febrero 2019, la
+> única versión publicada), el marco de backtesting de Basilea (1996) y el WP14 (2005). Medido:
+> el Jeffreys y el t-test del motor **coinciden** con el BCE en forma, ponderación (sin
+> exposición), orientación y distribución (`FALTA-DATO-VAL-1/3` se cierran y se retiran); el
+> semáforo **no tiene anclaje** regulatorio —la frase «siguen la convención de Basilea (1996)» es
+> falsa: 1996 corta por probabilidad acumulada 95 %/99,99 % sobre excepciones de VaR— y sus cortes
+> son política institucional publicada, como `alpha` (`FALTA-DATO-VAL-2` se retira sin sucesor y el
+> informe nombra los cortes cuando corre el contraste); la fórmula CCF del PDF omite un `1/R`
+> (errata, la plantilla lo confirma). Además: cablear de verdad el fallback de D-VAL-2 reutilizando
+> el ensamblador del paso de estabilidad y exponer `consume_stability`; y que
+> `min_rows_per_group` proteja cada grupo de Hosmer-Lemeshow (`not_evaluable`, razón en el trail).
+> Ningún `config_hash`, golden ni fixture de la demo se mueve (medido). Ocho decisiones para Cami
+> en §8.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
