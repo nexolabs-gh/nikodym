@@ -992,8 +992,10 @@ No autoriza START ni mueve la puerta global.
 > ejecución. Pasadas 5-7: coherencia del recálculo (un solo helper, la misma llamada al evaluador,
 > `run_step`, ficha en `optional_requires` y leída con `campo_de_card`), cortes y causa como
 > columnas de auditoría, y una validación sin ninguna prueba evaluable deja de decir «Pasa»
-> (cuarta palabra «No evaluable», elevada en §8-9). Ningún `config_hash` ni fixture de la demo se
-> mueve (medido). Nueve decisiones para Cami en §8.
+> (cuarta palabra «No evaluable», elevada en §8-9). Pasada 8: `n_tests` cuenta sólo decisiones
+> evaluables en las cuatro familias y el filtro de columnas de auditoría del informe se indexa por
+> clave de tabla. Ocho pasadas en total; la revisión del documento se detuvo ahí, declarado. Ningún
+> `config_hash` ni fixture de la demo se mueve (medido). Nueve decisiones para Cami en §8.
 
 ## Tandas de producción
 

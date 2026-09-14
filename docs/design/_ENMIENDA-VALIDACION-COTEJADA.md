@@ -58,7 +58,15 @@
 > resultado); `Study.run_step()` resuelve sin contexto (§3.2: la fábrica histórica declara la
 > receta mínima y `execute` re-deriva y exige lo efectivo antes de calcular); y las dos columnas
 > de cortes habrían aparecido vacías en el informe de la demo (§3.1: son de auditoría, como la
-> causa, y la tabla del informe queda byte a byte). Pasadas posteriores: en el `HANDOFF`.
+> causa, y la tabla del informe queda byte a byte). Pasada 8 `needs-attention` con dos hallazgos,
+> verificados y absorbidos: `n_tests` contaba también los backtests `not_evaluable`, así que el
+> estado nuevo podía seguir diciendo «Pasa» con sólo backtests sin potencia (§3.3: `n_tests`
+> cuenta decisiones evaluables en todas las familias); y `_AUDIT_ONLY_COLUMNS` filtra por nombre
+> en todas las tablas, así que una variable del usuario llamada `green_alpha` habría desaparecido
+> de otra tabla (§3.1/§3.3: el filtro pasa a ser por clave de tabla). **Aquí se detiene la
+> revisión de este documento**: ocho pasadas, veintidós hallazgos, veintiuno absorbidos y uno
+> contractual elevado; las dos últimas pasadas refinan detalles de D-VAL-16/17 ya especificados y
+> la implementación de cada capa lleva sus propias pasadas sobre código. Detalle en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -274,8 +282,9 @@ Lo que cambia, para que la decisión quede auditable y nada sin superficie (D-VI
   `_reseal_traffic_light` fija con los cortes de config junto al color; `_CALIBRATION_COLUMNS` gana
   las dos columnas (nulas en las filas de HL y Brier); `alpha` conserva su significado de nivel de
   significancia y el docstring lo dice. El color de cada fila se explica con la propia fila. **En
-  el informe las dos columnas son de auditoría** (`renderer._AUDIT_ONLY_COLUMNS`, con la condición
-  de `warning_codes`: el hecho está en prosa, que nombra los cortes): la tabla del documento no
+  el informe las dos columnas son de auditoría** (en el filtro **por clave de tabla** de
+  `validation.calibration`, §3.3, con la condición de `warning_codes`: el hecho está en prosa, que
+  nombra los cortes): la tabla del documento no
   cambia ni un byte para F1 —donde habrían salido dos encabezados crudos con celdas vacías— ni para
   ninguna corrida (hallazgo 4 de la pasada 7, sostenido); los cortes viajan en el JSON, el CSV y
   la card, y el gate sobre el artefacto de §6 lo comprueba.
@@ -514,8 +523,14 @@ veredicto. Detalle:
   probabilidades finitas pero extremas el cociente desborda a `inf` aunque los denominadores no
   sean cero; hallazgo 4 de la pasada 2, sostenido)— que el kernel fija en `_hl_not_evaluable`
   (recibe la causa) y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna
-  **y `renderer._AUDIT_ONLY_COLUMNS` la retira de las tablas del documento**, con la misma
-  condición que `warning_codes` (el hecho se declara en prosa): el informe enumera las particiones
+  **y el renderer la retira de la tabla `validation.calibration` del documento** —no por nombre
+  global: `_AUDIT_ONLY_COLUMNS` se aplica hoy a **todas** las tablas por nombre de columna
+  (`renderer.py:735`), así que una variable del usuario llamada `not_evaluable_reason` o
+  `green_alpha` desaparecería de una matriz de correlaciones (hallazgo 2 de la pasada 8,
+  sostenido); el conjunto pasa a un mapa **por clave de tabla** (`{"validation.calibration":
+  {...}}`, con `warning_codes` conservando su alcance actual explícito), con control negativo:
+  otra tabla con una columna de esos nombres sigue pintándola— con la misma condición que
+  `warning_codes` (el hecho se declara en prosa): el informe enumera las particiones
   no evaluadas y su causa en palabras en la prosa de la familia («Hosmer-Lemeshow no se evaluó en
   la partición X: un grupo de PD quedó bajo el mínimo de N operaciones»), leyendo
   `not_evaluable_partitions`; el panel traduce la causa junto al «No evaluable» de la fila. Medido
@@ -541,8 +556,15 @@ veredicto. Detalle:
   —hoy pasa igual con particiones bajo el mínimo— y D-VAL-17 lo volvería frecuente. Cambio
   aditivo: `OverallStatus` gana `not_evaluable`, que `_overall_status` devuelve cuando **no hay
   evidencia evaluable alguna**: `n_tests == 0` **y** el frame de estabilidad no trae ninguna fila
-  con decisión `pass`/`warn`/`fail`. Si alguna familia sí produjo evidencia, el estado se
-  consolida como hoy sobre ella, y la cobertura («0 de N pruebas evaluables») se publica al lado.
+  con decisión `pass`/`warn`/`fail`. **`n_tests` pasa a contar decisiones evaluables en todas
+  las familias**: hoy `_test_counts` (`evaluator.py:848-857`) excluye los HL `not_evaluable` pero
+  suma **todos** los `BacktestRecord`, aunque `ttest_realised_vs_predicted` y
+  `binomial_realised_vs_predicted` devuelven `decision="not_evaluable"` por muestra insuficiente o
+  degenerada (hallazgo 1 de la pasada 8, sostenido: con sólo backtests sin potencia, `n_tests > 0`
+  y el consolidado caía en `pass`); los backtests no evaluables se excluyen de `n_tests` y de
+  `n_failed`, y la cobertura del panel los enumera aparte, como a los grados. Si alguna familia sí
+  produjo evidencia, el estado se consolida como hoy sobre ella, y la cobertura («0 de N pruebas
+  evaluables») se publica al lado.
   `VALIDATION_STATUS_LABELS` gana la cuarta palabra, **«No evaluable»** —la misma que ya usan las
   bandas del PSI—, con espejo en el front y en la prosa; el renderer la trata como banda neutra,
   no verde. Es una cuarta palabra sobre las tres que Cami aprobó (§8-3 del scorecard completo):
@@ -570,8 +592,10 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
 - `CalibrationTestRecord`: `statistic: float | None` (`None` sólo con `decision="not_evaluable"`
   en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los cuatro valores cerrados.
   `OverallStatus` gana `not_evaluable` (sin evidencia evaluable alguna) y
-  `VALIDATION_STATUS_LABELS` la palabra «No evaluable». `renderer._AUDIT_ONLY_COLUMNS` gana
-  también `green_alpha` y `red_alpha`: la tabla de calibración del documento no cambia.
+  `VALIDATION_STATUS_LABELS` la palabra «No evaluable». `n_tests`/`n_failed` cuentan sólo
+  decisiones evaluables en las cuatro familias. El renderer oculta `green_alpha`, `red_alpha` y
+  `not_evaluable_reason` **sólo** en `validation.calibration` (filtro por clave de tabla): la
+  tabla de calibración del documento no cambia y ninguna otra tabla pierde columnas.
   `GradeBinomialRecord`: `green_alpha`, `red_alpha`. `metric_sections.validation`:
   `traffic_light_cuts` (`null` sin contraste por grado) y `not_evaluable_partitions` (lista).
 - `ValidationStep.requires` (CT-1) para `stability` con `consume_stability=False`:
@@ -586,7 +610,8 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
 - `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey,
   ...] | None]` (aditivo; clave ausente = no declarada, `None` = declarada e incoaccionable).
   `StabilityConfig`: método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`:
-  `umbral` con los dos cortes. `renderer._AUDIT_ONLY_COLUMNS` gana `not_evaluable_reason`.
+  `umbral` con los dos cortes. El filtro de columnas de auditoría del renderer se indexa por
+  clave de tabla.
 - Trail: `calibration_hl_not_evaluable` (nueva regla, tres causas) y `stability_psi` con
   `source="recomputed"` (regla existente). `validation_falta_dato` deja de emitirse por los tres
   códigos retirados.
@@ -680,8 +705,12 @@ grupo degenerado de hoy (`test_hosmer_lemeshow_not_evaluable_grupo_degenerado`) 
 el panel traduce la causa (`ResultsTab.test.ts`) y la prosa la enumera (`test_report_prose`);
 100 filas por partición, 10 grupos, mínimo 30 y sólo calibración → `overall_status ==
 "not_evaluable"`, «No evaluable» en el panel y en el capítulo, nunca «Pasa» (control negativo:
-devolver `pass` con `n_tests == 0` → rojo); con estabilidad evaluable y `n_tests == 0` el estado
-es el de la estabilidad; el F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy
+devolver `pass` con `n_tests == 0` → rojo); sólo backtesting con LGD/EAD/PD insuficientes o
+degenerados → `n_tests == 0` y `not_evaluable` (control negativo: contar los backtests
+`not_evaluable` → rojo), y mixtos (un backtest evaluable + HL no evaluables → el estado del
+evaluable, cobertura «1 de N»); con estabilidad evaluable y `n_tests == 0` el estado es el de la
+estabilidad; una tabla ajena (p. ej. la matriz de correlaciones) con una columna llamada
+`green_alpha` la sigue pintando (control negativo: volver al filtro global por nombre → rojo); el F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy
 y `not_evaluable_partitions == []`. Ajustar los fixtures de `test_validation_evaluator.py` (mínimo 6 o `hl_n_groups=3` en
 `_config()`, con la razón escrita) y los tests que hoy afirman `statistic == 0.0` en un
 `not_evaluable` (`test_validation_calibration_tests.py:88-113`). **Controles negativos:** quitar la
