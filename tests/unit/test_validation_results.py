@@ -892,6 +892,66 @@ def test_validation_result_rechaza_particiones_sin_veredicto_malformadas_o_adult
         )
 
 
+@pytest.mark.parametrize(
+    ("n", "min_group_size", "min_rows", "reason"),
+    [
+        # Grupo vacío: sólo puede ser degenerado (el kernel lo mira antes que el mínimo).
+        (5, 0, 3, "group_below_min"),
+        (5, 0, 3, "non_finite_statistic"),
+        # Grupo no vacío bajo el mínimo: sólo puede ser group_below_min (la puerta va antes del
+        # estadístico).
+        (25, 2, 3, "non_finite_statistic"),
+        (25, 2, 3, "degenerate_group"),
+        # Grupo sobre el mínimo: no puede ser group_below_min.
+        (100, 10, 3, "group_below_min"),
+    ],
+)
+def test_not_evaluable_partition_reproduce_la_precedencia_de_causas_del_kernel(
+    n: int, min_group_size: int, min_rows: int, reason: str
+) -> None:
+    """Pasada 3 de Codex sobre la capa B: el DTO sólo cotejaba el mínimo con ``group_below_min`` y
+    aceptaba, por ejemplo, 25 filas en 10 grupos con mínimo 3 y causa ``non_finite_statistic``,
+    que el kernel nunca produce (devuelve ``group_below_min`` antes de calcular nada). La
+    precedencia exacta del kernel —vacío → degenerado; bajo el mínimo → ``group_below_min``;
+    después denominador y finitud— queda codificada."""
+    from nikodym.validation.results import NotEvaluablePartition
+
+    with pytest.raises(ValidationError, match="kernel"):
+        NotEvaluablePartition(
+            partition="p",
+            n=n,
+            n_groups=10,
+            min_group_size=min_group_size,
+            min_rows=min_rows,
+            reason=reason,  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize(
+    ("n", "min_group_size", "reason"),
+    [
+        (5, 0, "degenerate_group"),
+        (25, 2, "group_below_min"),
+        (100, 10, "degenerate_group"),
+        (100, 10, "non_finite_statistic"),
+    ],
+)
+def test_not_evaluable_partition_acepta_lo_que_el_kernel_produce(
+    n: int, min_group_size: int, reason: str
+) -> None:
+    from nikodym.validation.results import NotEvaluablePartition
+
+    entrada = NotEvaluablePartition(
+        partition="p",
+        n=n,
+        n_groups=10,
+        min_group_size=min_group_size,
+        min_rows=3,
+        reason=reason,  # type: ignore[arg-type]
+    )
+    assert entrada.reason == reason
+
+
 def test_validation_result_exige_que_la_card_cuente_solo_decisiones_evaluables() -> None:
     """D-VAL-17: ``n_tests``/``n_failed`` y ``overall_status`` son derivables de los records y del
     frame de estabilidad, y la card no puede decir otra cosa (una card rehidratada con ``n_tests``

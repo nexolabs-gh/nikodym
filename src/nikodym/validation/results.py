@@ -423,9 +423,12 @@ class NotEvaluablePartition(BaseModel):
     B: una entrada de la card se aceptaba como cualquier mapping y sus números no se cotejaban con
     nada): la partición bajo el mínimo tiene ``n < min_rows`` y no forma grupos; las otras tres
     causas pasaron la puerta de la partición (``n >= min_rows``) y su grupo más chico es
-    ``n // n_groups``; ``group_below_min`` exige además que ese grupo quede bajo el mínimo. El
-    evaluador construye cada entrada con este modelo y ``ValidationResult`` lo revalida al
-    reconciliar la card con los records y la tabla.
+    ``n // n_groups``, y la causa sigue la **precedencia exacta del kernel** (pasada 3 de Codex):
+    un grupo vacío sólo puede ser ``degenerate_group`` (el kernel lo mira antes que el mínimo); un
+    grupo no vacío bajo el mínimo sólo puede ser ``group_below_min`` (la puerta va antes del
+    estadístico); ``degenerate_group`` por denominador nulo y ``non_finite_statistic`` exigen un
+    grupo que superó el mínimo. El evaluador construye cada entrada con este modelo y
+    ``ValidationResult`` lo revalida al reconciliar la card con los records y la tabla.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -471,10 +474,21 @@ class NotEvaluablePartition(BaseModel):
                 f"min_group_size debe ser el grupo más chico de np.array_split, n // n_groups = "
                 f"{esperado}; observado {self.min_group_size!r}."
             )
-        if self.reason == "group_below_min" and esperado >= self.min_rows:
+        # La precedencia del kernel decide qué causa es posible con estos números.
+        if esperado == 0:
+            posibles: tuple[str, ...] = ("degenerate_group",)
+            por_que = "un grupo vacío es degenerado antes de mirar el mínimo"
+        elif esperado < self.min_rows:
+            posibles = ("group_below_min",)
+            por_que = "la puerta del mínimo por grupo va antes que el estadístico"
+        else:
+            posibles = ("degenerate_group", "non_finite_statistic")
+            por_que = "con el grupo más chico sobre el mínimo no hay group_below_min"
+        if self.reason not in posibles:
             raise ValueError(
-                f"group_below_min exige min_group_size < min_rows; {esperado} no está bajo el "
-                f"mínimo {self.min_rows}."
+                f"El kernel no produce {self.reason!r} con n={self.n}, n_groups={self.n_groups} y "
+                f"min_rows={self.min_rows} (grupo más chico {esperado}): {por_que}; las causas "
+                f"posibles son {list(posibles)!r}."
             )
         return self
 

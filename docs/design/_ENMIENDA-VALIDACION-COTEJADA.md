@@ -40,8 +40,18 @@
 > familia dice «Filas publicadas: N; M sin veredicto» (el Brier es un puntaje y no cuenta; el
 > backtesting y la estabilidad cuentan su `decision`, la discriminación su `status`), y sin ellas
 > conserva la frase de siempre, que la demo F1 lleva y no se recaptura (medido: la corrida F1
-> fresca sigue igual salvo sellos y la clave nueva)—; C, pendiente. Codex sobre el código de la
-> capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> fresca sigue igual salvo sellos y la clave nueva)—; pasada 3 (`ee8596c`): dos hallazgos medios,
+> verificados y absorbidos —(a) `NotEvaluablePartition` sólo cotejaba el mínimo con
+> `group_below_min` y aceptaba causas que el kernel no produce (25 filas en 10 grupos con mínimo
+> 3 y `non_finite_statistic`): el DTO codifica la precedencia exacta del kernel —grupo vacío sólo
+> `degenerate_group`; grupo no vacío bajo el mínimo sólo `group_below_min`; sobre el mínimo,
+> `degenerate_group` por denominador o `non_finite_statistic`—, con los cinco casos imposibles y
+> los cuatro posibles gateados; (b) `api.md` y la guía definían «No evaluable» como «ninguna
+> prueba alcanzó potencia», cuando el estado también sale con sólo el puntaje de Brier, sólo
+> discriminación o las pruebas apagadas: la definición pública es la del motor (ninguna prueba
+> con veredicto de pasa o falla y ninguna decisión de estabilidad) y la falta de potencia queda
+> como una causa posible, con gate sobre las dos páginas—; C, pendiente. Codex sobre el código de
+> la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

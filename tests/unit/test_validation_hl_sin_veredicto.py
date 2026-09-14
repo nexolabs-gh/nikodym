@@ -398,6 +398,32 @@ def test_el_backtesting_sin_veredicto_se_cuenta_en_su_familia() -> None:
     assert "potencia" not in intro and "causa" not in intro
 
 
+def test_la_referencia_publica_no_define_no_evaluable_como_falta_de_potencia() -> None:
+    """Pasada 3 de Codex sobre la capa B: `api.md` decía «ninguna prueba alcanzó potencia» y la guía
+    lo mismo, cuando el estado también sale con sólo el puntaje de Brier, sólo discriminación o las
+    pruebas apagadas. La definición pública es la del motor —ninguna prueba con veredicto de pasa o
+    falla y ninguna decisión de estabilidad— y la falta de potencia es una causa posible."""
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[2]
+    api = (raiz / "docs_site" / "api.md").read_text(encoding="utf-8")
+    # Dos tablas empiezan igual (la banda del PSI dice `none`); la del estado técnico es la que
+    # explica con «Ídem».
+    fila = next(
+        linea
+        for linea in api.splitlines()
+        if linea.startswith("| `not_evaluable` | No evaluable | Ídem")
+    )
+    assert "pasa o falla" in fila
+    assert "alcanzó potencia" not in fila
+    assert "una causa posible" in fila
+    guia = (raiz / "docs_site" / "guias" / "validacion-formal.md").read_text(encoding="utf-8")
+    inicio = guia.index('!!! note "Una validación sin ninguna prueba evaluable no «Pasa»"')
+    nota = guia[inicio : guia.index("\n\n", inicio + 60)]
+    assert "veredicto de pasa o falla" in nota
+    assert "Si ninguna prueba alcanzó potencia" not in nota
+
+
 def test_con_hosmer_lemeshow_evaluable_la_prosa_no_enumera_nada() -> None:
     n = 300
     frame = pd.DataFrame(

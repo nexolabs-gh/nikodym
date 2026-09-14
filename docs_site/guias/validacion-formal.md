@@ -94,11 +94,14 @@ la configuración: el rechazo está en la muestra fuera de tiempo y es deriva te
 maquilla ni se esconde.
 
 !!! note "Una validación sin ninguna prueba evaluable no «Pasa»"
-    Si ninguna prueba alcanzó potencia —todos los Hosmer-Lemeshow sin veredicto, los backtests
-    sin dispersión— y la estabilidad tampoco dejó una decisión, el estado técnico es **No
-    evaluable**: la misma palabra que usan las bandas del PSI. Antes ese caso decía «Pasa», que
-    era cierto sólo porque no había nada que fallar. Si alguna familia sí produjo evidencia, el
-    estado se consolida sobre ella y la cobertura lo dice al lado.
+    Si ninguna prueba dejó un veredicto de pasa o falla y la estabilidad tampoco dejó una
+    decisión, el estado técnico es **No evaluable**: la misma palabra que usan las bandas del PSI.
+    Pasa cuando las pruebas no alcanzaron potencia —todos los Hosmer-Lemeshow sin veredicto, los
+    backtests sin dispersión—, pero también cuando sólo corrió el puntaje de Brier, sólo la
+    discriminación, o las pruebas de pasa o falla estaban apagadas: el estado dice qué no hay, y
+    la causa, cuando existe, la publica cada fila. Antes ese caso decía «Pasa», que era cierto sólo
+    porque no había nada que fallar. Si alguna familia sí produjo evidencia, el estado se consolida
+    sobre ella y la cobertura lo dice al lado.
 
 ### Por grado de rating
 

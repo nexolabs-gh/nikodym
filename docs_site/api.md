@@ -407,7 +407,7 @@ una sola fuente: `nikodym.validation.results`.
 | `pass` | Pasa | Estado técnico agregado de la corrida |
 | `warn` | Revisar | Ídem |
 | `fail` | Falla | Ídem |
-| `not_evaluable` | No evaluable | Ídem: ninguna prueba alcanzó potencia y la estabilidad no dejó decisión |
+| `not_evaluable` | No evaluable | Ídem: ninguna prueba dejó un veredicto de pasa o falla y la estabilidad no dejó una decisión. La falta de potencia es una causa posible, no la única: también sale con sólo el puntaje de Brier, con sólo discriminación o con las pruebas de pasa o falla apagadas |
 | `pass` | Pasa | Veredicto de una fila de calibración o de backtesting |
 | `fail` | Falla | Ídem |
 | `not_evaluable` | Sin veredicto | Ídem: sin potencia estadística, o una fila que no es una prueba de pasa/falla (el puntaje de Brier) |
