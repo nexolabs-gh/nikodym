@@ -574,8 +574,40 @@ def test_validation_result_reconcilia_las_filas_de_grado_con_los_records_y_la_ca
     with pytest.raises(ValidationError, match="recuento de colores de la card"):
         _result(card=card)
 
-    # Sin sección CT-2 en la card (fixtures mínimos) no hay copia que reconciliar: se acepta.
-    assert _result(card=_card(metric_sections={})).card.metric_sections == {}
+    # Pasada 5 de Codex: con grade_records, una card que perdió la sección CT-2 o una de sus dos
+    # claves no se acepta —el informe y el panel leerían la card y callarían los cortes—.
+    with pytest.raises(ValidationError, match="exige metric_sections"):
+        _result(card=_card(metric_sections={}))
+    with pytest.raises(ValidationError, match="traffic_light_cuts"):
+        _result(card=_card(metric_sections={"validation": {"traffic_light": {"green": 1}}}))
+    with pytest.raises(ValidationError, match="recuento de colores"):
+        _result(
+            card=_card(
+                metric_sections={
+                    "validation": {"traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01}}
+                }
+            )
+        )
+    # Sin grade_records no hay semáforo que reconciliar: una card mínima sigue valiendo.
+    assert (
+        _result(
+            calibration=_calibration_frame().iloc[:2],
+            calibration_records=_calibration_records(),
+            grade_records=(),
+            card=_card(metric_sections={}),
+        ).card.metric_sections
+        == {}
+    )
+    # Y los records tienen que compartir cortes entre sí, haya o no card que reconciliar.
+    tabla = _calibration_frame()
+    tabla.loc[2, "green_alpha"] = 0.10
+    with pytest.raises(ValidationError, match="compartir los mismos cortes"):
+        _result(
+            calibration=pd.concat([tabla, _calibration_frame().iloc[[2]]], ignore_index=True),
+            calibration_records=_calibration_records(),
+            grade_records=(_grade_record(green_alpha=0.10), _grade_record()),
+            card=_card(metric_sections={}),
+        )
 
 
 def test_validation_results_lazy_exports_y_nucleo_liviano_por_subprocess() -> None:
@@ -693,7 +725,14 @@ def _card(**updates: Any) -> ValidationCardSection:
         "n_failed": 0,
         "dependency_versions": {"pandas": "2.3.3", "numpy": "2.4.6", "scipy": "1.14.1"},
         "falta_dato": ("DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting'",),
-        "metric_sections": {},
+        # La sección CT-2 como la publica el evaluador: con grade_records, el resultado la exige.
+        "metric_sections": {
+            "validation": {
+                "traffic_light": {"green": 1, "amber": 0, "red": 0},
+                "not_evaluable_grades": [],
+                "traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01},
+            }
+        },
     }
     payload.update(updates)
     return ValidationCardSection(**payload)

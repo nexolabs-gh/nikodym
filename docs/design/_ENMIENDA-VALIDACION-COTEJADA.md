@@ -22,7 +22,20 @@
 > p-valor, color, cortes) y la card con los records (cortes y recuento de colores), con un
 > control negativo por copia; **límite declarado**: la presencia o nulidad de los cortes según el
 > config no se puede verificar sin el config, y la UI ya lee un solo JSON serializado de un solo
-> resultado—. Nace de las
+> resultado—; pasada 5 (`0f5f1cd`): dos hallazgos —(a) **contractual, decidido y elevado, no
+> absorbido**: Codex lee D-EST-3 (`audit` estable) como si cubriera el contenido de `umbral` de
+> cada regla, y el `umbral` de `calibration_semaforo` pasa de número a objeto; el writer sostiene
+> que D-EST-3 promueve el sobre del evento, el hashing y el replay, que el payload de una regla de
+> `validation` es del dominio experimental y que la forma nueva es la que §3.1 de esta enmienda
+> aprobada prescribe (la anterior era un umbral falso); queda declarado en el CHANGELOG y elevado a
+> Cami en el `HANDOFF`, y la alternativa si Cami adopta la lectura estricta es una regla v2
+> aditiva conservando la forma vieja; (b) absorbido: con `grade_records`, `ValidationResult` exige
+> la sección CT-2 de la card con `traffic_light_cuts` y el recuento de colores, y la homogeneidad
+> de cortes entre records se exige siempre—. **Aquí se detiene la revisión de la capa A**: cinco
+> pasadas, ocho hallazgos, siete absorbidos y uno contractual elevado; desde la pasada 3 cada
+> pasada sondea un borde nuevo de la misma superficie (precisión visible, reconciliación entre
+> copias, esquema del trail) sin encontrar un defecto de la retirada de los códigos ni del cotejo,
+> y la capa B lleva sus propias pasadas. Nace de las
 > respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea
 > aparte para `FALTA-DATO-VAL-1/2/3`», «el recálculo del PSI queda oculto, con tarea aparte para el

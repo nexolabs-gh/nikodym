@@ -648,9 +648,12 @@ class ValidationResult(BaseModel):
         La tabla ``calibration`` es lo que pinta el informe, ``grade_records`` lo que lee el trail
         y ``metric_sections.validation`` lo que leen la prosa y el panel. Se exige que las filas de
         grado de la tabla (las que traen semáforo) coincidan una a una y en orden con los records
-        en grado, p-valor, color y cortes; que ``traffic_light_cuts`` de la card sea el par de los
-        records cuando los hay; y que el recuento de colores de la card sea el derivado. Una card
-        sin la sección CT-2 —fixtures mínimos— no tiene copia que reconciliar.
+        en grado, p-valor, color y cortes; que los records compartan cortes; que, habiendo
+        records, la card traiga la sección CT-2 con ``traffic_light_cuts`` igual al par de los
+        records y el recuento de colores ``traffic_light``; y que ese recuento sea el derivado.
+        Sin records de grado no hay semáforo que reconciliar y una card mínima vale. Lo que no se
+        puede verificar aquí —si los cortes debían estar o ser nulos según el config— queda
+        declarado en la enmienda.
         """
         frame = super().__getattribute__("calibration")
         filas = frame[frame["traffic_light"].notna()]
@@ -666,24 +669,33 @@ class ValidationResult(BaseModel):
                         f"La fila de grado {record.grade!r} de calibration no coincide con su "
                         f"record en {campo}: {fila[campo]!r} frente a {getattr(record, campo)!r}."
                     )
+        cortes = {(record.green_alpha, record.red_alpha) for record in self.grade_records}
+        if len(cortes) > 1:
+            raise ValueError("Todos los grade_records deben compartir los mismos cortes.")
         section = self.card.metric_sections.get("validation")
         if not isinstance(section, Mapping):
+            if self.grade_records:
+                # Pasada 5 de Codex: la prosa y el panel leen los cortes de la card; una card que
+                # perdió la sección CT-2 los callaría en silencio.
+                raise ValueError(
+                    "Un resultado con grade_records exige metric_sections['validation'] en la "
+                    "card, con traffic_light_cuts y traffic_light."
+                )
             return
-        if self.grade_records and "traffic_light_cuts" in section:
+        if self.grade_records:
             esperado = {
                 "green_alpha": self.grade_records[0].green_alpha,
                 "red_alpha": self.grade_records[0].red_alpha,
             }
-            if any(
-                (record.green_alpha, record.red_alpha)
-                != (esperado["green_alpha"], esperado["red_alpha"])
-                for record in self.grade_records
-            ):
-                raise ValueError("Todos los grade_records deben compartir los mismos cortes.")
-            if section["traffic_light_cuts"] != esperado:
+            if section.get("traffic_light_cuts") != esperado:
                 raise ValueError(
                     "traffic_light_cuts de la card no coincide con los cortes de los records: "
-                    f"{section['traffic_light_cuts']!r} frente a {esperado!r}."
+                    f"{section.get('traffic_light_cuts')!r} frente a {esperado!r}."
+                )
+            if "traffic_light" not in section:
+                raise ValueError(
+                    "Un resultado con grade_records exige el recuento de colores "
+                    "metric_sections['validation']['traffic_light'] en la card."
                 )
         if "traffic_light" in section:
             conteo = {
