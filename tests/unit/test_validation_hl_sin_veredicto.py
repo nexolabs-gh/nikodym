@@ -235,6 +235,8 @@ def test_sin_ninguna_prueba_evaluable_el_capitulo_dice_no_evaluable_y_nunca_pasa
     assert "«No evaluable»" in intro
     assert "«Pasa»" not in cuerpo
     assert "ninguna prueba con veredicto" in intro
+    # Con HL sin veredicto de verdad, el capítulo remite a su enumeración en la familia.
+    assert "quedaron sin veredicto y se enumeran, con su causa" in intro
     # Y la métrica ejecutiva —la única de este bundle— sale con la banda neutra, no verde, y sin
     # el «0 de 0 pruebas fallidas» que sería cierto y engañoso a la vez.
     ejecutivo = _resumen_ejecutivo(html)
@@ -276,6 +278,124 @@ def test_con_solo_estabilidad_evaluable_la_prosa_no_niega_la_evidencia(
     from nikodym.validation.results import VALIDATION_STATUS_LABELS
 
     assert VALIDATION_STATUS_LABELS[estado] in ejecutivo
+
+
+def test_la_familia_de_calibracion_no_llama_evaluadas_a_las_filas_sin_veredicto() -> None:
+    """Pasada 2 de Codex sobre la capa B: «Filas evaluadas: 8» convivía con cuatro frases de
+    «Hosmer-Lemeshow no se evaluó». Con filas sin veredicto la frase cuenta lo publicado y lo que
+    quedó sin veredicto (el Brier es un puntaje y no cuenta como sin veredicto); sin ellas, la
+    frase de siempre —la demo F1 la lleva con «Filas evaluadas: 6» y no se recaptura—."""
+    seccion = _seccion(_html(_resultado()), "validation-calibration")
+    assert "Filas evaluadas" not in seccion
+    assert "Filas publicadas: 8" in seccion
+    assert "4 sin veredicto" in seccion
+
+
+@pytest.mark.parametrize(
+    ("config", "familias_con_filas"),
+    [
+        (
+            ValidationConfig(
+                families=("calibration",),
+                calibration=CalibrationValidationConfig(
+                    hosmer_lemeshow=False, binomial_by_grade=False
+                ),
+            ),
+            ("calibration",),
+        ),
+        (ValidationConfig(families=("discrimination",)), ("discrimination",)),
+    ],
+    ids=["solo_brier", "solo_discriminacion"],
+)
+def test_sin_ninguna_prueba_la_prosa_no_inventa_falta_de_potencia(
+    config: ValidationConfig, familias_con_filas: tuple[str, ...]
+) -> None:
+    """Pasada 2 de Codex sobre la capa B: el estado «No evaluable» también sale con sólo el
+    puntaje de Brier, con las pruebas apagadas o con la discriminación sola, y la prosa afirmaba
+    que «las pruebas que no alcanzaron potencia … se enumeran, con su causa». Sin ningún
+    Hosmer-Lemeshow sin veredicto la frase es neutra: dice qué no hay, no inventa por qué."""
+    n = 300
+    frame = pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * n,
+            "target": [1 if i % 10 == 0 else 0 for i in range(n)],
+            "pd_calibrated": [0.1 + 0.001 * (i % 7) for i in range(n)],
+        },
+        index=[f"r{i}" for i in range(n)],
+    )
+    performance = pd.DataFrame(
+        {
+            "partition": ["desarrollo"],
+            "n_total": [n],
+            "n_bad": [30],
+            "auc": [0.7],
+            "gini": [0.4],
+            "ks": [0.3],
+            "status": ["ok"],
+        }
+    )
+    result = ValidationEvaluator.from_config(config).validate(
+        calibrated_pd=frame, performance_metrics=performance
+    )
+    assert (result.card.n_tests, result.card.overall_status) == (0, "not_evaluable")
+    assert result.card.metric_sections["validation"]["not_evaluable_partitions"] == []
+    tablas = {f"validation.{f}": getattr(result, f) for f in familias_con_filas}
+    html = _html_con_tablas(result, tablas)
+    intro = _seccion(html, "validation")
+    assert "«No evaluable»" in intro
+    assert "ninguna prueba con veredicto de pasa o falla" in intro
+    assert "potencia" not in intro
+    assert "se enumeran" not in intro
+    assert _FRASE_HL not in html
+    # Y la familia con filas sigue con la frase de siempre: el Brier o la discriminación se
+    # publicaron; nada quedó sin veredicto.
+    for familia in familias_con_filas:
+        cuerpo = _seccion(html, f"validation-{familia}")
+        assert "Filas evaluadas" in cuerpo
+        assert "sin veredicto" not in cuerpo
+
+
+def test_el_backtesting_sin_veredicto_se_cuenta_en_su_familia() -> None:
+    """Un contraste realizado-vs-estimado que no se pudo correr (sin dispersión) figura en la
+    tabla con ``not_evaluable``; su familia lo cuenta como sin veredicto en vez de llamarlo
+    evaluado, y el capítulo no le atribuye una causa que el motor no publica."""
+    from nikodym.validation.config import BacktestingValidationConfig
+
+    n = 40
+    detail = pd.DataFrame(
+        {
+            "row_id": [f"r{i}" for i in range(n)],
+            "portfolio": ["retail"] * n,
+            "pd_12m": [0.05] * n,
+            "lgd": [0.45] * n,
+            "ead": [1000.0] * n,
+        },
+        index=[f"r{i}" for i in range(n)],
+    )
+    realised = pd.DataFrame(
+        {
+            "realised_default": [1.0 if i % 20 == 0 else 0.0 for i in range(n)],
+            "realised_lgd": [0.55] * n,
+            "realised_ead": [1100.0] * n,
+        },
+        index=[f"r{i}" for i in range(n)],
+    )
+    cfg = ValidationConfig(
+        families=("backtesting",),
+        backtesting=BacktestingValidationConfig(
+            enabled=True, segment_col="portfolio", parameters=("lgd", "ead")
+        ),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(ifrs9_detail=detail, realised=realised)
+    assert all(r.decision == "not_evaluable" for r in result.backtest_records)
+    assert (result.card.n_tests, result.card.overall_status) == (0, "not_evaluable")
+    html = _html_con_tablas(result, {"validation.backtesting": result.backtesting})
+    cuerpo = _seccion(html, "validation-backtesting")
+    assert "Filas publicadas: 2" in cuerpo
+    assert "2 sin veredicto" in cuerpo
+    assert "Filas evaluadas" not in cuerpo
+    intro = _seccion(html, "validation")
+    assert "potencia" not in intro and "causa" not in intro
 
 
 def test_con_hosmer_lemeshow_evaluable_la_prosa_no_enumera_nada() -> None:

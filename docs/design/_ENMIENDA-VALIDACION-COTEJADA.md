@@ -30,8 +30,18 @@
 > cada entrada con él, y `ValidationResult` lo revalida y coteja `partition`/`reason`/`n_groups`
 > con el record, `n` con la fila y `min_rows` homogéneo; todos los campos comunes de cada fila se
 > reconcilian. Un control negativo destapó un oráculo débil (filtrar la entrada basura dejaba la
-> lista coherente): el test exige ahora que la basura se acuse como inválida—; C, pendiente. Codex
-> sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> lista coherente): el test exige ahora que la basura se acuse como inválida—; pasada 2
+> (`c9461a3`): dos hallazgos, verificados y absorbidos —(a) la rama «No evaluable» del capítulo
+> afirmaba que «las pruebas que no alcanzaron potencia … se enumeran, con su causa» también con
+> sólo el puntaje de Brier, con las pruebas apagadas o con la discriminación sola, donde no hay
+> ninguna causa que enumerar (el backtesting `not_evaluable` tampoco transporta una): la frase es
+> neutra y sólo nombra las pruebas de Hosmer-Lemeshow sin veredicto cuando la card las publica;
+> (b) «Filas evaluadas: 8» convivía con cuatro HL sin veredicto: con filas sin veredicto la
+> familia dice «Filas publicadas: N; M sin veredicto» (el Brier es un puntaje y no cuenta; el
+> backtesting y la estabilidad cuentan su `decision`, la discriminación su `status`), y sin ellas
+> conserva la frase de siempre, que la demo F1 lleva y no se recaptura (medido: la corrida F1
+> fresca sigue igual salvo sellos y la clave nueva)—; C, pendiente. Codex sobre el código de la
+> capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

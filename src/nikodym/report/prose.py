@@ -1153,14 +1153,34 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     if n_tests is not None and n_failed is not None:
         if n_tests == 0 and _text(card.get("overall_status")) == "not_evaluable":
             # D-VAL-17: sin ninguna decisión evaluable en las cuatro familias ni una decisión de
-            # estabilidad, el estado es «No evaluable»; las pruebas que no se pudieron correr no
-            # cuentan y se enumeran, con su causa, en la sección de su familia.
-            paragraphs.append(
+            # estabilidad, el estado es «No evaluable». La frase es neutra —también se llega aquí
+            # con sólo el puntaje de Brier, con las pruebas apagadas o con la discriminación sola
+            # (pasada 2 de Codex sobre la capa B)—; la falta de potencia y las causas se nombran
+            # sólo cuando la card publica Hosmer-Lemeshow sin veredicto, que es lo único que trae
+            # una causa.
+            frase = (
                 "El resultado no registra ninguna prueba con veredicto de pasa o falla ni una "
-                "decisión de estabilidad: las pruebas que no alcanzaron potencia estadística "
-                "quedan sin veredicto y se enumeran, con su causa, en la sección de su familia. "
-                "Las tablas se copian del resultado que publicó la validación, sin recalcular "
-                "métricas ni decisiones."
+                "decisión de estabilidad."
+            )
+            sin_veredicto = _sequence(
+                _mapping(_mapping(card.get("metric_sections")).get("validation")).get(
+                    "not_evaluable_partitions"
+                )
+            )
+            if sin_veredicto:
+                cuantas = len(sin_veredicto)
+                quedaron = _plural(
+                    cuantas,
+                    "prueba de Hosmer-Lemeshow quedó",
+                    "pruebas de Hosmer-Lemeshow quedaron",
+                )
+                frase += (
+                    f" {_miles(cuantas)} {quedaron} sin veredicto y se enumeran, con su causa, en "
+                    "la sección de calibración."
+                )
+            paragraphs.append(
+                f"{frase} Las tablas se copian del resultado que publicó la validación, sin "
+                "recalcular métricas ni decisiones."
             )
         elif n_tests == 0:
             # La estabilidad no cuenta en ``n_tests`` pero sí decide el estado (pasada 1 de Codex
@@ -1226,7 +1246,42 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
             *sin_veredicto,
             *cortes,
         )
+    # Una prueba que no se pudo correr no es una fila «evaluada» (pasada 2 de Codex sobre la capa
+    # B): con filas sin veredicto la frase cuenta lo publicado y lo que quedó sin veredicto. Sin
+    # ellas, la frase de siempre, byte a byte (la demo F1 la lleva).
+    omitidas = _rows_without_verdict(table, family)
+    if omitidas:
+        return (
+            f"{description} Filas publicadas: {_miles(rows)}; {_miles(omitidas)} sin veredicto.",
+            *sin_veredicto,
+            *cortes,
+        )
     return (f"{description} Filas evaluadas: {_miles(rows)}.", *sin_veredicto, *cortes)
+
+
+def _rows_without_verdict(table: Any, family: str) -> int:
+    """Cuántas filas de la tabla de una familia son pruebas que no se pudieron correr.
+
+    Calibración: los Hosmer-Lemeshow ``not_evaluable`` (el Brier es un puntaje y su ``decision``
+    es ``not_evaluable`` por diseño: no cuenta). Backtesting y estabilidad: la ``decision``
+    ``not_evaluable``. Discriminación: el ``status`` ``not_evaluable``. Se lee de la tabla que el
+    capítulo pinta, sin recalcular nada.
+    """
+    if table is None or len(table.index) == 0:
+        return 0
+    columns = set(str(column) for column in table.columns)
+    if family == "calibration":
+        if not {"test", "decision"} <= columns:
+            return 0
+        mask = (table["test"] == "hosmer_lemeshow") & (table["decision"] == "not_evaluable")
+        return int(mask.sum())
+    if family == "discrimination":
+        if "status" not in columns:
+            return 0
+        return int((table["status"] == "not_evaluable").sum())
+    if "decision" not in columns:
+        return 0
+    return int((table["decision"] == "not_evaluable").sum())
 
 
 def _hl_not_evaluable_prose(bundle: ReportInputBundle) -> tuple[str, ...]:
