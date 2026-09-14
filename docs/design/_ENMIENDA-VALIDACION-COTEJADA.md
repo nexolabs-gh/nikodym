@@ -44,8 +44,12 @@
 > pasada 4 dejó en el propio texto: el punto 3 de D-VAL-16 seguía diciendo `StabilityConfig()` en
 > ejecución cuando la receta mínima exige `temporal_axis="none"` (un solo helper para resolver y
 > ejecutar); y la ficha del scorecard que la receta lee no estaba en `optional_requires`, con lo
-> que una corrida por artefactos la habría leído y declarado inerte a la vez (D-ART-5). Pasadas
-> posteriores: en el `HANDOFF`.
+> que una corrida por artefactos la habría leído y declarado inerte a la vez (D-ART-5). Pasada 6
+> (relanzada tras un fallo por capacidad) `needs-attention` con dos hallazgos medios, verificados y
+> absorbidos: la ficha se leía también en la rama con sección declarada (`_require_direccion_
+> coherente`), así que `("scorecard","card")` va en `optional_requires` de **toda** la ruta de
+> recálculo; y esa guarda lee la dirección con `getattr`, que una ficha inyectada como `Mapping`
+> elude —pasa a `campo_de_card`, con control negativo—. Pasadas posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -373,11 +377,19 @@ estabilidad; `consume_stability` deja de estar oculto.**
      `temporal_axis="none"` y `csi_source="score_points"` (PSI de score y PD entre particiones,
      CSI desde los `__points` que el score ya trae, sin serie temporal ni bins), y la dirección
      del score tomada de la ficha del scorecard cuando existe —nada declarado, nada que
-     contradecir—. Como la receta **lee** `("scorecard","card")` si está, esa clave entra a
-     `ValidationStep.optional_requires` en esta rama (hallazgo 2 de la pasada 5, sostenido: el
-     núcleo marca inerte todo artefacto inyectado que no esté en `requires` ni en
-     `optional_requires`, D-ART-5, y una corrida por la puerta de artefactos habría leído la ficha
-     y emitido `artefacto_inyectado_inerte` a la vez). No lee `data.frame` ni
+     contradecir—. Como la ruta de recálculo **lee** `("scorecard","card")` si está —la receta
+     mínima para tomar la dirección, y la rama con sección declarada por
+     `_require_direccion_coherente` dentro del ensamblador—, esa clave entra a
+     `ValidationStep.optional_requires` en **toda** la ruta `consume_stability=False` (hallazgo 2
+     de la pasada 5 y hallazgo 1 de la pasada 6, sostenidos: el núcleo marca inerte todo artefacto
+     inyectado que no esté en `requires` ni en `optional_requires`, D-ART-5, y una corrida por la
+     puerta de artefactos habría leído la ficha y emitido `artefacto_inyectado_inerte` a la vez).
+     **La dirección se lee con `campo_de_card`** (`core/steps.py:65`), no con `getattr`: hoy
+     `_require_direccion_coherente` (`stability/step.py:215`) usa `getattr`, que devuelve `None`
+     ante una ficha inyectada como `Mapping` y deja pasar una dirección contraria (hallazgo 2 de
+     la pasada 6, sostenido); como el ensamblador se comparte, la guarda queda corregida también
+     para el paso de estabilidad —es la misma guarda, ahora honesta—, con control negativo: una
+     ficha `dict` con dirección opuesta produce `ConfigError`. No lee `data.frame` ni
      `binning.bin_frame`, así que `requires` es exactamente lo que el DAG puede comprobar y
      ninguna invariante queda para la ejecución. El trail y la
      card dicen que el recálculo fue mínimo («sin eje temporal: la sección `stability` no está
@@ -508,9 +520,11 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   `("scorecard","score")`, `("calibration","calibrated_pd_frame")`, más `("data","frame")` si
   `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, tomados de
   `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`); sin
-  sección declarada, sólo las dos primeras (receta mínima) y `("scorecard","card")` en
-  `optional_requires`. `nikodym.stability.config.receta_minima_de_recalculo()` es el único
-  constructor de esa receta, usado al resolver y al ejecutar.
+  sección declarada, sólo las dos primeras (receta mínima). `("scorecard","card")` en
+  `optional_requires` en toda la ruta `consume_stability=False`.
+  `nikodym.stability.config.receta_minima_de_recalculo()` es el único constructor de esa receta,
+  usado al resolver y al ejecutar. `_require_direccion_coherente` lee la ficha con
+  `campo_de_card` (DTO o `Mapping`).
 - `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey,
   ...] | None]` (aditivo; clave ausente = no declarada, `None` = declarada e incoaccionable).
   `StabilityConfig`: método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`:
@@ -628,8 +642,11 @@ ausente nombra sólo `scorecard.score` y `calibration.calibrated_pd_frame`, la c
 `done` con la receta mínima sobre un `data.frame` **sin** columna temporal y con un scorecard de
 dirección contraria al default (los dos casos que antes abortaban tarde), y el trail lo dice; por
 la puerta pública `nikodym.run(..., artifacts=...)` con score y ficha inyectados y sin paso
-`scorecard`, la ficha **no** aparece en `inert_artifacts` y su dirección es la que la receta usó
-(control negativo: quitar `("scorecard","card")` de `optional_requires` → rojo); con
+`scorecard`, en las dos ramas (sin sección y con sección declarada fuera de `run.steps`), la
+ficha **no** aparece en `inert_artifacts` y su dirección es la que se usó (control negativo:
+quitar `("scorecard","card")` de `optional_requires` → rojo); una ficha inyectada como `dict`
+con `score_direction` opuesta a la sección declarada produce `ConfigError` (control negativo:
+volver a `getattr` en la guarda → la corrida pasa y el test se pone rojo); con
 la sección declarada y `data.frame` sin columna temporal, o ambigua, o con `score_direction`
 contraria, `check_dataset` lo acusa antes de ejecutar (tres controles end-to-end, uno por
 invariante); con la sección declarada e inválida,
