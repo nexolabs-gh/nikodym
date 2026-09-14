@@ -29,7 +29,9 @@
 > `validation` es del dominio experimental y que la forma nueva es la que §3.1 de esta enmienda
 > aprobada prescribe (la anterior era un umbral falso); queda declarado en el CHANGELOG y elevado a
 > Cami en el `HANDOFF`, y la alternativa si Cami adopta la lectura estricta es una regla v2
-> aditiva conservando la forma vieja; (b) absorbido: con `grade_records`, `ValidationResult` exige
+> aditiva conservando la forma vieja —**decidido por Cami el 2026-09-14: opción A**, registrada
+> como D-EST-5 en `DECISIONES-VIGENTES.md`: el sobre del trail es estable y el contenido de
+> `umbral`/`valor` sigue la marca del dominio que emite la regla—; (b) absorbido: con `grade_records`, `ValidationResult` exige
 > la sección CT-2 de la card con `traffic_light_cuts` y el recuento de colores, y la homogeneidad
 > de cortes entre records se exige siempre—. **Aquí se detiene la revisión de la capa A**: cinco
 > pasadas, ocho hallazgos, siete absorbidos y uno contractual elevado; desde la pasada 3 cada

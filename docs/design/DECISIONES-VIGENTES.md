@@ -31,7 +31,7 @@
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
-| D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
+| D-EST-1…5 | D-EST-1…4 aprobadas por Cami el 2026-08-27, implementadas y gateadas; D-EST-5 (la frontera de D-EST-3: el sobre del trail es estable, el contenido de `umbral`/`valor` sigue la marca del dominio que emite la regla) aprobada por Cami el 2026-09-14 | esta entrada (§D-EST) |
 | D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido**; copy público de la gobernanza
 alineado el 2026-09-09 (S5) | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 | D-JUR-9 | **Aprobada por Cami el 2026-09-09** con las cuatro respuestas de su §8 —opción **A** (dos catálogos desde una fuente, `offered` en el cable, opt-in del lanzador); los ocho fixtures F3 **salen del árbol** (OK explícito de supresión de material versionado; el historial los conserva); la demo intermedia **F1/F4 se publica** con el deploy automático de la capa; la opción se llama **`--casos-de-referencia`**—. Propuesta y revisada adversarialmente en S6 (approve); **implementada en S7 (2026-09-09)** | [`_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md`](_ENMIENDA-CMF-FUERA-DEL-CATALOGO.md) |
@@ -341,6 +341,25 @@ un 2.0.
 de quien edita. El gate
 [`test_marca_estabilidad.py`](../../tests/unit/test_marca_estabilidad.py) lo vigila en ambos
 sentidos, incluido el paquete nuevo que nadie clasificó.
+
+**D-EST-5 · Qué cubre exactamente la garantía de `audit` (aprobada por Cami el 2026-09-14).** D-EST-3
+promete el **sobre** del evento —`kind`, `step`, `payload` con sus cuatro claves `regla`/`umbral`/
+`valor`/`accion`, `ts`—, el formato JSONL del trail, el hashing y el replay. **El contenido de
+`umbral` y `valor` de cada regla sigue la marca del dominio que la emite**: una regla de un dominio
+estable no cambia de forma hasta un 2.0; una de un dominio experimental puede cambiar dentro de 1.x,
+y el cambio se declara en el CHANGELOG. Nace de la pasada 5 de Codex sobre la capa A de
+VALIDACION-COTEJADA, que leyó D-EST-3 como si congelara el tipo de `umbral` de toda regla porque el
+`umbral` de `calibration_semaforo` (dominio `validation`, experimental) pasó de número a objeto. Lo
+medido decide: `log_decision(umbral: Any, valor: Any)` nunca fijó un tipo, y el árbol emite
+`umbral` dict (`scorecard/scaler.py`, `provisioning/ifrs9`, `survival`, `stress`, `forward`,
+`markov`), string (`discrimination_source`), tupla (`stability_psi`), bool (`validation_falta_dato`)
+e int (`calibration_grade_not_evaluable`): un consumidor que deserializa `umbral` como número ya
+rompe con media docena de reglas de dominios estables y experimentales. La lectura estricta
+paralizaría toda decisión nueva de un dominio experimental y no está escrita en ningún sitio; la
+alternativa aditiva (conservar la forma vieja y publicar el dato correcto en una regla v2) habría
+dejado en el trail, para toda la 1.x, un `umbral` que no es un corte. Las capas B y C de
+VALIDACION-COTEJADA (regla nueva `calibration_hl_not_evaluable`; `stability_psi` con
+`source="recomputed"`) se rigen por esta fila.
 
 Abierto declarado: `core` aloja el trío `run` → `Study` → `NikodymConfig`, que `api.md` sí declara
 estable, pero no lleva marca de paquete. Dársela ampliaría el compromiso a **todo** `nikodym.core`,
