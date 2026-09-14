@@ -1,7 +1,10 @@
 # Enmienda SDD — las deudas declaradas de `validation`: cotejo doble contra las fuentes oficiales y cierre
 
-> **Estado: PROPUESTA, pendiente de Cami** (§8). Diseño sin código: esta enmienda mide y decide;
-> **no programa nada** hasta la aprobación. Nace de las respuestas 5, 11 y 12 de Cami del
+> **Estado: APROBADA por Cami el 2026-09-14**, respondida interactivamente punto por punto, **con la
+> recomendación de cada uno de los nueve puntos de §8** (las respuestas literales viven en el
+> `HANDOFF` privado, «Respuestas de Cami» → S12). Diseño sin código: se implementa por capas
+> A → B → C (§6), cada una entera, y la release 1.16.0 exige su propio OK. Nace de las
+> respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea
 > aparte para `FALTA-DATO-VAL-1/2/3`», «el recálculo del PSI queda oculto, con tarea aparte para el
 > cableado», «el mínimo por grupo de Hosmer-Lemeshow exige su propia enmienda con goldens»— y del
@@ -789,6 +792,15 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
 - No recaptura la demo, no mueve hashes, no publica.
 
 ## 8. Lo que Cami decide
+
+> **RESPONDIDO por Cami el 2026-09-14, interactivamente y con la recomendación de cada punto:**
+> **1–2** cerrar y retirar `FALTA-DATO-VAL-3` y `FALTA-DATO-VAL-1`; **3** opción **A** —retirar
+> `FALTA-DATO-VAL-2` sin sucesor, con los cortes persistidos en fila, card, trail y prosa— (la
+> decisión contractual queda tomada: el corte del semáforo es una convención estadística con
+> default, como `alpha`); **4** el copy se revisa capa por capa contra la pantalla; **5** opción
+> **A** (puerta por grupo con causa publicada); **6** opción **A** (cablear el recálculo por el
+> patrón D-REQ); **7** A → B → C y una minor 1.16.0 con su propio OK; **8** tabla en SDD-22 §12 y
+> fila en el registro; **9** cuarta palabra **«No evaluable»**.
 
 1. **`FALTA-DATO-VAL-3` (Jeffreys).** (A) **Cerrarla y retirar el código** —motor, prosa,
    catálogo, copy, tests—, con el cotejo registrado en SDD-22 §12 (D-VAL-13). (B) Conservar el
