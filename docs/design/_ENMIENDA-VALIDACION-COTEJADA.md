@@ -49,7 +49,16 @@
 > absorbidos: la ficha se leía también en la rama con sección declarada (`_require_direccion_
 > coherente`), así que `("scorecard","card")` va en `optional_requires` de **toda** la ruta de
 > recálculo; y esa guarda lee la dirección con `getattr`, que una ficha inyectada como `Mapping`
-> elude —pasa a `campo_de_card`, con control negativo—. Pasadas posteriores: en el `HANDOFF`.
+> elude —pasa a `campo_de_card`, con control negativo—. Pasada 7 `needs-attention` con cuatro
+> hallazgos, verificados y absorbidos: una validación sin ninguna prueba evaluable terminaba en
+> «Pasa» (defecto preexistente que D-VAL-17 volvía frecuente: nace el estado consolidado
+> `not_evaluable`, §3.3 y §8-9); el recálculo del PSI pasaba el frame y unos kwargs pero no las
+> columnas ni los `feature_point_columns` que `evaluate_stability` exige explícitos (§3.2: el paso
+> corre el mismo `StabilityEvaluator` por la función compartida y la validación proyecta su
+> resultado); `Study.run_step()` resuelve sin contexto (§3.2: la fábrica histórica declara la
+> receta mínima y `execute` re-deriva y exige lo efectivo antes de calcular); y las dos columnas
+> de cortes habrían aparecido vacías en el informe de la demo (§3.1: son de auditoría, como la
+> causa, y la tabla del informe queda byte a byte). Pasadas posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -264,7 +273,12 @@ Lo que cambia, para que la decisión quede auditable y nada sin superficie (D-VI
 - `GradeBinomialRecord` gana `green_alpha` y `red_alpha` (aditivo, CT-2), que
   `_reseal_traffic_light` fija con los cortes de config junto al color; `_CALIBRATION_COLUMNS` gana
   las dos columnas (nulas en las filas de HL y Brier); `alpha` conserva su significado de nivel de
-  significancia y el docstring lo dice. El color de cada fila se explica con la propia fila.
+  significancia y el docstring lo dice. El color de cada fila se explica con la propia fila. **En
+  el informe las dos columnas son de auditoría** (`renderer._AUDIT_ONLY_COLUMNS`, con la condición
+  de `warning_codes`: el hecho está en prosa, que nombra los cortes): la tabla del documento no
+  cambia ni un byte para F1 —donde habrían salido dos encabezados crudos con celdas vacías— ni para
+  ninguna corrida (hallazgo 4 de la pasada 7, sostenido); los cortes viajan en el JSON, el CSV y
+  la card, y el gate sobre el artefacto de §6 lo comprueba.
 - `metric_sections.validation` gana `traffic_light_cuts = {"green_alpha": X, "red_alpha": Y}`
   cuando corrió el contraste por grado y `null` si no (misma clave siempre presente, como
   `not_evaluable_grades`), que es lo que leen la prosa y el panel.
@@ -416,8 +430,20 @@ estabilidad; `consume_stability` deja de estar oculto.**
      mitad de corrida, y la alternativa —que el recálculo lea la columna temporal **siempre** de
      `data.frame` para que lo declarado sea exactamente lo leído— se descarta porque cambiaría el
      frame frente al del paso de estabilidad y rompería el gate byte a byte de §6.
+   - **`Study.run_step()` resuelve sin contexto** (`core/study.py:570`: `contexto=None` = «no se
+     sabe», fábrica histórica `from_config`; hallazgo 3 de la pasada 7, sostenido). En esa vía
+     `ValidationStep.from_config` con `consume_stability=False` declara los `requires` de la
+     **receta mínima** (lo único que puede afirmar sin contexto) y, como ya hace hoy, `execute`
+     re-deriva la lista efectiva —con la sección declarada que lee de `study.config`— y la exige
+     con `_require_present` **antes** de calcular nada (`validation/step.py:106-108`): un
+     `run_step("validation")` con sección declarada que necesite `data.frame` o `bin_frame` y no
+     los tenga falla al entrar a `execute` con la clave exacta, no a mitad de cálculo; con la
+     sección ausente corre la receta mínima. Es la misma degradación declarada que `tuning` y
+     `explain` tienen en `run_step` (D-REQ-4), y se prueba por la API pública con los tres casos
+     (receta mínima, eje temporal, `woe_bins`).
    - Alcance añadido y declarado: `core/steps.py` (constante y campo), `core/study.py`
-     (`_contexto_de_resolucion`), `stability/config.py` (método), `validation/step.py`
+     (`_contexto_de_resolucion`), `stability/config.py` (método y receta mínima),
+     `stability/step.py` (ensamblador y `compute_stability` públicos), `validation/step.py`
      (fábrica contextual). Es CT-1 tal como ya lo hace la discriminación
      (`consume_performance=False` exige el frame analítico), con la única diferencia de que la
      lista viene de otra sección por el cauce previsto. ⚠️ El propio `StabilityStep` tiene hoy la
@@ -434,12 +460,24 @@ estabilidad; `consume_stability` deja de estar oculto.**
    **mismo** helper cuyos `requisitos_de_recalculo_declarados()` usa `from_config_with_context`
    para la clave ausente, de modo que lo que el DAG comprueba y lo que `execute` lee salen de un
    solo objeto (hallazgo 1 de la pasada 5, sostenido: la primera redacción decía
-   `StabilityConfig()` aquí y `temporal_axis="none"` arriba). Pasa el frame como
-   `stability_frame` y los `evaluator_kwargs` que el evaluador de SDD-11 necesita (`psi_bins`,
-   `comparisons`, `temporal_axis`, …) leídos de esa misma config, de modo que **el recálculo es el
-   mismo cálculo**: con la sección declarada, la fila `source="recomputed"` tiene el mismo `value`
-   que la fila `source="stability_artifact"` de una corrida con el paso (gate byte a byte en §6);
-   sin sección, la receta mínima produce las filas por partición y ninguna temporal, y lo dice.
+   `StabilityConfig()` aquí y `temporal_axis="none"` arriba). **El recálculo corre el mismo
+   evaluador por la misma llamada**: `nikodym.stability.step` expone, además del ensamblador,
+   `compute_stability(study, cfg) -> StabilityResult`, que hace exactamente lo que hoy hace
+   `StabilityStep.execute` antes de publicar —ensamblar y llamar a
+   `StabilityEvaluator.from_config(cfg).evaluate(frame, score_column=cfg.score_column,
+   pd_column=cfg.pd_column, partition_column=cfg.partition_column,
+   feature_point_columns=…)`— y `StabilityStep.execute` pasa a usarla; la validación llama a esa
+   función y proyecta `result.stability_metrics` con `source="recomputed"` por
+   `stability_from_artifact`-con-fuente (medido, hallazgo 2 de la pasada 7: `evaluate_stability`
+   exige `score_column`/`pd_column`/`partition_column`/`feature_point_columns` como argumentos
+   explícitos, no en `evaluator_kwargs`, y `_run_stability` hoy pasa sólo el frame, así que con
+   nombres de columna personalizados fallaría y sin `feature_point_columns` perdería las filas de
+   CSI). `stability_recomputed(frame, …)` con kwargs sueltos queda como envoltorio de esa función o
+   se retira; no habrá dos formas de recalcular. Así **el recálculo es el mismo cálculo** por
+   construcción: con la sección declarada, el frame `recomputed` es igual fila a fila —identidad,
+   cantidad y `value`— al `stability_artifact` de una corrida con el paso, también con nombres de
+   columna personalizados y CSI encendido (gate en §6); sin sección, la receta mínima produce las
+   filas por partición y ninguna temporal, y lo dice.
 4. La semántica del toggle queda como D-VAL-2 la enunció: `True` = consumir el artefacto; `False`
    = recalcular por reúso. **No** se introduce «consumir si existe, si no recalcular» (un tercer
    estado implícito): quien apaga el consumo lo hace a propósito y el DAG lo declara.
@@ -495,6 +533,21 @@ veredicto. Detalle:
   bajo mínimo, grupo bajo mínimo, grupo degenerado y estadístico no finito (test numérico
   adversarial: un grupo con `p̄_g ≈ 1e-300` y un default observado hace `(O − n·p̄)² / denom`
   desbordar).
+- **Sin ninguna prueba evaluable, el estado consolidado no es «Pasa».** Medido (hallazgo 1 de la
+  pasada 7, sostenido): `_overall_status` (`evaluator.py:829-849`) devuelve `pass` en cuanto no
+  hay `fail` ni ámbar, y `OverallStatus` sólo admite `pass`/`warn`/`fail` (`results.py:60`);
+  con sólo calibración, particiones de 100 filas y los defaults (10 grupos, mínimo 30) todos los
+  HL quedan no evaluables, `n_tests == 0` y el panel/informe muestran «Pasa». Es preexistente
+  —hoy pasa igual con particiones bajo el mínimo— y D-VAL-17 lo volvería frecuente. Cambio
+  aditivo: `OverallStatus` gana `not_evaluable`, que `_overall_status` devuelve cuando **no hay
+  evidencia evaluable alguna**: `n_tests == 0` **y** el frame de estabilidad no trae ninguna fila
+  con decisión `pass`/`warn`/`fail`. Si alguna familia sí produjo evidencia, el estado se
+  consolida como hoy sobre ella, y la cobertura («0 de N pruebas evaluables») se publica al lado.
+  `VALIDATION_STATUS_LABELS` gana la cuarta palabra, **«No evaluable»** —la misma que ya usan las
+  bandas del PSI—, con espejo en el front y en la prosa; el renderer la trata como banda neutra,
+  no verde. Es una cuarta palabra sobre las tres que Cami aprobó (§8-3 del scorecard completo):
+  §8-9 lo eleva. Test end-to-end nacido rojo: 100 filas por partición, 10 grupos, mínimo 30, sólo
+  calibración → estado `not_evaluable`, panel e informe sin «Pasa».
 - Con los defaults (10 grupos, mínimo 30) una partición necesita ≥ 300 operaciones para recibir
   HL. Medido sobre la demo F1: 973 y 1.008 ya cumplen; las guías y el informe de la demo no cambian.
 - Copy: el `ui_help` de `min_rows_per_group` pierde «No se aplica a cada grupo de PD dentro de la
@@ -516,6 +569,9 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   (`ValidationCalibrationRow`) con su gate.
 - `CalibrationTestRecord`: `statistic: float | None` (`None` sólo con `decision="not_evaluable"`
   en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los cuatro valores cerrados.
+  `OverallStatus` gana `not_evaluable` (sin evidencia evaluable alguna) y
+  `VALIDATION_STATUS_LABELS` la palabra «No evaluable». `renderer._AUDIT_ONLY_COLUMNS` gana
+  también `green_alpha` y `red_alpha`: la tabla de calibración del documento no cambia.
   `GradeBinomialRecord`: `green_alpha`, `red_alpha`. `metric_sections.validation`:
   `traffic_light_cuts` (`null` sin contraste por grado) y `not_evaluable_partitions` (lista).
 - `ValidationStep.requires` (CT-1) para `stability` con `consume_stability=False`:
@@ -571,7 +627,13 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   el informe formatea la celda vacía, como hace hoy con `p_value=None`.
 - **Un preset con `binomial_by_grade=True`**: filas de grado con sus dos cortes, la clave
   `traffic_light_cuts` llena y la prosa con los cortes; sin marca. Con el contraste apagado, la
-  clave es `null`, las dos columnas van nulas y la prosa calla.
+  clave es `null`, las dos columnas van nulas (en JSON/CSV; el informe no las pinta) y la prosa
+  calla.
+- **Todas las pruebas no evaluables y sin estabilidad evaluable**: `overall_status =
+  "not_evaluable"`, «No evaluable» en panel e informe, cobertura «0 de N». Con estabilidad
+  evaluable y `n_tests == 0`: el estado lo decide la estabilidad, como hoy, y la cobertura lo dice.
+- **`run_step("validation")` con `consume_stability=False`**: receta mínima si no hay sección;
+  con sección declarada, `execute` exige lo efectivo antes de calcular.
 - **Un YAML viejo con `consume_stability: false`**: hoy aborta; con D-VAL-16 corre y recalcula.
   No es ruptura: convierte un error en un resultado declarado.
 
@@ -594,7 +656,10 @@ cuando la config los separa (hoy no existen); (b) la tabla `calibration` con las
 `test_report_prose`: con el contraste corrido el capítulo nombra los dos cortes leídos de la
 card; sin contraste, no; (d) el panel muestra los cortes (`ResultsTab.test.ts` por
 `react-dom/server`); (e) `test_validation_step`: el evento `calibration_semaforo` lleva
-`umbral={"green_alpha": 0.10, "red_alpha": 0.02}` con `alpha=0.05` en la config, y no 0,05. Regenerar `schema.json` y el bundle; gate espejo de tipos del front.
+`umbral={"green_alpha": 0.10, "red_alpha": 0.02}` con `alpha=0.05` en la config, y no 0,05; (f)
+gate del artefacto: el HTML, el Word y el PDF (donde el extra esté) de una corrida F1 fresca son
+**idénticos** en la tabla de calibración a los de hoy (las dos columnas nuevas no se pintan), y
+con el contraste corrido los cortes aparecen en prosa y no como columnas. Regenerar `schema.json` y el bundle; gate espejo de tipos del front.
 **Controles negativos:** (1) reponer `marks.append("FALTA-DATO-VAL-3")` en
 `_calibration_falta_dato` → rojo en el test de la card y en `test_public_copy` («la página no
 documenta…»); (2) dejar la fila `VAL-2` en el catálogo → rojo «la página inventa códigos»; (3)
@@ -612,9 +677,12 @@ grupo degenerado de hoy (`test_hosmer_lemeshow_not_evaluable_grupo_degenerado`) 
 (`test_hosmer_lemeshow_not_evaluable_estadistico_no_finito`, que hoy existe sin causa) pasa a
 `reason == "non_finite_statistic"`; con partición de 100, 10 grupos y mínimo 30 → HL `not_evaluable`,
 `n_tests` lo excluye, `not_evaluable_partitions` con la fila y `log_decision` con la regla nueva;
-el panel traduce la causa (`ResultsTab.test.ts`) y la prosa la enumera (`test_report_prose`); el
-F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy y `not_evaluable_partitions
-== []`. Ajustar los fixtures de `test_validation_evaluator.py` (mínimo 6 o `hl_n_groups=3` en
+el panel traduce la causa (`ResultsTab.test.ts`) y la prosa la enumera (`test_report_prose`);
+100 filas por partición, 10 grupos, mínimo 30 y sólo calibración → `overall_status ==
+"not_evaluable"`, «No evaluable» en el panel y en el capítulo, nunca «Pasa» (control negativo:
+devolver `pass` con `n_tests == 0` → rojo); con estabilidad evaluable y `n_tests == 0` el estado
+es el de la estabilidad; el F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy
+y `not_evaluable_partitions == []`. Ajustar los fixtures de `test_validation_evaluator.py` (mínimo 6 o `hl_n_groups=3` en
 `_config()`, con la razón escrita) y los tests que hoy afirman `statistic == 0.0` en un
 `not_evaluable` (`test_validation_calibration_tests.py:88-113`). **Controles negativos:** quitar la
 comparación con `min(counts)` → rojo el primero; devolver `statistic=0.0` en `_hl_not_evaluable` →
@@ -634,8 +702,12 @@ declarante), `schema.json` + bundle + ledger de `option_surface` + los censos de
 `test_effective_defaults` y `test_jobs_abanico`, guía §4. **Tests nacidos rojos:** (1) `Study` con `scorecard` +
 `calibration` + `validation(families=("stability",), consume_stability=False)` y **sin** paso
 `stability` → `done`, filas con `source="recomputed"`; (2) la misma corrida **con** el paso →
-`value` idéntico fila a fila entre `recomputed` y `stability_artifact` (`np.array_equal`, no
-`approx`: es el mismo motor sobre el mismo frame); (3) `requires` de `ValidationStep` con el toggle
+frames idénticos fila a fila —identidad (`metric`, `comparison`, `feature`), cantidad y `value`—
+entre `recomputed` y `stability_artifact` (`np.array_equal`, no `approx`: es el mismo motor por
+la misma llamada), también con `score_column`/`pd_column`/`partition_column` personalizados y
+con CSI encendido; (2b) `Study.run_step("validation")` por la API pública en los tres casos
+(receta mínima → `done`; sección con eje temporal sin `data.frame` → error de prerequisito al
+entrar a `execute`, sin cálculo; `woe_bins` sin `bin_frame` → ídem); (3) `requires` de `ValidationStep` con el toggle
 apagado, construido por `Study._resolve_steps` (no a mano), nombra `scorecard.score`,
 `calibration.calibrated_pd_frame` y `data.frame` (default `period`) y no
 `stability.stability_metrics`; con `NikodymConfig.stability.temporal_axis="none"` no nombra
@@ -743,3 +815,9 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
 8. **Registro del cotejo.** (A) **Tabla §2 en SDD-22 §12 y fila en `DECISIONES-VIGENTES.md`**
    (D-VAL-18), sin manifiesto en el paquete. (B) Un manifiesto versionado en `nikodym.validation`
    al estilo del de CMF: una tercera superficie sin consumidor hoy. **Recomendación: A.**
+9. **Una cuarta palabra del estado técnico.** Cami aprobó tres («Pasa · Revisar · Falla»); una
+   validación sin ninguna prueba evaluable hoy dice «Pasa», y D-VAL-17 lo volvería frecuente. (A)
+   **`not_evaluable` → «No evaluable»**, la misma palabra que las bandas del PSI, sólo cuando no
+   hay evidencia evaluable alguna (D-VAL-17). (B) Sin palabra nueva: `warn` → «Revisar» en ese
+   caso, con la cobertura al lado; no inventa vocabulario pero llama «Revisar» a la ausencia de
+   evidencia, que es otra cosa. (C) Dejarlo: «Pasa» sin pruebas. **Recomendación: A.**

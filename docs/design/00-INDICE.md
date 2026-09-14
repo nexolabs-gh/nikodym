@@ -989,8 +989,11 @@ No autoriza START ni mueve la puerta global.
 > se declara con su escape, y una sección `stability` inválida se detiene en el preflight. Pasada
 > 4: la equivalencia con p-valores fijos de las zonas de 1996 era falsa (corregida antes de llegar
 > a SDD-22) y, sin sección `stability`, el recálculo usa una receta mínima sin invariantes de
-> ejecución. Ningún `config_hash` ni fixture de la demo se mueve (medido). Ocho decisiones para
-> Cami en §8.
+> ejecución. Pasadas 5-7: coherencia del recálculo (un solo helper, la misma llamada al evaluador,
+> `run_step`, ficha en `optional_requires` y leída con `campo_de_card`), cortes y causa como
+> columnas de auditoría, y una validación sin ninguna prueba evaluable deja de decir «Pasa»
+> (cuarta palabra «No evaluable», elevada en §8-9). Ningún `config_hash` ni fixture de la demo se
+> mueve (medido). Nueve decisiones para Cami en §8.
 
 ## Tandas de producción
 
