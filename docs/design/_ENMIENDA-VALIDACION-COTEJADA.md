@@ -32,7 +32,15 @@
 > expresa «esto o aquello», así que la exigencia conservadora de `data.frame` se declara como
 > límite con su escape (§3.2); y una sección `stability` presente pero inválida pasaba el preflight
 > con la lista conservadora y abortaba dentro de `validation` (§3.2: el DTO distingue «ausente» de
-> «inválida» y el paso falla al construirse). Pasadas posteriores: en el `HANDOFF`.
+> «inválida» y el paso falla al construirse). Pasada 4 `needs-attention` con dos hallazgos,
+> verificados y absorbidos: la equivalencia «zonas de Basilea 1996 = p-valores 0,05/0,0001» era
+> numéricamente falsa —las zonas se definen por la probabilidad acumulada del conteo **incluido**;
+> las colas exactas en la frontera son P(X ≥ 5) = 0,1078 y P(X ≥ 10) = 0,00025 para N = 250— (§0-1,
+> §2 fila F3, corregidas antes de que el cotejo llegue a SDD-22); y sin sección `stability`
+> declarada nadie preflightea la columna temporal ni la dirección del score, así que el fallback
+> podía seguir abortando tarde (§3.2: sin sección, el recálculo usa una receta mínima sin
+> invariantes de ejecución; con sección, su propio preflight D-INV/D-REQ ya las cubre). Pasadas
+> posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -62,9 +70,15 @@
    (`docs_site/avisos-declarados.md:54`: «los cortes del semáforo de VaR (Basilea-1996) no están
    verificados contra el render oficial»). Medido contra el render del documento oficial (§2,
    fuente F3, Tabla 2): Basilea 1996 define las zonas por la **probabilidad acumulada del número
-   de excepciones** de un VaR al 99 % sobre 250 días —amarilla desde el 95 %, roja desde el
-   99,99 %—; en términos de p-valor unilateral serían cortes en **0,05 y 0,0001**. El motor corta
-   en **0,05 y 0,01** (`validation/config.py:217-245`, D-VAL-5) y nunca implementó otra cosa. No
+   de excepciones** de un VaR al 99 % sobre 250 días: la zona amarilla empieza en el conteo cuyo
+   `P(X ≤ k)` alcanza el 95 % (k = 5: 95,88 %) y la roja donde alcanza el 99,99 % (k = 10:
+   99,99 %). Son fronteras **discretas sobre un conteo, inclusivas**, y el propio documento advierte
+   que la probabilidad acumulada y el error de tipo I de un mismo conteo no son complementarios
+   porque los dos lo incluyen. Traducidas a la cola superior del conteo que abre cada zona —lo más
+   parecido a un p-valor unilateral— valen `P(X ≥ 5) = 0,1078` y `P(X ≥ 10) = 0,00025`
+   (`Binomial(250, 0,01)`, medido con `scipy`); **no** 0,05 ni 0,01 ni ninguna constante fija: la
+   frontera cambia con `N`. El motor corta el p-valor en **0,05 y 0,01**
+   (`validation/config.py:217-245`, D-VAL-5) y nunca implementó otra cosa. No
    hay «convención de Basilea» que verificar: los cortes son el default institucional que D-VAL-5
    propuso, y así lo dice ya el `ui_help` del campo. La verificación no puede confirmar un anclaje
    que no existe; lo que corresponde es dejar de atribuirlo (§3, D-VAL-15).
@@ -191,7 +205,7 @@ reproducir la descarga.
 |---|---|---|---|---|---|
 | F1 | BCE, *Instructions for reporting the validation results of internal models — IRB Pillar I models for credit risk*, febrero 2019 (70 pp.; metadata `creationDate 2019-02-28`, `modDate 2019-03-05`) | `https://www.bankingsupervision.europa.eu/activities/internal_models/shared/pdf/instructions_validation_reporting_credit_risk.en.pdf` (enlazado desde `…/activities/internal_models/omm/html/index.en.html`) | `f0bef87b1c636b8dc493e0d8e8b0690a5660a0663086ea6f676ccae2a7685d01` | p. 20-21 (impresas; 21-22 del PDF) · §2.5.3.1 «PD back-testing using a Jeffreys test»; p. 31 (impresa; 32 del PDF) · §2.6.2.1 «LGD back-testing using a t-test»; p. 53 (impresa; 54 del PDF) · §2.9.3.1 (CCF); p. 55 (impresa; 56 del PDF) · §2.9.3.2 (EAD); p. 40-41 · §2.7.2.1 (ELBE, bilateral) | Jeffreys y t-test **coinciden** con el motor (§1.2); errata del `1/R` en CCF (§0-4); ningún corte de semáforo |
 | F2 | BCE, plantillas oficiales de reporte (ZIP, 6 libros `.xlsx`, 2020-11-24 … 2021-03-16) | `https://www.bankingsupervision.europa.eu/banking/tasks/internal_models/shared/pdf/templates_validation_reporting_credit_risk.zip` | `68a86250453166c6dde3f0e45d8d2c7cd44bde0b73f575808f3786a77119e5fa` | `LEICode_PD_…xlsx` hoja `3.0`, col. N (`BETA.DIST(E,G+0.5,F−G+0.5,TRUE)` con E = PD media, F = N, G = D) y col. O (tolerancia 10⁻⁵); `LEICode_LGD_…xlsx` hoja `2.0` col. AI (`1−T.DIST(SQRT(E)*(H−G)/SQRT(U),E−1,TRUE)` con H/G promedios *number-weighted*); `LEICode_CCF_…xlsx` hojas `3.1` col. AI y `3.2` fila 12 | **Coinciden** con el motor; confirma la errata de F1 §2.9.3.1 |
-| F3 | BCBS, *Supervisory framework for the use of "backtesting" in conjunction with the internal models approach to market risk capital requirements*, enero 1996 (15 pp.) | `https://www.bis.org/publications/199601-standards-supervisory-framework-use-backtesting-conjunction-internal-models-approach-market-risk-capital.pdf` (landing `https://www.bis.org/publ/bcbs22.htm`) | `e3dd0e08100ad19dd88f0305cf25c0af5384b5272f2e72aa9c10daa79fd73f28` | p. 7-8 (impresas) · (c)-(f) definición de zonas; p. 15 del PDF · Tabla 2 | Zonas por probabilidad acumulada de excepciones de VaR (95 % / 99,99 %); **no aplica** a la calibración de PD y no coincide con 0,05/0,01 |
+| F3 | BCBS, *Supervisory framework for the use of "backtesting" in conjunction with the internal models approach to market risk capital requirements*, enero 1996 (15 pp.) | `https://www.bis.org/publications/199601-standards-supervisory-framework-use-backtesting-conjunction-internal-models-approach-market-risk-capital.pdf` (landing `https://www.bis.org/publ/bcbs22.htm`) | `e3dd0e08100ad19dd88f0305cf25c0af5384b5272f2e72aa9c10daa79fd73f28` | p. 7-8 (impresas) · (c)-(f) definición de zonas; p. 15 del PDF · Tabla 2 | Zonas discretas e inclusivas sobre el conteo de excepciones de VaR, definidas por `P(X ≤ k) ≥ 95 %` (amarilla, k = 5 con N = 250) y `≥ 99,99 %` (roja, k = 10); colas superiores en la frontera `P(X ≥ 5) = 0,1078` y `P(X ≥ 10) = 0,00025`, dependientes de `N`; **no aplica** a la calibración de PD y no equivale a ningún corte fijo de p-valor, menos aún a 0,05/0,01 |
 | F4 | BCBS, Working Paper No. 14, *Studies on the Validation of Internal Rating Systems* (revised), mayo 2005 (120 pp.) | `https://www.bis.org/publications/studies-validation-internal-rating-systems-revised.pdf` (landing `https://www.bis.org/publ/bcbs_wp14.htm`) | `49cfd1cea68f7e7491f34d97b9660dfb4d4a0b23041868012c835728d9358188` | p. 47 (impresa; 55 del PDF) · «Binomial test»; p. 34-35 (impresas; 42-43 del PDF) · «traffic lights approach» (Blochwitz, Hohl y Wehn 2003) | Binomial **coincide** con el motor; el traffic lights de WP14 es multi-período, cuatro colores, otra herramienta: no ancla el semáforo por p-valor |
 
 Lo que **no** se pudo verificar y se declara: el texto de Hosmer & Lemeshow (*Applied Logistic
@@ -337,27 +351,47 @@ estabilidad; `consume_stability` deja de estar oculto.**
      (hallazgo 3 de la pasada 3, sostenido: equiparar «ausente» e «incoaccionable» dejaba pasar el
      preflight con la lista conservadora y abortaba dentro de `validation`, porque `execute` vuelve
      a leer la sección original con `_stability_config_from_study`): clave **ausente** = la sección
-     no está declarada → lista conservadora de `StabilityConfig()` —que incluye `data.frame`,
-     porque su default es `temporal_axis="period"`— y el trail lo dice; valor **`None`** = la
+     no está declarada → **receta mínima** (abajo), con `requires` = `scorecard.score` +
+     `calibration.calibrated_pd_frame` y nada más, y el trail lo dice; valor **`None`** = la
      sección está declarada pero no se pudo coaccionar → el paso levanta `ConfigError` al
      construirse, nombrando `stability` y por qué («el recálculo del PSI la lee»), y `check_pipeline`
      lo acusa antes de ejecutar ningún paso; **tupla** = lo declarado. Es una precisión sobre
      D-REQ-4, no una excepción: allí degradar al default es correcto porque el paso conserva el
      contrato que declararía solo; aquí el paso va a leer esa sección, así que un config inválido
      tiene que detenerse en el preflight.
+   - **Sin sección `stability` declarada, el recálculo usa una receta mínima sin invariantes de
+     ejecución** (hallazgo 1 de la pasada 4, sostenido: con la sección ausente nadie preflightea la
+     columna temporal —`check_dataset` corre `requisitos_incumplidos` sólo sobre secciones
+     declaradas— ni la dirección del score, así que `StabilityConfig()` con su default
+     `temporal_axis="period"` podía pasar el DAG y abortar en `_resolve_temporal_column` (columna
+     ausente o ambigua) o en `_require_direccion_coherente`). La receta: `StabilityConfig()` con
+     `temporal_axis="none"` y `csi_source="score_points"` (PSI de score y PD entre particiones,
+     CSI desde los `__points` que el score ya trae, sin serie temporal ni bins), y la dirección
+     del score tomada de la ficha del scorecard cuando existe —nada declarado, nada que
+     contradecir—. No lee `data.frame` ni `binning.bin_frame`, así que `requires` es exactamente
+     lo que el DAG puede comprobar y ninguna invariante queda para la ejecución. El trail y la
+     card dicen que el recálculo fue mínimo («sin eje temporal: la sección `stability` no está
+     declarada»). Quien quiera la serie temporal o el CSI por bins **declara** la sección.
+   - **Con sección `stability` declarada, su propio preflight ya cubre lo que el recálculo lee.**
+     `StabilityConfig.requisitos_incumplidos` (`stability/config.py:245`) exige la columna
+     temporal por D-INV y `requisitos_incumplidos_por_contexto` (`:308`) contrasta la dirección
+     del score con la declarada por `scorecard`; `check_dataset` los corre sobre toda sección
+     declarada, esté o no en `run.steps`. Los `requires` vienen del método declarante y son los
+     que el ensamblador lee de verdad.
    - **Límite declarado de CT-1** (hallazgo 2 de la pasada 3, sostenido): `requires` es una lista
-     de claves, no admite «la columna temporal en el score **o** `data.frame`». El ensamblador lee
-     `data.frame` sólo cuando el score no trae la columna, y eso se sabe en ejecución. Se elige la
-     exigencia **conservadora** —`data.frame` siempre que `temporal_axis != "none"`— y se declara
+     de claves, no admite «la columna temporal en el score **o** `data.frame`». Con la sección
+     declarada y `temporal_axis != "none"`, el ensamblador lee `data.frame` sólo cuando el score no
+     trae la columna, y eso se sabe en ejecución. El método declarante elige la exigencia
+     **conservadora** —`data.frame` siempre que `temporal_axis != "none"`— y esta enmienda declara
      su consecuencia: un `Study` armado por código con un `scorecard.score` que ya trae la columna
      temporal y sin `data.frame` es rechazado en el preflight con la clave exacta, aunque el
-     ensamblador habría podido calcular; el escape es `temporal_axis="none"` en la sección
-     `stability` (y en toda corrida por la interfaz o por `nikodym.run` el paso `data` publica
-     `data.frame`, también con artefactos inyectados por la puerta, que sólo sustituyen dominios
-     declarados). Rechazar en el preflight con mensaje es mejor que abortar a mitad de corrida, y
-     la alternativa —que el recálculo lea la columna temporal **siempre** de `data.frame` para que
-     lo declarado sea exactamente lo leído— se descarta porque cambiaría el frame frente al del
-     paso de estabilidad y rompería el gate byte a byte de §6.
+     ensamblador habría podido calcular; los escapes son `temporal_axis="none"` en la sección o no
+     declararla (receta mínima), y en toda corrida por la interfaz o por `nikodym.run` el paso
+     `data` publica `data.frame`, también con artefactos inyectados por la puerta, que sólo
+     sustituyen dominios declarados. Rechazar en el preflight con mensaje es mejor que abortar a
+     mitad de corrida, y la alternativa —que el recálculo lea la columna temporal **siempre** de
+     `data.frame` para que lo declarado sea exactamente lo leído— se descarta porque cambiaría el
+     frame frente al del paso de estabilidad y rompería el gate byte a byte de §6.
    - Alcance añadido y declarado: `core/steps.py` (constante y campo), `core/study.py`
      (`_contexto_de_resolucion`), `stability/config.py` (método), `validation/step.py`
      (fábrica contextual). Es CT-1 tal como ya lo hace la discriminación
@@ -373,8 +407,9 @@ estabilidad; `consume_stability` deja de estar oculto.**
    con `ml`— o `StabilityConfig()` si el config no la trae. Pasa el frame como
    `stability_frame` y los `evaluator_kwargs` que el evaluador de SDD-11 necesita (`psi_bins`,
    `comparisons`, `temporal_axis`, …) leídos de esa misma config, de modo que **el recálculo es el
-   mismo cálculo**: la fila `source="recomputed"` tiene el mismo `value` que la fila
-   `source="stability_artifact"` de una corrida con el paso (gate byte a byte en §6).
+   mismo cálculo**: con la sección declarada, la fila `source="recomputed"` tiene el mismo `value`
+   que la fila `source="stability_artifact"` de una corrida con el paso (gate byte a byte en §6);
+   sin sección, la receta mínima produce las filas por partición y ninguna temporal, y lo dice.
 4. La semántica del toggle queda como D-VAL-2 la enunció: `True` = consumir el artefacto; `False`
    = recalcular por reúso. **No** se introduce «consumir si existe, si no recalcular» (un tercer
    estado implícito): quien apaga el consumo lo hace a propósito y el DAG lo declara.
@@ -456,8 +491,8 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
 - `ValidationStep.requires` (CT-1) para `stability` con `consume_stability=False`:
   `("scorecard","score")`, `("calibration","calibrated_pd_frame")`, más `("data","frame")` si
   `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, tomados de
-  `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`) o de
-  la lista conservadora de `StabilityConfig()` cuando no se sabe.
+  `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`); sin
+  sección declarada, sólo las dos primeras (receta mínima).
 - `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey,
   ...] | None]` (aditivo; clave ausente = no declarada, `None` = declarada e incoaccionable).
   `StabilityConfig`: método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`:
@@ -475,9 +510,14 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   como cualquier paso (CT-1); antes abortaba en el evaluador con un mensaje que hablaba de un frame
   que nadie podía dar.
 - **`consume_stability=False` y `NikodymConfig.stability` ausente**: se recalcula con
-  `StabilityConfig()`; el trail lo dice (`stability_psi`, `source="recomputed"`). Como el default
-  es `temporal_axis="period"`, `data.frame` entra a `requires` y su ausencia la acusa el DAG antes
-  de correr, no el ensamblador a mitad de `execute`.
+  la receta mínima (`temporal_axis="none"`, `csi_source="score_points"`, dirección de la ficha);
+  el trail y la card lo dicen. No hay columna temporal que resolver ni dirección declarada que
+  contradecir: nada puede abortar en `execute` que el DAG no haya comprobado.
+- **`consume_stability=False` con sección declarada, `temporal_axis="period"` y `data.frame` sin
+  columna temporal o con varias candidatas**: lo acusa `check_dataset` por
+  `StabilityConfig.requisitos_incumplidos` antes de correr, como hoy con el paso de estabilidad.
+- **`consume_stability=False` con sección declarada y `score_direction` contraria a la del
+  scorecard**: lo acusa `requisitos_incumplidos_por_contexto` en el preflight, como hoy.
 - **`consume_stability=False` con `csi_source="woe_bins"` y sin `binning.bin_frame`** (un `Study`
   sin paso de binning): error de `requires` ausente con la clave exacta, no el `StabilityDataError`
   del ensamblador.
@@ -566,7 +606,12 @@ apagado, construido por `Study._resolve_steps` (no a mano), nombra `scorecard.sc
 `calibration.calibrated_pd_frame` y `data.frame` (default `period`) y no
 `stability.stability_metrics`; con `NikodymConfig.stability.temporal_axis="none"` no nombra
 `data.frame`; con `csi_source="woe_bins"` nombra `binning.bin_frame`; con la sección `stability`
-ausente usa la lista conservadora y el trail lo dice; con la sección declarada e inválida,
+ausente nombra sólo `scorecard.score` y `calibration.calibrated_pd_frame`, la corrida llega a
+`done` con la receta mínima sobre un `data.frame` **sin** columna temporal y con un scorecard de
+dirección contraria al default (los dos casos que antes abortaban tarde), y el trail lo dice; con
+la sección declarada y `data.frame` sin columna temporal, o ambigua, o con `score_direction`
+contraria, `check_dataset` lo acusa antes de ejecutar (tres controles end-to-end, uno por
+invariante); con la sección declarada e inválida,
 `check_pipeline` levanta `ConfigError` nombrando `stability` **sin ejecutar ningún paso**
 (end-to-end, no sólo el cálculo de `requires`); con el score que ya trae la columna temporal y
 `data.frame` presente, `done` (positivo del límite); con ese score y sin `data.frame`, error de

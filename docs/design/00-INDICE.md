@@ -967,7 +967,8 @@ No autoriza START ni mueve la puerta global.
 > el Jeffreys y el t-test del motor **coinciden** con el BCE en forma, ponderación (sin
 > exposición), orientación y distribución (`FALTA-DATO-VAL-1/3` se cierran y se retiran); el
 > semáforo **no tiene anclaje** regulatorio —la frase «siguen la convención de Basilea (1996)» es
-> falsa: 1996 corta por probabilidad acumulada 95 %/99,99 % sobre excepciones de VaR— y sus cortes
+> falsa: 1996 define zonas discretas sobre el conteo de excepciones de VaR (probabilidad acumulada
+> inclusiva 95 %/99,99 %; colas en la frontera 0,108/0,00025 con N = 250, dependientes de N)— y sus cortes
 > son política institucional publicada, como `alpha` (`FALTA-DATO-VAL-2` se retira sin sucesor y el
 > informe nombra los cortes cuando corre el contraste); la fórmula CCF del PDF omite un `1/R`
 > (errata, la plantilla lo confirma). Además: cablear de verdad el fallback de D-VAL-2 reutilizando
@@ -985,8 +986,11 @@ No autoriza START ni mueve la puerta global.
 > recomienda que sí, con los cortes persistidos)—. Pasada 3: la tabla de calibración del informe
 > se copia del DTO con slugs crudos (la causa de HL va a auditoría y prosa, con gate sobre los tres
 > formatos; los slugs preexistentes quedan como abierto), el límite de CT-1 ante «esto o aquello»
-> se declara con su escape, y una sección `stability` inválida se detiene en el preflight. Ningún
-> `config_hash` ni fixture de la demo se mueve (medido). Ocho decisiones para Cami en §8.
+> se declara con su escape, y una sección `stability` inválida se detiene en el preflight. Pasada
+> 4: la equivalencia con p-valores fijos de las zonas de 1996 era falsa (corregida antes de llegar
+> a SDD-22) y, sin sección `stability`, el recálculo usa una receta mínima sin invariantes de
+> ejecución. Ningún `config_hash` ni fixture de la demo se mueve (medido). Ocho decisiones para
+> Cami en §8.
 
 ## Tandas de producción
 
