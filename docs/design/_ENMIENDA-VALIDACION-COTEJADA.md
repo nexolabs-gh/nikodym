@@ -16,8 +16,13 @@
 > revalida); y los p-valores redondeados del panel (4 decimales) y de la tabla del informe (6)
 > pueden parecer contradecir el color con cortes de más decimales: **límite declarado** en las dos
 > superficies («el color se decidió sobre el valor exacto»), inherente a todo redondeo y el mismo
-> que ya tenía el p-valor de Hosmer-Lemeshow frente a `alpha`; no se persiguen más dígitos—. Nace
-> de las
+> que ya tenía el p-valor de Hosmer-Lemeshow frente a `alpha`; no se persiguen más dígitos—;
+> pasada 4 (`27f0b8e`): un hallazgo, de clase preexistente (`ValidationResult` sólo contaba
+> filas): el validador agregado reconcilia ahora las filas de grado con los records (grado,
+> p-valor, color, cortes) y la card con los records (cortes y recuento de colores), con un
+> control negativo por copia; **límite declarado**: la presencia o nulidad de los cortes según el
+> config no se puede verificar sin el config, y la UI ya lee un solo JSON serializado de un solo
+> resultado—. Nace de las
 > respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea
 > aparte para `FALTA-DATO-VAL-1/2/3`», «el recálculo del PSI queda oculto, con tarea aparte para el

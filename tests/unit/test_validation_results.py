@@ -524,6 +524,60 @@ def test_validation_result_valida_frames_y_consistencia_card() -> None:
         _result(card=_card(families_run=("discrimination", "calibration", "backtesting")))
 
 
+def _card_con_semaforo(**cortes: float) -> ValidationCardSection:
+    """Card con la sección CT-2 de validación tal como la publica el evaluador."""
+    cuts = {"green_alpha": 0.05, "red_alpha": 0.01, **cortes}
+    return _card(
+        metric_sections={
+            "validation": {
+                "traffic_light": {"green": 1, "amber": 0, "red": 0},
+                "not_evaluable_grades": [],
+                "traffic_light_cuts": cuts,
+            }
+        }
+    )
+
+
+def test_validation_result_reconcilia_las_filas_de_grado_con_los_records_y_la_card() -> None:
+    """Pasada 4 de Codex sobre la capa A: la tabla (lo que pinta el informe), los records (lo que
+    lee el trail) y la card (lo que leen la prosa y el panel) son tres copias del mismo semáforo,
+    y el validador agregado sólo contaba filas. Coherentes, el resultado se construye; alterada
+    UNA copia sin mover cardinalidades, falla nombrando la copia."""
+    assert _result(card=_card_con_semaforo()).grade_records[0].green_alpha == 0.05
+
+    tabla = _calibration_frame()
+    tabla.loc[2, "green_alpha"] = 0.10
+    with pytest.raises(ValidationError, match=r"fila de grado 'A'.*green_alpha"):
+        _result(calibration=tabla)
+
+    tabla = _calibration_frame()
+    tabla.loc[2, "p_value"] = 0.61
+    with pytest.raises(ValidationError, match=r"fila de grado 'A'.*p_value"):
+        _result(calibration=tabla)
+
+    tabla = _calibration_frame()
+    tabla.loc[2, "traffic_light"] = "amber"
+    with pytest.raises(ValidationError, match=r"fila de grado 'A'.*traffic_light"):
+        _result(calibration=tabla)
+
+    with pytest.raises(ValidationError, match="traffic_light_cuts de la card"):
+        _result(card=_card_con_semaforo(green_alpha=0.10))
+
+    card = _card(
+        metric_sections={
+            "validation": {
+                "traffic_light": {"green": 0, "amber": 1, "red": 0},
+                "traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01},
+            }
+        }
+    )
+    with pytest.raises(ValidationError, match="recuento de colores de la card"):
+        _result(card=card)
+
+    # Sin sección CT-2 en la card (fixtures mínimos) no hay copia que reconciliar: se acepta.
+    assert _result(card=_card(metric_sections={})).card.metric_sections == {}
+
+
 def test_validation_results_lazy_exports_y_nucleo_liviano_por_subprocess() -> None:
     code = (
         "import sys;"

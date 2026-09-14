@@ -639,7 +639,62 @@ class ValidationResult(BaseModel):
             raise ValueError("backtest_records exige 'backtesting' en card.families_run.")
         if len(self.stability) > 0 and "stability" not in declared:
             raise ValueError("stability exige 'stability' en card.families_run.")
+        self._check_semaforo_reconciliado()
         return self
+
+    def _check_semaforo_reconciliado(self) -> None:
+        """Las tres copias del semáforo por grado dicen lo mismo (D-VAL-15; pasada 4 de Codex).
+
+        La tabla ``calibration`` es lo que pinta el informe, ``grade_records`` lo que lee el trail
+        y ``metric_sections.validation`` lo que leen la prosa y el panel. Se exige que las filas de
+        grado de la tabla (las que traen semáforo) coincidan una a una y en orden con los records
+        en grado, p-valor, color y cortes; que ``traffic_light_cuts`` de la card sea el par de los
+        records cuando los hay; y que el recuento de colores de la card sea el derivado. Una card
+        sin la sección CT-2 —fixtures mínimos— no tiene copia que reconciliar.
+        """
+        frame = super().__getattribute__("calibration")
+        filas = frame[frame["traffic_light"].notna()]
+        if len(filas) != len(self.grade_records):
+            raise ValueError(
+                "calibration debe traer exactamente una fila con semáforo por grade_record."
+            )
+        campos = ("grade", "p_value", "traffic_light", "green_alpha", "red_alpha")
+        for (_, fila), record in zip(filas.iterrows(), self.grade_records, strict=True):
+            for campo in campos:
+                if fila[campo] != getattr(record, campo):
+                    raise ValueError(
+                        f"La fila de grado {record.grade!r} de calibration no coincide con su "
+                        f"record en {campo}: {fila[campo]!r} frente a {getattr(record, campo)!r}."
+                    )
+        section = self.card.metric_sections.get("validation")
+        if not isinstance(section, Mapping):
+            return
+        if self.grade_records and "traffic_light_cuts" in section:
+            esperado = {
+                "green_alpha": self.grade_records[0].green_alpha,
+                "red_alpha": self.grade_records[0].red_alpha,
+            }
+            if any(
+                (record.green_alpha, record.red_alpha)
+                != (esperado["green_alpha"], esperado["red_alpha"])
+                for record in self.grade_records
+            ):
+                raise ValueError("Todos los grade_records deben compartir los mismos cortes.")
+            if section["traffic_light_cuts"] != esperado:
+                raise ValueError(
+                    "traffic_light_cuts de la card no coincide con los cortes de los records: "
+                    f"{section['traffic_light_cuts']!r} frente a {esperado!r}."
+                )
+        if "traffic_light" in section:
+            conteo = {
+                color: sum(record.traffic_light == color for record in self.grade_records)
+                for color in ("green", "amber", "red")
+            }
+            if dict(section["traffic_light"]) != conteo:
+                raise ValueError(
+                    "El recuento de colores de la card no es el derivado de los records: "
+                    f"{dict(section['traffic_light'])!r} frente a {conteo!r}."
+                )
 
     def __getattribute__(self, name: str) -> Any:
         """Entrega copias defensivas de DataFrames al leerlos desde el resultado."""
