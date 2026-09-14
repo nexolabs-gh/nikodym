@@ -10,7 +10,13 @@
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2
 > (`c9b8596`): un hallazgo, verificado y absorbido —`formatCut` expandía la notación científica con
-> `toFixed`, que sólo admite 100 decimales, y un corte `1e-101` (válido) derribaba el panel—. Nace
+> `toFixed`, que sólo admite 100 decimales, y un corte `1e-101` (válido) derribaba el panel—;
+> pasada 3 (`0bd97d2`): dos hallazgos —el DTO aceptaba un color que sus cortes no explican y el
+> resellado lo eludía por `model_copy` (ahora el DTO deriva el color esperado y el resellado
+> revalida); y los p-valores redondeados del panel (4 decimales) y de la tabla del informe (6)
+> pueden parecer contradecir el color con cortes de más decimales: **límite declarado** en las dos
+> superficies («el color se decidió sobre el valor exacto»), inherente a todo redondeo y el mismo
+> que ya tenía el p-valor de Hosmer-Lemeshow frente a `alpha`; no se persiguen más dígitos—. Nace
 > de las
 > respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea

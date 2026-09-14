@@ -647,8 +647,15 @@ def _reseal_traffic_light(
     green_alpha = calib.traffic_light_green_alpha
     red_alpha = calib.traffic_light_red_alpha
     light = traffic_light(record.p_value, green_alpha=green_alpha, red_alpha=red_alpha)
-    return record.model_copy(
-        update={"traffic_light": light, "green_alpha": green_alpha, "red_alpha": red_alpha}
+    # Se construye de nuevo, no ``model_copy(update=...)``: ese atajo no revalida y dejaría pasar
+    # un color que los cortes no explican (pasada 3 de Codex sobre la capa A).
+    return GradeBinomialRecord.model_validate(
+        {
+            **record.model_dump(),
+            "traffic_light": light,
+            "green_alpha": green_alpha,
+            "red_alpha": red_alpha,
+        }
     )
 
 

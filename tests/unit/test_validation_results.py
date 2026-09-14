@@ -233,6 +233,47 @@ def test_grade_binomial_record_persiste_los_cortes_con_que_se_decidio_el_color()
         _grade_record(green_alpha=math.nan)
 
 
+@pytest.mark.parametrize(
+    ("p_value", "light"),
+    [(0.62, "green"), (0.05, "green"), (0.049, "amber"), (0.01, "amber"), (0.0099, "red")],
+)
+def test_grade_binomial_record_acepta_el_color_que_sus_cortes_deciden(
+    p_value: float, light: str
+) -> None:
+    """La fila explica su propio color: verde con ``p >= verde``, ámbar con ``rojo <= p < verde``,
+    rojo por debajo; los bordes son inclusivos por abajo, como en el kernel."""
+    record = _grade_record(p_value=p_value, traffic_light=light)
+    assert record.traffic_light == light
+
+
+@pytest.mark.parametrize(
+    ("p_value", "light"),
+    [(0.001, "green"), (0.62, "red"), (0.03, "green"), (0.62, "amber"), (0.005, "amber")],
+)
+def test_grade_binomial_record_rechaza_un_color_que_sus_cortes_no_explican(
+    p_value: float, light: str
+) -> None:
+    """Pasada 3 de Codex sobre la capa A: el DTO aceptaba ``p_value=0.001`` con cortes 0,05/0,01 y
+    color verde. Los consumidores confían en el color y publican los cortes aparte, así que una
+    construcción pública o una actualización parcial podía producir evidencia contradictoria."""
+    with pytest.raises(ValidationError, match="traffic_light no corresponde"):
+        _grade_record(p_value=p_value, traffic_light=light)
+
+
+def test_la_regla_del_dto_es_la_del_kernel() -> None:
+    """El DTO no puede importar ``calibration_tests`` (importaría al revés), así que replica la
+    regla; este gate los ata sobre una malla de p-valores y cortes, bordes incluidos."""
+    from nikodym.validation.calibration_tests import traffic_light
+
+    for green, red in [(0.05, 0.01), (0.10, 0.02), (0.5, 0.499), (0.05004, 0.01004)]:
+        for p_value in [0.0, red / 2, red, (red + green) / 2, green, (green + 1) / 2, 1.0]:
+            esperado = traffic_light(p_value, green_alpha=green, red_alpha=red)
+            record = _grade_record(
+                p_value=p_value, green_alpha=green, red_alpha=red, traffic_light=esperado
+            )
+            assert record.traffic_light == esperado
+
+
 def test_backtest_record_golden_y_test_por_parametro() -> None:
     record = _backtest_record(statistic=-0.0, realised_mean=-0.0)
     assert record.model_dump(mode="json") == {

@@ -413,6 +413,22 @@ class GradeBinomialRecord(BaseModel):
             raise ValueError("red_alpha debe estar en (0, 1).")
         if not self.red_alpha < self.green_alpha:
             raise ValueError("El semáforo exige red_alpha < green_alpha.")
+        # La fila explica su propio color, así que el color tiene que ser el que sus cortes
+        # deciden (pasada 3 de Codex sobre la capa A). Es la misma regla que
+        # ``calibration_tests.traffic_light`` —replicada porque ese módulo importa a éste—, atada
+        # por un gate sobre una malla de valores.
+        if self.p_value >= self.green_alpha:
+            esperado = "green"
+        elif self.p_value >= self.red_alpha:
+            esperado = "amber"
+        else:
+            esperado = "red"
+        if self.traffic_light != esperado:
+            raise ValueError(
+                f"traffic_light no corresponde a p_value y los cortes: p_value={self.p_value!r}, "
+                f"green_alpha={self.green_alpha!r}, red_alpha={self.red_alpha!r} deciden "
+                f"{esperado!r}, no {self.traffic_light!r}."
+            )
         return self
 
 

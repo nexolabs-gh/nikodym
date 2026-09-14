@@ -756,6 +756,10 @@ describe("los cortes del semáforo por grado (D-VAL-15): la fila explica su prop
     expect(html).not.toContain("la institución fijó")
     // Y el color de la fila es el que esos cortes deciden.
     expect(html).toContain("Ámbar")
+    // Pasada 3 de Codex: el p-valor de la fila va a cuatro decimales y el color se decidió sobre
+    // el valor exacto; el límite se declara junto a los cortes.
+    expect(html).toContain("cuatro decimales")
+    expect(html).toContain("sobre el valor exacto")
   })
 
   it("un corte con más de cuatro decimales se escribe entero, no redondeado a otra política", () => {

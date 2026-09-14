@@ -1225,7 +1225,9 @@ def _traffic_light_cuts_prose(bundle: ReportInputBundle) -> tuple[str, ...]:
         f"Un grado queda en verde con un p-valor de al menos {_cut(green)}, en ámbar entre "
         f"{_cut(red)} y {_cut(green)}, y en rojo por debajo de {_cut(red)}. Los cortes son un "
         "parámetro de la política de validación de la institución —el motor trae "
-        f"{default_green} y {default_red} por defecto— y no un umbral fijado por norma.",
+        f"{default_green} y {default_red} por defecto— y no un umbral fijado por norma. Los "
+        "p-valores de la tabla se muestran redondeados a seis decimales; el color de cada grado "
+        "se decidió sobre el valor exacto.",
     )
 
 

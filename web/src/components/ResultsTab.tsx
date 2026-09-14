@@ -1122,7 +1122,8 @@ export function ResultsPanel({
                   p-valor ≥ {formatCut(valCuts.green_alpha)} · ámbar desde{" "}
                   {formatCut(valCuts.red_alpha)} · rojo por debajo de{" "}
                   {formatCut(valCuts.red_alpha)}. Son un parámetro de la política de validación
-                  de tu institución, no un umbral fijado por norma.
+                  de tu institución, no un umbral fijado por norma. Los p-valores de la tabla se
+                  muestran con cuatro decimales; el color se decidió sobre el valor exacto.
                 </p>
               ) : null}
               {valCalibration.porGrado.length > 0 ? (

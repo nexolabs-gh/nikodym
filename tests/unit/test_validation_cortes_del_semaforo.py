@@ -173,6 +173,11 @@ def test_la_prosa_nombra_los_dos_cortes_leidos_de_la_card_cuando_corrio_el_contr
     assert "no un umbral fijado por norma" in seccion
     assert "la institución fijó" not in seccion
     assert "Basilea" not in seccion
+    # Pasada 3 de Codex: la tabla redondea el p-valor a seis decimales y el color se decidió sobre
+    # el valor exacto; con cortes de más decimales un p-valor pegado al corte parecería
+    # contradecir el color. El límite se declara, no se esconde.
+    assert "redondeados a seis decimales" in seccion
+    assert "sobre el valor exacto" in seccion
 
 
 def test_la_prosa_no_redondea_un_corte_hasta_describir_otra_politica() -> None:

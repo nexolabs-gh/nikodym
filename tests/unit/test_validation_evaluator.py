@@ -176,6 +176,27 @@ def test_grade_records_resellan_los_cortes_del_semaforo_junto_al_color() -> None
         assert grade.traffic_light == traffic_light(grade.p_value, green_alpha=0.10, red_alpha=0.02)
 
 
+def test_el_resellado_pasa_por_la_validacion_del_dto() -> None:
+    """Pasada 3 de Codex: ``model_copy(update=...)`` no revalida, así que un resellado incoherente
+    habría producido un record con color y cortes contradictorios sin fallar. El resellado
+    construye el record de nuevo y lo valida: forzar un color falso levanta ``ValidationError``."""
+    from pydantic import ValidationError
+
+    calib = CalibrationValidationConfig(
+        traffic_light_green_alpha=0.10, traffic_light_red_alpha=0.02
+    )
+    record = evaluator_module._reseal_traffic_light(_grade("green"), calib)
+    assert (record.green_alpha, record.red_alpha) == (0.10, 0.02)
+    assert record.traffic_light == "green"
+
+    # El resellado siempre decide un color coherente con el p-valor, así que la incoherencia que
+    # demuestra que VALIDA es otra invariante del DTO: un ``model_copy`` que dejó más incumplidas
+    # que operaciones pasa en silencio y el resellado lo acusa.
+    roto = _grade("green").model_copy(update={"observed_defaults": 999})
+    with pytest.raises(ValidationError, match="observed_defaults no puede exceder"):
+        evaluator_module._reseal_traffic_light(roto, calib)
+
+
 def test_la_tabla_y_la_card_publican_los_cortes_solo_cuando_corrio_el_contraste() -> None:
     """(b) de la capa A (D-VAL-15): ``calibration`` gana ``green_alpha``/``red_alpha`` al final
     —llenas en las filas de grado, nulas en Hosmer-Lemeshow y Brier— y
@@ -827,7 +848,11 @@ def test_overall_status_backtest_fail() -> None:
 
 
 def _grade(light: str) -> GradeBinomialRecord:
-    """Crea un ``GradeBinomialRecord`` mínimo con un semáforo dado para tests de verdicto."""
+    """Crea un ``GradeBinomialRecord`` mínimo con un semáforo dado para tests de verdicto.
+
+    El p-valor acompaña al color: el DTO exige que los cortes (0,05/0,01) expliquen el color.
+    """
+    p_value = {"green": 0.5, "amber": 0.03, "red": 0.001}[light]
     return GradeBinomialRecord(
         grade="A",
         n=40,
@@ -835,7 +860,7 @@ def _grade(light: str) -> GradeBinomialRecord:
         observed_defaults=2,
         observed_dr=0.05,
         test="jeffreys",
-        p_value=0.5,
+        p_value=p_value,
         z_stat=None,
         alpha=0.05,
         traffic_light=light,  # type: ignore[arg-type]
