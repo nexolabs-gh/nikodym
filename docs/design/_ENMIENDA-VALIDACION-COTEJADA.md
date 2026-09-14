@@ -39,7 +39,12 @@
 > §2 fila F3, corregidas antes de que el cotejo llegue a SDD-22); y sin sección `stability`
 > declarada nadie preflightea la columna temporal ni la dirección del score, así que el fallback
 > podía seguir abortando tarde (§3.2: sin sección, el recálculo usa una receta mínima sin
-> invariantes de ejecución; con sección, su propio preflight D-INV/D-REQ ya las cubre). Pasadas
+> invariantes de ejecución; con sección, su propio preflight D-INV/D-REQ ya las cubre). Pasada 5
+> `needs-attention` con dos hallazgos, verificados y absorbidos, los dos incoherencias que la
+> pasada 4 dejó en el propio texto: el punto 3 de D-VAL-16 seguía diciendo `StabilityConfig()` en
+> ejecución cuando la receta mínima exige `temporal_axis="none"` (un solo helper para resolver y
+> ejecutar); y la ficha del scorecard que la receta lee no estaba en `optional_requires`, con lo
+> que una corrida por artefactos la habría leído y declarado inerte a la vez (D-ART-5). Pasadas
 > posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
@@ -368,8 +373,13 @@ estabilidad; `consume_stability` deja de estar oculto.**
      `temporal_axis="none"` y `csi_source="score_points"` (PSI de score y PD entre particiones,
      CSI desde los `__points` que el score ya trae, sin serie temporal ni bins), y la dirección
      del score tomada de la ficha del scorecard cuando existe —nada declarado, nada que
-     contradecir—. No lee `data.frame` ni `binning.bin_frame`, así que `requires` es exactamente
-     lo que el DAG puede comprobar y ninguna invariante queda para la ejecución. El trail y la
+     contradecir—. Como la receta **lee** `("scorecard","card")` si está, esa clave entra a
+     `ValidationStep.optional_requires` en esta rama (hallazgo 2 de la pasada 5, sostenido: el
+     núcleo marca inerte todo artefacto inyectado que no esté en `requires` ni en
+     `optional_requires`, D-ART-5, y una corrida por la puerta de artefactos habría leído la ficha
+     y emitido `artefacto_inyectado_inerte` a la vez). No lee `data.frame` ni
+     `binning.bin_frame`, así que `requires` es exactamente lo que el DAG puede comprobar y
+     ninguna invariante queda para la ejecución. El trail y la
      card dicen que el recálculo fue mínimo («sin eje temporal: la sección `stability` no está
      declarada»). Quien quiera la serie temporal o el CSI por bins **declara** la sección.
    - **Con sección `stability` declarada, su propio preflight ya cubre lo que el recálculo lee.**
@@ -402,9 +412,15 @@ estabilidad; `consume_stability` deja de estar oculto.**
      anotado, fuera de esta enmienda.
 3. `execute` construye el frame con el ensamblador cuando la familia está activa y
    `consume_stability=False`, con la `StabilityConfig` que lee de `study.config.stability` en
-   ejecución —el mismo `_stability_config_from_study(study, fallback=StabilityConfig())` que usa el
-   paso de estabilidad, y la misma lectura en `execute` de una sección ajena que ya hace `tuning`
-   con `ml`— o `StabilityConfig()` si el config no la trae. Pasa el frame como
+   ejecución —la misma lectura en `execute` de una sección ajena que ya hace `tuning` con `ml`—
+   o, si el config no la trae, **la receta mínima**: un único helper
+   `nikodym.stability.config.receta_minima_de_recalculo(score_direction) -> StabilityConfig`
+   construye explícitamente `StabilityConfig(temporal_axis="none", csi_source="score_points",
+   score_direction=<la de la ficha del scorecard, o el default si no hay ficha>)`, y es el
+   **mismo** helper cuyos `requisitos_de_recalculo_declarados()` usa `from_config_with_context`
+   para la clave ausente, de modo que lo que el DAG comprueba y lo que `execute` lee salen de un
+   solo objeto (hallazgo 1 de la pasada 5, sostenido: la primera redacción decía
+   `StabilityConfig()` aquí y `temporal_axis="none"` arriba). Pasa el frame como
    `stability_frame` y los `evaluator_kwargs` que el evaluador de SDD-11 necesita (`psi_bins`,
    `comparisons`, `temporal_axis`, …) leídos de esa misma config, de modo que **el recálculo es el
    mismo cálculo**: con la sección declarada, la fila `source="recomputed"` tiene el mismo `value`
@@ -492,7 +508,9 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   `("scorecard","score")`, `("calibration","calibrated_pd_frame")`, más `("data","frame")` si
   `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, tomados de
   `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`); sin
-  sección declarada, sólo las dos primeras (receta mínima).
+  sección declarada, sólo las dos primeras (receta mínima) y `("scorecard","card")` en
+  `optional_requires`. `nikodym.stability.config.receta_minima_de_recalculo()` es el único
+  constructor de esa receta, usado al resolver y al ejecutar.
 - `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey,
   ...] | None]` (aditivo; clave ausente = no declarada, `None` = declarada e incoaccionable).
   `StabilityConfig`: método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`:
@@ -608,7 +626,10 @@ apagado, construido por `Study._resolve_steps` (no a mano), nombra `scorecard.sc
 `data.frame`; con `csi_source="woe_bins"` nombra `binning.bin_frame`; con la sección `stability`
 ausente nombra sólo `scorecard.score` y `calibration.calibrated_pd_frame`, la corrida llega a
 `done` con la receta mínima sobre un `data.frame` **sin** columna temporal y con un scorecard de
-dirección contraria al default (los dos casos que antes abortaban tarde), y el trail lo dice; con
+dirección contraria al default (los dos casos que antes abortaban tarde), y el trail lo dice; por
+la puerta pública `nikodym.run(..., artifacts=...)` con score y ficha inyectados y sin paso
+`scorecard`, la ficha **no** aparece en `inert_artifacts` y su dirección es la que la receta usó
+(control negativo: quitar `("scorecard","card")` de `optional_requires` → rojo); con
 la sección declarada y `data.frame` sin columna temporal, o ambigua, o con `score_direction`
 contraria, `check_dataset` lo acusa antes de ejecutar (tres controles end-to-end, uno por
 invariante); con la sección declarada e inválida,
