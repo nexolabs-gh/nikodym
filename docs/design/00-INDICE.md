@@ -982,8 +982,11 @@ No autoriza START ni mueve la puerta global.
 > D-REQ (la sección declara, el núcleo transporta); el trail del semáforo registraba `alpha` como
 > umbral; cuarta causa de HL (estadístico no finito); y uno **contractual**, elevado en §8-3: si
 > un default del motor puede decidir un color sin marca (Codex sostiene que no; el writer
-> recomienda que sí, con los cortes persistidos)—. Ningún `config_hash` ni fixture de la demo se
-> mueve (medido). Ocho decisiones para Cami en §8.
+> recomienda que sí, con los cortes persistidos)—. Pasada 3: la tabla de calibración del informe
+> se copia del DTO con slugs crudos (la causa de HL va a auditoría y prosa, con gate sobre los tres
+> formatos; los slugs preexistentes quedan como abierto), el límite de CT-1 ante «esto o aquello»
+> se declara con su escape, y una sección `stability` inválida se detiene en el preflight. Ningún
+> `config_hash` ni fixture de la demo se mueve (medido). Ocho decisiones para Cami en §8.
 
 ## Tandas de producción
 

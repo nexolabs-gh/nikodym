@@ -25,7 +25,14 @@
 > de HL omitía la rama del estadístico no finito (§3.3, cuarta causa); (iv) **contractual**, y por
 > eso se eleva y no se absorbe: Codex sostiene que un default del motor no puede decidir un color
 > sin una marca declarada hasta que la institución confirme los cortes (§8-3, opción B, con su
-> diseño concreto). Pasadas posteriores: en el `HANDOFF`.
+> diseño concreto). Pasada 3 `needs-attention` con tres hallazgos, verificados y absorbidos: la
+> tabla de calibración del informe se copia del DTO tal cual —encabezados y valores crudos—, así
+> que una columna de causas con slugs habría llegado al HTML/PDF/Word (§3.3: la columna es de
+> auditoría, como `warning_codes`, y la causa va en prosa; gate sobre los tres formatos); CT-1 no
+> expresa «esto o aquello», así que la exigencia conservadora de `data.frame` se declara como
+> límite con su escape (§3.2); y una sección `stability` presente pero inválida pasaba el preflight
+> con la lista conservadora y abortaba dentro de `validation` (§3.2: el DTO distingue «ausente» de
+> «inválida» y el paso falla al construirse). Pasadas posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -161,7 +168,7 @@ Censo por `git grep` sobre el árbol; los consumidores filtran por
 |---|---|---|
 | `test_ui_presets.py:56` `_EXPECTED_CONFIG_HASH` (F1 `1063d6cf…`), F5, y los hashes de `test_jobs_abanico.py`, `test_columna_cartera_ambigua.py`, `test_presets_gobernanza.py` | hash de **valores** del config; ninguna decisión cambia un valor de preset (`consume_stability: true` sigue; los cortes siguen) | **No** |
 | `web/src/fixtures/demo/results-f1.json` (firma) | `validation.falta_dato == []` (F1 no gatilla ningún `VAL`: `binomial_by_grade: false`, backtesting apagado); `metric_sections.validation.not_evaluable_grades == []`; la tabla `calibration` con las 13 columnas de `_CALIBRATION_COLUMNS` | **El fixture no cambia** (jamás se edita a mano y la recaptura sólo la exige un `config_hash` movido o el copy del informe, RUNBOOK §10.1-2; el gate de la demo compara `config_hash` y códigos en la prosa, no la forma del JSON). Una corrida **fresca** sí publica más: dos claves nuevas en `metric_sections.validation` (D-VAL-15, D-VAL-17) y tres columnas nuevas en `calibration` (D-VAL-15, D-VAL-17). El panel tolera un fixture sin ellas —como tolera todo fixture anterior a un campo— y la primera recaptura posterior las incorpora |
-| `report-f1.html/.pdf/.docx` de la demo | 0 apariciones de «Basilea», «Jeffreys», «BCE», «salvedad», «brecha del motor»; la prosa de calibración es genérica (`prose.py:1184-1185`); la tabla de calibración se copia del DTO | **No** se recaptura (misma regla). Una corrida fresca emite la frase de los cortes **sólo cuando corrió** el contraste por grado (F1 no) y la tabla con las columnas nuevas |
+| `report-f1.html/.pdf/.docx` de la demo | 0 apariciones de «Basilea», «Jeffreys», «BCE», «salvedad», «brecha del motor»; la prosa de calibración es genérica (`prose.py:1184-1185`); ⚠️ la tabla «Validación formal · calibración» se copia del DTO **tal cual**: encabezados `partition`/`test`/`statistic`… y valores `hosmer_lemeshow`, `pass`, `not_evaluable`, `performance_artifact` (medido en `report-f1.html`); el renderer sólo retira `warning_codes` (`renderer.py:735`) y no aplica `CALIBRATION_TEST_LABELS`/`VALIDATION_DECISION_LABELS`, que sí usan el panel y la guía | **No** se recaptura (misma regla). Una corrida fresca emite la frase de los cortes **sólo cuando corrió** el contraste por grado (F1 no) y la tabla con las dos columnas de cortes; la columna de causas **no** se pinta (§3.3). Los slugs que la tabla ya imprime hoy son un defecto de copy **preexistente y fuera de esta enmienda**: corregirlo cambia el HTML de la demo y exige recaptura; queda anotado como abierto |
 | `GOLDEN_STEP_HTML_SHA256` (`test_report_step.py:88`) | el bundle golden no lleva `validation` (`:112-113`: `report` no la exige) | **No** |
 | `GOLDEN_HTML_SHA256` del renderer | sin `validation` | **No** |
 | HL de la demo F1 | particiones 4.019 / 973 / 1.008 con 10 grupos → grupos de ≥ 97 > 30 | **No** con D-VAL-17 |
@@ -326,11 +333,31 @@ estabilidad; `consume_stability` deja de estar oculto.**
      falla, queda vacío (D-REQ-4). Extensión aditiva del DTO: los dos implementadores actuales no
      cambian de forma.
    - `ValidationStep` gana `from_config_with_context`: con `consume_stability=False` toma
-     `contexto.requisitos_de_recalculo.get("stability")`; si es «no se sabe» (sección ausente o
-     incoaccionable) usa la lista **conservadora** de `StabilityConfig()` —que incluye
-     `data.frame`, porque su default es `temporal_axis="period"`—, y lo declara en el trail. La
-     exigencia conservadora de `data.frame` no cuesta nada: el paso `data` lo publica en toda
-     corrida.
+     `contexto.requisitos_de_recalculo.get("stability")`. **El DTO distingue tres estados**
+     (hallazgo 3 de la pasada 3, sostenido: equiparar «ausente» e «incoaccionable» dejaba pasar el
+     preflight con la lista conservadora y abortaba dentro de `validation`, porque `execute` vuelve
+     a leer la sección original con `_stability_config_from_study`): clave **ausente** = la sección
+     no está declarada → lista conservadora de `StabilityConfig()` —que incluye `data.frame`,
+     porque su default es `temporal_axis="period"`— y el trail lo dice; valor **`None`** = la
+     sección está declarada pero no se pudo coaccionar → el paso levanta `ConfigError` al
+     construirse, nombrando `stability` y por qué («el recálculo del PSI la lee»), y `check_pipeline`
+     lo acusa antes de ejecutar ningún paso; **tupla** = lo declarado. Es una precisión sobre
+     D-REQ-4, no una excepción: allí degradar al default es correcto porque el paso conserva el
+     contrato que declararía solo; aquí el paso va a leer esa sección, así que un config inválido
+     tiene que detenerse en el preflight.
+   - **Límite declarado de CT-1** (hallazgo 2 de la pasada 3, sostenido): `requires` es una lista
+     de claves, no admite «la columna temporal en el score **o** `data.frame`». El ensamblador lee
+     `data.frame` sólo cuando el score no trae la columna, y eso se sabe en ejecución. Se elige la
+     exigencia **conservadora** —`data.frame` siempre que `temporal_axis != "none"`— y se declara
+     su consecuencia: un `Study` armado por código con un `scorecard.score` que ya trae la columna
+     temporal y sin `data.frame` es rechazado en el preflight con la clave exacta, aunque el
+     ensamblador habría podido calcular; el escape es `temporal_axis="none"` en la sección
+     `stability` (y en toda corrida por la interfaz o por `nikodym.run` el paso `data` publica
+     `data.frame`, también con artefactos inyectados por la puerta, que sólo sustituyen dominios
+     declarados). Rechazar en el preflight con mensaje es mejor que abortar a mitad de corrida, y
+     la alternativa —que el recálculo lea la columna temporal **siempre** de `data.frame` para que
+     lo declarado sea exactamente lo leído— se descarta porque cambiaría el frame frente al del
+     paso de estabilidad y rompería el gate byte a byte de §6.
    - Alcance añadido y declarado: `core/steps.py` (constante y campo), `core/study.py`
      (`_contexto_de_resolucion`), `stability/config.py` (método), `validation/step.py`
      (fábrica contextual). Es CT-1 tal como ya lo hace la discriminación
@@ -383,10 +410,18 @@ veredicto. Detalle:
   `non_finite_statistic` (el kernel ya tiene esa rama, `calibration_tests.py:93-96`: con
   probabilidades finitas pero extremas el cociente desborda a `inf` aunque los denominadores no
   sean cero; hallazgo 4 de la pasada 2, sostenido)— que el kernel fija en `_hl_not_evaluable`
-  (recibe la causa) y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna; el panel
-  traduce la causa a palabras junto al «No evaluable» de la fila, y el informe la enumera en la
-  prosa de la familia («Hosmer-Lemeshow no se evaluó en la partición X: un grupo de PD quedó bajo
-  el mínimo de N operaciones»). `metric_sections.validation` gana `not_evaluable_partitions`
+  (recibe la causa) y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna
+  **y `renderer._AUDIT_ONLY_COLUMNS` la retira de las tablas del documento**, con la misma
+  condición que `warning_codes` (el hecho se declara en prosa): el informe enumera las particiones
+  no evaluadas y su causa en palabras en la prosa de la familia («Hosmer-Lemeshow no se evaluó en
+  la partición X: un grupo de PD quedó bajo el mínimo de N operaciones»), leyendo
+  `not_evaluable_partitions`; el panel traduce la causa junto al «No evaluable» de la fila. Medido
+  (hallazgo 1 de la pasada 3, sostenido): la tabla de calibración del informe se copia del DTO con
+  encabezados y valores crudos, así que una columna de slugs habría llegado al HTML, al PDF y al
+  Word. **Gate sobre el artefacto**: un test renderiza HTML y Word (y PDF donde el extra esté) de
+  una corrida con las cuatro causas y exige que ninguno de los cuatro literales ni el encabezado
+  `not_evaluable_reason` aparezca fuera del anexo de auditoría; su control negativo quita la columna
+  de `_AUDIT_ONLY_COLUMNS`. `metric_sections.validation` gana `not_evaluable_partitions`
   (lista siempre presente, como `not_evaluable_grades`) con `partition`, `n`, `n_groups`,
   `min_group_size`, `min_rows` y `reason`, y el trail lo registra con
   `log_decision(regla="calibration_hl_not_evaluable", …)` (una regla, cuatro causas). El fixture
@@ -423,9 +458,10 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, tomados de
   `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`) o de
   la lista conservadora de `StabilityConfig()` cuando no se sabe.
-- `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo` (aditivo). `StabilityConfig`:
-  método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`: `umbral` con los
-  dos cortes.
+- `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey,
+  ...] | None]` (aditivo; clave ausente = no declarada, `None` = declarada e incoaccionable).
+  `StabilityConfig`: método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`:
+  `umbral` con los dos cortes. `renderer._AUDIT_ONLY_COLUMNS` gana `not_evaluable_reason`.
 - Trail: `calibration_hl_not_evaluable` (nueva regla, tres causas) y `stability_psi` con
   `source="recomputed"` (regla existente). `validation_falta_dato` deja de emitirse por los tres
   códigos retirados.
@@ -445,6 +481,13 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
 - **`consume_stability=False` con `csi_source="woe_bins"` y sin `binning.bin_frame`** (un `Study`
   sin paso de binning): error de `requires` ausente con la clave exacta, no el `StabilityDataError`
   del ensamblador.
+- **`consume_stability=False` con una sección `stability` declarada pero inválida** (por ejemplo
+  `psi_stable_threshold >= psi_review_threshold`): `ConfigError` al construir el paso, antes de
+  ejecutar nada; hoy la sección inactiva no se coacciona y el error aparecería dentro de
+  `validation` tras correr los pasos previos.
+- **`consume_stability=False` con el score que ya trae la columna temporal y sin `data.frame`**
+  (sólo por código): rechazado en el preflight por `data.frame` ausente; límite declarado de CT-1
+  (§3.2), escape `temporal_axis="none"`.
 - **HL con `N ≥ min` pero `⌊N/G⌋ < min`**: `not_evaluable` con `reason="group_below_min"` y
   `statistic=None` (nuevo); con `min=1` (por código) el comportamiento es el actual salvo que el
   `statistic` de un grupo degenerado ya no es `0.0` sino `None` con `reason="degenerate_group"`.
@@ -501,10 +544,13 @@ F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy y `not_eval
 `_config()`, con la razón escrita) y los tests que hoy afirman `statistic == 0.0` en un
 `not_evaluable` (`test_validation_calibration_tests.py:88-113`). **Controles negativos:** quitar la
 comparación con `min(counts)` → rojo el primero; devolver `statistic=0.0` en `_hl_not_evaluable` →
-rojos los de `statistic is None`; no pasar la causa al record → rojo el de `reason`. **Gate de
-goldens:** `results-f1.json`, `report-f1.html` y `GOLDEN_STEP_HTML_SHA256` intactos como fixtures
-(§1.4); una corrida fresca de F1 se compara con `diff` contra `results-f1.json` y la única
-diferencia admitida son las claves y columnas nuevas, vacías.
+rojos los de `statistic is None`; no pasar la causa al record → rojo el de `reason`. **Gate del
+artefacto:** HTML y Word (y PDF donde el extra esté) de una corrida con las cuatro causas no
+contienen `not_evaluable_reason` ni ninguno de los cuatro literales fuera del anexo de auditoría
+(control negativo: quitar la columna de `_AUDIT_ONLY_COLUMNS`). **Gate de goldens:**
+`results-f1.json`, `report-f1.html` y `GOLDEN_STEP_HTML_SHA256` intactos como fixtures (§1.4); una
+corrida fresca de F1 se compara con `diff` contra `results-f1.json` y la única diferencia admitida
+son las claves y columnas nuevas, vacías.
 
 **Capa C — recálculo del PSI (D-VAL-16).** `stability/step.py` (ensamblador público, `execute` lo
 usa), `validation/step.py` (`requires` dinámicos, frame), `config.py` (`checkbox` + copy),
@@ -520,9 +566,12 @@ apagado, construido por `Study._resolve_steps` (no a mano), nombra `scorecard.sc
 `calibration.calibrated_pd_frame` y `data.frame` (default `period`) y no
 `stability.stability_metrics`; con `NikodymConfig.stability.temporal_axis="none"` no nombra
 `data.frame`; con `csi_source="woe_bins"` nombra `binning.bin_frame`; con la sección `stability`
-ausente usa la lista conservadora y el trail lo dice; el gate de clase D-REQ-8 sigue verde con el
-`requires` dinámico (positivo) y se pone rojo si `execute` lee algo que `requires` no declaró
-(negativo); (4) sin `scorecard.score`, sin `data.frame`
+ausente usa la lista conservadora y el trail lo dice; con la sección declarada e inválida,
+`check_pipeline` levanta `ConfigError` nombrando `stability` **sin ejecutar ningún paso**
+(end-to-end, no sólo el cálculo de `requires`); con el score que ya trae la columna temporal y
+`data.frame` presente, `done` (positivo del límite); con ese score y sin `data.frame`, error de
+`requires` (el límite declarado); el gate de clase D-REQ-8 sigue verde con el `requires` dinámico
+(positivo) y se pone rojo si `execute` lee algo que `requires` no declaró (negativo); (4) sin `scorecard.score`, sin `data.frame`
 con eje temporal, y sin `binning.bin_frame` con `woe_bins` → en los tres casos el error de
 `requires` ausente con la clave exacta **antes** de ejecutar ningún paso (`check_pipeline` lo
 acusa). **Controles negativos:** dejar `stability_frame` sin pasar → (1) rojo con el
@@ -544,6 +593,9 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
   no usa lo primero y lo segundo es un error de categoría (SDD-22 §12).
 - No toca `alpha`, los umbrales PSI, `hl_n_groups`, `hl_grouping` (sigue oculto, D-SUB) ni
   `DATO-INSTITUCIONAL-VAL-4`.
+- No corrige los slugs que la tabla de calibración del informe ya imprime hoy (`hosmer_lemeshow`,
+  `pass`, `not_evaluable`, `performance_artifact`; §1.4): es copy preexistente, exige aplicar los
+  rótulos de `validation/results.py` en el renderer y recapturar la demo; queda como abierto.
 - No mete `validation` en «Validar un modelo existente» (D-SC-7 mide por qué no).
 - No recaptura la demo, no mueve hashes, no publica.
 
