@@ -350,11 +350,13 @@ estabilidad; `consume_stability` deja de estar oculto.**
      `("binning","bin_frame")`. Es la misma lista que `StabilityStep.execute` lee de verdad; el
      gate de clase D-REQ-8 (requires declarados vs. re-derivados por `execute`) la vigila.
    - `ContextoDeResolucion` gana un tercer campo, `requisitos_de_recalculo: Mapping[str,
-     tuple[ArtifactKey, ...]]` (clave = dominio declarante; `{}` = «no se sabe»), que
+     tuple[ArtifactKey, ...] | None]` (clave = dominio declarante; clave ausente = sección no
+     declarada; `None` = declarada pero incoaccionable; tupla = lo declarado), que
      `Study._contexto_de_resolucion` llena recorriendo las secciones **declaradas** —no las
-     activas, por la misma razón medida en D-REQ— y coaccionando para preguntar; si la coacción
-     falla, queda vacío (D-REQ-4). Extensión aditiva del DTO: los dos implementadores actuales no
-     cambian de forma.
+     activas, por la misma razón medida en D-REQ— y coaccionando para preguntar. A diferencia de
+     `contrato_de_variables`, aquí una coacción fallida **no** se funde con la ausencia: se
+     transporta como `None` (ver el punto siguiente). Extensión aditiva del DTO: los dos
+     implementadores actuales no cambian de forma.
    - `ValidationStep` gana `from_config_with_context`: con `consume_stability=False` toma
      `contexto.requisitos_de_recalculo.get("stability")`. **El DTO distingue tres estados**
      (hallazgo 3 de la pasada 3, sostenido: equiparar «ausente» e «incoaccionable» dejaba pasar el
