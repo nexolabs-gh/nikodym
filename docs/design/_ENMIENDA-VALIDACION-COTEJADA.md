@@ -557,12 +557,14 @@ veredicto. Detalle:
   aditivo: `OverallStatus` gana `not_evaluable`, que `_overall_status` devuelve cuando **no hay
   evidencia evaluable alguna**: `n_tests == 0` **y** el frame de estabilidad no trae ninguna fila
   con decisión `pass`/`warn`/`fail`. **`n_tests` pasa a contar decisiones evaluables en todas
-  las familias**: hoy `_test_counts` (`evaluator.py:858-869`) excluye los HL `not_evaluable` pero
-  suma **todos** los `BacktestRecord`, aunque `ttest_realised_vs_predicted` y
-  `binomial_realised_vs_predicted` devuelven `decision="not_evaluable"` por muestra insuficiente o
-  degenerada (hallazgo 1 de la pasada 8, sostenido: con sólo backtests sin potencia, `n_tests > 0`
-  y el consolidado caía en `pass`); los backtests no evaluables se excluyen de `n_tests` y de
-  `n_failed`, y la cobertura del panel los enumera aparte, como a los grados. Si alguna familia sí
+  las familias**: hoy `_test_counts` (`evaluator.py:858-869`) suma **todos** los HL y **todos**
+  los `BacktestRecord`, evaluables o no —sólo Brier queda fuera y sólo los grados bajo mínimo se
+  excluyen, porque nunca entran a `grade_records`—, aunque el kernel de HL y los de backtesting
+  (`ttest_realised_vs_predicted`, `binomial_realised_vs_predicted`) devuelven
+  `decision="not_evaluable"` por muestra insuficiente o degenerada (medido; hallazgo 1 de la
+  pasada 8, sostenido: con sólo pruebas sin potencia, `n_tests > 0` y el consolidado caía en
+  `pass`, y el panel decía «0 de N fallidas»); los HL y backtests no evaluables se excluyen de
+  `n_tests` y de `n_failed`, y la cobertura del panel los enumera aparte, como a los grados. Si alguna familia sí
   produjo evidencia, el estado se consolida como hoy sobre ella, y la cobertura («0 de N pruebas
   evaluables») se publica al lado.
   `VALIDATION_STATUS_LABELS` gana la cuarta palabra, **«No evaluable»** —la misma que ya usan las
@@ -593,7 +595,8 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los cuatro valores cerrados.
   `OverallStatus` gana `not_evaluable` (sin evidencia evaluable alguna) y
   `VALIDATION_STATUS_LABELS` la palabra «No evaluable». `n_tests`/`n_failed` cuentan sólo
-  decisiones evaluables en las cuatro familias. El renderer oculta `green_alpha`, `red_alpha` y
+  decisiones evaluables en las cuatro familias (hoy cuentan también los HL y backtests
+  `not_evaluable`; `results-f1.json` no cambia: sus tres HL son evaluables). El renderer oculta `green_alpha`, `red_alpha` y
   `not_evaluable_reason` **sólo** en `validation.calibration` (filtro por clave de tabla): la
   tabla de calibración del documento no cambia y ninguna otra tabla pierde columnas.
   `GradeBinomialRecord`: `green_alpha`, `red_alpha`. `metric_sections.validation`:
