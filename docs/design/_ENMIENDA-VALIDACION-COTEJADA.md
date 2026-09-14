@@ -9,7 +9,15 @@
 >
 > **Base medida:** `main` = `00791102eb424eddb61de61ff70a9c45dcc8ee6e` (bump 1.15.1 sobre
 > `9ffb7bc`). **Autor / Fecha:** Claude Code / 2026-09-13 (S12). **Revisión adversarial:**
-> pendiente (Codex, sobre este documento, antes de elevar).
+> Codex sobre este documento, pasada 1 `needs-attention` con tres hallazgos, los tres verificados
+> contra el árbol y **sostenidos**: la tabla tidy no transporta los cortes del semáforo (`alpha` es
+> la significancia; `_reseal_traffic_light` sólo guarda el color) y el motor no puede saber si un
+> corte lo declaró la institución o es el default (§3.1, D-VAL-15 reescrita); `optional_requires`
+> no entra a la validación de prerequisitos, así que el recálculo del PSI podía pasar el DAG y
+> abortar dentro de `execute` (§3.2, `requires` derivados de `StabilityConfig`); y un
+> Hosmer-Lemeshow no evaluable publicaba `statistic=0.0` sin causa estructurada —defecto
+> preexistente que la puerta nueva habría extendido— (§3.3, `statistic` nulo y causa publicada).
+> Pasadas posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -24,7 +32,7 @@
 | Campo | Valor |
 |---|---|
 | **Enmienda** | VALIDACION-COTEJADA (D-VAL-13…D-VAL-18; continúa la numeración D-VAL-1…12 de SDD-22) |
-| **Módulos** | `nikodym.validation` (evaluator, calibration_tests, backtesting, config, step), `nikodym.stability.step` (un ensamblador público), `nikodym.report.prose` (frases de avisos y metodología), `docs_site/` (catálogo y guía), front `web/` (schema, un fixture de test) |
+| **Módulos** | `nikodym.validation` (evaluator, calibration_tests, backtesting, config, results, step), `nikodym.stability.step` (un ensamblador público), `nikodym.report.prose` (frases de avisos, cortes y causas), `nikodym.ui.serializers` (dos claves y tres columnas), `docs_site/` (catálogo y guía), front `web/` (schema, tipos espejo, panel «Validación formal», un fixture de test) |
 | **Fase** | F6 (`validation`, **experimental**, fuera de la garantía SemVer 1.x) |
 | **Depende de** | SDD-22, SDD-11, D-VIS (ningún error sin superficie), D-SUB (subsección inerte), D-FTE/D-VER (fuente y verificador de un cotejo), D-CRP6 (`fail_on_falta_dato`), CT-1/CT-2 |
 | **Lo consumen** | «Scorecard de comportamiento (PD)», «PD + LGD en una corrida», Resultados («Validación formal»), el capítulo «Validación formal» del informe, la guía `validacion-formal.md`, la referencia `avisos-declarados.md` |
@@ -115,7 +123,7 @@ Censo por `git grep` sobre el árbol; los consumidores filtran por
 | Jeffreys por grado | `beta.cdf(p̂, D+½, N−D+½)` con `p̂` = PD media del grado (`calibration_tests.py:157`); unilateral hacia la subestimación | BCE §2.5.3.1: `β_{D+½, N−D+½}(PD)`, `H0: PD aplicada > verdadera`; plantilla PD 3.0 col. N: `BETA.DIST(PD_i, D_i+0.5, N_i−D_i+0.5, TRUE)` con `PD_i` = «(Average) estimated PD» | **Coincide.** Reproducido: N=200, D=7, PD=0,025 → motor 0,177852704399066 = fórmula BCE = integral numérica de la densidad (2·10⁶ nodos) a 2·10⁻¹⁴ |
 | Binomial por grado | `binomtest(D, N, p̂, alternative="greater")` = `P(X ≥ D)`; `z` asintótico | BCBS WP14 p. 47: `H0` PD correcta, `H1` subestimada; rechazo si `k ≥ k*` con `Σ_{i≥k} C(n,i)PDⁱ(1−PD)ⁿ⁻ⁱ ≤ 1−q`; aproximación normal `k* = Φ⁻¹(q)√(nPD(1−PD)) + nPD` | **Coincide.** Reproducido: 0,235945960229294 en ambos |
 | t-test LGD/EAD | `T = √N·ē/s`, `s` con `ddof=1`, `p = t.sf(T, N−1)` (`one_sided=True`); `2·t.sf(|T|, N−1)` con `one_sided=False`; sin pesos | BCE §2.6.2.1 (LGD) y §2.9.3.2 (EAD): `T = √N · (1/N)Σ(R_i − E_i) / √s²`, `s² = Σ(e_i − ē)²/(N−1)`, `p = 1 − S_{N−1}(T)`; plantillas LGD 2.0 y CCF 3.1/3.2: `1 − T.DIST(SQRT(N)*(mean_R − mean_E)/SQRT(s²), N−1, TRUE)` sobre promedios **number-weighted** | **Coincide** en forma, ponderación, orientación y distribución. Reproducido con N=50: `T` 2,70272856597448 y `p` 0,00471202123926 en ambos. El bilateral es la convención de ELBE (§2.7.2.1: `2·(1 − S_{N−1}(|T|))`) |
-| Semáforo por grado | `p ≥ 0,05` verde · `0,01 ≤ p < 0,05` ámbar · `p < 0,01` rojo, cortes de config (`traffic_light`, `_reseal_traffic_light`) | BCE 2019: **no fija** cortes ni colores sobre el p-valor (la plantilla sólo compara el p-valor reportado con su cálculo, «>0.001% deviation»). BCBS 1996 Tabla 2: zonas por probabilidad acumulada del número de excepciones de VaR, amarilla ≥ 95 %, roja ≥ 99,99 %. WP14 §III: el «traffic lights approach» de Blochwitz-Hohl-Wehn es multi-período con cuatro colores sobre cuantiles normales, otra herramienta | **No hay anclaje regulatorio que verificar.** Los cortes son política institucional (D-VAL-5). La frase «siguen la convención de Basilea (1996)» es falsa (§0-1) |
+| Semáforo por grado | `p ≥ 0,05` verde · `0,01 ≤ p < 0,05` ámbar · `p < 0,01` rojo, cortes de config (`traffic_light`, `_reseal_traffic_light`). ⚠️ Medido: el resultado **no conserva los cortes**: `GradeBinomialRecord.alpha` es `calibration.alpha` (la significancia que el kernel recibe), `_reseal_traffic_light` (`evaluator.py:625-634`) sólo reescribe `traffic_light`, y ninguna tabla ni card lleva `traffic_light_green_alpha`/`red_alpha`; con cortes personalizados no se puede reconstruir el color desde `ValidationResult` sin el config (hallazgo 1 de Codex, sostenido) | BCE 2019: **no fija** cortes ni colores sobre el p-valor (la plantilla sólo compara el p-valor reportado con su cálculo, «>0.001% deviation»). BCBS 1996 Tabla 2: zonas por probabilidad acumulada del número de excepciones de VaR, amarilla ≥ 95 %, roja ≥ 99,99 %. WP14 §III: el «traffic lights approach» de Blochwitz-Hohl-Wehn es multi-período con cuatro colores sobre cuantiles normales, otra herramienta | **No hay anclaje regulatorio que verificar.** Los cortes son política institucional (D-VAL-5). La frase «siguen la convención de Basilea (1996)» es falsa (§0-1) |
 | Alcance del Jeffreys | Sólo por grado (no hay fila de portafolio) | BCE: «at portfolio level and at the level of all individual rating grades» | Diferencia de **alcance**, no de fórmula; fuera de esta enmienda (§7) |
 
 ### 1.3 Lo que no está cableado ni protegido
@@ -144,8 +152,8 @@ Censo por `git grep` sobre el árbol; los consumidores filtran por
 | Golden | Contenido medido | ¿Se mueve? |
 |---|---|---|
 | `test_ui_presets.py:56` `_EXPECTED_CONFIG_HASH` (F1 `1063d6cf…`), F5, y los hashes de `test_jobs_abanico.py`, `test_columna_cartera_ambigua.py`, `test_presets_gobernanza.py` | hash de **valores** del config; ninguna decisión cambia un valor de preset (`consume_stability: true` sigue; los cortes siguen) | **No** |
-| `web/src/fixtures/demo/results-f1.json` (firma) | `validation.falta_dato == []` (F1 no gatilla ningún `VAL`: `binomial_by_grade: false`, backtesting apagado); `metric_sections.validation.not_evaluable_grades == []` | **No** mientras no se añada una clave nueva a `metric_sections` (§3, D-VAL-17 lo evita) |
-| `report-f1.html/.pdf/.docx` de la demo | 0 apariciones de «Basilea», «Jeffreys», «BCE», «salvedad», «brecha del motor»; la prosa de calibración es genérica (`prose.py:1184-1185`) | **No**, si la frase nueva de los cortes (D-VAL-15) se emite **sólo cuando corrió** el contraste por grado |
+| `web/src/fixtures/demo/results-f1.json` (firma) | `validation.falta_dato == []` (F1 no gatilla ningún `VAL`: `binomial_by_grade: false`, backtesting apagado); `metric_sections.validation.not_evaluable_grades == []`; la tabla `calibration` con las 13 columnas de `_CALIBRATION_COLUMNS` | **El fixture no cambia** (jamás se edita a mano y la recaptura sólo la exige un `config_hash` movido o el copy del informe, RUNBOOK §10.1-2; el gate de la demo compara `config_hash` y códigos en la prosa, no la forma del JSON). Una corrida **fresca** sí publica más: dos claves nuevas en `metric_sections.validation` (D-VAL-15, D-VAL-17) y tres columnas nuevas en `calibration` (D-VAL-15, D-VAL-17). El panel tolera un fixture sin ellas —como tolera todo fixture anterior a un campo— y la primera recaptura posterior las incorpora |
+| `report-f1.html/.pdf/.docx` de la demo | 0 apariciones de «Basilea», «Jeffreys», «BCE», «salvedad», «brecha del motor»; la prosa de calibración es genérica (`prose.py:1184-1185`); la tabla de calibración se copia del DTO | **No** se recaptura (misma regla). Una corrida fresca emite la frase de los cortes **sólo cuando corrió** el contraste por grado (F1 no) y la tabla con las columnas nuevas |
 | `GOLDEN_STEP_HTML_SHA256` (`test_report_step.py:88`) | el bundle golden no lleva `validation` (`:112-113`: `report` no la exige) | **No** |
 | `GOLDEN_HTML_SHA256` del renderer | sin `validation` | **No** |
 | HL de la demo F1 | particiones 4.019 / 973 / 1.008 con 10 grupos → grupos de ≥ 97 > 30 | **No** con D-VAL-17 |
@@ -198,32 +206,55 @@ del motor: el resultado sale con ese aviso» (copy: Cami lo revisa contra la pan
 §8-7 del scorecard completo). Sin ponderación por exposición: la fuente no la usa y ofrecerla
 sería inventar una variante.
 
-**D-VAL-15 · `FALTA-DATO-VAL-2` se retira sin sucesor; los cortes del semáforo son política
-institucional publicada, como `alpha`.** No hay anclaje regulatorio que cotejar (§1.2), así que un
-`FALTA-DATO` que promete una verificación imposible es un aviso que nunca podrá cerrarse: el motor
-no tiene deuda ahí. Tampoco se propone un `DATO-INSTITUCIONAL` permanente: los cortes ya son dato
-del config, viajan en la tabla tidy `calibration` (`alpha`, `traffic_light` por grado) y el
-`ui_help` los declara institucionales; emitir un aviso cada vez que corre el contraste, incluso
-cuando la institución fijó sus cortes, sería ruido sin acción posible (mismo trato que
-`alpha=0,05` del HL y los umbrales PSI 0,10/0,25, que nunca llevaron marca). Lo que sí cambia, para
-que nada quede sin superficie (D-VIS):
+**D-VAL-15 · `FALTA-DATO-VAL-2` se retira sin sucesor; los cortes del semáforo pasan a ser un
+parámetro **persistido en el resultado** y nombrado en el informe, sin atribuirle a nadie una
+elección que el motor no puede comprobar.** No hay anclaje regulatorio que cotejar (§1.2), así que
+un `FALTA-DATO` que promete una verificación imposible es un aviso que nunca podrá cerrarse: el
+motor no tiene deuda ahí. Dos hechos medidos acotan lo que se puede afirmar:
 
-- la prosa del capítulo «Validación formal» dice, **sólo cuando corrió el contraste por grado**,
-  con qué cortes se pintó el semáforo: «Un grado queda en verde con un p-valor de al menos X, en
-  ámbar entre Y y X, y en rojo por debajo de Y; los cortes los fija la política de validación de la
-  institución, no una norma.» (números formateados como el resto del capítulo; F1 no lo emite:
-  contraste apagado, §1.4);
-- la frase «siguen la convención de Basilea (1996)» desaparece de la prosa y del catálogo;
-- el copy de `binomial_by_grade` pierde «Los cortes del semáforo y la convención exacta de la
-  prueba están declarados como brecha del motor: el resultado sale con ese aviso» y gana una
-  remisión a los dos cortes («los cortes del semáforo son los dos campos de abajo, fijados por tu
-  política de validación»); el `ui_help` de `traffic_light_green_alpha` se conserva;
-- la guía `validacion-formal.md` §3 reescribe el párrafo «Dos ajustes finos…»: los dos siguen
-  siendo institucionales, pero ya no «salen del resultado con un aviso declarado»;
-- SDD-22 D-VAL-5 pasa a «default institucional, sin marca; verificado que no existe corte
-  regulatorio (F1, F3, F4)».
+- **El motor no sabe si un corte lo declaró la institución o es el default.** Pydantic conoce
+  `model_fields_set` al validar, pero nada lo persiste; y el formulario, `to_yaml` y los presets
+  escriben la forma **entera** del config (medido en `web/src/fixtures/demo/preset-f1.json` y
+  `toyaml-f1.json`: `traffic_light_green_alpha: 0.05` viaja siempre explícito), así que desde la
+  interfaz todo valor llega «declarado». Comparar el valor con el default (0,05/0,01) tampoco
+  distingue nada: una institución que elige justamente esos cortes quedaría marcada para siempre.
+  Por eso la prosa **no dirá** «la institución fijó los cortes».
+- **El resultado no conserva los cortes** (§1.2): sin el config no se puede reconstruir el color.
 
-Alternativa medida y descartada: reclasificar a `DATO-INSTITUCIONAL-VAL-5` (§8-3, opción B).
+Lo que cambia, para que la decisión quede auditable y nada sin superficie (D-VIS):
+
+- `GradeBinomialRecord` gana `green_alpha` y `red_alpha` (aditivo, CT-2), que
+  `_reseal_traffic_light` fija con los cortes de config junto al color; `_CALIBRATION_COLUMNS` gana
+  las dos columnas (nulas en las filas de HL y Brier); `alpha` conserva su significado de nivel de
+  significancia y el docstring lo dice. El color de cada fila se explica con la propia fila.
+- `metric_sections.validation` gana `traffic_light_cuts = {"green_alpha": X, "red_alpha": Y}`
+  cuando corrió el contraste por grado y `null` si no (misma clave siempre presente, como
+  `not_evaluable_grades`), que es lo que leen la prosa y el panel.
+- La prosa del capítulo «Validación formal» dice, **sólo cuando corrió el contraste por grado**:
+  «Un grado queda en verde con un p-valor de al menos X, en ámbar entre Y y X, y en rojo por debajo
+  de Y. Los cortes son un parámetro de la política de validación de la institución —el motor trae
+  0,05 y 0,01 por defecto— y no un umbral fijado por norma.» (números formateados como el resto
+  del capítulo; leídos de `traffic_light_cuts`, no del config; F1 no lo emite: contraste apagado).
+- El panel «Validación formal» muestra los dos cortes junto a la cobertura por grado, leídos de la
+  misma clave.
+- La frase «siguen la convención de Basilea (1996)» desaparece de la prosa y del catálogo.
+- El copy de `binomial_by_grade` pierde «Los cortes del semáforo y la convención exacta de la
+  prueba están declarados como brecha del motor: el resultado sale con ese aviso» y remite a los
+  dos cortes («el semáforo usa los dos cortes de abajo; el motor trae 0,05 y 0,01 y tu política de
+  validación puede cambiarlos»); el `ui_help` de `traffic_light_green_alpha` se conserva.
+- La guía `validacion-formal.md` §3 reescribe el párrafo «Dos ajustes finos…»: los dos siguen
+  siendo institucionales, con los defaults dichos, y ya no «salen del resultado con un aviso
+  declarado».
+- SDD-22 D-VAL-5 pasa a «default institucional persistido en el resultado, sin marca; verificado
+  que no existe corte regulatorio (F1, F3, F4)».
+
+Por qué no un `DATO-INSTITUCIONAL-VAL-5` (§8-3, opción B, la que propone la revisión adversarial):
+emitirlo «mientras se usen los defaults» exige distinguir default de elección, y lo medido arriba
+dice que el motor no puede; emitirlo siempre que corra el contraste es un aviso sin acción posible
+para quien ya fijó sus cortes, y trata distinto a `alpha` y a los umbrales PSI, que son
+convenciones del mismo tipo y nunca llevaron marca. Con los cortes en cada fila, en la card y en
+la prosa, la decisión del color es reconstruible sin el config: ésa es la auditabilidad que el
+hallazgo pedía.
 
 **D-VAL-18 · Registro del cotejo y regla para los siguientes.** La tabla §2 se copia a SDD-22 §12
 (sustituye el bloque «`FALTA-DATO` a resolver por verificación de render») y el registro canónico
@@ -246,9 +277,20 @@ estabilidad; `consume_stability` deja de estar oculto.**
    a llamarla (un solo camino, sin duplicar la alineación).
 2. `ValidationStep._requires_for` cambia para la familia `stability`: con `consume_stability=True`
    exige, como hoy, `stability.stability_metrics` y `psi_table`; con `False` exige
-   `scorecard.score` y `calibration.calibrated_pd_frame` (los `requires` del paso de estabilidad;
-   `data.frame` y `binning.bin_frame` siguen siendo opcionales y se leen si están). Es CT-1 tal
-   como ya lo hace la discriminación (`consume_performance=False` exige el frame analítico).
+   `scorecard.score` y `calibration.calibrated_pd_frame` **y, derivados de la `StabilityConfig`
+   efectiva (la de `NikodymConfig.stability` o `StabilityConfig()`), `data.frame` siempre que
+   `temporal_axis != "none"` y `binning.bin_frame` cuando `csi_source == "woe_bins"`**. Medido
+   (hallazgo 2 de Codex, sostenido): `optional_requires` **no** entra a la validación de
+   prerequisitos (`core/steps.py:146-150`, `core/study.py:685` sólo lo usa para no declarar inerte
+   una clave inyectada), y el ensamblador lee `data.frame` obligatoriamente cuando el score no trae
+   la columna temporal (`stability/step.py:240-256`; el default es `temporal_axis="period"`) y
+   `binning.bin_frame` con `woe_bins` (`:259-271`); declararlos opcionales habría dejado pasar el
+   DAG y abortado dentro de `execute`. La exigencia de `data.frame` es conservadora a propósito
+   —si el score sí trae la columna no hace falta, pero eso sólo se sabe en ejecución— y no cuesta
+   nada en la práctica: el paso `data` lo publica en toda corrida. Es CT-1 tal como ya lo hace la
+   discriminación (`consume_performance=False` exige el frame analítico). ⚠️ El propio
+   `StabilityStep` tiene hoy la misma holgura (`binning.bin_frame` en `optional_requires` y
+   `data.frame` en ninguna lista): queda medido y anotado, fuera de esta enmienda.
 3. `execute` construye el frame con el ensamblador cuando la familia está activa y
    `consume_stability=False`, con la `StabilityConfig` de `NikodymConfig.stability` o, si el config
    no la trae, `StabilityConfig()` (el mismo respaldo que usa el paso). Pasa el frame como
@@ -281,12 +323,23 @@ veredicto. Detalle:
   auditoría, como hoy).
 - `_hosmer_lemeshow_record` pasa `self.min_rows` al kernel; conserva la puerta por partición
   (`N < min` sigue evitando el kernel).
-- La razón se audita con `log_decision(regla="calibration_hl_group_not_evaluable", …)` con
-  `partition`, `n`, `n_groups`, `min_group_size` y `min_rows`; el record tidy conserva su forma
-  (`decision="not_evaluable"`, `p_value=None`). **No** se añade columna a `_CALIBRATION_COLUMNS`
-  ni clave nueva a `metric_sections` (evita mover `results-f1.json`, §1.4). El panel sigue
-  pintando «No evaluable» y la guía explica las dos causas (partición bajo mínimo; algún grupo bajo
-  mínimo) y cómo destrabarlas (menos grupos o menos mínimo, los dos visibles en el formulario).
+- **La causa se publica, no sólo se audita** (hallazgo 3 de Codex, sostenido: hoy un HL no
+  evaluable —por partición bajo mínimo o por grupo degenerado— publica `statistic=0.0`, que es el
+  valor de un ajuste perfecto, y ninguna superficie dice por qué no se evaluó). Cambios, todos
+  aditivos (CT-2): `CalibrationTestRecord.statistic` pasa a `float | None` y es `None` en todo
+  `not_evaluable` (Brier sigue publicando su puntaje); `CalibrationTestRecord` gana
+  `not_evaluable_reason: str | None` con tres valores cerrados —`partition_below_min`,
+  `group_below_min`, `degenerate_group`— que el kernel fija en `_hl_not_evaluable` (recibe la causa)
+  y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna; el panel
+  traduce la causa a palabras junto al «No evaluable» de la fila, y el informe la enumera en la
+  prosa de la familia («Hosmer-Lemeshow no se evaluó en la partición X: un grupo de PD quedó bajo
+  el mínimo de N operaciones»). `metric_sections.validation` gana `not_evaluable_partitions`
+  (lista siempre presente, como `not_evaluable_grades`) con `partition`, `n`, `n_groups`,
+  `min_group_size`, `min_rows` y `reason`, y el trail lo registra con
+  `log_decision(regla="calibration_hl_not_evaluable", …)` (una regla, tres causas). El fixture de
+  la demo no se recaptura por esto (§1.4).
+- Las tres causas se prueban por separado y cada una con su test nacido rojo (§6): partición
+  bajo mínimo, grupo bajo mínimo, grupo degenerado.
 - Con los defaults (10 grupos, mínimo 30) una partición necesita ≥ 300 operaciones para recibir
   HL. Medido sobre la demo F1: 973 y 1.008 ya cumplen; las guías y el informe de la demo no cambian.
 - Copy: el `ui_help` de `min_rows_per_group` pierde «No se aplica a cada grupo de PD dentro de la
@@ -301,14 +354,20 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   contener `DATO-INSTITUCIONAL-VAL-4: …` y `FALTA-DATO: provisioning_ifrs9.detail no contiene
   columnas estimadas …` (marca desnuda, `_backtesting_blocker`). Los consumidores no cambian:
   filtran por `is_declared_warning()`.
-- Tablas tidy `discrimination` / `calibration` / `stability` / `backtesting`: **mismas columnas**.
-  `stability.source` puede valer `"recomputed"` desde un `Study` (hoy sólo desde el kernel).
-- `CalibrationTestRecord` de HL: `decision="not_evaluable"` también por grupo bajo mínimo
-  (`statistic=0.0`, `p_value=None`, `alpha=None`), forma idéntica a la de la partición bajo mínimo.
+- Tablas tidy `discrimination` / `stability` / `backtesting`: **mismas columnas**. `calibration`
+  gana tres columnas al final, todas nulas donde no aplican: `green_alpha`, `red_alpha` (filas de
+  grado) y `not_evaluable_reason` (filas de HL no evaluables). `stability.source` puede valer
+  `"recomputed"` desde un `Study` (hoy sólo desde el kernel). Tipos espejo del front
+  (`ValidationCalibrationRow`) con su gate.
+- `CalibrationTestRecord`: `statistic: float | None` (`None` sólo con `decision="not_evaluable"`
+  en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los tres valores cerrados.
+  `GradeBinomialRecord`: `green_alpha`, `red_alpha`. `metric_sections.validation`:
+  `traffic_light_cuts` (`null` sin contraste por grado) y `not_evaluable_partitions` (lista).
 - `ValidationStep.requires` (CT-1) para `stability` con `consume_stability=False`:
-  `("scorecard","score")`, `("calibration","calibrated_pd_frame")`; `optional_requires` gana
-  `("data","frame")` y `("binning","bin_frame")` sólo en esa rama.
-- Trail: `calibration_hl_group_not_evaluable` (nueva regla) y `stability_psi` con
+  `("scorecard","score")`, `("calibration","calibrated_pd_frame")`, más `("data","frame")` si
+  `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, derivados de
+  la `StabilityConfig` efectiva.
+- Trail: `calibration_hl_not_evaluable` (nueva regla, tres causas) y `stability_psi` con
   `source="recomputed"` (regla existente). `validation_falta_dato` deja de emitirse por los tres
   códigos retirados.
 
@@ -321,13 +380,22 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   como cualquier paso (CT-1); antes abortaba en el evaluador con un mensaje que hablaba de un frame
   que nadie podía dar.
 - **`consume_stability=False` y `NikodymConfig.stability` ausente**: se recalcula con
-  `StabilityConfig()`; el trail lo dice (`stability_psi`, `source="recomputed"`). Si `temporal_axis`
-  del default exige una columna que el score no trae, el ensamblador lee `data.frame`; si tampoco
-  está, el error es el del paso de estabilidad (mismo texto).
-- **HL con `N ≥ min` pero `⌊N/G⌋ < min`**: `not_evaluable` por grupo (nuevo); con `min=1` (por
-  código) el comportamiento es el actual.
+  `StabilityConfig()`; el trail lo dice (`stability_psi`, `source="recomputed"`). Como el default
+  es `temporal_axis="period"`, `data.frame` entra a `requires` y su ausencia la acusa el DAG antes
+  de correr, no el ensamblador a mitad de `execute`.
+- **`consume_stability=False` con `csi_source="woe_bins"` y sin `binning.bin_frame`** (un `Study`
+  sin paso de binning): error de `requires` ausente con la clave exacta, no el `StabilityDataError`
+  del ensamblador.
+- **HL con `N ≥ min` pero `⌊N/G⌋ < min`**: `not_evaluable` con `reason="group_below_min"` y
+  `statistic=None` (nuevo); con `min=1` (por código) el comportamiento es el actual salvo que el
+  `statistic` de un grupo degenerado ya no es `0.0` sino `None` con `reason="degenerate_group"`.
 - **HL con grupos desiguales** (`np.array_split`): la puerta mira el **menor** grupo.
-- **Un preset con `binomial_by_grade=True` y cortes explícitos**: prosa con los cortes; sin marca.
+- **Consumidores del `statistic` de HL**: `_hl_row` lo proyecta como `NaN` en la tabla (columna ya
+  float), el serializer lo publica como `null` (misma coacción que `p_value`), el panel pinta «—» y
+  el informe formatea la celda vacía, como hace hoy con `p_value=None`.
+- **Un preset con `binomial_by_grade=True`**: filas de grado con sus dos cortes, la clave
+  `traffic_light_cuts` llena y la prosa con los cortes; sin marca. Con el contraste apagado, la
+  clave es `null`, las dos columnas van nulas y la prosa calla.
 - **Un YAML viejo con `consume_stability: false`**: hoy aborta; con D-VAL-16 corre y recalcula.
   No es ruptura: convierte un error en un resultado declarado.
 
@@ -343,23 +411,37 @@ campos, guía, SDD-22 §3/§12, CHANGELOG. Tests: invertir las afirmaciones de
 marca), `test_report_codigos_internos.py:48` sin la tupla `validation`, `test_core_markers.py:33`,
 `test_validation_results.py:277/577` (fixture), `test_copy_del_formulario.py:222-252` (el ejemplo
 usa otro código real), `ResultsTab.test.ts:577` (fixture con `DATO-INSTITUCIONAL-VAL-4`), gates del
-catálogo (`test_public_copy.py`) y `test_report_prose` para la frase de los cortes (**test nacido
-rojo**: con el contraste corrido, el capítulo nombra los dos cortes; sin contraste, no). Regenerar
-`schema.json` y el bundle. **Controles negativos:** (1) reponer `marks.append("FALTA-DATO-VAL-3")`
-en `_calibration_falta_dato` → rojo en el test de la card y en `test_public_copy` («la página no
+catálogo (`test_public_copy.py`). **Tests nacidos rojos:** (a) `GradeBinomialRecord` con
+`green_alpha`/`red_alpha` iguales a los cortes de config tras el resellado, y distintos de `alpha`
+cuando la config los separa (hoy no existen); (b) la tabla `calibration` con las dos columnas y
+`metric_sections.validation.traffic_light_cuts` llena con contraste y `null` sin él; (c)
+`test_report_prose`: con el contraste corrido el capítulo nombra los dos cortes leídos de la
+card; sin contraste, no; (d) el panel muestra los cortes (`ResultsTab.test.ts` por
+`react-dom/server`). Regenerar `schema.json` y el bundle; gate espejo de tipos del front.
+**Controles negativos:** (1) reponer `marks.append("FALTA-DATO-VAL-3")` en
+`_calibration_falta_dato` → rojo en el test de la card y en `test_public_copy` («la página no
 documenta…»); (2) dejar la fila `VAL-2` en el catálogo → rojo «la página inventa códigos»; (3)
-emitir la frase de los cortes sin contraste → rojo en el test de prosa. Los tres se revierten por
-copia exacta (RUNBOOK §6).
+resellar sólo el color sin los cortes → rojo (a); (4) emitir la frase de los cortes sin contraste →
+rojo (c). Se revierten por copia exacta (RUNBOOK §6).
 
-**Capa B — HL por grupo (D-VAL-17).** Kernel + evaluador + trail + copy + guía. **Tests nacidos
-rojos:** `hosmer_lemeshow(…, n_groups=10, min_rows_per_group=30)` sobre 100 filas →
-`not_evaluable`; sobre 300 → mismo record que sin mínimo; evaluador con partición de 100 y
-`min_rows_per_group=30` → HL `not_evaluable`, `n_tests` lo excluye, `log_decision` con la regla
-nueva; el F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy. Ajustar los
-fixtures de `test_validation_evaluator.py` (mínimo 6 o `hl_n_groups=3` en `_config()`, con la razón
-escrita). **Control negativo:** quitar la comparación con `min(counts)` → rojos los dos primeros.
-**Gate de goldens:** `results-f1.json`, `report-f1.html` y `GOLDEN_STEP_HTML_SHA256` intactos
-(medido en §1.4; se vuelve a medir con `diff`).
+**Capa B — HL por grupo y causa publicada (D-VAL-17).** Kernel + DTO + evaluador + serializer +
+panel + prosa + trail + copy + guía. **Tests nacidos rojos, uno por causa:**
+`hosmer_lemeshow(…, n_groups=10, min_rows_per_group=30)` sobre 100 filas → `not_evaluable`,
+`statistic is None`, `reason == "group_below_min"`; sobre 300 → mismo record que sin mínimo; el
+grupo degenerado de hoy (`test_hosmer_lemeshow_not_evaluable_grupo_degenerado`) pasa a
+`statistic is None`, `reason == "degenerate_group"`; evaluador con partición de 20 y mínimo 30 →
+`reason == "partition_below_min"`; con partición de 100, 10 grupos y mínimo 30 → HL `not_evaluable`,
+`n_tests` lo excluye, `not_evaluable_partitions` con la fila y `log_decision` con la regla nueva;
+el panel traduce la causa (`ResultsTab.test.ts`) y la prosa la enumera (`test_report_prose`); el
+F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy y `not_evaluable_partitions
+== []`. Ajustar los fixtures de `test_validation_evaluator.py` (mínimo 6 o `hl_n_groups=3` en
+`_config()`, con la razón escrita) y los tests que hoy afirman `statistic == 0.0` en un
+`not_evaluable` (`test_validation_calibration_tests.py:88-113`). **Controles negativos:** quitar la
+comparación con `min(counts)` → rojo el primero; devolver `statistic=0.0` en `_hl_not_evaluable` →
+rojos los de `statistic is None`; no pasar la causa al record → rojo el de `reason`. **Gate de
+goldens:** `results-f1.json`, `report-f1.html` y `GOLDEN_STEP_HTML_SHA256` intactos como fixtures
+(§1.4); una corrida fresca de F1 se compara con `diff` contra `results-f1.json` y la única
+diferencia admitida son las claves y columnas nuevas, vacías.
 
 **Capa C — recálculo del PSI (D-VAL-16).** `stability/step.py` (ensamblador público, `execute` lo
 usa), `validation/step.py` (`requires` dinámicos, frame), `config.py` (`checkbox` + copy),
@@ -369,10 +451,15 @@ usa), `validation/step.py` (`requires` dinámicos, frame), `config.py` (`checkbo
 `stability` → `done`, filas con `source="recomputed"`; (2) la misma corrida **con** el paso →
 `value` idéntico fila a fila entre `recomputed` y `stability_artifact` (`np.array_equal`, no
 `approx`: es el mismo motor sobre el mismo frame); (3) `requires` de `ValidationStep` con el toggle
-apagado nombra `scorecard.score` y no `stability.stability_metrics`; (4) sin `scorecard.score` →
-error de `requires` ausente con la clave exacta. **Controles negativos:** dejar `stability_frame`
-sin pasar → (1) rojo con el `ValidationDataError` de hoy; devolver los `requires` viejos → (3)
-rojo. Verificar el artefacto final: corrida por la interfaz con el toggle apagado, panel
+apagado nombra `scorecard.score`, `calibration.calibrated_pd_frame` y `data.frame` (default
+`period`) y no `stability.stability_metrics`; con `temporal_axis="none"` no nombra `data.frame`;
+con `csi_source="woe_bins"` nombra `binning.bin_frame`; (4) sin `scorecard.score`, sin `data.frame`
+con eje temporal, y sin `binning.bin_frame` con `woe_bins` → en los tres casos el error de
+`requires` ausente con la clave exacta **antes** de ejecutar ningún paso (`check_pipeline` lo
+acusa). **Controles negativos:** dejar `stability_frame` sin pasar → (1) rojo con el
+`ValidationDataError` de hoy; devolver los `requires` viejos → (3) rojo; poner `data.frame` en
+`optional_requires` en vez de `requires` → (4) rojo con el error del ensamblador en lugar del de
+`requires`. Verificar el artefacto final: corrida por la interfaz con el toggle apagado, panel
 «Validación formal» con la sección de estabilidad y el informe con su tabla.
 
 **Release.** Las tres capas caben en una release **minor** (1.16.0) con OK propio de Cami; sin
@@ -400,23 +487,28 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
 2. **`FALTA-DATO-VAL-1` (t-test).** (A) **Cerrarla y retirar el código**; `one_sided` se documenta
    como ELBE (D-VAL-14). (B) Cerrarla y además añadir una variante ponderada por exposición: la
    fuente no la usa. **Recomendación: A.**
-3. **`FALTA-DATO-VAL-2` (semáforo).** (A) **Retirarla sin sucesor**: los cortes son política
-   institucional publicada en config, tabla y prosa, como `alpha` (D-VAL-15). (B) Reclasificarla a
-   `DATO-INSTITUCIONAL-VAL-5`, emitida cada vez que corre el contraste por grado: honesta con la
-   doctrina «el motor no inventa datos institucionales», pero es un aviso sin acción posible cuando
-   la institución ya fijó sus cortes, y trata distinto a `alpha` y a los umbrales PSI sin razón
-   medida. (C) Dejarla: contradice el cotejo (no hay nada que verificar) y mantiene una frase
-   falsa. **Recomendación: A.**
+3. **`FALTA-DATO-VAL-2` (semáforo).** (A) **Retirarla sin sucesor y persistir los cortes**: cada
+   fila de grado lleva los dos cortes con que se decidió su color, la card los resume y la prosa
+   los nombra con los defaults dichos, sin atribuir a nadie la elección (D-VAL-15). (B)
+   Reclasificarla a `DATO-INSTITUCIONAL-VAL-5` (lo que propuso la revisión adversarial): emitida
+   «mientras se usen los defaults» exige distinguir default de elección, y el motor no puede
+   (todo valor llega explícito desde el formulario y comparar con 0,05/0,01 marcaría para siempre a
+   quien elija justo esos); emitida siempre que corra el contraste es un aviso sin acción posible
+   para quien ya fijó sus cortes y trata distinto a `alpha` y a los umbrales PSI. Compatible con A
+   si Cami quiere además la marca. (C) Dejarla: contradice el cotejo (no hay nada que verificar) y
+   mantiene una frase falsa. **Recomendación: A.**
 4. **El copy que cambia** —`binomial_by_grade`, `backtesting.enabled`, `consume_stability`,
    `min_rows_per_group` (`ui_help`), la frase nueva de los cortes en el informe y dos párrafos de
    la guía— ¿lo revisa Cami contra la pantalla al implementar cada capa, como en el scorecard
    completo (§8-7)? **Recomendación: sí**, borradores en §3; cambiar un texto es copy.
-5. **Mínimo por grupo de Hosmer-Lemeshow.** (A) **Puerta por grupo** → `not_evaluable` con la
-   razón en el trail y en la guía (D-VAL-17). (B) Dejarlo como está y que el copy siga diciendo que
-   no protege el grupo (§0-21): coherente pero desigual con el test por grado. (C) Reducir `G` al
-   mayor valor con grupos ≥ mínimo (mínimo 3) y publicar el `n_groups` efectivo: da veredicto a
-   más particiones, pero decide por el usuario un parámetro que él fijó y cambia el estadístico
-   frente a lo pedido. **Recomendación: A.**
+5. **Mínimo por grupo de Hosmer-Lemeshow.** (A) **Puerta por grupo** → `not_evaluable` con
+   `statistic` nulo y la causa publicada en la fila, la card, el panel, el informe y el trail
+   (D-VAL-17; arregla de paso el `0.0` ambiguo de las dos causas que ya existen). (B) Dejar la
+   puerta como está —sólo por partición— pero publicar igual la causa y el `statistic` nulo: corrige
+   el defecto preexistente sin cambiar qué se evalúa, y el copy sigue diciendo que el mínimo no
+   protege el grupo (§0-21). (C) Reducir `G` al mayor valor con grupos ≥ mínimo (mínimo 3) y
+   publicar el `n_groups` efectivo: da veredicto a más particiones, pero decide por el usuario un
+   parámetro que él fijó y cambia el estadístico frente a lo pedido. **Recomendación: A.**
 6. **Recálculo del PSI.** (A) **Cablearlo de verdad** con el ensamblador reutilizado, `requires`
    dinámicos y el toggle expuesto (D-VAL-16); ~una sesión, cinco censos y una sección del
    formulario sin campos nuevos. (B) No cablearlo: `consume_stability=False` pasa a error de

@@ -972,9 +972,13 @@ No autoriza START ni mueve la puerta global.
 > informe nombra los cortes cuando corre el contraste); la fórmula CCF del PDF omite un `1/R`
 > (errata, la plantilla lo confirma). Además: cablear de verdad el fallback de D-VAL-2 reutilizando
 > el ensamblador del paso de estabilidad y exponer `consume_stability`; y que
-> `min_rows_per_group` proteja cada grupo de Hosmer-Lemeshow (`not_evaluable`, razón en el trail).
-> Ningún `config_hash`, golden ni fixture de la demo se mueve (medido). Ocho decisiones para Cami
-> en §8.
+> `min_rows_per_group` proteja cada grupo de Hosmer-Lemeshow. Revisión adversarial (Codex, pasada
+> 1) con tres hallazgos sostenidos y absorbidos: el resultado no conservaba los cortes del
+> semáforo (ahora viajan en cada fila de grado y en la card, y la prosa no atribuye la elección);
+> `optional_requires` no valida prerequisitos (los `requires` del recálculo se derivan de la
+> `StabilityConfig`); y un HL no evaluable publicaba `statistic=0.0` sin causa (pasa a nulo con
+> causa cerrada en fila, card, panel e informe). Ningún `config_hash` ni fixture de la demo se
+> mueve (medido). Ocho decisiones para Cami en §8.
 
 ## Tandas de producción
 
