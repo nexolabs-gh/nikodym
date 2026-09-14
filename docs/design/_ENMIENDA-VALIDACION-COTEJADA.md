@@ -17,7 +17,15 @@
 > abortar dentro de `execute` (§3.2, `requires` derivados de `StabilityConfig`); y un
 > Hosmer-Lemeshow no evaluable publicaba `statistic=0.0` sin causa estructurada —defecto
 > preexistente que la puerta nueva habría extendido— (§3.3, `statistic` nulo y causa publicada).
-> Pasadas posteriores: en el `HANDOFF`.
+> Pasada 2 `needs-attention` con cuatro hallazgos, verificados: (i) el step no puede leer
+> `NikodymConfig.stability` al construirse —`ContextoDeResolucion` es un DTO cerrado, D-INV-1/D-REQ-2—,
+> así que los `requires` del recálculo se declaran con el patrón D-REQ (la sección `stability`
+> los produce, el núcleo los transporta; §3.2); (ii) el evento `calibration_semaforo` del trail
+> registra `grade.alpha` como umbral, que no es ningún corte (§3.1); (iii) el vocabulario de causas
+> de HL omitía la rama del estadístico no finito (§3.3, cuarta causa); (iv) **contractual**, y por
+> eso se eleva y no se absorbe: Codex sostiene que un default del motor no puede decidir un color
+> sin una marca declarada hasta que la institución confirme los cortes (§8-3, opción B, con su
+> diseño concreto). Pasadas posteriores: en el `HANDOFF`.
 >
 > **Enmienda a:** SDD-22 §3.2/§3.4 (fórmulas y su cotejo), §5 (`consume_stability`,
 > `min_rows_per_group`), §7 (fallback de estabilidad), §8 (grupos HL bajo mínimo), §12 (los tres
@@ -32,7 +40,7 @@
 | Campo | Valor |
 |---|---|
 | **Enmienda** | VALIDACION-COTEJADA (D-VAL-13…D-VAL-18; continúa la numeración D-VAL-1…12 de SDD-22) |
-| **Módulos** | `nikodym.validation` (evaluator, calibration_tests, backtesting, config, results, step), `nikodym.stability.step` (un ensamblador público), `nikodym.report.prose` (frases de avisos, cortes y causas), `nikodym.ui.serializers` (dos claves y tres columnas), `docs_site/` (catálogo y guía), front `web/` (schema, tipos espejo, panel «Validación formal», un fixture de test) |
+| **Módulos** | `nikodym.validation` (evaluator, calibration_tests, backtesting, config, results, step), `nikodym.stability.step` (un ensamblador público) y `nikodym.stability.config` (método declarante), `nikodym.core.steps`/`nikodym.core.study` (tercer campo del DTO de resolución, aditivo), `nikodym.report.prose` (frases de avisos, cortes y causas), `nikodym.ui.serializers` (dos claves y tres columnas), `docs_site/` (catálogo y guía), front `web/` (schema, tipos espejo, panel «Validación formal», un fixture de test) |
 | **Fase** | F6 (`validation`, **experimental**, fuera de la garantía SemVer 1.x) |
 | **Depende de** | SDD-22, SDD-11, D-VIS (ningún error sin superficie), D-SUB (subsección inerte), D-FTE/D-VER (fuente y verificador de un cotejo), D-CRP6 (`fail_on_falta_dato`), CT-1/CT-2 |
 | **Lo consumen** | «Scorecard de comportamiento (PD)», «PD + LGD en una corrida», Resultados («Validación formal»), el capítulo «Validación formal» del informe, la guía `validacion-formal.md`, la referencia `avisos-declarados.md` |
@@ -230,6 +238,13 @@ Lo que cambia, para que la decisión quede auditable y nada sin superficie (D-VI
 - `metric_sections.validation` gana `traffic_light_cuts = {"green_alpha": X, "red_alpha": Y}`
   cuando corrió el contraste por grado y `null` si no (misma clave siempre presente, como
   `not_evaluable_grades`), que es lo que leen la prosa y el panel.
+- **El trail deja de registrar un umbral falso** (hallazgo 2 de la pasada 2, sostenido: hoy
+  `ValidationStep._emit_decisions` emite `calibration_semaforo` con `umbral=grade.alpha`,
+  `step.py:200-211`, y ese valor es la significancia, no un corte; con cortes personalizados el
+  trail no permite reconstruir el color). El evento pasa a `umbral={"green_alpha": X, "red_alpha":
+  Y}` leídos del record ya resellado, y `valor` conserva `grade`, `p_value` y `traffic_light`. Test
+  nacido rojo con cortes deliberadamente distintos de `alpha` (por ejemplo `alpha=0.05`,
+  `green=0.10`, `red=0.02`): el trail nombra 0,10/0,02 y no 0,05.
 - La prosa del capítulo «Validación formal» dice, **sólo cuando corrió el contraste por grado**:
   «Un grado queda en verde con un p-valor de al menos X, en ámbar entre Y y X, y en rojo por debajo
   de Y. Los cortes son un parámetro de la política de validación de la institución —el motor trae
@@ -248,13 +263,19 @@ Lo que cambia, para que la decisión quede auditable y nada sin superficie (D-VI
 - SDD-22 D-VAL-5 pasa a «default institucional persistido en el resultado, sin marca; verificado
   que no existe corte regulatorio (F1, F3, F4)».
 
-Por qué no un `DATO-INSTITUCIONAL-VAL-5` (§8-3, opción B, la que propone la revisión adversarial):
-emitirlo «mientras se usen los defaults» exige distinguir default de elección, y lo medido arriba
-dice que el motor no puede; emitirlo siempre que corra el contraste es un aviso sin acción posible
-para quien ya fijó sus cortes, y trata distinto a `alpha` y a los umbrales PSI, que son
-convenciones del mismo tipo y nunca llevaron marca. Con los cortes en cada fila, en la card y en
-la prosa, la decisión del color es reconstruible sin el config: ésa es la auditabilidad que el
-hallazgo pedía.
+Por qué la recomendación es sin sucesor, y por qué igual se eleva (§8-3): la revisión adversarial
+sostuvo en sus dos pasadas que un default del motor **no debe decidir un color** sin una marca
+declarada hasta que la institución confirme los cortes —lectura estricta de «el motor no inventa
+datos institucionales»—. Lo medido arriba acota lo que cualquier marca puede afirmar: emitirla
+«mientras se usen los defaults» exige distinguir default de elección, y el motor no puede;
+emitirla siempre que corra el contraste es un aviso sin acción posible para quien ya fijó sus
+cortes, y trata distinto a `alpha` y a los umbrales PSI, que son convenciones del mismo tipo y
+nunca llevaron marca. Con los cortes en cada fila, en la card, en la prosa **y en el trail**, la
+decisión del color es reconstruible sin el config: ésa es la auditabilidad que el hallazgo 1 pedía.
+Lo que queda es una elección de contrato —¿es el corte del semáforo una convención estadística con
+default, como `alpha`, o un dato institucional que el motor no puede suplir?— y esa elección es de
+Cami: §8-3 trae las dos opciones con su diseño concreto, incluida la vía D-OBL para hacer de los
+cortes una decisión obligatoria sin default.
 
 **D-VAL-18 · Registro del cotejo y regla para los siguientes.** La tabla §2 se copia a SDD-22 §12
 (sustituye el bloque «`FALTA-DATO` a resolver por verificación de render») y el registro canónico
@@ -275,25 +296,54 @@ estabilidad; `consume_stability` deja de estar oculto.**
    `execute` antes de llamar al evaluador (`_csi_frame`, `_require_direccion_coherente`,
    `_data_frame_for_temporal_if_needed`, `_assemble_stability_frame`). `StabilityStep.execute` pasa
    a llamarla (un solo camino, sin duplicar la alineación).
-2. `ValidationStep._requires_for` cambia para la familia `stability`: con `consume_stability=True`
-   exige, como hoy, `stability.stability_metrics` y `psi_table`; con `False` exige
-   `scorecard.score` y `calibration.calibrated_pd_frame` **y, derivados de la `StabilityConfig`
-   efectiva (la de `NikodymConfig.stability` o `StabilityConfig()`), `data.frame` siempre que
-   `temporal_axis != "none"` y `binning.bin_frame` cuando `csi_source == "woe_bins"`**. Medido
-   (hallazgo 2 de Codex, sostenido): `optional_requires` **no** entra a la validación de
-   prerequisitos (`core/steps.py:146-150`, `core/study.py:685` sólo lo usa para no declarar inerte
-   una clave inyectada), y el ensamblador lee `data.frame` obligatoriamente cuando el score no trae
-   la columna temporal (`stability/step.py:240-256`; el default es `temporal_axis="period"`) y
-   `binning.bin_frame` con `woe_bins` (`:259-271`); declararlos opcionales habría dejado pasar el
-   DAG y abortado dentro de `execute`. La exigencia de `data.frame` es conservadora a propósito
-   —si el score sí trae la columna no hace falta, pero eso sólo se sabe en ejecución— y no cuesta
-   nada en la práctica: el paso `data` lo publica en toda corrida. Es CT-1 tal como ya lo hace la
-   discriminación (`consume_performance=False` exige el frame analítico). ⚠️ El propio
-   `StabilityStep` tiene hoy la misma holgura (`binning.bin_frame` en `optional_requires` y
-   `data.frame` en ninguna lista): queda medido y anotado, fuera de esta enmienda.
+2. **Los `requires` del recálculo se declaran con el patrón D-REQ, no leyendo el config ajeno.**
+   Con `consume_stability=True` el paso exige, como hoy, `stability.stability_metrics` y
+   `psi_table`. Con `False` exige `scorecard.score`, `calibration.calibrated_pd_frame` **y lo que
+   el recálculo va a leer según la `StabilityConfig`**: `data.frame` cuando `temporal_axis !=
+   "none"` y `binning.bin_frame` cuando `csi_source == "woe_bins"`. Dos hechos medidos obligan a
+   esa forma: (a) `optional_requires` **no** entra a la validación de prerequisitos
+   (`core/steps.py:146-150`; `core/study.py:685` sólo lo usa para no declarar inerte una clave
+   inyectada), y el ensamblador lee `data.frame` obligatoriamente cuando el score no trae la
+   columna temporal (`stability/step.py:240-256`; el default es `temporal_axis="period"`) y
+   `binning.bin_frame` con `woe_bins` (`:259-271`): declararlos opcionales dejaría pasar el DAG y
+   abortaría dentro de `execute` (hallazgo 2 de la pasada 1); (b) el step **no puede** leer
+   `NikodymConfig.stability` al construirse: `from_config` recibe sólo `ValidationConfig`, y
+   `ContextoDeResolucion` es un DTO cerrado de dos campos por diseño (D-INV-1, D-REQ-2:
+   `core/steps.py:84-121`), de modo que «derivarlos de la `StabilityConfig` efectiva» no tenía
+   cómo hacerse en el preflight (hallazgo 1 de la pasada 2). La salida es la que D-REQ ya usó para
+   `ml` → `tuning`/`explain`: **la sección que sabe lo declara, el núcleo lo transporta sin
+   interpretarlo, el paso que lo necesita lo lee del DTO**:
+   - `StabilityConfig` gana el método-protocolo `requisitos_de_recalculo_declarados() ->
+     tuple[ArtifactKey, ...]` (nombre en una constante `METODO_REQUISITOS_RECALCULO` de
+     `core/steps.py`, como `METODO_CONTRATO_VARIABLES`), que devuelve `("scorecard","score")`,
+     `("calibration","calibrated_pd_frame")` y, según sus propios campos, `("data","frame")` y
+     `("binning","bin_frame")`. Es la misma lista que `StabilityStep.execute` lee de verdad; el
+     gate de clase D-REQ-8 (requires declarados vs. re-derivados por `execute`) la vigila.
+   - `ContextoDeResolucion` gana un tercer campo, `requisitos_de_recalculo: Mapping[str,
+     tuple[ArtifactKey, ...]]` (clave = dominio declarante; `{}` = «no se sabe»), que
+     `Study._contexto_de_resolucion` llena recorriendo las secciones **declaradas** —no las
+     activas, por la misma razón medida en D-REQ— y coaccionando para preguntar; si la coacción
+     falla, queda vacío (D-REQ-4). Extensión aditiva del DTO: los dos implementadores actuales no
+     cambian de forma.
+   - `ValidationStep` gana `from_config_with_context`: con `consume_stability=False` toma
+     `contexto.requisitos_de_recalculo.get("stability")`; si es «no se sabe» (sección ausente o
+     incoaccionable) usa la lista **conservadora** de `StabilityConfig()` —que incluye
+     `data.frame`, porque su default es `temporal_axis="period"`—, y lo declara en el trail. La
+     exigencia conservadora de `data.frame` no cuesta nada: el paso `data` lo publica en toda
+     corrida.
+   - Alcance añadido y declarado: `core/steps.py` (constante y campo), `core/study.py`
+     (`_contexto_de_resolucion`), `stability/config.py` (método), `validation/step.py`
+     (fábrica contextual). Es CT-1 tal como ya lo hace la discriminación
+     (`consume_performance=False` exige el frame analítico), con la única diferencia de que la
+     lista viene de otra sección por el cauce previsto. ⚠️ El propio `StabilityStep` tiene hoy la
+     misma holgura (`binning.bin_frame` en `optional_requires` y `data.frame` en ninguna lista):
+     con el método nuevo su `requires` puede volverse dinámico por la misma vía; queda medido y
+     anotado, fuera de esta enmienda.
 3. `execute` construye el frame con el ensamblador cuando la familia está activa y
-   `consume_stability=False`, con la `StabilityConfig` de `NikodymConfig.stability` o, si el config
-   no la trae, `StabilityConfig()` (el mismo respaldo que usa el paso). Pasa el frame como
+   `consume_stability=False`, con la `StabilityConfig` que lee de `study.config.stability` en
+   ejecución —el mismo `_stability_config_from_study(study, fallback=StabilityConfig())` que usa el
+   paso de estabilidad, y la misma lectura en `execute` de una sección ajena que ya hace `tuning`
+   con `ml`— o `StabilityConfig()` si el config no la trae. Pasa el frame como
    `stability_frame` y los `evaluator_kwargs` que el evaluador de SDD-11 necesita (`psi_bins`,
    `comparisons`, `temporal_axis`, …) leídos de esa misma config, de modo que **el recálculo es el
    mismo cálculo**: la fila `source="recomputed"` tiene el mismo `value` que la fila
@@ -328,18 +378,23 @@ veredicto. Detalle:
   valor de un ajuste perfecto, y ninguna superficie dice por qué no se evaluó). Cambios, todos
   aditivos (CT-2): `CalibrationTestRecord.statistic` pasa a `float | None` y es `None` en todo
   `not_evaluable` (Brier sigue publicando su puntaje); `CalibrationTestRecord` gana
-  `not_evaluable_reason: str | None` con tres valores cerrados —`partition_below_min`,
-  `group_below_min`, `degenerate_group`— que el kernel fija en `_hl_not_evaluable` (recibe la causa)
-  y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna; el panel
+  `not_evaluable_reason: str | None` con **cuatro** valores cerrados —`partition_below_min`,
+  `group_below_min`, `degenerate_group` (grupo vacío o `n_g·p̄_g·(1−p̄_g) = 0`) y
+  `non_finite_statistic` (el kernel ya tiene esa rama, `calibration_tests.py:93-96`: con
+  probabilidades finitas pero extremas el cociente desborda a `inf` aunque los denominadores no
+  sean cero; hallazgo 4 de la pasada 2, sostenido)— que el kernel fija en `_hl_not_evaluable`
+  (recibe la causa) y el evaluador en la puerta por partición; `_CALIBRATION_COLUMNS` gana la columna; el panel
   traduce la causa a palabras junto al «No evaluable» de la fila, y el informe la enumera en la
   prosa de la familia («Hosmer-Lemeshow no se evaluó en la partición X: un grupo de PD quedó bajo
   el mínimo de N operaciones»). `metric_sections.validation` gana `not_evaluable_partitions`
   (lista siempre presente, como `not_evaluable_grades`) con `partition`, `n`, `n_groups`,
   `min_group_size`, `min_rows` y `reason`, y el trail lo registra con
-  `log_decision(regla="calibration_hl_not_evaluable", …)` (una regla, tres causas). El fixture de
-  la demo no se recaptura por esto (§1.4).
-- Las tres causas se prueban por separado y cada una con su test nacido rojo (§6): partición
-  bajo mínimo, grupo bajo mínimo, grupo degenerado.
+  `log_decision(regla="calibration_hl_not_evaluable", …)` (una regla, cuatro causas). El fixture
+  de la demo no se recaptura por esto (§1.4).
+- Las cuatro causas se prueban por separado y cada una con su test nacido rojo (§6): partición
+  bajo mínimo, grupo bajo mínimo, grupo degenerado y estadístico no finito (test numérico
+  adversarial: un grupo con `p̄_g ≈ 1e-300` y un default observado hace `(O − n·p̄)² / denom`
+  desbordar).
 - Con los defaults (10 grupos, mínimo 30) una partición necesita ≥ 300 operaciones para recibir
   HL. Medido sobre la demo F1: 973 y 1.008 ya cumplen; las guías y el informe de la demo no cambian.
 - Copy: el `ui_help` de `min_rows_per_group` pierde «No se aplica a cada grupo de PD dentro de la
@@ -360,13 +415,17 @@ Alternativa medida y descartada: reducir `G` al mayor valor con grupos ≥ míni
   `"recomputed"` desde un `Study` (hoy sólo desde el kernel). Tipos espejo del front
   (`ValidationCalibrationRow`) con su gate.
 - `CalibrationTestRecord`: `statistic: float | None` (`None` sólo con `decision="not_evaluable"`
-  en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los tres valores cerrados.
+  en HL; Brier conserva su puntaje) y `not_evaluable_reason` con los cuatro valores cerrados.
   `GradeBinomialRecord`: `green_alpha`, `red_alpha`. `metric_sections.validation`:
   `traffic_light_cuts` (`null` sin contraste por grado) y `not_evaluable_partitions` (lista).
 - `ValidationStep.requires` (CT-1) para `stability` con `consume_stability=False`:
   `("scorecard","score")`, `("calibration","calibrated_pd_frame")`, más `("data","frame")` si
-  `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, derivados de
-  la `StabilityConfig` efectiva.
+  `temporal_axis != "none"` y `("binning","bin_frame")` si `csi_source == "woe_bins"`, tomados de
+  `ContextoDeResolucion.requisitos_de_recalculo["stability"]` (lo declara `StabilityConfig`) o de
+  la lista conservadora de `StabilityConfig()` cuando no se sabe.
+- `ContextoDeResolucion`: tercer campo `requisitos_de_recalculo` (aditivo). `StabilityConfig`:
+  método `requisitos_de_recalculo_declarados()`. Trail `calibration_semaforo`: `umbral` con los
+  dos cortes.
 - Trail: `calibration_hl_not_evaluable` (nueva regla, tres causas) y `stability_psi` con
   `source="recomputed"` (regla existente). `validation_falta_dato` deja de emitirse por los tres
   códigos retirados.
@@ -417,12 +476,14 @@ cuando la config los separa (hoy no existen); (b) la tabla `calibration` con las
 `metric_sections.validation.traffic_light_cuts` llena con contraste y `null` sin él; (c)
 `test_report_prose`: con el contraste corrido el capítulo nombra los dos cortes leídos de la
 card; sin contraste, no; (d) el panel muestra los cortes (`ResultsTab.test.ts` por
-`react-dom/server`). Regenerar `schema.json` y el bundle; gate espejo de tipos del front.
+`react-dom/server`); (e) `test_validation_step`: el evento `calibration_semaforo` lleva
+`umbral={"green_alpha": 0.10, "red_alpha": 0.02}` con `alpha=0.05` en la config, y no 0,05. Regenerar `schema.json` y el bundle; gate espejo de tipos del front.
 **Controles negativos:** (1) reponer `marks.append("FALTA-DATO-VAL-3")` en
 `_calibration_falta_dato` → rojo en el test de la card y en `test_public_copy` («la página no
 documenta…»); (2) dejar la fila `VAL-2` en el catálogo → rojo «la página inventa códigos»; (3)
 resellar sólo el color sin los cortes → rojo (a); (4) emitir la frase de los cortes sin contraste →
-rojo (c). Se revierten por copia exacta (RUNBOOK §6).
+rojo (c); (5) dejar `umbral=grade.alpha` en el evento → rojo (e). Se revierten por copia exacta
+(RUNBOOK §6).
 
 **Capa B — HL por grupo y causa publicada (D-VAL-17).** Kernel + DTO + evaluador + serializer +
 panel + prosa + trail + copy + guía. **Tests nacidos rojos, uno por causa:**
@@ -430,7 +491,9 @@ panel + prosa + trail + copy + guía. **Tests nacidos rojos, uno por causa:**
 `statistic is None`, `reason == "group_below_min"`; sobre 300 → mismo record que sin mínimo; el
 grupo degenerado de hoy (`test_hosmer_lemeshow_not_evaluable_grupo_degenerado`) pasa a
 `statistic is None`, `reason == "degenerate_group"`; evaluador con partición de 20 y mínimo 30 →
-`reason == "partition_below_min"`; con partición de 100, 10 grupos y mínimo 30 → HL `not_evaluable`,
+`reason == "partition_below_min"`; el estadístico no finito
+(`test_hosmer_lemeshow_not_evaluable_estadistico_no_finito`, que hoy existe sin causa) pasa a
+`reason == "non_finite_statistic"`; con partición de 100, 10 grupos y mínimo 30 → HL `not_evaluable`,
 `n_tests` lo excluye, `not_evaluable_partitions` con la fila y `log_decision` con la regla nueva;
 el panel traduce la causa (`ResultsTab.test.ts`) y la prosa la enumera (`test_report_prose`); el
 F1 de `tests/unit/_ui_f1.py` a `done` con los mismos tres HL que hoy y `not_evaluable_partitions
@@ -445,15 +508,21 @@ diferencia admitida son las claves y columnas nuevas, vacías.
 
 **Capa C — recálculo del PSI (D-VAL-16).** `stability/step.py` (ensamblador público, `execute` lo
 usa), `validation/step.py` (`requires` dinámicos, frame), `config.py` (`checkbox` + copy),
-`schema.json` + bundle + ledger de `option_surface` + los censos de `test_effective_defaults` y
-`test_jobs_abanico`, guía §4. **Tests nacidos rojos:** (1) `Study` con `scorecard` +
+`core/steps.py` + `core/study.py` (tercer campo del DTO y su llenado, con test de que un
+implementador que sólo mira `dominios_activos` no cambia), `stability/config.py` (método
+declarante), `schema.json` + bundle + ledger de `option_surface` + los censos de
+`test_effective_defaults` y `test_jobs_abanico`, guía §4. **Tests nacidos rojos:** (1) `Study` con `scorecard` +
 `calibration` + `validation(families=("stability",), consume_stability=False)` y **sin** paso
 `stability` → `done`, filas con `source="recomputed"`; (2) la misma corrida **con** el paso →
 `value` idéntico fila a fila entre `recomputed` y `stability_artifact` (`np.array_equal`, no
 `approx`: es el mismo motor sobre el mismo frame); (3) `requires` de `ValidationStep` con el toggle
-apagado nombra `scorecard.score`, `calibration.calibrated_pd_frame` y `data.frame` (default
-`period`) y no `stability.stability_metrics`; con `temporal_axis="none"` no nombra `data.frame`;
-con `csi_source="woe_bins"` nombra `binning.bin_frame`; (4) sin `scorecard.score`, sin `data.frame`
+apagado, construido por `Study._resolve_steps` (no a mano), nombra `scorecard.score`,
+`calibration.calibrated_pd_frame` y `data.frame` (default `period`) y no
+`stability.stability_metrics`; con `NikodymConfig.stability.temporal_axis="none"` no nombra
+`data.frame`; con `csi_source="woe_bins"` nombra `binning.bin_frame`; con la sección `stability`
+ausente usa la lista conservadora y el trail lo dice; el gate de clase D-REQ-8 sigue verde con el
+`requires` dinámico (positivo) y se pone rojo si `execute` lee algo que `requires` no declaró
+(negativo); (4) sin `scorecard.score`, sin `data.frame`
 con eje temporal, y sin `binning.bin_frame` con `woe_bins` → en los tres casos el error de
 `requires` ausente con la clave exacta **antes** de ejecutar ningún paso (`check_pipeline` lo
 acusa). **Controles negativos:** dejar `stability_frame` sin pasar → (1) rojo con el
@@ -487,16 +556,29 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
 2. **`FALTA-DATO-VAL-1` (t-test).** (A) **Cerrarla y retirar el código**; `one_sided` se documenta
    como ELBE (D-VAL-14). (B) Cerrarla y además añadir una variante ponderada por exposición: la
    fuente no la usa. **Recomendación: A.**
-3. **`FALTA-DATO-VAL-2` (semáforo).** (A) **Retirarla sin sucesor y persistir los cortes**: cada
-   fila de grado lleva los dos cortes con que se decidió su color, la card los resume y la prosa
-   los nombra con los defaults dichos, sin atribuir a nadie la elección (D-VAL-15). (B)
-   Reclasificarla a `DATO-INSTITUCIONAL-VAL-5` (lo que propuso la revisión adversarial): emitida
-   «mientras se usen los defaults» exige distinguir default de elección, y el motor no puede
-   (todo valor llega explícito desde el formulario y comparar con 0,05/0,01 marcaría para siempre a
-   quien elija justo esos); emitida siempre que corra el contraste es un aviso sin acción posible
-   para quien ya fijó sus cortes y trata distinto a `alpha` y a los umbrales PSI. Compatible con A
-   si Cami quiere además la marca. (C) Dejarla: contradice el cotejo (no hay nada que verificar) y
-   mantiene una frase falsa. **Recomendación: A.**
+3. **`FALTA-DATO-VAL-2` (semáforo). Es la decisión contractual de esta enmienda: la revisión
+   adversarial sostuvo en sus dos pasadas la opción B y el writer recomienda la A; no se oscila,
+   se eleva.** La pregunta de fondo: ¿el corte del semáforo es una convención estadística con
+   default —como `alpha` y los umbrales PSI, que nunca llevaron marca— o un dato institucional que
+   el motor no puede suplir? (A) **Retirarla sin sucesor y persistir los cortes**: cada fila de
+   grado lleva los dos cortes con que se decidió su color, la card los resume, el trail los
+   registra y la prosa los nombra con los defaults dichos, sin atribuir a nadie la elección
+   (D-VAL-15). Auditable sin el config; ninguna marca que nunca pueda cerrarse. (B) **Sucesor
+   `DATO-INSTITUCIONAL-VAL-5`**, emitido **siempre que corra el contraste por grado** —no «mientras
+   se usen los defaults», porque el motor no puede distinguirlo (todo valor llega explícito desde
+   el formulario y comparar con 0,05/0,01 marcaría para siempre a quien elija justo esos)— con el
+   mensaje «semáforo por grado con cortes X/Y: son política de validación de la institución, no
+   norma; confírmalos», visible como salvedad en el panel, en la prosa y en el anexo; se silencia
+   sólo apagando el contraste. Coherente con la lectura estricta de la doctrina; su costo es un
+   aviso sin acción posible para quien ya fijó sus cortes y la asimetría con `alpha`/PSI. Variante
+   B′ para hacerlo bien del todo: los dos cortes pasan a **decisión obligatoria sin default**
+   cuando el contraste está encendido, por el cauce existente de D-OBL (descriptor
+   `has_default: false` en el formulario, la puerta exige el valor): la marca sobra porque el
+   valor es siempre de la institución; exige su enmienda D-OBL propia y rompe todo YAML que
+   encendía el contraste sin declarar cortes (experimental, ruptura declarada). (C) Dejarla:
+   contradice el cotejo (no hay nada que verificar) y mantiene una frase falsa.
+   **Recomendación: A**; si Cami adopta la lectura estricta, **B** ahora y B′ como enmienda
+   siguiente.
 4. **El copy que cambia** —`binomial_by_grade`, `backtesting.enabled`, `consume_stability`,
    `min_rows_per_group` (`ui_help`), la frase nueva de los cortes en el informe y dos párrafos de
    la guía— ¿lo revisa Cami contra la pantalla al implementar cada capa, como en el scorecard
@@ -509,9 +591,10 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
    protege el grupo (§0-21). (C) Reducir `G` al mayor valor con grupos ≥ mínimo (mínimo 3) y
    publicar el `n_groups` efectivo: da veredicto a más particiones, pero decide por el usuario un
    parámetro que él fijó y cambia el estadístico frente a lo pedido. **Recomendación: A.**
-6. **Recálculo del PSI.** (A) **Cablearlo de verdad** con el ensamblador reutilizado, `requires`
-   dinámicos y el toggle expuesto (D-VAL-16); ~una sesión, cinco censos y una sección del
-   formulario sin campos nuevos. (B) No cablearlo: `consume_stability=False` pasa a error de
+6. **Recálculo del PSI.** (A) **Cablearlo de verdad** con el ensamblador reutilizado, los
+   `requires` declarados por la sección `stability` y transportados por el DTO de resolución
+   (extensión aditiva del núcleo por el patrón D-REQ) y el toggle expuesto (D-VAL-16); ~una sesión,
+   cinco censos, dos archivos del núcleo y una sección del formulario sin campos nuevos. (B) No cablearlo: `consume_stability=False` pasa a error de
    validación del config («el recálculo no está cableado»), fail-fast en vez de abortar a mitad
    de corrida, y el campo sigue oculto como `hl_grouping`. Barato y honesto, pero D-VAL-2 sigue sin
    cumplirse y `stability_recomputed` sigue siendo código sin camino. (C) Retirar el campo:

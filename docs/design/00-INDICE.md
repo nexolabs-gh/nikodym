@@ -977,7 +977,12 @@ No autoriza START ni mueve la puerta global.
 > semáforo (ahora viajan en cada fila de grado y en la card, y la prosa no atribuye la elección);
 > `optional_requires` no valida prerequisitos (los `requires` del recálculo se derivan de la
 > `StabilityConfig`); y un HL no evaluable publicaba `statistic=0.0` sin causa (pasa a nulo con
-> causa cerrada en fila, card, panel e informe). Ningún `config_hash` ni fixture de la demo se
+> causa cerrada en fila, card, panel e informe). Pasada 2: cuatro hallazgos más —el step no puede
+> leer el config ajeno al construirse, así que los `requires` del recálculo van por el patrón
+> D-REQ (la sección declara, el núcleo transporta); el trail del semáforo registraba `alpha` como
+> umbral; cuarta causa de HL (estadístico no finito); y uno **contractual**, elevado en §8-3: si
+> un default del motor puede decidir un color sin marca (Codex sostiene que no; el writer
+> recomienda que sí, con los cortes persistidos)—. Ningún `config_hash` ni fixture de la demo se
 > mueve (medido). Ocho decisiones para Cami en §8.
 
 ## Tandas de producción
