@@ -64,6 +64,7 @@ import {
   formatBool,
   formatClp,
   formatCount,
+  formatCut,
   formatMetric,
   formatMoney,
   formatPValue,
@@ -1118,9 +1119,9 @@ export function ResultsPanel({
               {valCuts ? (
                 <p className="mb-3 text-xs text-muted-foreground">
                   <span className="uppercase tracking-wide">Cortes del semáforo</span>: verde con
-                  p-valor ≥ {formatPValue(valCuts.green_alpha)} · ámbar desde{" "}
-                  {formatPValue(valCuts.red_alpha)} · rojo por debajo de{" "}
-                  {formatPValue(valCuts.red_alpha)}. Son un parámetro de la política de validación
+                  p-valor ≥ {formatCut(valCuts.green_alpha)} · ámbar desde{" "}
+                  {formatCut(valCuts.red_alpha)} · rojo por debajo de{" "}
+                  {formatCut(valCuts.red_alpha)}. Son un parámetro de la política de validación
                   de tu institución, no un umbral fijado por norma.
                 </p>
               ) : null}

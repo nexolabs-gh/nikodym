@@ -204,6 +204,7 @@ class ValidationStep(AuditableMixin):
                     },
                     accion="revisar_calibracion",
                 )
+        self._emit_traffic_light_cuts_decision(result)
         for grade in result.grade_records:
             if grade.traffic_light != "green":
                 self.log_decision(
@@ -244,6 +245,32 @@ class ValidationStep(AuditableMixin):
                 valor=gap,
                 accion="trazar_brecha_metodologica",
             )
+
+    def _emit_traffic_light_cuts_decision(self, result: ValidationResult) -> None:
+        """Registra UNA decisión con los dos cortes del semáforo si corrió el contraste por grado.
+
+        Incondicional al color obtenido (pasada 1 de Codex sobre la capa A): el evento
+        ``calibration_semaforo`` sólo sale en ámbar/rojo, así que una corrida toda verde no dejaba
+        los cortes en el trail y reconstruir sus decisiones exigía recuperar el config o los
+        artefactos. Aquí van los cortes y el recuento de colores; sin contraste
+        (``traffic_light_cuts`` nulo) no hay semáforo que registrar.
+        """
+        section = result.card.metric_sections.get("validation", {})
+        cuts = section.get("traffic_light_cuts")
+        if not isinstance(cuts, dict):
+            return
+        counts = section.get("traffic_light", {})
+        self.log_decision(
+            regla="calibration_semaforo_cortes",
+            umbral={"green_alpha": cuts.get("green_alpha"), "red_alpha": cuts.get("red_alpha")},
+            valor={
+                "green": counts.get("green", 0),
+                "amber": counts.get("amber", 0),
+                "red": counts.get("red", 0),
+                "not_evaluable": len(section.get("not_evaluable_grades", ())),
+            },
+            accion="publicar_cortes_del_semaforo",
+        )
 
     def _emit_not_evaluable_grade_decisions(self, result: ValidationResult) -> None:
         """Audita cada grado bajo mínimo omitido del semáforo/verdicto (SDD-22 §6/§8/§9).

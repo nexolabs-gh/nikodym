@@ -175,6 +175,37 @@ def test_la_prosa_nombra_los_dos_cortes_leidos_de_la_card_cuando_corrio_el_contr
     assert "Basilea" not in seccion
 
 
+def test_la_prosa_no_redondea_un_corte_hasta_describir_otra_politica() -> None:
+    """Pasada 1 de Codex sobre la capa A: la config admite cualquier ``0 < rojo < verde < 1``, y
+    con cortes de más de cuatro decimales la frase decía «0,05» para un corte 0,05004 —un grado
+    con p = 0,05002 queda en ámbar en el motor mientras el informe afirma que debería estar en
+    verde—. Los cortes se escriben con todos sus dígitos, sin notación científica."""
+    from nikodym.report.prose import _cut
+
+    assert _cut(0.05004) == "0,05004"
+    assert _cut(0.01004) == "0,01004"
+    assert _cut(0.05) == "0,05"
+    assert _cut(0.1) == "0,10"
+    assert _cut(0.00001) == "0,00001"
+    assert _cut(1.5e-7) == "0,00000015"
+    assert _cut(0.123456789) == "0,123456789"
+
+    cfg = ValidationConfig(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5,
+            min_rows_per_group=10,
+            traffic_light_green_alpha=0.05004,
+            traffic_light_red_alpha=0.01004,
+        ),
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(calibrated_pd=_analytic_frame())
+    seccion = _seccion_calibracion(_html(result))
+    assert "p-valor de al menos 0,05004" in seccion
+    assert "entre 0,01004 y 0,05004" in seccion
+    assert "al menos 0,05," not in seccion
+
+
 def test_sin_contraste_por_grado_la_prosa_calla_los_cortes() -> None:
     """Sin contraste no hay semáforo que explicar: ninguna frase de cortes, ningún número."""
     html = _html(_resultado(contraste=False))

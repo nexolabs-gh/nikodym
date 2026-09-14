@@ -749,13 +749,21 @@ describe("los cortes del semáforo por grado (D-VAL-15): la fila explica su prop
   it("con el contraste corrido publica los dos cortes de la card, no la significancia", () => {
     const html = render(conCortes({ green_alpha: 0.1, red_alpha: 0.02 }, [gradoAmbar]))
     expect(html).toContain("Cortes del semáforo")
-    expect(html).toContain("verde con p-valor ≥ 0.1000")
-    expect(html).toContain("rojo por debajo de 0.0200")
+    expect(html).toContain("verde con p-valor ≥ 0.10")
+    expect(html).toContain("rojo por debajo de 0.02")
     // El texto no atribuye la elección: el motor no sabe si el corte es declarado o default.
     expect(html).toContain("política de validación")
     expect(html).not.toContain("la institución fijó")
     // Y el color de la fila es el que esos cortes deciden.
     expect(html).toContain("Ámbar")
+  })
+
+  it("un corte con más de cuatro decimales se escribe entero, no redondeado a otra política", () => {
+    // Pasada 1 de Codex sobre la capa A: `formatPValue` redondeaba 0.05004 a «0.0500».
+    const html = render(conCortes({ green_alpha: 0.05004, red_alpha: 0.01004 }, [gradoAmbar]))
+    expect(html).toContain("verde con p-valor ≥ 0.05004")
+    expect(html).toContain("rojo por debajo de 0.01004")
+    expect(html).not.toContain("0.0500 ")
   })
 
   it("sin contraste (`traffic_light_cuts: null`) no se pintan cortes", () => {

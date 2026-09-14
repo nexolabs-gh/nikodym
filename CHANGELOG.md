@@ -26,7 +26,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   tabla `calibration` gana `green_alpha` y `red_alpha` al final (nulas en Hosmer-Lemeshow y
   Brier), la card publica `traffic_light_cuts` cuando corrió el contraste y `null` sin él, el
   trail registra los dos cortes como umbral del semáforo —antes registraba el nivel de
-  significancia, que no es un corte— y el informe y Resultados nombran los cortes de la corrida
+  significancia, que no es un corte— y además una decisión única con los cortes y el recuento de
+  colores cada vez que corre el contraste, para que una corrida toda en verde también los deje
+  en el trail; el informe y Resultados nombran los cortes de la corrida con todos sus dígitos
   junto a la cobertura por grado, diciendo cuáles trae el motor por defecto (0,05 y 0,01) y sin
   atribuir la elección a nadie: son un parámetro de la política de validación de cada institución,
   no un umbral fijado por norma. En el documento las dos columnas nuevas no se pintan —el hecho va

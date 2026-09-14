@@ -5,7 +5,10 @@
 > `HANDOFF` privado, «Respuestas de Cami» → S12). Se implementa por capas A → B → C (§6), cada una
 > entera, y la release 1.16.0 exige su propio OK. **Capa A implementada en S13 (2026-09-14)**
 > —D-VAL-13/14/15/18, con los seis tests nacidos rojos y los cinco controles negativos de §6—;
-> B y C, pendientes. Nace de las
+> B y C, pendientes. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
+> hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
+> los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—. Nace de las
 > respuestas 5, 11 y 12 de Cami del
 > 2026-09-09 a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) §8 —«tarea
 > aparte para `FALTA-DATO-VAL-1/2/3`», «el recálculo del PSI queda oculto, con tarea aparte para el

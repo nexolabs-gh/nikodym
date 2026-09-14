@@ -2726,15 +2726,19 @@ def _num(value: Any, *, decimals: int = 4) -> str:
 
 
 def _cut(value: Any) -> str:
-    """Formatea un corte de p-valor sin perder dígitos: ``0,05``, ``0,01``, ``0,025``, ``0,10``.
+    """Formatea un corte de p-valor con TODOS sus dígitos: ``0,05``, ``0,10``, ``0,05004``.
 
-    Cuatro decimales como máximo —la resolución del panel— recortando los ceros finales, pero
-    nunca por debajo de dos: ``0,1`` se lee peor que ``0,10`` al lado de ``0,05``.
+    La config admite cualquier ``0 < rojo < verde < 1``; redondear aquí describiría una política
+    distinta de la que decidió los colores (un corte 0,05004 impreso como «0,05» diría que un
+    grado con p = 0,05002 debía quedar en verde cuando el motor lo dejó en ámbar; pasada 1 de
+    Codex sobre la capa A). Se usa la representación más corta que reproduce el float exacto,
+    escrita en posicional —nunca notación científica en la prosa— y con dos decimales como mínimo:
+    ``0,1`` se lee peor que ``0,10`` al lado de ``0,05``.
     """
     numeric = _float(value)
     if numeric is None:
         return _NOT_AVAILABLE
-    texto = f"{numeric:.4f}".rstrip("0")
+    texto = format(Decimal(repr(numeric)), "f")
     entero, _, decimales = texto.partition(".")
     return f"{entero},{decimales.ljust(2, '0')}"
 

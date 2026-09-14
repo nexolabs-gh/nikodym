@@ -2084,6 +2084,26 @@ export function gradeCoverage(
 }
 
 /**
+ * Formatea un corte del semáforo con TODOS sus dígitos (`0.05`, `0.10`, `0.05004`): la config
+ * admite cualquier corte en (0, 1) y `formatPValue` lo redondearía a cuatro decimales, describiendo
+ * una política distinta de la que decidió los colores (pasada 1 de Codex sobre la capa A). Se usa
+ * la representación más corta que reproduce el número, en posicional y con dos decimales como
+ * mínimo. Ausente/no finito → `EMPTY`.
+ */
+export function formatCut(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  let texto = String(x)
+  if (texto.includes("e")) {
+    // `String(1.5e-7)` es científica: los decimales exactos son los de la mantisa más el exponente.
+    const [mantisa, exponente] = texto.split("e")
+    const decimalesMantisa = mantisa.split(".")[1]?.length ?? 0
+    texto = x.toFixed(Math.max(0, decimalesMantisa - Number(exponente)))
+  }
+  const [entero, decimales = ""] = texto.split(".")
+  return `${entero}.${decimales.padEnd(2, "0")}`
+}
+
+/**
  * Los dos cortes con que el motor decidió el semáforo de cada grado (D-VAL-15), leídos de la card y
  * no del config: `null` cuando el contraste por grado no corrió, cuando el fixture es anterior a la
  * clave o cuando llega incompleta. Presentación pura: no se recalcula ningún color.

@@ -440,6 +440,49 @@ def test_execute_audita_el_aviso_declarado_del_backtesting_bloqueado() -> None:
     assert avisos[0]["valor"] == result.card.falta_dato[0]
 
 
+def test_el_trail_registra_los_cortes_aunque_todos_los_grados_queden_verdes() -> None:
+    """Pasada 1 de Codex sobre la capa A: ``calibration_semaforo`` sólo se emite en ámbar/rojo,
+    así que una corrida toda verde no dejaba los cortes en el JSONL y la auditabilidad dependía del
+    color obtenido. Con el contraste corrido se emite una decisión única e incondicional con los
+    dos cortes (``calibration_semaforo_cortes``); sin contraste, ninguna."""
+    cfg = _scorecard_config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(hl_n_groups=5, min_rows_per_group=10),
+    )
+    study = _scorecard_study(config=cfg, include_performance=False, include_stability=False)
+    sink = InMemoryAuditSink()
+    step = ValidationStep.from_config(cfg)
+    step._audit = sink
+    result = step.execute(study, np.random.default_rng(3))
+
+    assert {record.traffic_light for record in result.grade_records} == {"green"}
+    decisiones = [event.payload for event in sink.events if event.kind == "decision"]
+    assert not [d for d in decisiones if d["regla"] == "calibration_semaforo"]
+    cortes = [d for d in decisiones if d["regla"] == "calibration_semaforo_cortes"]
+    assert len(cortes) == 1
+    assert cortes[0]["umbral"] == {"green_alpha": 0.05, "red_alpha": 0.01}
+    assert cortes[0]["valor"] == {"green": 3, "amber": 0, "red": 0, "not_evaluable": 0}
+
+    apagado = _scorecard_config(
+        families=("calibration",),
+        calibration=CalibrationValidationConfig(
+            hl_n_groups=5, min_rows_per_group=10, binomial_by_grade=False
+        ),
+    )
+    sink_apagado = InMemoryAuditSink()
+    step_apagado = ValidationStep.from_config(apagado)
+    step_apagado._audit = sink_apagado
+    step_apagado.execute(
+        _scorecard_study(config=apagado, include_performance=False, include_stability=False),
+        np.random.default_rng(3),
+    )
+    assert not [
+        event
+        for event in sink_apagado.events
+        if event.kind == "decision" and event.payload["regla"] == "calibration_semaforo_cortes"
+    ]
+
+
 def test_el_evento_del_semaforo_registra_los_dos_cortes_y_no_la_significancia() -> None:
     """(e) de la capa A (D-VAL-15): ``calibration_semaforo`` lleva como ``umbral`` los dos cortes
     con que se decidió el color —leídos del record ya resellado— y no ``alpha``, que es la
