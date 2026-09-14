@@ -771,6 +771,127 @@ def test_validation_result_reconcilia_las_filas_de_hosmer_lemeshow_con_los_recor
     assert _result().calibration_records[0].decision == "pass"
 
 
+def test_validation_result_reconcilia_todos_los_campos_comunes_de_cada_fila() -> None:
+    """Pasada 1 de Codex sobre la capa B: la comparación tabla ↔ record omitía ``alpha`` y
+    ``degrees_of_freedom`` en HL y ``n``/``observed_defaults``/``expected_pd``/``observed_dr``/
+    ``alpha``/``test``/``statistic`` en las filas de grado, así que un resultado rehidratado podía
+    cambiar el alfa, los grados de libertad o el tamaño de muestra y seguir validando."""
+    for columna, valor in (("alpha", 0.1), ("degrees_of_freedom", 7.0)):
+        tabla = _calibration_frame()
+        tabla.loc[0, columna] = valor
+        with pytest.raises(
+            ValidationError, match=rf"fila 'hosmer_lemeshow'.*'desarrollo'.*{columna}"
+        ):
+            _result(calibration=tabla)
+    for columna, valor in (
+        ("n", 501),
+        ("observed_defaults", 9),
+        ("expected_pd", 0.03),
+        ("observed_dr", 0.02),
+        ("alpha", 0.1),
+        ("test", "binomial"),
+        ("statistic", 0.0),
+    ):
+        tabla = _calibration_frame()
+        tabla.loc[2, columna] = valor
+        with pytest.raises(ValidationError, match=rf"fila de grado 'A'.*{columna}"):
+            _result(calibration=tabla)
+
+
+def test_validation_result_rechaza_particiones_sin_veredicto_malformadas_o_adulteradas() -> None:
+    """Pasada 1 de Codex sobre la capa B: la card se reducía a ``(partition, reason)`` y descartaba
+    en silencio las entradas que no fueran mappings. Cada entrada es ahora un DTO cerrado
+    (``NotEvaluablePartition``) con sus invariantes, y sus números se reconcilian con la tabla y
+    los records: ``n`` con la fila, ``n_groups`` con el record, ``min_group_size`` con
+    ``n // n_groups`` y ``min_rows`` homogéneo."""
+    from nikodym.validation.results import NOT_EVALUABLE_PARTITION_FIELDS, NotEvaluablePartition
+
+    assert tuple(NotEvaluablePartition.model_fields) == NOT_EVALUABLE_PARTITION_FIELDS
+    tabla, records = _hl_no_evaluable()
+    base = _card_hl_no_evaluable().metric_sections["validation"]
+
+    def con(entradas: list[Any]) -> ValidationCardSection:
+        return _card_hl_no_evaluable(
+            metric_sections={"validation": {**base, "not_evaluable_partitions": entradas}}
+        )
+
+    entrada = dict(base["not_evaluable_partitions"][0])
+    # Coherente: se construye.
+    _result(calibration=tabla, calibration_records=records, card=con([entrada]))
+    # Una entrada que no es un mapping ya no se descarta en silencio: junto a la entrada válida, la
+    # basura tiene que acusarse como inválida (filtrarla dejaría la lista coherente y pasaría).
+    with pytest.raises(ValidationError, match="entrada inválida"):
+        _result(calibration=tabla, calibration_records=records, card=con([entrada, "basura"]))
+    # Una entrada extra que no corresponde a ningún record.
+    with pytest.raises(ValidationError, match="not_evaluable_partitions"):
+        _result(calibration=tabla, calibration_records=records, card=con([entrada, entrada]))
+    # Cada número adulterado por separado.
+    for clave, valor, patron in (
+        ("n", 999, "n"),
+        ("n_groups", 5, "n_groups"),
+        ("min_group_size", 99, "min_group_size"),
+        ("min_rows", 0, "min_rows"),
+    ):
+        with pytest.raises(ValidationError, match=patron):
+            _result(
+                calibration=tabla,
+                calibration_records=records,
+                card=con([{**entrada, clave: valor}]),
+            )
+    # Un campo de más o uno de menos.
+    with pytest.raises(ValidationError):
+        _result(calibration=tabla, calibration_records=records, card=con([{**entrada, "x": 1}]))
+    sin_min = {k: v for k, v in entrada.items() if k != "min_rows"}
+    with pytest.raises(ValidationError):
+        _result(calibration=tabla, calibration_records=records, card=con([sin_min]))
+    # Los invariantes del DTO, solos: la partición entera bajo el mínimo no forma grupos y el
+    # grupo más chico es el que ``np.array_split`` deja.
+    NotEvaluablePartition(
+        partition="p",
+        n=20,
+        n_groups=10,
+        min_group_size=None,
+        min_rows=30,
+        reason="partition_below_min",
+    )
+    with pytest.raises(ValidationError, match="min_group_size"):
+        NotEvaluablePartition(
+            partition="p",
+            n=20,
+            n_groups=10,
+            min_group_size=2,
+            min_rows=30,
+            reason="partition_below_min",
+        )
+    with pytest.raises(ValidationError, match="bajo el mínimo"):
+        NotEvaluablePartition(
+            partition="p",
+            n=40,
+            n_groups=10,
+            min_group_size=None,
+            min_rows=30,
+            reason="partition_below_min",
+        )
+    with pytest.raises(ValidationError, match="min_group_size"):
+        NotEvaluablePartition(
+            partition="p",
+            n=100,
+            n_groups=10,
+            min_group_size=9,
+            min_rows=30,
+            reason="group_below_min",
+        )
+    with pytest.raises(ValidationError, match="min_rows"):
+        NotEvaluablePartition(
+            partition="p",
+            n=400,
+            n_groups=10,
+            min_group_size=40,
+            min_rows=30,
+            reason="group_below_min",
+        )
+
+
 def test_validation_result_exige_que_la_card_cuente_solo_decisiones_evaluables() -> None:
     """D-VAL-17: ``n_tests``/``n_failed`` y ``overall_status`` son derivables de los records y del
     frame de estabilidad, y la card no puede decir otra cosa (una card rehidratada con ``n_tests``
@@ -1053,7 +1174,8 @@ def _calibration_frame() -> pd.DataFrame:
             "observed_defaults": [80, 80, 8],
             "expected_pd": [0.08, 0.08, 0.02],
             "observed_dr": [0.08, 0.08, 0.016],
-            "statistic": [7.34, 0.062, 0.48],
+            # El de la fila de grado es el ``z`` del record (-0.48): la reconciliación lo coteja.
+            "statistic": [7.34, 0.062, -0.48],
             "degrees_of_freedom": [8.0, math.nan, math.nan],
             "p_value": [0.50, math.nan, 0.62],
             "alpha": [0.05, math.nan, 0.05],

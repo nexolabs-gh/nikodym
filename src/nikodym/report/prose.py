@@ -274,13 +274,15 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
         model_ref = _text(validation.get("model_ref")) or "Modelo evaluado"
         if n_tests is not None and n_failed is not None:
             # «0 de 0 pruebas fallidas» sería cierto y engañoso a la vez (D-VAL-17): sin ninguna
-            # decisión evaluable el conteo se dice en palabras, como en el panel de Resultados.
+            # decisión de pasa o falla el conteo se dice con las palabras del panel de Resultados.
+            # No afirma ausencia de evidencia: la estabilidad no cuenta en ``n_tests`` y sí decide
+            # el estado (pasada 1 de Codex sobre la capa B); la banda es la que dice el estado.
             metrics.append(
                 ExecutiveMetric(
                     label="Estado técnico de validación formal",
                     scope=model_ref,
                     value=(
-                        "Sin pruebas evaluables"
+                        "Sin pruebas de pasa o falla"
                         if n_tests == 0
                         else (
                             f"{_miles(n_failed)} de {_miles(n_tests)} "
@@ -1149,14 +1151,25 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         f"El estado técnico agregado publicado por el motor es «{status}».",
     ]
     if n_tests is not None and n_failed is not None:
-        if n_tests == 0:
-            # D-VAL-17: las pruebas que no se pudieron correr no cuentan; el capítulo lo dice y
-            # las particiones sin veredicto se enumeran, con su causa, en la familia de calibración.
+        if n_tests == 0 and _text(card.get("overall_status")) == "not_evaluable":
+            # D-VAL-17: sin ninguna decisión evaluable en las cuatro familias ni una decisión de
+            # estabilidad, el estado es «No evaluable»; las pruebas que no se pudieron correr no
+            # cuentan y se enumeran, con su causa, en la sección de su familia.
             paragraphs.append(
-                "El resultado no registra ninguna prueba con veredicto de pasa o falla: las "
-                "pruebas que no alcanzaron potencia estadística quedan sin veredicto y se "
-                "enumeran, con su causa, en la sección de su familia. Las tablas se copian del "
-                "resultado que publicó la validación, sin recalcular métricas ni decisiones."
+                "El resultado no registra ninguna prueba con veredicto de pasa o falla ni una "
+                "decisión de estabilidad: las pruebas que no alcanzaron potencia estadística "
+                "quedan sin veredicto y se enumeran, con su causa, en la sección de su familia. "
+                "Las tablas se copian del resultado que publicó la validación, sin recalcular "
+                "métricas ni decisiones."
+            )
+        elif n_tests == 0:
+            # La estabilidad no cuenta en ``n_tests`` pero sí decide el estado (pasada 1 de Codex
+            # sobre la capa B): una corrida sólo de estabilidad tiene cero pruebas de pasa o falla
+            # y un estado evaluable, y decir «sin evidencia» contradiría al motor.
+            paragraphs.append(
+                "El resultado no registra ninguna prueba con veredicto de pasa o falla; el estado "
+                "técnico se consolida sobre la estabilidad. Las tablas se copian del resultado "
+                "que publicó la validación, sin recalcular métricas ni decisiones."
             )
         else:
             # La frase de siempre, byte a byte: la corrida F1 de la demo la lleva con «3 pruebas»

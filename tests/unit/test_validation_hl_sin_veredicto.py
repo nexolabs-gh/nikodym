@@ -148,6 +148,20 @@ def _html(result: ValidationResult) -> str:
     )
 
 
+def _html_con_tablas(result: ValidationResult, tables: dict[str, pd.DataFrame]) -> str:
+    cfg = ReportConfig(sections={"missing_policy": "skip"})
+    bundle = ReportInputBundle(
+        lineage=_lineage(),
+        cards={"validation": result.card.model_dump(mode="python")},
+        results={"validation": result},
+        tables=tables,
+        figures={},
+        sections=(),
+    )
+    bundle = bundle.model_copy(update={"sections": ReportBuilder(cfg).build_sections(bundle)})
+    return HtmlReportRenderer(cfg).render(bundle)
+
+
 def _cuerpo_html(html: str) -> str:
     """El documento hasta el primer anexo: los anexos vuelcan la card entera, con sus slugs."""
     corte = html.find('id="section-appendix')
@@ -228,7 +242,40 @@ def test_sin_ninguna_prueba_evaluable_el_capitulo_dice_no_evaluable_y_nunca_pasa
     assert "band-none" in ejecutivo
     assert "band-ok" not in ejecutivo
     assert "0 de 0" not in ejecutivo
-    assert "Sin pruebas evaluables" in ejecutivo
+    assert "Sin pruebas de pasa o falla" in ejecutivo
+
+
+@pytest.mark.parametrize(("valor_psi", "estado"), [(0.05, "pass"), (0.18, "warn"), (0.3, "fail")])
+def test_con_solo_estabilidad_evaluable_la_prosa_no_niega_la_evidencia(
+    valor_psi: float, estado: str
+) -> None:
+    """Pasada 1 de Codex sobre la capa B: ``n_tests`` excluye la estabilidad pero el estado sí la
+    usa; con ``families=("stability",)`` y un PSI con decisión el resultado tiene ``n_tests == 0`` y
+    un estado evaluable, y la prosa decía «Sin pruebas evaluables» y atribuía el cero a falta de
+    potencia. El capítulo dice ahora que no hay pruebas de pasa o falla y que el estado se
+    consolidó sobre la estabilidad; la métrica ejecutiva usa las palabras del panel."""
+    cfg = ValidationConfig(families=("stability",))
+    metrics = pd.DataFrame(
+        {
+            "metric": ["score_psi"],
+            "comparison": ["dev_vs_oot"],
+            "feature": ["score"],
+            "value": [valor_psi],
+        }
+    )
+    result = ValidationEvaluator.from_config(cfg).validate(stability_metrics=metrics)
+    assert (result.card.n_tests, result.card.overall_status) == (0, estado)
+    html = _html_con_tablas(result, {"validation.stability": result.stability})
+    intro = _seccion(html, "validation")
+    assert "se consolida sobre la estabilidad" in intro
+    assert "no alcanzaron potencia" not in intro
+    assert "No evaluable" not in intro
+    ejecutivo = _resumen_ejecutivo(html)
+    assert "Sin pruebas de pasa o falla" in ejecutivo
+    assert "Sin pruebas evaluables" not in ejecutivo
+    from nikodym.validation.results import VALIDATION_STATUS_LABELS
+
+    assert VALIDATION_STATUS_LABELS[estado] in ejecutivo
 
 
 def test_con_hosmer_lemeshow_evaluable_la_prosa_no_enumera_nada() -> None:

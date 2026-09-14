@@ -78,11 +78,11 @@ from nikodym.validation.results import (
     _CALIBRATION_COLUMNS,
     _DISCRIMINATION_COLUMNS,
     _STABILITY_COLUMNS,
-    NOT_EVALUABLE_PARTITION_FIELDS,
     BacktestRecord,
     CalibrationTestRecord,
     DiscriminationRecord,
     GradeBinomialRecord,
+    NotEvaluablePartition,
     OverallStatus,
     ValidationCardSection,
     ValidationResult,
@@ -746,18 +746,28 @@ def _not_evaluable_partition(
 ) -> dict[str, Any]:
     """Descriptor de un Hosmer-Lemeshow sin veredicto para la card, la prosa, el panel y el trail.
 
-    D-VAL-17: las claves son las de :data:`NOT_EVALUABLE_PARTITION_FIELDS`, en su orden.
-    ``min_group_size`` es el tamaño del grupo más chico que ``np.array_split`` forma con ``n``
-    operaciones en ``n_groups`` grupos —``n // n_groups``, determinista—; va ``None`` cuando la
-    partición entera quedó bajo el mínimo y los grupos nunca se formaron.
+    D-VAL-17: se construye con :class:`NotEvaluablePartition` —el DTO cerrado que
+    ``ValidationResult`` revalida al reconciliar la card— y se publica como ``dict`` con sus
+    claves en el orden del modelo. ``min_group_size`` es el tamaño del grupo más chico que
+    ``np.array_split`` forma con ``n`` operaciones en ``n_groups`` grupos —``n // n_groups``,
+    determinista—; va ``None`` cuando la partición entera quedó bajo el mínimo y los grupos nunca
+    se formaron.
     """
     n_groups = record.n_groups if record.n_groups is not None else 0
     reason = record.not_evaluable_reason
-    min_group_size = None if reason == "partition_below_min" or n_groups == 0 else n // n_groups
-    # Se arma sobre la tupla de claves del contrato para que el orden y el censo salgan de una
-    # sola fuente (el tipo del front las espeja).
-    valores = (record.partition, n, n_groups, min_group_size, min_rows, reason)
-    return dict(zip(NOT_EVALUABLE_PARTITION_FIELDS, valores, strict=True))
+    if reason is None:
+        raise ValidationDataError(
+            f"El Hosmer-Lemeshow de {record.partition!r} quedó not_evaluable sin causa."
+        )
+    min_group_size = None if reason == "partition_below_min" else n // n_groups
+    return NotEvaluablePartition(
+        partition=record.partition,
+        n=n,
+        n_groups=n_groups,
+        min_group_size=min_group_size,
+        min_rows=min_rows,
+        reason=reason,
+    ).model_dump()
 
 
 def _brier_row(

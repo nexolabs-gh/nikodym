@@ -14,8 +14,24 @@
 > `min_rows_per_group`, la guía y §0-21 del scorecard completo superado; además, `ValidationResult`
 > reconcilia las filas de HL/Brier con sus records y la card, y exige que `n_tests`/`n_failed`/
 > `overall_status` sean los derivados (misma clase que la pasada 4 de Codex sobre la capa A,
-> anticipada); la revisión de Codex sobre esta capa se anota más abajo—; C, pendiente. Codex sobre
-> el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> anticipada). Codex sobre el código de la capa B, pasada 1 (`8ec7f0c`): dos hallazgos, verificados
+> y absorbidos —(a) la prosa del capítulo atribuía un `n_tests == 0` a falta de potencia y la
+> métrica ejecutiva decía «Sin pruebas evaluables» aunque la estabilidad, que no cuenta en
+> `n_tests`, hubiera decidido el estado (con `families=("stability",)` y un PSI con decisión el
+> resultado es `pass`/`warn`/`fail` con cero pruebas): la frase de falta de potencia queda
+> condicionada a `overall_status == "not_evaluable"`, con estabilidad evaluable el capítulo dice
+> que el estado se consolidó sobre ella y la métrica usa las palabras del panel («Sin pruebas de
+> pasa o falla»); (b) la reconciliación omitía `alpha`/`degrees_of_freedom` en las filas de HL y
+> `n`/`observed_defaults`/`expected_pd`/`observed_dr`/`alpha`/`test`/`statistic` en las de grado,
+> y la card se reducía a `(partition, reason)` descartando en silencio entradas que no fueran
+> mappings: nace el DTO cerrado `NotEvaluablePartition` (con sus invariantes: `n < min_rows` y sin
+> grupos para `partition_below_min`; `min_group_size == n // n_groups` y `n >= min_rows` para las
+> otras tres; `group_below_min` exige además ese grupo bajo el mínimo), el evaluador construye
+> cada entrada con él, y `ValidationResult` lo revalida y coteja `partition`/`reason`/`n_groups`
+> con el record, `n` con la fila y `min_rows` homogéneo; todos los campos comunes de cada fila se
+> reconcilian. Un control negativo destapó un oráculo débil (filtrar la entrada basura dejaba la
+> lista coherente): el test exige ahora que la basura se acuse como inválida—; C, pendiente. Codex
+> sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

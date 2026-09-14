@@ -77,20 +77,6 @@ OverallStatus: TypeAlias = Literal["pass", "warn", "fail", "not_evaluable"]
 _EVALUABLE_DECISIONS: frozenset[str] = frozenset({"pass", "fail"})
 _EVALUABLE_STABILITY_DECISIONS: frozenset[str] = frozenset({"pass", "warn", "fail"})
 
-#: Claves —y su orden— de cada entrada de ``metric_sections.validation.not_evaluable_partitions``:
-#: la partición, sus operaciones, los grupos pedidos, el tamaño del grupo más chico (``None``
-#: cuando la partición entera quedó bajo el mínimo y los grupos nunca se formaron), el mínimo
-#: configurado y la causa. El evaluador las escribe, la prosa y el panel las leen, el tipo del
-#: front las espeja (gate en ``test_vocabulario_en_pantalla``).
-NOT_EVALUABLE_PARTITION_FIELDS: tuple[str, ...] = (
-    "partition",
-    "n",
-    "n_groups",
-    "min_group_size",
-    "min_rows",
-    "reason",
-)
-
 # Familias de validación válidas para ``card.families_run`` (SDD-22 §4), derivadas del Literal.
 _VALID_FAMILIES: frozenset[str] = frozenset(get_args(ValidationFamily))
 
@@ -271,6 +257,7 @@ __all__ = [
     "DiscriminationRecord",
     "GradeBinomialRecord",
     "HlNotEvaluableReason",
+    "NotEvaluablePartition",
     "PdTest",
     "ValidationCardSection",
     "ValidationFamily",
@@ -424,6 +411,78 @@ class CalibrationTestRecord(BaseModel):
         if self.not_evaluable_reason is not None:
             raise ValueError("Un Hosmer-Lemeshow evaluable no lleva not_evaluable_reason.")
         return self
+
+
+class NotEvaluablePartition(BaseModel):
+    """Un Hosmer-Lemeshow sin veredicto tal como lo enumera la card (D-VAL-17).
+
+    Es cada entrada de ``metric_sections.validation.not_evaluable_partitions``: la partición, sus
+    operaciones, los grupos pedidos, el tamaño del grupo más chico que ``np.array_split`` formó
+    (``None`` cuando la partición entera quedó bajo el mínimo y los grupos nunca se formaron), el
+    mínimo configurado y la causa. Cerrado y con sus invariantes (pasada 1 de Codex sobre la capa
+    B: una entrada de la card se aceptaba como cualquier mapping y sus números no se cotejaban con
+    nada): la partición bajo el mínimo tiene ``n < min_rows`` y no forma grupos; las otras tres
+    causas pasaron la puerta de la partición (``n >= min_rows``) y su grupo más chico es
+    ``n // n_groups``; ``group_below_min`` exige además que ese grupo quede bajo el mínimo. El
+    evaluador construye cada entrada con este modelo y ``ValidationResult`` lo revalida al
+    reconciliar la card con los records y la tabla.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    partition: str
+    n: int = Field(ge=0)
+    n_groups: int = Field(ge=3)
+    min_group_size: int | None = Field(default=None, ge=0)
+    min_rows: int = Field(ge=1)
+    reason: HlNotEvaluableReason
+
+    @field_validator("partition")
+    @classmethod
+    def _valida_partition(cls, value: str) -> str:
+        """Valida que la partición no esté vacía."""
+        if not value.strip():
+            raise ValueError("partition no puede estar vacío.")
+        return value
+
+    @model_validator(mode="after")
+    def _check_invariantes(self) -> Self:
+        """Los números explican la causa, o la entrada no vale."""
+        if self.reason == "partition_below_min":
+            if self.min_group_size is not None:
+                raise ValueError(
+                    "Con partition_below_min los grupos nunca se formaron: min_group_size debe "
+                    "ser None."
+                )
+            if self.n >= self.min_rows:
+                raise ValueError(
+                    f"partition_below_min exige n < min_rows; n={self.n} no está bajo el mínimo "
+                    f"{self.min_rows}."
+                )
+            return self
+        if self.n < self.min_rows:
+            raise ValueError(
+                f"{self.reason} exige que la partición pasara la puerta: n={self.n} está bajo el "
+                f"mínimo {self.min_rows}."
+            )
+        esperado = self.n // self.n_groups
+        if self.min_group_size != esperado:
+            raise ValueError(
+                f"min_group_size debe ser el grupo más chico de np.array_split, n // n_groups = "
+                f"{esperado}; observado {self.min_group_size!r}."
+            )
+        if self.reason == "group_below_min" and esperado >= self.min_rows:
+            raise ValueError(
+                f"group_below_min exige min_group_size < min_rows; {esperado} no está bajo el "
+                f"mínimo {self.min_rows}."
+            )
+        return self
+
+
+#: Claves —y su orden— de cada entrada de ``not_evaluable_partitions``: las del DTO. El evaluador
+#: las escribe, la prosa y el panel las leen, el tipo del front las espeja (gate en
+#: ``test_vocabulario_en_pantalla``).
+NOT_EVALUABLE_PARTITION_FIELDS: tuple[str, ...] = tuple(NotEvaluablePartition.model_fields)
 
 
 class GradeBinomialRecord(BaseModel):
@@ -742,7 +801,17 @@ class ValidationResult(BaseModel):
             raise ValueError(
                 "calibration debe traer exactamente una fila sin semáforo por calibration_record."
             )
-        campos = ("partition", "test", "statistic", "p_value", "decision", "not_evaluable_reason")
+        campos = (
+            "partition",
+            "test",
+            "statistic",
+            "degrees_of_freedom",
+            "p_value",
+            "alpha",
+            "decision",
+            "not_evaluable_reason",
+        )
+        sin_veredicto: list[tuple[CalibrationTestRecord, int]] = []
         for (_, fila), record in zip(filas.iterrows(), self.calibration_records, strict=True):
             for campo in campos:
                 if not _same_cell(fila[campo], getattr(record, campo)):
@@ -751,31 +820,50 @@ class ValidationResult(BaseModel):
                         f"coincide con su record en {campo}: {fila[campo]!r} frente a "
                         f"{getattr(record, campo)!r}."
                     )
-        esperadas = [
-            (record.partition, record.not_evaluable_reason)
-            for record in self.calibration_records
-            if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable"
-        ]
+            if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable":
+                sin_veredicto.append((record, int(fila["n"])))
         section = self.card.metric_sections.get("validation")
         publicadas_raw = (
             section.get("not_evaluable_partitions") if isinstance(section, Mapping) else None
         )
         if publicadas_raw is None:
-            if esperadas:
+            if sin_veredicto:
                 raise ValueError(
                     "Un resultado con Hosmer-Lemeshow sin veredicto exige "
                     "metric_sections['validation']['not_evaluable_partitions'] en la card."
                 )
             return
-        publicadas = [
-            (str(item.get("partition")), item.get("reason"))
-            for item in publicadas_raw
-            if isinstance(item, Mapping)
-        ]
-        if publicadas != esperadas:
+        # Cada entrada es un DTO cerrado con sus invariantes; una malformada no se descarta en
+        # silencio (pasada 1 de Codex sobre la capa B).
+        try:
+            publicadas = [NotEvaluablePartition.model_validate(item) for item in publicadas_raw]
+        except ValueError as exc:
+            raise ValueError(
+                f"not_evaluable_partitions de la card trae una entrada inválida: {exc}"
+            ) from exc
+        if len(publicadas) != len(sin_veredicto):
             raise ValueError(
                 "not_evaluable_partitions de la card no coincide con los Hosmer-Lemeshow sin "
-                f"veredicto de los records: {publicadas!r} frente a {esperadas!r}."
+                f"veredicto de los records: {len(publicadas)} entradas frente a "
+                f"{len(sin_veredicto)} records."
+            )
+        for publicada, (record, n_fila) in zip(publicadas, sin_veredicto, strict=True):
+            esperada = {
+                "partition": record.partition,
+                "reason": record.not_evaluable_reason,
+                "n_groups": record.n_groups,
+                "n": n_fila,
+            }
+            observada = {clave: getattr(publicada, clave) for clave in esperada}
+            if observada != esperada:
+                raise ValueError(
+                    "not_evaluable_partitions de la card no coincide con el record y la fila de "
+                    f"{record.partition!r}: {observada!r} frente a {esperada!r}."
+                )
+        if len({publicada.min_rows for publicada in publicadas}) > 1:
+            raise ValueError(
+                "Todas las entradas de not_evaluable_partitions deben compartir el mismo min_rows: "
+                "hay un solo mínimo configurado por corrida."
             )
 
     def _check_consolidado_derivado(self) -> None:
@@ -842,13 +930,30 @@ class ValidationResult(BaseModel):
             raise ValueError(
                 "calibration debe traer exactamente una fila con semáforo por grade_record."
             )
-        campos = ("grade", "p_value", "traffic_light", "green_alpha", "red_alpha")
+        # Todos los campos que la fila y el record comparten (pasada 1 de Codex sobre la capa B:
+        # antes sólo el semáforo, y un ``n`` o un ``alpha`` adulterados pasaban). El ``statistic``
+        # de la fila es el ``z`` asintótico del record.
+        campos = (
+            ("grade", "grade"),
+            ("test", "test"),
+            ("n", "n"),
+            ("observed_defaults", "observed_defaults"),
+            ("expected_pd", "expected_pd"),
+            ("observed_dr", "observed_dr"),
+            ("statistic", "z_stat"),
+            ("p_value", "p_value"),
+            ("alpha", "alpha"),
+            ("traffic_light", "traffic_light"),
+            ("green_alpha", "green_alpha"),
+            ("red_alpha", "red_alpha"),
+        )
         for (_, fila), record in zip(filas.iterrows(), self.grade_records, strict=True):
-            for campo in campos:
-                if fila[campo] != getattr(record, campo):
+            for columna, atributo in campos:
+                if not _same_cell(fila[columna], getattr(record, atributo)):
                     raise ValueError(
                         f"La fila de grado {record.grade!r} de calibration no coincide con su "
-                        f"record en {campo}: {fila[campo]!r} frente a {getattr(record, campo)!r}."
+                        f"record en {columna}: {fila[columna]!r} frente a "
+                        f"{getattr(record, atributo)!r}."
                     )
         cortes = {(record.green_alpha, record.red_alpha) for record in self.grade_records}
         if len(cortes) > 1:
