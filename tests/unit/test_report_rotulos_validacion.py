@@ -64,11 +64,13 @@ _SLUGS: tuple[str, ...] = (
     "dev_vs_oot",
     "stable",
     "period",
-    "ALL",
 )
+#: El sentinel de las filas agregadas: no es un slug del vocabulario, es la ausencia de un grado o
+#: de una partición, y se vacía por tipo de fila (un grado real «ALL» sigue visible).
+_SENTINEL = "ALL"
 
 
-def _frame() -> pd.DataFrame:
+def _frame(*, grados: tuple[str, str] = ("A", "B")) -> pd.DataFrame:
     """Tres particiones con PD distintas y target moderado: HL y Brier con veredicto."""
     filas = []
     for particion in ("desarrollo", "holdout", "oot"):
@@ -78,13 +80,13 @@ def _frame() -> pd.DataFrame:
                     "partition": particion,
                     "pd_calibrated": 0.02 + 0.005 * (i % 60),
                     "target": 1 if i % 9 == 0 else 0,
-                    "grade": "A" if i % 2 else "B",
+                    "grade": grados[0] if i % 2 else grados[1],
                 }
             )
     return pd.DataFrame(filas)
 
 
-def _resultado() -> ValidationResult:
+def _resultado(*, grados: tuple[str, str] = ("A", "B")) -> ValidationResult:
     cfg = ValidationConfig(
         families=("discrimination", "calibration", "stability"),
         calibration=CalibrationValidationConfig(
@@ -111,7 +113,7 @@ def _resultado() -> ValidationResult:
         }
     )
     return ValidationEvaluator.from_config(cfg).validate(
-        calibrated_pd=_frame(),
+        calibrated_pd=_frame(grados=grados),
         performance_metrics=performance,
         stability_metrics=stability,
         model_ref="scorecard-rotulos",
@@ -184,6 +186,7 @@ def test_la_tabla_de_calibracion_del_html_pinta_palabras_y_conserva_los_trece_en
     # Pasada 2 de Codex: el sentinel `ALL` (partición de las filas de grado, grado de las filas de
     # HL/Brier) no es una partición ni un grado y se pinta como celda vacía.
     assert "—" in celdas
+    assert _SENTINEL not in celdas
     for slug in _SLUGS:
         assert slug not in celdas, slug
 
@@ -214,6 +217,31 @@ def test_el_valor_del_dto_no_cambia_solo_su_pintura() -> None:
     assert vista["columns"] == list(_COLUMNAS_CALIBRACION)
     assert any("Hosmer-Lemeshow" in fila for fila in vista["rows"])
     assert set(result.calibration["test"]) >= {"hosmer_lemeshow", "brier"}  # el frame no se tocó
+
+
+def test_un_grado_de_rating_llamado_all_sigue_visible_en_los_tres_formatos() -> None:
+    """Pasada 4 de Codex: el sentinel se vacía por TIPO de fila, no por valor. Un grado real «ALL»
+    en una fila de grado se pinta; en las filas de Hosmer-Lemeshow/Brier el grado sigue vacío y en
+    las filas de grado la partición agregada sigue vacía. Control negativo declarado: volver a
+    vaciar por valor pone este test rojo."""
+    result = _resultado(grados=("ALL", "B"))
+    filas_de_grado = result.calibration[result.calibration["traffic_light"].notna()]
+    assert set(filas_de_grado["grade"]) == {"ALL", "B"}  # el DTO conserva el grado del usuario
+    vista = _table_view("validation.calibration", result.calibration, max_rows=50)
+    col = {nombre: i for i, nombre in enumerate(vista["columns"])}
+    grado_all = [
+        f
+        for f in vista["rows"]
+        if f[col["test"]] in ("Jeffreys", "Binomial") and f[col["grade"]] == "ALL"
+    ]
+    assert grado_all, "el grado real «ALL» desapareció de la tabla"
+    assert all(f[col["partition"]] == "—" for f in grado_all)  # la partición agregada, vacía
+    hl = [f for f in vista["rows"] if f[col["test"]] in ("Hosmer-Lemeshow", "Puntaje de Brier")]
+    assert hl and all(f[col["grade"]] == "—" for f in hl)  # el grado de HL/Brier, vacío
+    html = HtmlReportRenderer(_cfg()).render(_bundle(result))
+    assert "ALL" in _celdas(_tabla_html(html, "validation.calibration"))
+    markdown = MarkdownReportRenderer.from_config(_cfg()).render(_bundle(result))
+    assert "| ALL |" in markdown
 
 
 def test_la_tabla_de_backtesting_pinta_parametro_prueba_y_veredicto() -> None:

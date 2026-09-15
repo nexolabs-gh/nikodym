@@ -812,10 +812,6 @@ def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
     # de veredictos de fila no tiene: la palabra es la del estado técnico, «Revisar».
     stability_decision = {**VALIDATION_DECISION_LABELS, "warn": VALIDATION_STATUS_LABELS["warn"]}
     calibration_test = {**CALIBRATION_TEST_LABELS, **PD_TEST_LABELS}
-    # Las filas agregadas de calibración llevan el sentinel ``ALL`` donde no hay partición (filas de
-    # grado) o no hay grado (Hosmer-Lemeshow y Brier): es la ausencia de uno, y se pinta como tal.
-    calibration_partition = {**_PARTITION_LABELS, POOLED_SENTINEL: _EMPTY_CELL}
-    calibration_grade = {POOLED_SENTINEL: _EMPTY_CELL}
     # La fila de estabilidad temporal lleva en ``comparison`` el eje (``period``/``cohort``), no
     # un par de particiones.
     stability_comparison = {**_COMPARISON_LABELS, **TEMPORAL_AXIS_LABELS}
@@ -826,9 +822,8 @@ def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
             "status": DISCRIMINATION_STATUS_LABELS,
         },
         "validation.calibration": {
-            "partition": calibration_partition,
+            "partition": _PARTITION_LABELS,
             "test": calibration_test,
-            "grade": calibration_grade,
             "decision": VALIDATION_DECISION_LABELS,
             "traffic_light": TRAFFIC_LIGHT_LABELS,
         },
@@ -853,6 +848,32 @@ def _public_cell(value: Any, labels: Mapping[str, str] | None) -> Any:
     if labels is None or not isinstance(value, str):
         return value
     return labels.get(value, value)
+
+
+#: Las pruebas de calibración que agrupan la población: sus filas no tienen partición.
+_GRADE_TESTS: Final[frozenset[str]] = frozenset({"binomial", "jeffreys"})
+#: Las pruebas de calibración por partición: sus filas no tienen grado.
+_PARTITION_TESTS: Final[frozenset[str]] = frozenset({"hosmer_lemeshow", "brier"})
+
+
+def _public_record(key: str, record: Mapping[Any, Any]) -> Mapping[Any, Any]:
+    """Vacía las ausencias ESTRUCTURALES de una fila antes de pintarla, según el tipo de fila.
+
+    Sólo ``validation.calibration``: las filas de Hosmer-Lemeshow y Brier no son por grado y las de
+    grado agrupan la población, y el evaluador escribe en esas celdas el sentinel ``ALL``
+    (``POOLED_SENTINEL``), que no es un grado ni una partición. Se vacía **por tipo de fila** —lo
+    dice la columna ``test`` del propio DTO— y no por valor (pasada 4 de Codex sobre los rótulos):
+    un grado de rating real llamado «ALL» en una fila de grado sigue visible.
+    """
+    if key != "validation.calibration":
+        return record
+    test = record.get("test")
+    ajustado = dict(record)
+    if test in _PARTITION_TESTS and ajustado.get("grade") == POOLED_SENTINEL:
+        ajustado["grade"] = None
+    if test in _GRADE_TESTS and ajustado.get("partition") == POOLED_SENTINEL:
+        ajustado["partition"] = None
+    return ajustado
 
 
 def _table_view(
@@ -882,7 +903,7 @@ def _table_view(
             )
             for column in columns
         )
-        for record in records
+        for record in map(lambda fila: _public_record(key, fila), records)
     ]
     return {
         "key": key,
