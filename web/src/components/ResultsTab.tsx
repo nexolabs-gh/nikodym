@@ -1271,8 +1271,12 @@ export function ResultsPanel({
 
           {/* Estabilidad: el PSI con su banda y su veredicto. Reusado del paso de estabilidad o,
               con el consumo apagado, recalculado aquí con el mismo motor (D-VAL-16): la nota dice
-              de dónde salió, leído de la card, para que la tabla no lo calle. */}
-          {(val.stability ?? []).length > 0 ? (
+              de dónde salió, leído de la card, para que la tabla no lo calle. Se pinta también
+              con la tabla vacía cuando la card publica la procedencia (pasada 1 de Codex sobre la
+              capa C): el motor no produce hoy ese estado —la card de estabilidad exige al menos una
+              comparación—, pero el panel lee un JSON y la prosa del informe ya lo dice en su rama
+              sin filas; callarlo aquí perdería la traza justo en el estado degradado. */}
+          {(val.stability ?? []).length > 0 || valStabilityProvenance ? (
             <Subchart title="Estabilidad">
               {valStabilityProvenance ? (
                 <p className="mb-3 text-xs text-muted-foreground">
@@ -1283,8 +1287,12 @@ export function ResultsPanel({
                     : valStabilityProvenance.recompute?.recipe === "declared"
                       ? ", con la configuración de la sección de estabilidad."
                       : "."}
+                  {(val.stability ?? []).length === 0
+                    ? " El recálculo no publicó filas."
+                    : null}
                 </p>
               ) : null}
+              {(val.stability ?? []).length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -1327,6 +1335,7 @@ export function ResultsPanel({
                   </tbody>
                 </table>
               </div>
+              ) : null}
             </Subchart>
           ) : null}
 

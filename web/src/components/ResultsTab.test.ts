@@ -1238,9 +1238,32 @@ describe("la procedencia del PSI (D-VAL-16): el panel dice de dónde salió la s
     expect(html).not.toContain("Recalculado en esta etapa")
   })
 
-  it("sin filas de estabilidad no hay nota que pintar", () => {
+  it("sin filas de estabilidad y sin procedencia en la card no hay nota que pintar", () => {
     const html = render(conProcedencia(null, null, []))
     expect(html).not.toContain("Reusado de la etapa de estabilidad")
+    expect(html).not.toContain("Recalculado en esta etapa")
+  })
+
+  it("con la tabla vacía y la card diciendo `recomputed`, la procedencia no se pierde", () => {
+    // Pasada 1 de Codex sobre la capa C: el bloque entero dependía de que hubiera filas, así que
+    // un recálculo sin filas se leía igual que un artefacto reutilizado. El motor no produce hoy
+    // ese estado (la card de estabilidad exige una comparación), pero el panel lee un JSON.
+    const html = render(
+      conProcedencia(
+        "recomputed",
+        { recipe: "minimal", temporal_axis: "none", csi_source: "score_points" },
+        [],
+      ),
+    )
+    expect(html).toContain("Recalculado en esta etapa")
+    expect(html).toContain("sin eje temporal: la sección de estabilidad no está declarada")
+    expect(html).toContain("El recálculo no publicó filas")
+    expect(html).not.toContain("<th class=\"py-2 pr-3 font-medium\">Indicador</th>")
+  })
+
+  it("con la tabla vacía y la card diciendo `stability_artifact`, la nota también se pinta", () => {
+    const html = render(conProcedencia("stability_artifact", null, []))
+    expect(html).toContain("Reusado de la etapa de estabilidad")
     expect(html).not.toContain("Recalculado en esta etapa")
   })
 })
