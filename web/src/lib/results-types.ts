@@ -337,6 +337,15 @@ export type TrafficLight = "green" | "amber" | "red"
 /** De dónde salió el AUC/Gini/KS de una partición (`DiscriminationSource` del backend). */
 export type DiscriminationSource = "performance_artifact" | "recomputed"
 
+/**
+ * De dónde salió cada fila de `validation.stability` (`StabilitySource` del backend, D-VAL-16): el
+ * artefacto del paso de estabilidad, o el recálculo con el mismo motor cuando el consumo se apaga.
+ */
+export type StabilitySource = "stability_artifact" | "recomputed"
+
+/** Con qué receta se recalculó el PSI (`StabilityRecomputeRecipe` del backend, D-VAL-16). */
+export type StabilityRecomputeRecipe = "declared" | "minimal"
+
 /** Estado de evaluabilidad de una partición (`DiscriminationStatus` del backend). */
 export type DiscriminationStatus = "ok" | "not_evaluable"
 
@@ -421,7 +430,10 @@ export interface ValidationTrafficLightCuts {
   red_alpha: number
 }
 
-/** Fila de `validation.stability`: el PSI que la etapa de estabilidad ya calculó, con su banda. */
+/**
+ * Fila de `validation.stability`: el PSI con su banda y su veredicto. `source` dice si vino del
+ * paso de estabilidad o si la validación lo recalculó con el mismo motor (D-VAL-16).
+ */
 export interface ValidationStabilityRow {
   metric: string
   comparison: string
@@ -431,9 +443,21 @@ export interface ValidationStabilityRow {
   review_threshold: number | null
   band: StabilityBand
   action: string | null
-  source: string
+  source: StabilitySource
   status: string
   decision: ValidationDecision
+}
+
+/**
+ * Cómo se recalculó el PSI, tal como lo publica
+ * `card.metric_sections.validation.stability_recompute` (D-VAL-16; `null` cuando se consumió el
+ * artefacto): la sección de estabilidad declarada, o la receta mínima —sin eje temporal ni bins—
+ * cuando no está declarada. Espeja `StabilityRecompute` del backend.
+ */
+export interface ValidationStabilityRecompute {
+  recipe: StabilityRecomputeRecipe
+  temporal_axis: string
+  csi_source: string
 }
 
 /** Fila de `validation.backtesting`: un contraste realizado-vs-estimado por parámetro y segmento. */
@@ -498,6 +522,10 @@ export interface ValidationResult {
       not_evaluable_partitions?: ValidationNotEvaluablePartition[]
       /** El mínimo por grupo con que se decidieron las ausencias; `null` sin calibración. */
       min_rows_per_group?: number | null
+      /** De dónde salió la tabla `stability` (D-VAL-16); `null` si la familia no corrió. */
+      stability_source?: StabilitySource | null
+      /** La receta del recálculo; `null` salvo con `stability_source === "recomputed"`. */
+      stability_recompute?: ValidationStabilityRecompute | null
     }
   }
   discrimination?: ValidationDiscriminationRow[] | null

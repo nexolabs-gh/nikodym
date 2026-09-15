@@ -98,7 +98,12 @@ from nikodym.ui.routes import schema_payload
 #: ``quality`` y los dos de ``sampling``— más ``univariate.columns[]``, la fila de su lista. El
 #: único que falta es ``type``, que ya era ``hidden``. Descriptores y ``$defs`` no se mueven: el
 #: catálogo ya publicaba la sección.
-HOJAS_DEL_FORMULARIO = 571
+#:
+#: 571 → 572 el 2026-09-15 con D-VAL-16 (capa C de VALIDACION-COTEJADA):
+#: ``validation.stability.consume_stability`` deja de ser ``hidden`` —el recálculo del PSI quedó
+#: cableado y los dos valores corren desde el formulario— y entra al barrido como ``checkbox``.
+#: Los cinco ocultos por D-SUB restantes siguen fuera. Descriptores y ``$defs`` no se mueven.
+HOJAS_DEL_FORMULARIO = 572
 
 #: Hojas que el barrido de PARIDAD contra el catálogo de defaults efectivos resuelve.
 #:
@@ -126,7 +131,11 @@ HOJAS_DEL_FORMULARIO = 571
 #: 437 → 454 el 2026-09-11 con D-SC-1, por los mismos 17 nodos de ``eda``: tampoco tiene uniones
 #: discriminadas ni decisiones obligatorias —el eje de la tasa se **infiere** (D-SC-3) en vez de
 #: preguntarse—, así que las dos cifras suben lo mismo y ``_DECISIONES_POR_SECCION`` sigue igual.
-HOJAS_CON_DEFAULT_EFECTIVO = 454
+#:
+#: 454 → 455 el 2026-09-15 con D-VAL-16, por el mismo nodo ``validation.stability.
+#: consume_stability`` del golden de arriba: un ``bool`` con default ``True``, sin unión
+#: discriminada, resuelve con default efectivo.
+HOJAS_CON_DEFAULT_EFECTIVO = 455
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos

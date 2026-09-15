@@ -345,16 +345,29 @@ class CalibrationValidationConfig(NikodymBaseConfig):
 class StabilityValidationConfig(NikodymBaseConfig):
     """Reporta el PSI con el mismo motor de la etapa de estabilidad."""
 
-    # 🔴 D-SUB (D-SC-7): oculto porque apagarlo ABORTA la corrida, no porque sea interno.
-    # Medido: `ValidationStep.execute` pasa la PD calibrada, las métricas de desempeño y las de
-    # estabilidad, pero nunca el frame de estabilidad, y el recálculo lo exige — así que el único
-    # valor que corre desde el formulario es el encendido. Se expone cuando ese cableado exista,
-    # con su gate de filas `source="recomputed"`.
+    # D-VAL-16 (enmienda VALIDACION-COTEJADA, capa C): expuesto. Estuvo oculto por D-SUB (D-SC-7)
+    # porque apagarlo ABORTABA la corrida: el paso nunca armaba el frame que el recálculo exigía.
+    # Desde la capa C el recálculo corre el mismo ensamblador y el mismo evaluador que la etapa de
+    # estabilidad (`compute_stability`), el DAG declara lo que va a leer y la tabla lo dice con
+    # `source="recomputed"`; los dos valores corren desde el formulario.
     consume_stability: bool = Field(
         default=True,
-        title="Reusar el PSI ya calculado",
-        description="Toma el PSI que ya calculó la etapa de estabilidad.",
-        json_schema_extra={"ui_widget": "hidden", "ui_group": "Estabilidad", "ui_order": 1},
+        title="Reusar el PSI que ya calculó la etapa de estabilidad",
+        description=(
+            "Encendido, toma el PSI que ya calculó la etapa de estabilidad. Apagado, la "
+            "validación lo recalcula con el mismo motor sobre el score y la PD calibrada; el "
+            "resultado dice de dónde salió cada fila."
+        ),
+        json_schema_extra={
+            "ui_help": (
+                "Apagado, el recálculo usa la configuración de la sección de estabilidad si "
+                "está declarada; si no, recalcula el PSI entre particiones sin eje temporal. La "
+                "etapa de estabilidad no necesita estar en la corrida."
+            ),
+            "ui_widget": "checkbox",
+            "ui_group": "Estabilidad",
+            "ui_order": 1,
+        },
     )
     psi_stable_threshold: float = Field(
         default=0.10,

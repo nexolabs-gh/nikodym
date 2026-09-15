@@ -31,7 +31,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from nikodym.core.artifacts import ArtifactStore
 from nikodym.core.audit import AuditEvent, AuditKind, AuditSink, NullAuditSink
@@ -49,6 +49,8 @@ from nikodym.core.mixins import AuditableMixin
 from nikodym.core.seeding import SeedManager
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from nikodym.core.steps import ArtifactKey, ContextoDeResolucion, Step
 
 __all__ = ["Study"]
@@ -521,14 +523,24 @@ class Study:
         queda vacío y el paso conserva el que declararía por sí solo (D-REQ-4): degradar al
         comportamiento histórico es correcto, romper la resolución del pipeline por no poder mirar
         una sección ajena no lo sería.
+
+        El tercer campo, ``requisitos_de_recalculo`` (D-VAL-16), sigue el mismo recorrido con una
+        diferencia deliberada: la sección declarada e incoaccionable viaja como ``None`` en vez de
+        omitirse, porque el paso que la lee en ejecución tiene que poder detenerse **antes** de
+        correr (ver el DTO).
         """
         from types import MappingProxyType
 
         from pydantic import ValidationError
 
-        from nikodym.core.steps import METODO_CONTRATO_VARIABLES, ContextoDeResolucion
+        from nikodym.core.steps import (
+            METODO_CONTRATO_VARIABLES,
+            METODO_REQUISITOS_RECALCULO,
+            ContextoDeResolucion,
+        )
 
         contrato: dict[str, str] = {}
+        recalculo: dict[str, tuple[ArtifactKey, ...] | None] = {}
         for nombre in sorted(_DEFAULT_DOMAIN_ORDER):
             seccion = getattr(self.config, nombre, None)
             if seccion is None:
@@ -536,12 +548,28 @@ class Study:
             try:
                 tipada = self._coerce_domain_config(nombre, seccion)
             except (ValidationError, NikodymError):
+                # D-VAL-16: una sección declarada e incoaccionable se TRANSPORTA como `None`, no
+                # se omite. Quien la vaya a leer en ejecución (el recálculo del PSI) tiene que
+                # poder detenerse en el preflight; omitirla lo mandaría a la receta mínima y el
+                # error saldría dentro de `validation`, tras correr los pasos previos. Sólo se
+                # registra para las secciones que declaran el protocolo: preguntárselo a la clase
+                # es lo único que se puede hacer sin la instancia.
+                clase = self._domain_config_class(nombre)
+                if clase is not None and callable(
+                    getattr(clase, METODO_REQUISITOS_RECALCULO, None)
+                ):
+                    recalculo[nombre] = None
                 continue
             declarado = getattr(tipada, METODO_CONTRATO_VARIABLES, None)
             if callable(declarado):
                 contrato.update(declarado())
+            requisitos = getattr(tipada, METODO_REQUISITOS_RECALCULO, None)
+            if callable(requisitos):
+                recalculo[nombre] = tuple(requisitos())
         return ContextoDeResolucion(
-            dominios_activos=activos, contrato_de_variables=MappingProxyType(contrato)
+            dominios_activos=activos,
+            contrato_de_variables=MappingProxyType(contrato),
+            requisitos_de_recalculo=MappingProxyType(recalculo),
         )
 
     def _default_step_names(self) -> list[str]:
@@ -622,14 +650,20 @@ class Study:
         if module_name is not None:
             importlib.import_module(module_name)
 
-    def _coerce_domain_config(self, name: str, sub_cfg: Any) -> Any:
-        """Coacciona configs opacos si la sección se creó antes de importar su dominio."""
+    def _domain_config_class(self, name: str) -> type[BaseModel] | None:
+        """La clase de config de una sección de dominio, o ``None`` si el núcleo no la conoce."""
         config_spec = _DOMAIN_CONFIG_CLASSES.get(name)
         if config_spec is None:
+            return None
+        module_name, class_name = config_spec
+        return cast("type[BaseModel]", getattr(importlib.import_module(module_name), class_name))
+
+    def _coerce_domain_config(self, name: str, sub_cfg: Any) -> Any:
+        """Coacciona configs opacos si la sección se creó antes de importar su dominio."""
+        config_cls = self._domain_config_class(name)
+        if config_cls is None:
             return sub_cfg
 
-        module_name, class_name = config_spec
-        config_cls = getattr(importlib.import_module(module_name), class_name)
         if not isinstance(sub_cfg, config_cls):
             sub_cfg = config_cls.model_validate(sub_cfg)
             self.config = self.config.model_copy(update={name: sub_cfg})

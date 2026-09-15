@@ -71,6 +71,7 @@ from nikodym.validation.results import (
     DISCRIMINATION_STATUS_LABELS,
     HL_NOT_EVALUABLE_REASON_LABELS,
     PD_TEST_LABELS,
+    STABILITY_SOURCE_LABELS,
     TRAFFIC_LIGHT_LABELS,
     VALIDATION_DECISION_LABELS,
     VALIDATION_FAMILY_LABELS,
@@ -83,6 +84,9 @@ from nikodym.validation.results import (
     HlNotEvaluableReason,
     OverallStatus,
     PdTest,
+    StabilityRecompute,
+    StabilityRecomputeRecipe,
+    StabilitySource,
     TrafficLight,
 )
 
@@ -155,6 +159,8 @@ def _titulo_del_formulario(modelo: type[BaseModel], ruta: str) -> str | None:
         (TRAFFIC_LIGHT_LABELS, TrafficLight, "TRAFFIC_LIGHT_LABELS"),
         (DISCRIMINATION_STATUS_LABELS, DiscriminationStatus, "DISCRIMINATION_STATUS_LABELS"),
         (DISCRIMINATION_SOURCE_LABELS, DiscriminationSource, "DISCRIMINATION_SOURCE_LABELS"),
+        # D-VAL-16: de dónde salió el PSI de la validación.
+        (STABILITY_SOURCE_LABELS, StabilitySource, "STABILITY_SOURCE_LABELS"),
         (BACKTEST_PARAMETER_LABELS, BacktestParameter, "BACKTEST_PARAMETER_LABELS"),
         (BACKTEST_TEST_LABELS, BacktestTest, "BACKTEST_TEST_LABELS"),
         (PD_TEST_LABELS, PdTest, "PD_TEST_LABELS"),
@@ -187,6 +193,7 @@ def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, no
         (TRAFFIC_LIGHT_LABELS, "TRAFFIC_LIGHT_LABELS"),
         (DISCRIMINATION_STATUS_LABELS, "DISCRIMINATION_STATUS_LABELS"),
         (DISCRIMINATION_SOURCE_LABELS, "DISCRIMINATION_SOURCE_LABELS"),
+        (STABILITY_SOURCE_LABELS, "STABILITY_SOURCE_LABELS"),
         (BACKTEST_PARAMETER_LABELS, "BACKTEST_PARAMETER_LABELS"),
         (AXIS_LABELS, "AXIS_LABELS"),
         (STABILITY_INDICATOR_LABELS, "STABILITY_INDICATOR_LABELS"),
@@ -269,6 +276,7 @@ def test_el_front_espeja_lo_que_mide_cada_fila_de_estabilidad() -> None:
         ("TRAFFIC_LIGHT_LABELS", TRAFFIC_LIGHT_LABELS),
         ("DISCRIMINATION_STATUS_LABELS", DISCRIMINATION_STATUS_LABELS),
         ("DISCRIMINATION_SOURCE_LABELS", DISCRIMINATION_SOURCE_LABELS),
+        ("STABILITY_SOURCE_LABELS", STABILITY_SOURCE_LABELS),
         ("BACKTEST_PARAMETER_LABELS", BACKTEST_PARAMETER_LABELS),
         ("BACKTEST_TEST_LABELS", BACKTEST_TEST_LABELS),
         ("PD_TEST_LABELS", PD_TEST_LABELS),
@@ -277,10 +285,11 @@ def test_el_front_espeja_lo_que_mide_cada_fila_de_estabilidad() -> None:
 def test_el_front_espeja_el_vocabulario_de_la_validacion(
     nombre: str, fuente: dict[str, str]
 ) -> None:
-    """Los once mapas que el panel «Validación formal» consume (D-SC-9; el undécimo, las causas
-    de un Hosmer-Lemeshow sin veredicto, es de D-VAL-17).
+    """Los doce mapas que el panel «Validación formal» consume (D-SC-9; el undécimo, las causas
+    de un Hosmer-Lemeshow sin veredicto, es de D-VAL-17; el duodécimo, la procedencia del PSI,
+    de D-VAL-16).
 
-    Once y no uno: cada columna de las cuatro tablas traduce un enum distinto del motor, y una
+    Doce y no uno: cada columna de las cuatro tablas traduce un enum distinto del motor, y una
     palabra cambiada de un solo lado deja la pantalla diciendo algo que el informe no dice.
     """
     assert _mapa_ts(_RESULTS_FORMAT, nombre) == fuente
@@ -338,6 +347,8 @@ def test_los_colores_del_estado_tecnico_cubren_las_cuatro_palabras() -> None:
         (HlNotEvaluableReason, "HlNotEvaluableReason"),
         (TrafficLight, "TrafficLight"),
         (DiscriminationSource, "DiscriminationSource"),
+        (StabilitySource, "StabilitySource"),
+        (StabilityRecomputeRecipe, "StabilityRecomputeRecipe"),
         (DiscriminationStatus, "DiscriminationStatus"),
         (CalibrationTest, "CalibrationTest"),
         (BacktestParameter, "BacktestParameter"),
@@ -561,6 +572,18 @@ def test_la_particion_sin_veredicto_espeja_lo_que_la_card_publica() -> None:
         NOT_EVALUABLE_PARTITION_FIELDS
     )
     assert _CALIBRATION_COLUMNS[-1] == "not_evaluable_reason"
+
+
+def test_la_receta_del_recalculo_espeja_lo_que_la_card_publica() -> None:
+    """D-VAL-16: ``stability_recompute`` lleva la receta, el eje y la fuente del CSI; el tipo del
+    front espeja esas claves en su orden, y la fila de estabilidad tipa su ``source``."""
+    assert _claves_de_la_interfaz_ts("ValidationStabilityRecompute") == list(
+        StabilityRecompute.model_fields
+    )
+    fuente = _RESULTS_TYPES.read_text(encoding="utf-8")
+    fila = fuente[fuente.index("export interface ValidationStabilityRow") :]
+    fila = fila[: fila.index("}")]
+    assert "source: StabilitySource" in fila
 
 
 def test_la_fila_del_perfil_espeja_lo_que_el_serializer_aplana() -> None:

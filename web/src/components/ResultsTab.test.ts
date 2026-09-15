@@ -29,6 +29,8 @@ import type {
   ValidationNotEvaluableGrade,
   ValidationNotEvaluablePartition,
   ValidationResult,
+  ValidationStabilityRecompute,
+  ValidationStabilityRow,
 } from "@/lib/results-types"
 import { VALIDATION_F1 } from "@/lib/validation.fixture"
 
@@ -1166,5 +1168,79 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     // El título se cuenta sin la ficha, que rotula el dominio con el mismo nombre en su evidencia.
     const f1SinFicha = render({ ...(demoF1 as unknown as ResultsResponse), model_card: null })
     expect(ocurrencias(f1SinFicha, TITULO_EDA)).toBe(1)
+  })
+})
+
+describe("la procedencia del PSI (D-VAL-16): el panel dice de dónde salió la sección de estabilidad", () => {
+  const conProcedencia = (
+    source: "stability_artifact" | "recomputed" | null,
+    recompute: ValidationStabilityRecompute | null,
+    filas?: ValidationStabilityRow[],
+  ): ResultsResponse => ({
+    ...(demoF1 as unknown as ResultsResponse),
+    validation: {
+      ...VALIDATION_F1,
+      stability: (filas ?? VALIDATION_F1.stability ?? []).map((row) => ({
+        ...row,
+        source: source ?? row.source,
+      })),
+      metric_sections: {
+        validation: {
+          ...VALIDATION_F1.metric_sections?.validation,
+          stability_source: source,
+          stability_recompute: recompute,
+        },
+      },
+    },
+  })
+
+  it("recalculado con la receta mínima: lo dice y explica que no hubo eje temporal", () => {
+    const html = render(
+      conProcedencia("recomputed", {
+        recipe: "minimal",
+        temporal_axis: "none",
+        csi_source: "score_points",
+      }),
+    )
+    expect(html).toContain("Recalculado en esta etapa")
+    expect(html).toContain("sin eje temporal: la sección de estabilidad no está declarada")
+    expect(html).not.toContain("Reusado de la etapa de estabilidad")
+    // Ningún slug del motor llega a la pantalla.
+    expect(html).not.toContain("recomputed")
+    expect(html).not.toContain("score_points")
+  })
+
+  it("recalculado con la sección declarada: lo dice sin inventar la receta mínima", () => {
+    const html = render(
+      conProcedencia("recomputed", {
+        recipe: "declared",
+        temporal_axis: "period",
+        csi_source: "woe_bins",
+      }),
+    )
+    expect(html).toContain("Recalculado en esta etapa")
+    expect(html).toContain("con la configuración de la sección de estabilidad")
+    expect(html).not.toContain("no está declarada")
+  })
+
+  it("reusado del paso de estabilidad: la nota lo dice y no habla de recálculo", () => {
+    const html = render(conProcedencia("stability_artifact", null))
+    expect(html).toContain("Reusado de la etapa de estabilidad")
+    expect(html).not.toContain("Recalculado en esta etapa")
+    expect(html).not.toContain("stability_artifact")
+  })
+
+  it("un fixture capturado antes de la clave —la demo publicada— lee la procedencia de las filas", () => {
+    // La demo trae `source: "stability_artifact"` en cada fila y ninguna clave nueva en la card.
+    const html = render({ ...(demoF1 as unknown as ResultsResponse), validation: VALIDATION_F1 })
+    expect(VALIDATION_F1.metric_sections?.validation).not.toHaveProperty("stability_source")
+    expect(html).toContain("Reusado de la etapa de estabilidad")
+    expect(html).not.toContain("Recalculado en esta etapa")
+  })
+
+  it("sin filas de estabilidad no hay nota que pintar", () => {
+    const html = render(conProcedencia(null, null, []))
+    expect(html).not.toContain("Reusado de la etapa de estabilidad")
+    expect(html).not.toContain("Recalculado en esta etapa")
   })
 })

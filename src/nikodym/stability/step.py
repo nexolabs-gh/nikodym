@@ -11,6 +11,10 @@ El contrato CT-1 se reduce al mínimo real no supervisado de B11.8: ``stability`
 las columnas ``<feature>__points`` de ``scorecard.score``. ``data.frame`` se consulta sólo en
 ``execute`` cuando la columna temporal/cohorte no viene propagada en ``scorecard.score``.
 
+El ensamblador del frame y el cálculo son públicos —:func:`assemble_stability_frame` y
+:func:`compute_stability`— desde la enmienda VALIDACION-COTEJADA (D-VAL-16): el recálculo del PSI
+de ``validation`` corre el mismo motor por la misma llamada, y no hay dos formas de recalcular.
+
 El módulo evita importar ``pandas``, ``numpy``, ``pandera`` y ``sklearn`` en import time.
 ``nikodym.stability`` lo importa para ejecutar ``@register("standard", domain="stability")`` sin
 contaminar el núcleo liviano; las dependencias tabulares se cargan dentro de ``execute`` y del
@@ -37,17 +41,23 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
-    from nikodym.core.audit import AuditEvent
+    from nikodym.core.audit import AuditEvent, AuditSink
     from nikodym.core.study import Study
     from nikodym.stability.results import StabilityResult
 
     DataFrame: TypeAlias = pd.DataFrame
 else:
     AuditEvent: TypeAlias = Any
+    AuditSink: TypeAlias = Any
     DataFrame: TypeAlias = Any
     StabilityResult: TypeAlias = Any
 
-__all__ = ["STABILITY_ARTIFACTS", "StabilityStep"]
+__all__ = [
+    "STABILITY_ARTIFACTS",
+    "StabilityStep",
+    "assemble_stability_frame",
+    "compute_stability",
+]
 
 STABILITY_ARTIFACTS: Final[tuple[str, ...]] = (
     "psi_table",
@@ -93,47 +103,15 @@ class StabilityStep(AuditableMixin):
         self._audit.emit(event)
 
     def execute(self, study: Study, rng: np.random.Generator) -> StabilityResult:
-        """Ejecuta stability determinista sin consumir ``rng`` y publica cuatro artefactos."""
+        """Ejecuta stability determinista sin consumir ``rng`` y publica cuatro artefactos.
+
+        El cálculo entero —ensamblar el frame y correr el evaluador— vive en
+        :func:`compute_stability`, que es también lo que llama ``validation`` cuando recalcula el
+        PSI (D-VAL-16): un solo camino, sin duplicar la alineación.
+        """
         del rng
-        pd = _import_pandas()
-
-        score = _as_dataframe(
-            study.artifacts.get("scorecard", "score"),
-            pd,
-            "scorecard.score",
-        ).copy(deep=True)
-        calibrated_pd_frame = _as_dataframe(
-            study.artifacts.get("calibration", "calibrated_pd_frame"),
-            pd,
-            "calibration.calibrated_pd_frame",
-        ).copy(deep=True)
-
         cfg = _stability_config_from_study(study, fallback=self.config)
-        csi_frame = _csi_frame(study, config=cfg, pd=pd)
-        _require_direccion_coherente(study, cfg.score_direction)
-        data_frame = _data_frame_for_temporal_if_needed(
-            study,
-            score=score,
-            config=cfg,
-            pd=pd,
-        )
-        frame, feature_point_columns = _assemble_stability_frame(
-            score=score,
-            calibrated_pd_frame=calibrated_pd_frame,
-            csi_frame=csi_frame,
-            data_frame=data_frame,
-            config=cfg,
-            pd=pd,
-        )
-        evaluator = StabilityEvaluator.from_config(cfg)
-        evaluator._audit = self._audit
-        result = evaluator.evaluate(
-            frame.copy(deep=True),
-            score_column=cfg.score_column,
-            pd_column=cfg.pd_column,
-            partition_column=cfg.partition_column,
-            feature_point_columns=feature_point_columns,
-        )
+        result = compute_stability(study, cfg, audit=self._audit)
         self._publish_artifacts(study, result)
         return result
 
@@ -179,6 +157,86 @@ class StabilityStep(AuditableMixin):
         study.artifacts.set("stability", "card", result.card.model_copy(deep=True))
 
 
+def assemble_stability_frame(
+    study: Study, config: StabilityConfig
+) -> tuple[DataFrame, tuple[str, ...]]:
+    """Arma el frame analítico de estabilidad desde los artefactos del ``Study`` (SDD-11 §4).
+
+    Envuelve, sin cambiar una línea de cálculo, lo que ``StabilityStep.execute`` hacía antes de
+    llamar al evaluador: lee ``scorecard.score`` y ``calibration.calibrated_pd_frame``, los bins
+    congelados sólo con ``csi_source='woe_bins'``, exige que la dirección del score no contradiga
+    la ficha del scorecard, abre ``data.frame`` sólo si el score no trae la columna temporal y
+    alinea todo por índice. Devuelve el frame y las columnas ``<feature>__points`` (o ``__bin``)
+    del CSI, en el orden estable que el evaluador espera.
+
+    Es público desde la enmienda VALIDACION-COTEJADA (D-VAL-16) porque el recálculo del PSI de
+    ``validation`` lo reutiliza: así el frame que recalcula es, fila a fila, el del paso de
+    estabilidad. Lo que lee está declarado en
+    :meth:`~nikodym.stability.config.StabilityConfig.requisitos_de_recalculo_declarados`.
+    """
+    pd = _import_pandas()
+    score = _as_dataframe(
+        study.artifacts.get("scorecard", "score"),
+        pd,
+        "scorecard.score",
+    ).copy(deep=True)
+    calibrated_pd_frame = _as_dataframe(
+        study.artifacts.get("calibration", "calibrated_pd_frame"),
+        pd,
+        "calibration.calibrated_pd_frame",
+    ).copy(deep=True)
+    csi_frame = _csi_frame(study, config=config, pd=pd)
+    _require_direccion_coherente(study, config.score_direction)
+    data_frame = _data_frame_for_temporal_if_needed(
+        study,
+        score=score,
+        config=config,
+        pd=pd,
+    )
+    return _assemble_stability_frame(
+        score=score,
+        calibrated_pd_frame=calibrated_pd_frame,
+        csi_frame=csi_frame,
+        data_frame=data_frame,
+        config=config,
+        pd=pd,
+    )
+
+
+def compute_stability(
+    study: Study,
+    config: StabilityConfig,
+    *,
+    audit: AuditSink | None = None,
+) -> StabilityResult:
+    """Ensambla el frame y corre ``StabilityEvaluator`` con ``config``: el cálculo, sin publicar.
+
+    Es exactamente lo que ``StabilityStep.execute`` hace antes de escribir sus artefactos, y la
+    **única** forma de recalcular el PSI dentro del motor: ``validation`` la llama con
+    ``consume_stability=False`` (D-VAL-16) y proyecta ``result.stability_metrics`` con
+    ``source='recomputed'``. Con la misma sección declarada, el frame recalculado es igual fila a
+    fila al artefacto del paso —identidad, cantidad y ``value``—, porque es el mismo motor por la
+    misma llamada; sin sección, la receta mínima produce las filas por partición y ninguna
+    temporal.
+
+    ``audit`` es el sink al que el evaluador emite sus decisiones. El paso de estabilidad pasa el
+    suyo; el recálculo de ``validation`` no pasa ninguno: sus bandas las audita el propio paso de
+    validación con su regla ``stability_psi``, y un trail con decisiones ``stability`` de un paso
+    que no corrió describiría una corrida distinta de la ejecutada.
+    """
+    frame, feature_point_columns = assemble_stability_frame(study, config)
+    evaluator = StabilityEvaluator.from_config(config)
+    if audit is not None:
+        evaluator._audit = audit
+    return evaluator.evaluate(
+        frame.copy(deep=True),
+        score_column=config.score_column,
+        pd_column=config.pd_column,
+        partition_column=config.partition_column,
+        feature_point_columns=feature_point_columns,
+    )
+
+
 def _import_pandas() -> Any:
     """Importa ``pandas`` localmente para preservar el import liviano del paquete."""
     try:
@@ -208,11 +266,16 @@ def _require_direccion_coherente(study: Study, declarada: str) -> None:
 
     Que no cambie una cifra no lo vuelve inocuo: el informe es el entregable, y una contradicción
     publicada en él es exactamente lo que este motor existe para no producir.
+
+    La ficha se lee con :func:`~nikodym.core.steps.campo_de_card`, no con ``getattr``: una ficha
+    inyectada por la puerta pública ``nikodym.run(..., artifacts=...)`` llega como ``Mapping`` y
+    ``getattr`` devolvía ``None``, con lo que una dirección contraria pasaba en silencio (pasada 6
+    de Codex sobre la enmienda VALIDACION-COTEJADA). Como el ensamblador se comparte con el
+    recálculo de ``validation``, la guarda queda honesta para los dos.
     """
     if not study.artifacts.has("scorecard", "card"):
         return
-    card = study.artifacts.get("scorecard", "card")
-    construida = getattr(card, "score_direction", None)
+    construida = campo_de_card(study.artifacts.get("scorecard", "card"), "score_direction")
     if construida is None or construida == declarada:
         return
     raise ConfigError(

@@ -41,6 +41,7 @@ import {
   DISCRIMINATION_SOURCE_LABELS,
   DISCRIMINATION_STATUS_LABELS,
   EMPTY,
+  STABILITY_SOURCE_LABELS,
   TRAFFIC_LIGHT_LABELS,
   VALIDATION_DECISION_LABELS,
   bandsPresent,
@@ -98,6 +99,7 @@ import {
   scoreHistogram,
   selectionDecisionRows,
   selectionThresholdRows,
+  stabilityProvenance,
   sicrTriggerLabel,
   sortByIv,
   stabilityMetricLabel,
@@ -315,6 +317,7 @@ export function ResultsPanel({
   const valCoverage = gradeCoverage(val)
   const valCuts = trafficLightCuts(val)
   const valHlSinVeredicto = hlNotEvaluablePartitions(val)
+  const valStabilityProvenance = stabilityProvenance(val)
   const valSinFilas = validationFamiliesWithoutRows(val)
   const valAvisos = val?.falta_dato ?? []
 
@@ -1266,10 +1269,22 @@ export function ResultsPanel({
             </Subchart>
           ) : null}
 
-          {/* Estabilidad: el PSI que la etapa anterior calculó, aquí con su banda y su veredicto.
-              Se publica tal cual: la sección de arriba lo grafica, ésta lo documenta. */}
+          {/* Estabilidad: el PSI con su banda y su veredicto. Reusado del paso de estabilidad o,
+              con el consumo apagado, recalculado aquí con el mismo motor (D-VAL-16): la nota dice
+              de dónde salió, leído de la card, para que la tabla no lo calle. */}
           {(val.stability ?? []).length > 0 ? (
             <Subchart title="Estabilidad">
+              {valStabilityProvenance ? (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {STABILITY_SOURCE_LABELS[valStabilityProvenance.source] ??
+                    valStabilityProvenance.source}
+                  {valStabilityProvenance.recompute?.recipe === "minimal"
+                    ? ", sin eje temporal: la sección de estabilidad no está declarada."
+                    : valStabilityProvenance.recompute?.recipe === "declared"
+                      ? ", con la configuración de la sección de estabilidad."
+                      : "."}
+                </p>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

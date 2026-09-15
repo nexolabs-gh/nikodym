@@ -10,9 +10,27 @@ publica las seis claves estables bajo ``domain='validation'``.
 las familias activas y los toggles de config: ``calibration`` exige ``calibration``+``data.labels``;
 ``discrimination`` **prefiere** ``performance.discriminant_metrics`` (o cae a ``calibration``
 +``data.labels`` con ``consume_performance=False``); ``stability`` exige
-``stability.stability_metrics``+``psi_table``; ``backtesting`` (sólo si ``enabled``) exige
-``provisioning_ifrs9.detail``+``staging``+``data.frame``. Un ``requires`` ausente levanta
-:class:`~nikodym.core.exceptions.ArtifactNotFoundError` **antes** de ejecutar.
+``stability.stability_metrics``+``psi_table`` con ``consume_stability=True`` y, con ``False``, lo
+que el recálculo va a leer —``scorecard.score``, ``calibration.calibrated_pd_frame`` y, según la
+sección ``stability`` declarada, ``data.frame`` y ``binning.bin_frame``— (D-VAL-16); ``backtesting``
+(sólo si ``enabled``) exige ``provisioning_ifrs9.detail``+``staging``+``data.frame``. Un
+``requires`` ausente levanta :class:`~nikodym.core.exceptions.ArtifactNotFoundError` **antes** de
+ejecutar.
+
+**El recálculo del PSI sigue el patrón D-REQ.** El paso no puede leer ``NikodymConfig.stability``
+al construirse (D-INV-1, D-REQ-2): la sección ``stability`` declara lo que el recálculo leerá
+(``StabilityConfig.requisitos_de_recalculo_declarados``), el núcleo lo transporta en
+``ContextoDeResolucion.requisitos_de_recalculo`` sin interpretarlo y
+:meth:`from_config_with_context` lo lee con tres estados —clave ausente: la sección no está
+declarada y el recálculo usa la **receta mínima** (sin eje temporal ni bins,
+``nikodym.stability.config.receta_minima_de_recalculo``);
+``None``: la sección está declarada e incoaccionable y el paso levanta ``ConfigError`` al
+construirse, para que ``check_pipeline`` lo acuse antes de ejecutar nada; tupla: lo declarado—.
+``execute`` re-deriva la lista efectiva desde ``study.config`` y la exige con ``_require_present``
+antes de calcular, que es la misma degradación declarada que ``tuning`` tiene en ``run_step``
+(D-REQ-4). El recálculo corre ``nikodym.stability.step.compute_stability`` —el mismo ensamblador y
+el mismo evaluador que el paso de estabilidad, por la misma llamada— y la tabla lo dice con
+``source='recomputed'``.
 
 El módulo evita importar ``pandas``/``numpy``/``scipy``/``sklearn`` en import time.
 ``nikodym.validation`` lo importa para ejecutar ``@register("standard", domain="validation")`` sin
@@ -31,10 +49,10 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
-from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
+from nikodym.core.exceptions import ArtifactNotFoundError, ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, ContextoDeResolucion, campo_de_card
 from nikodym.validation.config import ValidationConfig
 from nikodym.validation.exceptions import ValidationDataError
 
@@ -44,12 +62,22 @@ if TYPE_CHECKING:
 
     from nikodym.core.audit import AuditEvent
     from nikodym.core.study import Study
-    from nikodym.validation.results import ValidationResult
+    from nikodym.stability.config import StabilityConfig
+    from nikodym.validation.results import (
+        StabilityRecompute,
+        StabilityRecomputeRecipe,
+        StabilitySource,
+        ValidationResult,
+    )
 
     DataFrame: TypeAlias = pd.DataFrame
 else:
     AuditEvent: TypeAlias = Any
     DataFrame: TypeAlias = Any
+    StabilityConfig: TypeAlias = Any
+    StabilityRecompute: TypeAlias = Any
+    StabilityRecomputeRecipe: TypeAlias = Any
+    StabilitySource: TypeAlias = Any
     Study: TypeAlias = Any
     ValidationResult: TypeAlias = Any
 
@@ -71,7 +99,14 @@ _DATA_DOMAIN: Final = "data"
 _PERFORMANCE_DOMAIN: Final = "performance"
 _STABILITY_DOMAIN: Final = "stability"
 _IFRS9_DOMAIN: Final = "provisioning_ifrs9"
+_SCORECARD_DOMAIN: Final = "scorecard"
 _ROW_ID_COLUMN: Final = "row_id"
+#: La ficha del scorecard en la ruta de recálculo: se **lee** si está —la receta mínima toma de
+#: ella la dirección del score y la guarda del ensamblador la contrasta con la sección declarada—
+#: y no se exige, porque el trabajo que trae el puntaje ya construido puede venir sin ficha. Va en
+#: ``optional_requires`` de **toda** la ruta ``consume_stability=False`` para que la puerta pública
+#: no la declare inerte (D-ART-5; pasadas 5 y 6 de Codex sobre la enmienda VALIDACION-COTEJADA).
+_RECOMPUTE_OPTIONAL_REQUIRES: Final[tuple[ArtifactKey, ...]] = ((_SCORECARD_DOMAIN, "card"),)
 
 
 @register("standard", domain="validation")
@@ -80,17 +115,74 @@ class ValidationStep(AuditableMixin):
 
     name: str = "validation"
     requires: tuple[ArtifactKey, ...] = ()
+    optional_requires: tuple[ArtifactKey, ...] = ()
     provides: tuple[ArtifactKey, ...] = tuple(("validation", key) for key in VALIDATION_ARTIFACTS)
 
-    def __init__(self, config: ValidationConfig) -> None:
-        """Construye el paso desde la sección ``ValidationConfig`` y arma ``requires`` (CT-1)."""
+    def __init__(
+        self,
+        config: ValidationConfig,
+        *,
+        requisitos_de_recalculo: tuple[ArtifactKey, ...] | None = None,
+    ) -> None:
+        """Construye el paso desde la sección ``ValidationConfig`` y arma ``requires`` (CT-1).
+
+        ``requisitos_de_recalculo`` es lo que la sección ``stability`` declaró que el recálculo del
+        PSI leerá (D-VAL-16); ``None`` significa **«no se sabe»** —resolución suelta, o sección no
+        declarada— y entonces se declaran los de la **receta mínima**, que es lo único que el paso
+        puede afirmar por sí solo. Sólo cuenta con la familia ``stability`` activa y
+        ``consume_stability=False``; en cualquier otro caso se ignora.
+        """
         self.config = config
-        self.requires = _requires_for(config)
+        self.requires = _requires_for(config, requisitos_de_recalculo)
+        self.optional_requires = (
+            _RECOMPUTE_OPTIONAL_REQUIRES if _recalcula_estabilidad(config) else ()
+        )
 
     @classmethod
     def from_config(cls, cfg: ValidationConfig) -> ValidationStep:
-        """Construye ``ValidationStep`` desde ``NikodymConfig.validation``."""
+        """Construye ``ValidationStep`` desde ``NikodymConfig.validation`` (firma histórica).
+
+        Sin contexto, la ruta de recálculo declara los ``requires`` de la receta mínima y
+        :meth:`execute` exige lo efectivo antes de calcular (D-REQ-4): un ``run_step('validation')``
+        con sección declarada que necesite ``data.frame`` o ``binning.bin_frame`` y no los tenga
+        falla al entrar a ``execute`` con la clave exacta, no a mitad de cálculo.
+        """
         return cls(cfg)
+
+    @classmethod
+    def from_config_with_context(
+        cls,
+        cfg: ValidationConfig,
+        *,
+        contexto: ContextoDeResolucion,
+    ) -> ValidationStep:
+        """Fábrica contextual del resolver (D-FX-2): declara el ``requires`` de ESTA invocación.
+
+        Tercer implementador del hook. Con ``consume_stability=False`` lee
+        ``contexto.requisitos_de_recalculo['stability']`` y distingue **tres estados** (D-VAL-16):
+        clave ausente → la sección no está declarada y el recálculo usará la receta mínima, así
+        que se declaran sus dos claves y nada más; ``None`` → la sección está declarada pero no se
+        pudo coaccionar, y como ``execute`` va a releerla el paso se detiene aquí, en el
+        preflight, con ``ConfigError`` (``check_pipeline`` lo acusa antes de ejecutar ningún
+        paso); tupla → lo declarado. Es una precisión sobre D-REQ-4, no una excepción: degradar al
+        default es correcto cuando el paso conserva el contrato que declararía solo; aquí va a leer
+        esa sección, y un config inválido no puede pasar la comprobación previa.
+        """
+        if not _recalcula_estabilidad(cfg):
+            return cls(cfg)
+        declarados = contexto.requisitos_de_recalculo
+        if _STABILITY_DOMAIN not in declarados:
+            return cls(
+                cfg, requisitos_de_recalculo=_receta_minima().requisitos_de_recalculo_declarados()
+            )
+        requisitos = declarados[_STABILITY_DOMAIN]
+        if requisitos is None:
+            raise ConfigError(
+                "La sección 'stability' está declarada pero no es válida, y el recálculo del PSI "
+                "de 'validation' (consume_stability=False) la lee: corrige la sección 'stability' "
+                "o quítala del config para recalcular con la receta mínima."
+            )
+        return cls(cfg, requisitos_de_recalculo=requisitos)
 
     def emit(self, event: AuditEvent) -> None:
         """Permite pasar el step como ``AuditSink`` si un motor futuro lo requiere."""
@@ -103,19 +195,34 @@ class ValidationStep(AuditableMixin):
         from nikodym.validation.evaluator import ValidationEvaluator
 
         cfg = _validation_config_from_study(study, fallback=self.config)
-        requires = _requires_for(cfg)
+        # El recálculo del PSI lee la sección `stability` en ejecución —la misma lectura de una
+        # sección ajena que `tuning` hace con `ml`—; los `requires` efectivos se re-derivan de
+        # ella y se exigen ANTES de calcular nada (D-REQ-4, D-VAL-16). Sin sección, la receta
+        # mínima; la dirección del score sale de la ficha del scorecard si está.
+        recalculo: tuple[StabilityConfig, StabilityRecomputeRecipe] | None = None
+        requisitos_de_recalculo: tuple[ArtifactKey, ...] | None = None
+        if _recalcula_estabilidad(cfg):
+            recalculo = _stability_config_from_study(
+                study, score_direction=_direccion_de_la_ficha(study)
+            )
+            requisitos_de_recalculo = recalculo[0].requisitos_de_recalculo_declarados()
+        requires = _requires_for(cfg, requisitos_de_recalculo)
         _require_present(study, requires)
         families = _active_families(cfg)
 
         analytic = self._read_analytic_frame(study, cfg, families, pd)
         performance_metrics = self._read_performance_metrics(study, cfg, families, pd)
-        stability_metrics = self._read_stability_metrics(study, families, pd)
+        stability_metrics, stability_source, stability_recompute = self._read_stability_metrics(
+            study, families, pd, recalculo=recalculo
+        )
         ifrs9_detail, realised = self._read_backtesting_inputs(study, cfg, families, pd)
 
         result = ValidationEvaluator.from_config(cfg).validate(
             calibrated_pd=analytic,
             performance_metrics=performance_metrics,
             stability_metrics=stability_metrics,
+            stability_source=stability_source,
+            stability_recompute=stability_recompute,
             ifrs9_detail=ifrs9_detail,
             realised=realised,
             model_ref=_model_ref(study),
@@ -153,16 +260,46 @@ class ValidationStep(AuditableMixin):
         )
 
     def _read_stability_metrics(
-        self, study: Study, families: frozenset[str], pd: Any
-    ) -> DataFrame | None:
-        """Lee ``stability.stability_metrics`` para la familia de estabilidad."""
+        self,
+        study: Study,
+        families: frozenset[str],
+        pd: Any,
+        *,
+        recalculo: tuple[StabilityConfig, StabilityRecomputeRecipe] | None,
+    ) -> tuple[DataFrame | None, StabilitySource, StabilityRecompute | None]:
+        """Obtiene el ``stability_metrics`` de la familia de estabilidad y de dónde salió.
+
+        Con ``consume_stability=True`` lee el artefacto del paso de estabilidad. Con ``False``
+        (``recalculo`` no nulo) corre :func:`nikodym.stability.step.compute_stability` con la
+        ``StabilityConfig`` efectiva —la declarada o la receta mínima— sobre los artefactos que
+        ``requires`` ya exigió: es el mismo ensamblador y el mismo evaluador que el paso de
+        estabilidad, por la misma llamada (D-VAL-16), sin sink de auditoría propio (las bandas las
+        audita este paso). El import es perezoso para no acoplar ``import nikodym.validation`` al
+        grafo de ``stability``.
+        """
         if "stability" not in families:
-            return None
-        return _as_dataframe(
-            study.artifacts.get(_STABILITY_DOMAIN, "stability_metrics"),
-            pd,
-            "stability.stability_metrics",
+            return None, "stability_artifact", None
+        if recalculo is None:
+            return (
+                _as_dataframe(
+                    study.artifacts.get(_STABILITY_DOMAIN, "stability_metrics"),
+                    pd,
+                    "stability.stability_metrics",
+                ),
+                "stability_artifact",
+                None,
+            )
+        from nikodym.stability.step import compute_stability
+        from nikodym.validation.results import StabilityRecompute
+
+        stability_cfg, recipe = recalculo
+        result = compute_stability(study, stability_cfg)
+        receta = StabilityRecompute(
+            recipe=recipe,
+            temporal_axis=stability_cfg.temporal_axis,
+            csi_source=stability_cfg.csi_source,
         )
+        return result.stability_metrics.copy(deep=True), "recomputed", receta
 
     def _read_backtesting_inputs(
         self, study: Study, cfg: ValidationConfig, families: frozenset[str], pd: Any
@@ -239,6 +376,7 @@ class ValidationStep(AuditableMixin):
                 valor="recomputed",
                 accion="reusar_performance_evaluator",
             )
+        self._emit_stability_source_decision(result)
         for gap in result.card.falta_dato:
             self.log_decision(
                 regla="validation_falta_dato",
@@ -318,7 +456,12 @@ class ValidationStep(AuditableMixin):
             )
 
     def _emit_stability_decisions(self, result: ValidationResult) -> None:
-        """Registra una decisión por fila de estabilidad en banda review/redevelop (§9)."""
+        """Registra una decisión por fila de estabilidad en banda review/redevelop (§9).
+
+        El ``valor`` lleva ``source`` (D-VAL-16): con el PSI recalculado, el trail dice de dónde
+        salió la fila que gatilló la banda. Clave aditiva en una regla de dominio experimental
+        (D-EST-5).
+        """
         stability = result.stability
         if stability.shape[0] == 0:
             return
@@ -327,9 +470,40 @@ class ValidationStep(AuditableMixin):
                 self.log_decision(
                     regla="stability_psi",
                     umbral=(row.stable_threshold, row.review_threshold),
-                    valor={"feature": row.feature, "value": row.value, "band": row.band},
+                    valor={
+                        "feature": row.feature,
+                        "value": row.value,
+                        "band": row.band,
+                        "source": row.source,
+                    },
                     accion="vigilar_estabilidad",
                 )
+
+    def _emit_stability_source_decision(self, result: ValidationResult) -> None:
+        """Registra UNA decisión cuando el PSI se recalculó, con la receta usada (D-VAL-16).
+
+        Hermana de ``discrimination_source``: el ``umbral`` es la fuente que el toggle habría
+        consumido, el ``valor`` la procedencia efectiva y la receta —sección declarada o receta
+        mínima, con su eje y su fuente de CSI—, leída de la misma card que publica
+        ``stability_recompute`` para que el trail y el resultado no puedan decir cosas distintas.
+        Con la receta mínima el trail dice, así, que no hubo eje temporal porque la sección
+        ``stability`` no está declarada.
+        """
+        section = result.card.metric_sections.get("validation", {})
+        if section.get("stability_source") != "recomputed":
+            return
+        receta = section.get("stability_recompute") or {}
+        self.log_decision(
+            regla="stability_source",
+            umbral="stability_artifact",
+            valor={
+                "source": "recomputed",
+                "recipe": receta.get("recipe"),
+                "temporal_axis": receta.get("temporal_axis"),
+                "csi_source": receta.get("csi_source"),
+            },
+            accion="reusar_stability_evaluator",
+        )
 
     # --- publicación ---------------------------------------------------------------------------
 
@@ -358,8 +532,36 @@ def _needs_analytic_frame(config: ValidationConfig, families: frozenset[str]) ->
     return "discrimination" in families and not config.discrimination.consume_performance
 
 
-def _requires_for(config: ValidationConfig) -> tuple[ArtifactKey, ...]:
-    """Compone las claves ``requires`` dinámicas según familias y toggles (CT-1, SDD-22 §4)."""
+def _recalcula_estabilidad(config: ValidationConfig) -> bool:
+    """Si esta config recalcula el PSI en vez de consumir el artefacto (D-VAL-16)."""
+    return "stability" in _active_families(config) and not config.stability.consume_stability
+
+
+def _receta_minima(score_direction: str | None = None) -> StabilityConfig:
+    """La receta mínima de recálculo, importada perezosamente.
+
+    Ver ``nikodym.stability.config.receta_minima_de_recalculo``.
+    """
+    from nikodym.stability.config import receta_minima_de_recalculo
+
+    if score_direction not in (None, "higher_is_lower_risk", "higher_is_higher_risk"):
+        raise ConfigError(
+            "La ficha del scorecard declara una dirección del score desconocida: "
+            f"{score_direction!r}."
+        )
+    return receta_minima_de_recalculo(score_direction)  # type: ignore[arg-type]
+
+
+def _requires_for(
+    config: ValidationConfig,
+    requisitos_de_recalculo: tuple[ArtifactKey, ...] | None = None,
+) -> tuple[ArtifactKey, ...]:
+    """Compone las claves ``requires`` dinámicas según familias y toggles (CT-1, SDD-22 §4).
+
+    ``requisitos_de_recalculo`` es lo que la sección ``stability`` declaró para el recálculo del
+    PSI (D-VAL-16); ``None`` = «no se sabe» → los de la receta mínima. Sólo entra con la familia
+    ``stability`` activa y ``consume_stability=False``.
+    """
     families = _active_families(config)
     requires: list[ArtifactKey] = []
     if "calibration" in families:
@@ -372,8 +574,13 @@ def _requires_for(config: ValidationConfig) -> tuple[ArtifactKey, ...]:
             requires.append((_CALIBRATION_DOMAIN, "calibrated_pd_frame"))
             requires.append((_DATA_DOMAIN, "labels"))
     if "stability" in families:
-        requires.append((_STABILITY_DOMAIN, "stability_metrics"))
-        requires.append((_STABILITY_DOMAIN, "psi_table"))
+        if config.stability.consume_stability:
+            requires.append((_STABILITY_DOMAIN, "stability_metrics"))
+            requires.append((_STABILITY_DOMAIN, "psi_table"))
+        elif requisitos_de_recalculo is None:
+            requires.extend(_receta_minima().requisitos_de_recalculo_declarados())
+        else:
+            requires.extend(requisitos_de_recalculo)
     if "backtesting" in families and config.backtesting.enabled:
         requires.append((_IFRS9_DOMAIN, "detail"))
         requires.append((_IFRS9_DOMAIN, "staging"))
@@ -509,3 +716,37 @@ def _validation_config_from_study(study: Study, *, fallback: ValidationConfig) -
     if isinstance(raw_config, ValidationConfig):
         return raw_config
     return ValidationConfig.model_validate(raw_config)
+
+
+def _stability_config_from_study(
+    study: Study, *, score_direction: str | None
+) -> tuple[StabilityConfig, StabilityRecomputeRecipe]:
+    """La ``StabilityConfig`` con que se recalcula el PSI y qué receta es (D-VAL-16).
+
+    Lee ``NikodymConfig.stability`` en ejecución —la misma lectura de una sección ajena que hace
+    ``tuning`` con ``ml``—: declarada, se usa tal cual (``"declared"``); ausente, la **receta
+    mínima** con la dirección del score de la ficha del scorecard (``"minimal"``). Es el mismo
+    helper cuyos ``requisitos_de_recalculo_declarados()`` exige ``execute`` antes de calcular, de
+    modo que lo que el DAG comprueba y lo que el recálculo lee salen de un solo objeto.
+    """
+    from nikodym.stability.config import StabilityConfig
+
+    raw_config = getattr(study.config, _STABILITY_DOMAIN, None)
+    if raw_config is None:
+        return _receta_minima(score_direction), "minimal"
+    if isinstance(raw_config, StabilityConfig):
+        return raw_config, "declared"
+    return StabilityConfig.model_validate(raw_config), "declared"
+
+
+def _direccion_de_la_ficha(study: Study) -> str | None:
+    """La dirección del score que declara la ficha del scorecard, o ``None`` sin ficha.
+
+    Se lee con :func:`~nikodym.core.steps.campo_de_card`: la ficha llega como DTO cuando la
+    publicó el paso y como ``Mapping`` cuando la inyectó la puerta pública (D-ART). Es la única
+    lectura de ``scorecard.card`` de esta ruta, por lo que la clave va en ``optional_requires``.
+    """
+    if not study.artifacts.has(_SCORECARD_DOMAIN, "card"):
+        return None
+    valor = campo_de_card(study.artifacts.get(_SCORECARD_DOMAIN, "card"), "score_direction")
+    return None if valor is None else str(valor)

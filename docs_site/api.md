@@ -413,6 +413,7 @@ una sola fuente: `nikodym.validation.results`.
 | `not_evaluable` | Sin veredicto | Ídem: sin potencia estadística, o una fila que no es una prueba de pasa/falla (el puntaje de Brier) |
 | `partition_below_min` / `group_below_min` / `degenerate_group` / `non_finite_statistic` | la muestra quedó bajo el mínimo de operaciones / un grupo de PD quedó bajo el mínimo de operaciones / un grupo de PD quedó sin variabilidad / el estadístico no fue finito con PD extremas | Por qué un Hosmer-Lemeshow quedó sin veredicto (`not_evaluable_reason`); la card las enumera en `metric_sections.validation.not_evaluable_partitions` |
 | `green` / `amber` / `red` | Verde / Ámbar / Rojo | Semáforo de un grado de rating |
+| `stability_artifact` / `recomputed` | Reusado de la etapa de estabilidad / Recalculado en esta etapa | De dónde salió cada fila de la tabla de estabilidad (`source`); la card lo repite en `metric_sections.validation.stability_source` y, si se recalculó, dice con qué receta en `stability_recompute` (`declared`, la sección de estabilidad; `minimal`, sin eje temporal ni bins) |
 
 El **estado técnico es evidencia del motor**, no el veredicto sobre el modelo: aprobar, aprobar con
 observaciones o rechazar es una decisión de quien valida, y el informe lo declara explícitamente.

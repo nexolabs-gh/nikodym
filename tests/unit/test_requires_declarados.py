@@ -264,12 +264,14 @@ def test_el_gate_caza_el_defecto_que_viene_a_cazar() -> None:
     assert not _rederiva_desde_config_ajena(propio, "ml")
 
 
-@pytest.mark.parametrize("dominio", ["tuning", "explain"])
-def test_los_dos_casos_de_m2_quedan_dentro_del_barrido(dominio: str) -> None:
+@pytest.mark.parametrize("dominio", ["tuning", "explain", "validation"])
+def test_los_casos_de_m2_quedan_dentro_del_barrido(dominio: str) -> None:
     """Los pasos que motivaron el gate tienen que **disparar** su condición, no esquivarla.
 
     Si mañana alguien renombra el compositor o mueve la re-derivación fuera de ``execute``, el gate
     dejaría de mirarlos **en silencio** y volvería a ser verde vacío sobre el defecto original.
+    ``validation`` es el tercero desde D-VAL-16: con ``consume_stability=False`` compone su
+    ``requires`` con la sección ``stability`` que relee en ``execute``, y por eso declara el hook.
     """
     modulo = _modulos_de_paso()[dominio]
     clases = _clases_de_paso(modulo)

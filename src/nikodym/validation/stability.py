@@ -3,13 +3,18 @@
 La capa ``validation`` **no** recalcula el PSI: SDD-11 es la fuente canónica. Este módulo resuelve
 la familia ``stability`` de dos maneras, sin reimplementar jamás la fórmula del PSI:
 
-* **Consumo** -- cuando el modelo trae el artefacto ``("stability","stability_metrics")``, cada
-  fila se proyecta al frame tidy ``stability`` de §6 con ``source="stability_artifact"``; el valor
-  del PSI se copia *verbatim* y sólo se mapea a un verdicto de estabilidad por bandas.
-* **Fallback (reúso)** -- cuando el modelo no tiene paquete ``stability``, se **reúsa**
-  ``StabilityEvaluator.evaluate(...)`` de SDD-11 y se proyecta su ``stability_metrics``, con
-  ``source="recomputed"``. El evaluador es la ÚNICA vía de cálculo del PSI: aquí sólo se clasifica
-  un valor ya computado.
+* **Consumo** -- con ``consume_stability=True`` el paso lee el artefacto
+  ``("stability","stability_metrics")`` y cada fila se proyecta al frame tidy ``stability`` de §6
+  con ``source="stability_artifact"``; el valor del PSI se copia *verbatim* y sólo se mapea a un
+  verdicto de estabilidad por bandas.
+* **Recálculo (reúso)** -- con ``consume_stability=False`` el paso **reúsa**
+  :func:`nikodym.stability.step.compute_stability` —el mismo ensamblador y el mismo
+  ``StabilityEvaluator`` que corre el paso de estabilidad, por la misma llamada (D-VAL-16)— y
+  proyecta su ``stability_metrics`` aquí con ``source="recomputed"``. El evaluador de SDD-11 es la
+  ÚNICA vía de cálculo del PSI: este módulo sólo clasifica un valor ya computado, venga de donde
+  venga. Hasta la capa C de VALIDACION-COTEJADA existía un segundo camino,
+  ``stability_recomputed(frame, **kwargs)``, que construía el evaluador con kwargs sueltos y sin
+  las columnas del CSI; se retiró para que no haya dos formas de recalcular.
 
 **Mapeo de bandas (SDD-22 §3.3).** El valor del PSI ``v`` se mapea a un verdicto con los umbrales
 configurados (defaults 0.10/0.25, idénticos a SDD-11/ESPEC §5.2): ``v < stable`` estable/``pass``,
@@ -19,10 +24,11 @@ hacia ``redevelop``) para que validación coincida con SDD-11 cuando los umbrale
 no finito/ausente es ``not_evaluable``. El PSI (``v``) nunca se recomputa: sólo se clasifica; por
 eso los umbrales configurables tienen efecto sin violar el contrato de "no reimplementar PSI".
 
-El import de ``StabilityEvaluator`` es **perezoso** (dentro de la rama de fallback) para no acoplar
-el import de ``nikodym.validation`` al grafo de ``stability``/scikit-learn y preservar el núcleo
-liviano (SDD-22 §10). ``pandas`` es dependencia base y se importa al tope. Las entradas se copian de
-forma defensiva (``copy(deep=True)``): nunca se mutan los artefactos/frames aguas arriba. Los floats
+Este módulo no importa ``nikodym.stability``: el recálculo lo lanza el paso, que importa
+``compute_stability`` de forma perezosa dentro de ``execute`` para no acoplar el import de
+``nikodym.validation`` al grafo de ``stability``/scikit-learn y preservar el núcleo liviano (SDD-22
+§10). ``pandas`` es dependencia base y se importa al tope. Las entradas se copian de forma
+defensiva (``copy(deep=True)``): nunca se mutan los artefactos/frames aguas arriba. Los floats
 publicados normalizan ``-0.0`` a ``0.0``.
 
 **Experimental (fuera de la garantía SemVer 1.x).**
@@ -31,7 +37,6 @@ publicados normalizan ``-0.0`` a ``0.0``.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
 from typing import Any, Literal, TypeAlias
 
 import pandas as pd
@@ -48,7 +53,6 @@ StabilityStatusValue: TypeAlias = Literal["ok", "not_evaluable"]
 __all__ = [
     "evaluate_stability",
     "stability_from_artifact",
-    "stability_recomputed",
 ]
 
 # Columnas de ``stability_metrics`` (SDD-11 §6) que consume la validación.
@@ -86,109 +90,52 @@ _DECISION_BY_BAND: dict[StabilityBandValue, StabilityDecisionValue] = {
 def stability_from_artifact(
     stability_metrics: pd.DataFrame,
     *,
+    source: StabilitySourceValue = "stability_artifact",
     stable_threshold: float = 0.10,
     review_threshold: float = 0.25,
 ) -> pd.DataFrame:
-    """Proyecta ``stability_metrics`` de SDD-11 al frame tidy ``stability`` (consumo; SDD-22 §7).
+    """Proyecta un ``stability_metrics`` de SDD-11 al frame tidy ``stability`` (SDD-22 §7).
 
     Copia el artefacto de forma defensiva, conserva el valor del PSI *verbatim* y le añade el
     verdicto de estabilidad por bandas (``band``/``action``/``decision``), la procedencia
-    ``source="stability_artifact"`` y el ``status``. El PSI nunca se recomputa.
+    ``source`` y el ``status``. El PSI nunca se recomputa aquí: ``source`` dice de dónde salió el
+    frame —el artefacto del paso de estabilidad, o el recálculo con el mismo motor que hace
+    ``compute_stability`` (D-VAL-16)—, y la proyección es idéntica en los dos casos.
     """
     return _map_stability_metrics(
         stability_metrics,
-        source="stability_artifact",
+        source=source,
         stable_threshold=stable_threshold,
         review_threshold=review_threshold,
     )
 
 
-def stability_recomputed(
-    frame: pd.DataFrame,
-    *,
-    score_column: str = "score",
-    pd_column: str = "pd_calibrated",
-    partition_column: str = "partition",
-    feature_point_columns: Sequence[str] = (),
-    stable_threshold: float = 0.10,
-    review_threshold: float = 0.25,
-    evaluator_kwargs: dict[str, Any] | None = None,
-) -> pd.DataFrame:
-    """Reúsa ``StabilityEvaluator`` de SDD-11 y proyecta su salida (fallback; SDD-22 §7/§10).
-
-    Para un modelo sin paquete ``stability`` se **reúsa** ``StabilityEvaluator.evaluate(...)``: el
-    evaluador de SDD-11 es la única vía de cálculo del PSI (jamás se reimplementa aquí). El import
-    de ``StabilityEvaluator`` es perezoso, sólo en este fallback, para no romper el núcleo liviano.
-    Su ``stability_metrics`` se proyecta con ``source="recomputed"`` idéntico al camino de consumo.
-    ``evaluator_kwargs`` reenvía knobs adicionales del evaluador (p. ej. ``comparisons``,
-    ``psi_bins``, ``temporal_axis``); no debe repetir los argumentos ya explícitos.
-    """
-    stable, review = _validate_thresholds(stable_threshold, review_threshold)
-    # Import perezoso SOLO en el fallback: no acoplar el import de validation a stability/sklearn.
-    from nikodym.stability.evaluator import StabilityEvaluator
-
-    kwargs = dict(evaluator_kwargs or {})
-    evaluator = StabilityEvaluator(
-        score_column=score_column,
-        pd_column=pd_column,
-        partition_column=partition_column,
-        psi_stable_threshold=stable,
-        psi_review_threshold=review,
-        **kwargs,
-    )
-    result = evaluator.evaluate(
-        frame,
-        score_column=score_column,
-        pd_column=pd_column,
-        partition_column=partition_column,
-        feature_point_columns=tuple(feature_point_columns),
-    )
-    return _map_stability_metrics(
-        result.stability_metrics,
-        source="recomputed",
-        stable_threshold=stable,
-        review_threshold=review,
-    )
-
-
 def evaluate_stability(
     cfg: StabilityValidationConfig,
+    stability_metrics: pd.DataFrame,
     *,
-    stability_metrics: pd.DataFrame | None = None,
-    frame: pd.DataFrame | None = None,
-    score_column: str = "score",
-    pd_column: str = "pd_calibrated",
-    partition_column: str = "partition",
-    feature_point_columns: Sequence[str] = (),
-    evaluator_kwargs: dict[str, Any] | None = None,
+    source: StabilitySourceValue,
 ) -> pd.DataFrame:
-    """Resuelve la familia ``stability`` según ``cfg`` y los artefactos presentes (SDD-22 §7).
+    """Proyecta la familia ``stability`` con los umbrales PSI de ``cfg`` (SDD-22 §7).
 
-    Con ``cfg.consume_stability`` y el artefacto ``stability_metrics`` presente, **consume**
-    (``stability_from_artifact``). En caso contrario cae al **fallback** por reúso
-    (``stability_recomputed``) sobre el frame analítico; si tampoco hay frame, es un error de datos
-    ruidoso (nada que consumir ni reúsar). Usa siempre los umbrales PSI de ``cfg``.
+    ``source`` la decide el paso: ``"stability_artifact"`` cuando consumió el artefacto
+    (``cfg.consume_stability``), ``"recomputed"`` cuando recalculó con ``compute_stability``. Este
+    despachador no acepta la combinación contraria a la config —consumir con el toggle apagado, o
+    declarar recálculo con el toggle encendido—, porque el frame diría una procedencia que la
+    config no autorizó (D-VAL-16: sin tercer estado implícito).
     """
-    if cfg.consume_stability and stability_metrics is not None:
-        return stability_from_artifact(
-            stability_metrics,
-            stable_threshold=cfg.psi_stable_threshold,
-            review_threshold=cfg.psi_review_threshold,
-        )
-    if frame is None:
+    esperada: StabilitySourceValue = "stability_artifact" if cfg.consume_stability else "recomputed"
+    if source != esperada:
         raise ValidationDataError(
-            "La estabilidad por fallback (reúso de StabilityEvaluator) exige el frame analítico: "
-            "no hay artefacto stability_metrics consumible ni frame."
+            f"La estabilidad llega con source={source!r} y consume_stability="
+            f"{cfg.consume_stability!r} exige {esperada!r}: el paso consumió o recalculó al revés "
+            "de lo configurado."
         )
-    return stability_recomputed(
-        frame,
-        score_column=score_column,
-        pd_column=pd_column,
-        partition_column=partition_column,
-        feature_point_columns=feature_point_columns,
+    return stability_from_artifact(
+        stability_metrics,
+        source=source,
         stable_threshold=cfg.psi_stable_threshold,
         review_threshold=cfg.psi_review_threshold,
-        evaluator_kwargs=evaluator_kwargs,
     )
 
 

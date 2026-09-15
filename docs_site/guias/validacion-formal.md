@@ -133,7 +133,23 @@ capacidad predictiva de la PD, cotejadas contra sus instrucciones y sus plantill
 ## 4. Estabilidad
 
 La misma tabla de PSI que ya viste en «Estabilidad del score», aquí dentro del acta: una fila por
-magnitud y comparación, con su valor, su banda y su veredicto. No se recalcula; se documenta.
+magnitud y comparación, con su valor, su banda y su veredicto. El PSI llega por uno de **dos
+caminos**, y el resultado dice cuál:
+
+- **Reusar el PSI que ya calculó la etapa de estabilidad** (encendido de fábrica): la validación
+  toma las filas que esa etapa publicó y les añade su banda y su veredicto. Nada se recalcula; la
+  etapa de estabilidad tiene que estar en la corrida.
+- **Apagado**, la validación **recalcula** el PSI con el mismo motor sobre el score y la PD
+  calibrada —el mismo ensamblador y el mismo evaluador que la etapa de estabilidad, por la misma
+  llamada, así que con la misma configuración las filas son idénticas—. Si la sección de
+  estabilidad está declarada en la configuración, se recalcula con ella (eje temporal y fuente del
+  CSI incluidos) y sus columnas se exigen antes de correr; si no está declarada, se recalcula entre
+  particiones sin eje temporal, y el acta lo dice. La etapa de estabilidad no necesita estar en la
+  corrida.
+
+En los dos casos cada fila lleva su procedencia («Reusado de la etapa de estabilidad» o
+«Recalculado en esta etapa»), Resultados la muestra como nota de la sección y el informe la dice
+en el capítulo.
 
 | Magnitud | Comparación | PSI | Banda |
 |---|---|---:|---|

@@ -1,9 +1,13 @@
 """Tests de ``validation.stability`` (SDD-22 §3.3/§7/§11).
 
-Cubre el contrato de reúso-no-reimplementación: el consumo del artefacto ``stability_metrics`` copia
-el PSI byte a byte, el fallback por reúso de ``StabilityEvaluator`` reproduce el MISMO número que el
-consumo, el mapeo de bandas PSI a verdicto (``<stable`` estable / ``[stable,review)`` vigilar /
-``>=review`` redesarrollar) y un test AST que verifica que no se reimplementa el PSI (sin ``log``).
+Cubre el contrato de reúso-no-reimplementación: la proyección del artefacto ``stability_metrics``
+copia el PSI byte a byte, el recálculo —que desde la capa C de VALIDACION-COTEJADA (D-VAL-16) corre
+en ``nikodym.stability.step.compute_stability`` y llega aquí como otro ``stability_metrics`` con
+``source="recomputed"``— se proyecta idéntico al consumo, el mapeo de bandas PSI a verdicto
+(``<stable`` estable / ``[stable,review)`` vigilar / ``>=review`` redesarrollar) y un test AST que
+verifica que no se reimplementa el PSI (sin ``log``). ``stability_recomputed(frame, **kwargs)``
+—el segundo camino de recálculo, con kwargs sueltos y sin las columnas del CSI— se retiró: no hay
+dos formas de recalcular.
 """
 
 from __future__ import annotations
@@ -25,7 +29,6 @@ from nikodym.validation.exceptions import ValidationDataError
 from nikodym.validation.stability import (
     evaluate_stability,
     stability_from_artifact,
-    stability_recomputed,
 )
 
 _REDEVELOP_SCORES = [1, 1, 1, 1, 1, 1, 1, 1, 6, 10]
@@ -82,12 +85,13 @@ def _by_key(frame: pd.DataFrame) -> dict[tuple[str, str, str], float]:
 # ────────────────── consumo byte a byte y fallback == consumo ───────────────
 
 
-def test_consumo_y_fallback_igualan_el_psi_byte_a_byte() -> None:
+def test_consumo_y_recalculo_igualan_el_psi_byte_a_byte() -> None:
+    """La proyección es la misma función con otra ``source``: el número no se toca."""
     frame = _two_partition_frame(_REDEVELOP_SCORES)
     artifact = _stability_artifact(frame)
 
     consumed = stability_from_artifact(artifact)
-    recomputed = stability_recomputed(frame, feature_point_columns=(), evaluator_kwargs=_EV_KWARGS)
+    recomputed = stability_from_artifact(artifact, source="recomputed")
 
     art_values = {
         (metric, comparison, feature): value
@@ -102,7 +106,7 @@ def test_consumo_y_fallback_igualan_el_psi_byte_a_byte() -> None:
     assert ("score_psi", "dev_vs_holdout", "score") in art_values
     for key, artifact_value in art_values.items():
         assert consumed_values[key] == float(artifact_value)  # consumo == artefacto (byte a byte)
-        assert recomputed_values[key] == consumed_values[key]  # fallback == consumo
+        assert recomputed_values[key] == consumed_values[key]  # recálculo == consumo
 
     assert set(consumed["source"]) == {"stability_artifact"}
     assert set(recomputed["source"]) == {"recomputed"}
@@ -211,40 +215,41 @@ def test_umbrales_configurables_cambian_la_banda() -> None:
 # ──────────────────────────── despachador ───────────────────────────────────
 
 
-def test_despachador_consume_si_hay_artefacto() -> None:
+def test_despachador_consume_con_el_toggle_encendido() -> None:
     cfg = StabilityValidationConfig()
     artifact = _stability_artifact(_two_partition_frame(_REDEVELOP_SCORES))
 
-    out = evaluate_stability(cfg, stability_metrics=artifact)
+    out = evaluate_stability(cfg, artifact, source="stability_artifact")
 
     assert set(out["source"]) == {"stability_artifact"}
 
 
-def test_despachador_consume_stability_false_fuerza_fallback() -> None:
-    cfg = StabilityValidationConfig(consume_stability=False)
-    frame = _two_partition_frame(_REDEVELOP_SCORES)
-    artifact = _stability_artifact(frame)
-
-    out = evaluate_stability(
-        cfg, stability_metrics=artifact, frame=frame, evaluator_kwargs=_EV_KWARGS
+def test_despachador_proyecta_el_recalculo_con_el_toggle_apagado() -> None:
+    """El paso ya recalculó con ``compute_stability``; aquí sólo se proyecta con su procedencia
+    y los umbrales de la config."""
+    cfg = StabilityValidationConfig(
+        consume_stability=False, psi_stable_threshold=0.05, psi_review_threshold=0.30
     )
+    artifact = _stability_artifact(_two_partition_frame(_REDEVELOP_SCORES))
+
+    out = evaluate_stability(cfg, artifact, source="recomputed")
 
     assert set(out["source"]) == {"recomputed"}
+    assert out["stable_threshold"].tolist() == [0.05] * len(out)
+    assert out["review_threshold"].tolist() == [0.30] * len(out)
 
 
-def test_despachador_cae_a_fallback_sin_artefacto() -> None:
-    cfg = StabilityValidationConfig()
-    frame = _two_partition_frame(_REDEVELOP_SCORES)
-
-    out = evaluate_stability(cfg, frame=frame, evaluator_kwargs=_EV_KWARGS)
-
-    assert set(out["source"]) == {"recomputed"}
-
-
-def test_despachador_sin_insumos_es_error() -> None:
-    cfg = StabilityValidationConfig()
-    with pytest.raises(ValidationDataError, match="fallback"):
-        evaluate_stability(cfg)
+def test_despachador_rechaza_la_procedencia_contraria_a_la_config() -> None:
+    """Sin tercer estado implícito (D-VAL-16 §3.2-4): el toggle decide una sola procedencia."""
+    artifact = _stability_artifact(_two_partition_frame(_REDEVELOP_SCORES))
+    with pytest.raises(ValidationDataError, match="al revés"):
+        evaluate_stability(StabilityValidationConfig(), artifact, source="recomputed")
+    with pytest.raises(ValidationDataError, match="al revés"):
+        evaluate_stability(
+            StabilityValidationConfig(consume_stability=False),
+            artifact,
+            source="stability_artifact",
+        )
 
 
 # ──────────────────────── validación de entradas ───────────────────────────
@@ -288,13 +293,13 @@ def test_from_artifact_no_muta_el_artefacto() -> None:
     assert_frame_equal(metrics, original)
 
 
-def test_recomputed_no_muta_el_frame() -> None:
-    frame = _two_partition_frame(_REDEVELOP_SCORES)
-    original = frame.copy(deep=True)
+def test_la_proyeccion_del_recalculo_no_muta_el_frame() -> None:
+    artifact = _stability_artifact(_two_partition_frame(_REDEVELOP_SCORES))
+    original = artifact.copy(deep=True)
 
-    stability_recomputed(frame, feature_point_columns=(), evaluator_kwargs=_EV_KWARGS)
+    stability_from_artifact(artifact, source="recomputed")
 
-    assert_frame_equal(frame, original)
+    assert_frame_equal(artifact, original)
 
 
 # ───────────────────────── AST: no reimplementa PSI ─────────────────────────
@@ -314,8 +319,14 @@ def test_ast_no_reimplementa_psi() -> None:
 
     forbidden = {"log", "log1p", "log2", "log10"}
     assert not (called & forbidden), called & forbidden
-    # Delegación explícita: la única vía de cálculo del PSI es reúsar el evaluador de SDD-11.
-    assert "StabilityEvaluator" in source
+    # Delegación explícita: la única vía de cálculo del PSI es reúsar el evaluador de SDD-11, y
+    # desde D-VAL-16 este módulo ni siquiera lo llama: el paso corre `compute_stability` y aquí
+    # sólo se proyecta. Ningún `StabilityEvaluator(` construido a mano puede volver.
+    assert "StabilityEvaluator(" not in source
+    assert "compute_stability" in source
+    from nikodym.stability import step as stability_step
+
+    assert callable(stability_step.compute_stability)
 
 
 # ──────────────────────────── import liviano ────────────────────────────────
@@ -328,6 +339,7 @@ def test_import_stability_no_arrastra_sklearn_ni_scipy() -> None:
         "blocked=[m for m in ('scipy','sklearn','statsmodels') if m in sys.modules];"
         "assert not blocked, blocked;"
         "assert callable(s.stability_from_artifact);"
-        "assert callable(s.stability_recomputed)"
+        "assert callable(s.evaluate_stability);"
+        "assert 'nikodym.stability.step' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)

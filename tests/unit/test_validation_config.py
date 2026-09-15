@@ -457,6 +457,10 @@ def test_core_valida_validation_como_blob_opaco_sin_importar_la_capa() -> None:
 #: —o uno nuevo que se oculta sin razón— cambia la superficie pública sin que nadie lo mire: es
 #: exactamente lo que D-SUB pide declarar. Y ocultar un campo NO es hacerlo desaparecer: sigue
 #: viajando en el config, así que quien escribe YAML lo alcanza igual.
+#:
+#: ``stability.consume_stability`` estuvo aquí desde D-SC-7 («apagarlo aborta la corrida») y salió
+#: el 2026-09-15 con D-VAL-16: el recálculo quedó cableado y los dos valores corren desde el
+#: formulario, así que la razón para ocultarlo dejó de ser cierta.
 _OCULTOS_CON_SU_RAZON: dict[str, str] = {
     "schema_version": "fontanería del config para migraciones futuras; nunca fue copy",
     "type": "variante de la sección; hoy sólo existe la estándar, así que no hay nada que elegir",
@@ -475,10 +479,6 @@ _OCULTOS_CON_SU_RAZON: dict[str, str] = {
     "calibration.partition_column": (
         "misma razón: la partición viaja en el artefacto interno con el nombre que el motor le "
         "puso, no con el que traiga el archivo del usuario"
-    ),
-    "stability.consume_stability": (
-        "apagarlo ABORTA la corrida: el paso no pasa el frame que el recálculo exige, así que el "
-        "único valor que corre desde el formulario es el encendido"
     ),
     "backtesting.segment_col": (
         "la lee del detalle de IFRS 9, que publica esa columna con nombre fijo aunque la entrada "

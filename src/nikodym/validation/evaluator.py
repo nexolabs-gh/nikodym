@@ -84,6 +84,8 @@ from nikodym.validation.results import (
     GradeBinomialRecord,
     NotEvaluablePartition,
     OverallStatus,
+    StabilityRecompute,
+    StabilitySource,
     ValidationCardSection,
     ValidationResult,
     derive_overall_status,
@@ -140,7 +142,8 @@ class ValidationEvaluator:
         calibrated_pd: pd.DataFrame | None = None,
         performance_metrics: pd.DataFrame | None = None,
         stability_metrics: pd.DataFrame | None = None,
-        stability_frame: pd.DataFrame | None = None,
+        stability_source: StabilitySource = "stability_artifact",
+        stability_recompute: StabilityRecompute | None = None,
         ifrs9_detail: pd.DataFrame | None = None,
         realised: pd.DataFrame | None = None,
         model_ref: str = "validation",
@@ -151,10 +154,19 @@ class ValidationEvaluator:
         ``pd_calibrated``/``grade`` (nombres por ``config.calibration``). Los artefactos consumidos
         (``performance_metrics``/``stability_metrics``) y los insumos de backtesting
         (``ifrs9_detail``/``realised``) se pasan tal cual; el evaluador copia todo en profundidad.
-        ``model_ref`` identifica el modelo validado en la card. Levanta un
-        :class:`~nikodym.validation.exceptions.ValidationConfigError` si no hay familias activas o
-        si una brecha crítica gatilla con ``fail_on_falta_dato=True``.
+        ``stability_metrics`` llega siempre como un ``stability_metrics`` de SDD-11: el que publicó
+        el paso de estabilidad (``stability_source="stability_artifact"``) o el que el paso de
+        validación recalculó con ``compute_stability`` (``"recomputed"``, con la receta en
+        ``stability_recompute``; D-VAL-16). El evaluador **no** recalcula: sólo proyecta y publica
+        la procedencia en la tabla y en la card. ``model_ref`` identifica el modelo validado en la
+        card. Levanta un :class:`~nikodym.validation.exceptions.ValidationConfigError` si no hay
+        familias activas o si una brecha crítica gatilla con ``fail_on_falta_dato=True``.
         """
+        if (stability_recompute is not None) != (stability_source == "recomputed"):
+            raise ValidationConfigError(
+                "stability_recompute se pasa si y sólo si stability_source='recomputed': "
+                f"source={stability_source!r}, receta={stability_recompute!r}."
+            )
         if not self.families:
             raise ValidationConfigError(
                 "La validación exige al menos una familia activa en config.families."
@@ -186,7 +198,7 @@ class ValidationEvaluator:
             traffic_light_cuts = self._traffic_light_cuts()
             min_rows_per_group = self.min_rows
         if "stability" in self.families:
-            stability_frame_out = self._run_stability(stability_metrics, stability_frame)
+            stability_frame_out = self._run_stability(stability_metrics, stability_source)
         if "backtesting" in self.families:
             backtest_records, backtesting_falta = self._resolve_backtesting(ifrs9_detail, realised)
             falta_dato.extend(backtesting_falta)
@@ -223,6 +235,8 @@ class ValidationEvaluator:
                 traffic_light_cuts=traffic_light_cuts,
                 not_evaluable_partitions=not_evaluable_partitions,
                 min_rows_per_group=min_rows_per_group,
+                stability_source=stability_source if "stability" in self.families else None,
+                stability_recompute=(stability_recompute if "stability" in self.families else None),
             ),
         )
         return ValidationResult(
@@ -447,19 +461,22 @@ class ValidationEvaluator:
     # --- Estabilidad (reúso/consumo SDD-11) ----------------------------------------------------
 
     def _run_stability(
-        self, stability_metrics: pd.DataFrame | None, stability_frame: pd.DataFrame | None
+        self, stability_metrics: pd.DataFrame | None, source: StabilitySource
     ) -> pd.DataFrame:
-        """Consume ``stability_metrics`` o cae al fallback por reúso de ``StabilityEvaluator``.
+        """Proyecta el ``stability_metrics`` recibido con su procedencia (consumo o recálculo).
 
-        Una celda malformada del artefacto consumido se traduce a ``ValidationDataError``.
+        El recálculo ya ocurrió en el paso, con ``compute_stability`` (D-VAL-16); aquí no hay
+        fallback que correr, y sin frame la familia no tiene nada que proyectar. Una celda
+        malformada del artefacto se traduce a ``ValidationDataError``.
         """
+        if stability_metrics is None:
+            raise ValidationDataError(
+                "La familia stability exige un stability_metrics: el del paso de estabilidad "
+                "(consume_stability=True) o el recalculado con compute_stability (False)."
+            )
         stab = self.config.stability
         try:
-            return evaluate_stability(
-                stab,
-                stability_metrics=stability_metrics,
-                frame=stability_frame,
-            )
+            return evaluate_stability(stab, stability_metrics, source=source)
         except (ValueError, TypeError) as exc:
             raise ValidationDataError(
                 f"El artefacto stability_metrics contiene celdas malformadas: {exc}."
@@ -985,6 +1002,8 @@ def _metric_sections(
     traffic_light_cuts: dict[str, float] | None = None,
     not_evaluable_partitions: tuple[dict[str, Any], ...] = (),
     min_rows_per_group: int | None = None,
+    stability_source: StabilitySource | None = None,
+    stability_recompute: StabilityRecompute | None = None,
 ) -> dict[str, Any]:
     """Arma la puerta CT-2 ``metric_sections`` tidy para report/governance (SDD-22 §4).
 
@@ -997,7 +1016,11 @@ def _metric_sections(
     prosa del informe, el panel y el trail. ``min_rows_per_group`` es el umbral efectivo con que se
     decidieron esas ausencias —y las de los grados—, publicado una vez como fuente canónica del
     ``min_rows`` de cada entrada (pasada 4 de Codex sobre la capa B); ``None`` cuando la
-    calibración no corrió.
+    calibración no corrió. ``stability_source`` dice de dónde salió la tabla ``stability``
+    (D-VAL-16; ``None`` si la familia no corrió) y ``stability_recompute`` la receta con que se
+    recalculó —sección declarada o receta mínima, con su eje y su fuente de CSI—, ``None`` salvo
+    con ``source='recomputed'``: es lo que leen la prosa del informe y el panel para decir que el
+    PSI no salió del paso de estabilidad.
     """
     return {
         "validation": {
@@ -1014,6 +1037,10 @@ def _metric_sections(
             "traffic_light_cuts": None if traffic_light_cuts is None else dict(traffic_light_cuts),
             "not_evaluable_partitions": [dict(item) for item in not_evaluable_partitions],
             "min_rows_per_group": min_rows_per_group,
+            "stability_source": stability_source,
+            "stability_recompute": (
+                None if stability_recompute is None else stability_recompute.model_dump()
+            ),
         }
     }
 

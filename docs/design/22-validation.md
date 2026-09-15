@@ -20,7 +20,7 @@
 
 **Responsabilidad única (qué SÍ hace).**
 - **Discriminación (reúso, no recálculo).** **Consume** `("performance","discriminant_metrics")` como resultado canónico de AUC/Gini/KS; para modelos donde `performance` no corrió (p.ej. un modelo `ml` de SDD-12), **reúsa** el `PerformanceEvaluator` de SDD-11 (nunca reimplementa la fórmula). Ver D-VAL-1.
-- **Estabilidad (reúso, no recálculo).** **Consume** `("stability","psi_table")` / `("stability","stability_metrics")` como resultado canónico de PSI; nunca reimplementa el PSI (D-VAL-2).
+- **Estabilidad (reúso, no recálculo).** **Consume** `("stability","psi_table")` / `("stability","stability_metrics")` como resultado canónico de PSI; nunca reimplementa el PSI (D-VAL-2). Con `consume_stability=False` **recalcula por reúso** con `nikodym.stability.step.compute_stability` —el mismo ensamblador y el mismo `StabilityEvaluator` que el paso de estabilidad, por la misma llamada— y publica `source="recomputed"` (D-VAL-16, capa C de VALIDACION-COTEJADA, 2026-09-15).
 - **Calibración (aporte propio).** Calcula el estadístico **Hosmer-Lemeshow** por deciles de PD (χ² con `G−2` gl), el **test binomial por grado** de rating, el **Brier score** y asigna un **semáforo verde/ámbar/rojo** por grado y a nivel cartera.
 - **Backtesting realizado-vs-estimado (aporte propio).** Compara PD/LGD/EAD estimados (salidas IFRS 9 de SDD-16) contra los realizados del período de desempeño: **t-test** para LGD y EAD/CCF, **test binomial/Jeffreys** para PD, con verdicto por segmento y cartera.
 - **Suite ejecutable sobre cualquier modelo del repo** (DoD F6): las familias activas y los `requires` (CT-1) se construyen en `from_config` según el modelo objetivo y los artefactos presentes.
@@ -383,6 +383,7 @@ class ValidationConfig(NikodymBaseConfig):
 - `hl_grouping="fixed_bands"` exige bandas declaradas (reservado; default deciles).
 - `grade_col`/`pd_column`/`target_column`/`partition_column` no vacíos ni colisionando.
 - `discrimination.consume_performance=False` fuerza el fallback por reúso de `PerformanceEvaluator` (no reimplementación).
+- `stability.consume_stability=False` recalcula por reúso de `compute_stability` (D-VAL-16). Los `requires` del recálculo los declara la sección `stability` (`StabilityConfig.requisitos_de_recalculo_declarados()`, `core.steps.METODO_REQUISITOS_RECALCULO`), el núcleo los transporta en `ContextoDeResolucion.requisitos_de_recalculo` y `ValidationStep.from_config_with_context` los lee con tres estados: clave ausente → receta mínima (`nikodym.stability.config.receta_minima_de_recalculo`: `temporal_axis="none"`, `csi_source="score_points"`, dirección del score de la ficha del scorecard); `None` → la sección está declarada e incoaccionable y el paso levanta `ConfigError` al construirse; tupla → lo declarado. `execute` re-deriva lo efectivo desde `study.config.stability` y lo exige con `_require_present` antes de calcular (`run_step` sin contexto declara la receta mínima). Sin tercer estado implícito: quien apaga el consumo lo hace a propósito y el DAG lo declara. **Límite medido (2026-09-15):** `check_dataset` filtra las invariantes por `run.steps`; con la sección `stability` declarada pero fuera de la corrida, su columna temporal y su dirección no se anticipan y el recálculo falla al resolver la columna temporal dentro de `validation` (antes de calcular; sólo por código/YAML). Pinado por test en `test_validation_recalculo_psi.py`.
 
 **Defaults defendibles (con fuente).**
 - `families=("discrimination","calibration","stability")`: backtesting IFRS 9 **opt-in** porque exige artefactos F4 + resultados realizados que no todo modelo del repo tiene (DoD F6: ejecutable sobre *cualquier* modelo, no *todas las familias* sobre todo modelo).
@@ -410,7 +411,11 @@ class ValidationConfig(NikodymBaseConfig):
 | `data` | `"labels"` | SDD-02 (confirmado por SDD-11 §4) | familia `calibration`/fallback | target binario, grado de rating |
 | `data` | `"frame"` | SDD-02 §6 (confirmado por SDD-16 §6) | familia `backtesting` | columnas de resultado realizado (default/LGD/EAD) |
 | `performance` | `"discriminant_metrics"` | **SDD-11 §4 `provides`** | familia `discrimination` (preferente) | AUC/Gini/KS por partición |
-| `stability` | `"stability_metrics"`, `"psi_table"` | **SDD-11 §4 `provides`** | familia `stability` | PSI y bandas |
+| `stability` | `"stability_metrics"`, `"psi_table"` | **SDD-11 §4 `provides`** | familia `stability` con `consume_stability=True` | PSI y bandas |
+| `scorecard` | `"score"` | SDD-09 §4 | familia `stability` con `consume_stability=False` | score operacional y `<feature>__points` para el recálculo (D-VAL-16) |
+| `data` | `"frame"` | SDD-02 §6 | ídem, sólo si la sección `stability` declarada tiene `temporal_axis != "none"` | columna temporal del recálculo (exigencia conservadora: límite declarado de CT-1) |
+| `binning` | `"bin_frame"` | SDD-06 §4 | ídem, sólo con `csi_source="woe_bins"` | bins congelados para el CSI del recálculo |
+| `scorecard` | `"card"` | SDD-09 §4 | `optional_requires` en toda la ruta `consume_stability=False` | dirección del score de la receta mínima y guarda de coherencia; se lee si está, no se exige |
 | `provisioning_ifrs9` | `"detail"`, `"staging"` | **SDD-16 §4 `provides`** | familia `backtesting` | PD/LGD/EAD estimados, stage |
 
 **Cierre del DAG (verificación `requires` → `provides`).** Cada clave `requires` de SDD-22 existe como `provides` de su SDD vecino:
@@ -478,7 +483,7 @@ class ValidationConfig(NikodymBaseConfig):
    b. **Brier** por partición (§3.2).
    c. **Binomial/Jeffreys por grado** (§3.2): p-valor unilateral por grado; asignar `traffic_light` con `traffic_light(p, green_alpha, red_alpha)`.
    d. Grupos/grados bajo mínimo → `not_evaluable` auditado.
-5. **Estabilidad.** Consumir `("stability","stability_metrics")`; mapear bandas PSI a verdicto de estabilidad. Sin recomputar (fallback: reúso de `StabilityEvaluator` sólo si el artefacto no existe).
+5. **Estabilidad.** Con `consume_stability=True`, consumir `("stability","stability_metrics")`; con `False`, recalcular con `compute_stability(study, cfg)` —`cfg` la sección `stability` declarada o la receta mínima— y proyectar su `stability_metrics` con `source="recomputed"`; en los dos casos mapear bandas PSI a verdicto de estabilidad. Nunca reimplementar el PSI. La card publica `stability_source` y, si se recalculó, `stability_recompute` (`recipe`, `temporal_axis`, `csi_source`; DTO cerrado `StabilityRecompute`), y `ValidationResult` reconcilia la columna `source` de la tabla con esas dos claves.
 6. **Backtesting** (si activo). Para cada `parameter ∈ {pd,lgd,ead}` y segmento:
    - `lgd`/`ead`: **t-test** sobre `e_i = realizado − estimado` (§3.4), `scipy.stats.ttest_*`/estadístico manual unilateral.
    - `pd`: **binomial/Jeffreys** por segmento/grado contra defaults realizados.
@@ -523,8 +528,9 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
   - cada Hosmer-Lemeshow sin veredicto (`calibration_hl_not_evaluable`; una regla, cuatro causas; D-VAL-17) con `umbral={min_rows, n_groups}` y `valor={partition, n, min_group_size, reason}`, leído de la misma lista que publica la card;
   - cada grado que cruza banda del semáforo (verde→ámbar→rojo);
   - cada backtest fallado (t-test/binomial) por parámetro/segmento;
-  - PSI consumido que cae en `review`/`redevelop`;
+  - PSI consumido o recalculado que cae en `review`/`redevelop` (`stability_psi`; el `valor` lleva `source` desde D-VAL-16);
   - `source="recomputed"` cuando se usó el fallback de discriminación;
+  - `stability_source` (una decisión, `umbral="stability_artifact"`, `valor={source, recipe, temporal_axis, csi_source}`) cuando el PSI se recalculó (D-VAL-16), leída de la misma card que publica `stability_recompute`;
   - cada `FALTA-DATO` gatillado (convención de test no verificada).
 - **Card / report.** `ValidationCardSection` permite reconstruir familias corridas, α usado, nº de tests/fallos, semáforos, `falta_dato` y versiones de dependencias.
 - **Lineage.** SDD-22 no completa `data_hash` ni `config_hash`; su contribución son config computacional, versiones, resultados estructurados y decisiones auditadas.
@@ -615,7 +621,7 @@ Lo que **no** se pudo verificar y se declara: el texto de Hosmer & Lemeshow (*Ap
 > Ninguna bloquea el diseño; se proponen defaults defendibles. Sólo las revisa Cami al final.
 
 - **D-VAL-1 — Discriminación: reúso vs recálculo.** *Recomendación:* **consumir** `("performance","discriminant_metrics")` como resultado canónico y **reúsar** `PerformanceEvaluator` (SDD-11) sólo en el fallback para modelos sin `performance`. **Nunca reimplementar** AUC/KS/Gini. Evita divergencia numérica y cumple DRY.
-- **D-VAL-2 — Estabilidad: reúso vs recálculo.** *Recomendación:* **consumir** `("stability","stability_metrics")`/`psi_table`; fallback por reúso de `StabilityEvaluator`. No reimplementar PSI.
+- **D-VAL-2 — Estabilidad: reúso vs recálculo.** *Recomendación:* **consumir** `("stability","stability_metrics")`/`psi_table`; fallback por reúso de `StabilityEvaluator`. No reimplementar PSI. **Cableado de verdad con D-VAL-16 (2026-09-15, capa C de VALIDACION-COTEJADA):** hasta entonces ningún camino del `Study` llegaba al fallback y `consume_stability=False` abortaba; ahora el recálculo corre `nikodym.stability.step.compute_stability` (el ensamblador y el evaluador públicos del paso de estabilidad), los `requires` se declaran por el patrón D-REQ y `consume_stability` dejó de estar oculto.
 - **D-VAL-3 — Nº de grupos Hosmer-Lemeshow.** *Recomendación:* `G=10` deciles (convención estándar) → `G−2=8` gl. Configurable `5..20`; agrupación alternativa por bandas fijas reservada.
 - **D-VAL-4 — Nivel de significancia.** *Recomendación:* `α=0.05` (HL bilateral; binomial/t-test unilateral hacia subestimación). Configurable.
 - **D-VAL-5 — Bandas del semáforo.** *Recomendación (default institucional):* verde `p ≥ 0.05`, ámbar `0.01 ≤ p < 0.05`, rojo `p < 0.01`, sobre el p-valor del test por grado. **Cerrada con D-VAL-15 (2026-09-14):** default institucional **persistido en el resultado**, sin marca; verificado que no existe corte regulatorio (F1, F3, F4 del cotejo de §12).

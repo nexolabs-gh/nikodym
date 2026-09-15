@@ -37,6 +37,7 @@ from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 from nikodym.stability.results import BAND_LABELS, PSI_METRIC_LABELS
 from nikodym.validation.results import (
     HL_NOT_EVALUABLE_REASON_LABELS,
+    STABILITY_SOURCE_LABELS,
     VALIDATION_FAMILY_LABELS,
     VALIDATION_STATUS_LABELS,
 )
@@ -1239,12 +1240,14 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
         return ()
     cortes = _traffic_light_cuts_prose(bundle) if family == "calibration" else ()
     sin_veredicto = _hl_not_evaluable_prose(bundle) if family == "calibration" else ()
+    recalculo = _stability_recompute_prose(bundle) if family == "stability" else ()
     if rows == 0:
         return (
             f"{description} La familia fue ejecutada, pero no publicó filas evaluables; las "
             "brechas quedan declaradas en la síntesis del capítulo.",
             *sin_veredicto,
             *cortes,
+            *recalculo,
         )
     # Una prueba que no se pudo correr no es una fila «evaluada» (pasada 2 de Codex sobre la capa
     # B): con filas sin veredicto la frase cuenta lo publicado y lo que quedó sin veredicto. Sin
@@ -1255,8 +1258,36 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
             f"{description} Filas publicadas: {_miles(rows)}; {_miles(omitidas)} sin veredicto.",
             *sin_veredicto,
             *cortes,
+            *recalculo,
         )
-    return (f"{description} Filas evaluadas: {_miles(rows)}.", *sin_veredicto, *cortes)
+    return (f"{description} Filas evaluadas: {_miles(rows)}.", *sin_veredicto, *cortes, *recalculo)
+
+
+def _stability_recompute_prose(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Una frase cuando el PSI se recalculó en la validación, con la receta usada (D-VAL-16).
+
+    Se lee de ``metric_sections.validation.stability_source`` y ``stability_recompute`` de la card
+    —las mismas claves que el panel—. La tabla del documento pinta la procedencia en su columna
+    ``source``, pero el hecho de que el PSI no salió del paso de estabilidad y con qué receta se
+    recalculó merece una frase en el idioma del lector. Con el artefacto consumido, nada: la frase
+    de la familia sigue byte a byte (la demo F1 la lleva).
+    """
+    card = _card(bundle, "validation")
+    if card is None:
+        return ()
+    section = _mapping(_mapping(card.get("metric_sections")).get("validation"))
+    if _text(section.get("stability_source")) != "recomputed":
+        return ()
+    receta = _mapping(section.get("stability_recompute"))
+    cabeza = f"{STABILITY_SOURCE_LABELS['recomputed']} con el motor de estabilidad"
+    if _text(receta.get("recipe")) == "minimal":
+        return (
+            f"{cabeza}, sin eje temporal: la sección de estabilidad no está declarada en la "
+            "configuración de la corrida.",
+        )
+    if _text(receta.get("recipe")) == "declared":
+        return (f"{cabeza}, con la configuración de la sección de estabilidad.",)
+    return (f"{cabeza}.",)
 
 
 def _rows_without_verdict(table: Any, family: str) -> int:

@@ -21,6 +21,7 @@ from pydantic import Field, model_validator
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.core.exceptions import ConfigError
+from nikodym.core.steps import ArtifactKey
 
 #: Nombres que el evaluador acepta como columna de período/cohorte cuando ``temporal_column`` va
 #: vacía. Vive **aquí y no en el evaluador** desde la enmienda INVARIANTES-PREVIAS: el aviso y el
@@ -43,6 +44,7 @@ __all__ = [
     "StabilityConfig",
     "TemporalAxis",
     "TemporalFrequency",
+    "receta_minima_de_recalculo",
 ]
 
 #: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
@@ -331,6 +333,54 @@ class StabilityConfig(NikodymBaseConfig):
                 ),
             ),
         )
+
+    def requisitos_de_recalculo_declarados(self) -> tuple[ArtifactKey, ...]:
+        """Qué artefactos leerá quien recalcule el PSI con esta sección (D-VAL-16; CT-1).
+
+        Lo consume el resolver del núcleo por convención de nombre
+        (``core.steps.METODO_REQUISITOS_RECALCULO``) para armar el contexto con que ``validation``
+        declara su ``requires`` cuando apaga ``consume_stability``: el recálculo reutiliza el
+        ensamblador del paso de estabilidad, y lo que ese ensamblador lee lo deciden **estos**
+        campos, que el paso de validación no puede mirar al construirse (D-INV-1, D-REQ-2).
+
+        Es la misma lista que ``compute_stability`` lee de verdad, con la exigencia conservadora
+        que la enmienda declara como límite de CT-1: ``data.frame`` siempre que haya eje temporal
+        —el ensamblador lo abre sólo si el score no trae la columna, y eso se sabe en ejecución—,
+        y ``binning.bin_frame`` sólo con CSI por bins WoE. La ficha del scorecard **no** va aquí:
+        se lee si está y no se exige (``optional_requires`` del paso que recalcula).
+        """
+        requisitos: list[ArtifactKey] = [
+            ("scorecard", "score"),
+            ("calibration", "calibrated_pd_frame"),
+        ]
+        if self.temporal_axis != "none":
+            requisitos.append(("data", "frame"))
+        if self.csi_source == "woe_bins":
+            requisitos.append(("binning", "bin_frame"))
+        return tuple(requisitos)
+
+
+def receta_minima_de_recalculo(score_direction: ScoreDirection | None = None) -> StabilityConfig:
+    """La ``StabilityConfig`` con que ``validation`` recalcula el PSI sin sección declarada.
+
+    D-VAL-16: sin sección ``stability`` en el config nadie preflightea la columna temporal ni la
+    dirección del score, así que ``StabilityConfig()`` a secas —eje ``period`` por defecto— podía
+    pasar el DAG y abortar dentro de ``validation`` al no hallar la columna. La receta mínima no
+    tiene invariantes de ejecución: PSI de score y PD entre particiones, CSI desde los
+    ``__points`` que el score ya trae, **sin** eje temporal ni bins, y la dirección del score la de
+    la ficha del scorecard cuando existe —nada declarado, nada que contradecir—.
+
+    Es el **único** constructor de esa receta: ``from_config_with_context`` le pregunta sus
+    :meth:`~StabilityConfig.requisitos_de_recalculo_declarados` para la clave ausente, y
+    ``execute`` la construye con ella para calcular, de modo que lo que el DAG comprueba y lo que
+    el recálculo lee salen de un solo objeto. Quien quiera la serie temporal o el CSI por bins
+    declara la sección.
+    """
+    if score_direction is None:
+        return StabilityConfig(temporal_axis="none", csi_source="score_points")
+    return StabilityConfig(
+        temporal_axis="none", csi_source="score_points", score_direction=score_direction
+    )
 
 
 def _column_values(cfg: StabilityConfig) -> dict[str, str]:

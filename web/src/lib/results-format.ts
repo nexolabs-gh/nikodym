@@ -27,12 +27,14 @@ import type {
   StabilityBand,
   StabilityMetricRow,
   StabilityResponse,
+  StabilitySource,
   ValidationCalibrationRow,
   ValidationNotEvaluablePartition,
   ValidationTrafficLightCuts,
   ValidationFamily,
   ValidationNotEvaluableGrade,
   ValidationResult,
+  ValidationStabilityRecompute,
 } from "@/lib/results-types"
 
 /** Placeholder uniforme para valores ausentes/no finitos en toda la pestaña. */
@@ -1981,6 +1983,12 @@ export const DISCRIMINATION_SOURCE_LABELS: Record<string, string> = {
   recomputed: "Recalculada en esta etapa",
 } as const
 
+/** Espejo de `nikodym.validation.results.STABILITY_SOURCE_LABELS` (D-VAL-16). */
+export const STABILITY_SOURCE_LABELS: Record<string, string> = {
+  stability_artifact: "Reusado de la etapa de estabilidad",
+  recomputed: "Recalculado en esta etapa",
+} as const
+
 /** Espejo de `nikodym.validation.results.BACKTEST_PARAMETER_LABELS`. */
 export const BACKTEST_PARAMETER_LABELS: Record<string, string> = {
   pd: "Probabilidad de incumplimiento",
@@ -2110,6 +2118,36 @@ export function gradeCoverage(
  * panel diga qué muestra quedó sin prueba y por qué: `[]` sin ninguno, con un fixture anterior a la
  * clave o con una entrada malformada. Presentación pura: la lista es la del motor.
  */
+/** De dónde salió el PSI de la sección de estabilidad de la validación (D-VAL-16). */
+export interface StabilityProvenance {
+  source: StabilitySource
+  recompute: ValidationStabilityRecompute | null
+}
+
+/**
+ * La procedencia del PSI que la validación publica: la card primero (`stability_source` y
+ * `stability_recompute`), y si la card no la trae —una corrida anterior a la capa C—, la columna
+ * `source` de las filas, que siempre fue la misma para todas. Sin filas ni card, `null`.
+ */
+export function stabilityProvenance(
+  validation: ValidationResult | null | undefined,
+): StabilityProvenance | null {
+  const section = validation?.metric_sections?.validation
+  const rows = validation?.stability ?? []
+  const fromCard = section?.stability_source ?? null
+  const fromRows = rows.length > 0 ? rows[0].source : null
+  const source = fromCard ?? fromRows
+  if (source !== "stability_artifact" && source !== "recomputed") return null
+  const recompute = section?.stability_recompute ?? null
+  const valid =
+    recompute !== null &&
+    typeof recompute === "object" &&
+    (recompute.recipe === "declared" || recompute.recipe === "minimal") &&
+    typeof recompute.temporal_axis === "string" &&
+    typeof recompute.csi_source === "string"
+  return { source, recompute: source === "recomputed" && valid ? recompute : null }
+}
+
 export function hlNotEvaluablePartitions(
   validation: ValidationResult | null | undefined,
 ): ValidationNotEvaluablePartition[] {

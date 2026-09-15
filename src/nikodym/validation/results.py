@@ -52,6 +52,14 @@ else:
 
 DiscriminationSource: TypeAlias = Literal["performance_artifact", "recomputed"]
 DiscriminationStatus: TypeAlias = Literal["ok", "not_evaluable"]
+#: De dónde salió cada fila de la tabla ``stability`` (D-VAL-2, cableado en D-VAL-16): el artefacto
+#: que publicó el paso de estabilidad, o el recálculo con el mismo motor por la misma llamada
+#: (``nikodym.stability.step.compute_stability``). Sin tercer estado: quien apaga el consumo lo hace
+#: a propósito y el DAG lo declara.
+StabilitySource: TypeAlias = Literal["stability_artifact", "recomputed"]
+#: Con qué receta se recalculó (D-VAL-16): la sección ``stability`` declarada en el config, o la
+#: receta mínima sin eje temporal ni bins cuando la sección no está declarada.
+StabilityRecomputeRecipe: TypeAlias = Literal["declared", "minimal"]
 CalibrationTest: TypeAlias = Literal["hosmer_lemeshow", "brier"]
 CalibrationDecision: TypeAlias = Literal["pass", "fail", "not_evaluable"]
 #: Por qué un Hosmer-Lemeshow quedó sin veredicto (D-VAL-17): la partición entera bajo el mínimo
@@ -218,6 +226,14 @@ DISCRIMINATION_SOURCE_LABELS: dict[str, str] = {
     "recomputed": "Recalculada en esta etapa",
 }
 
+#: De dónde salió el PSI de la tabla ``stability``: reúso del artefacto o recálculo con el mismo
+#: motor (D-VAL-16). Espejo en el front, gateado en ambos sentidos; el panel lo pinta como nota de
+#: la sección y la prosa del informe lo dice en la frase de la familia.
+STABILITY_SOURCE_LABELS: dict[str, str] = {
+    "stability_artifact": "Reusado de la etapa de estabilidad",
+    "recomputed": "Recalculado en esta etapa",
+}
+
 #: Rótulo público de cada parámetro contrastado contra lo realizado.
 BACKTEST_PARAMETER_LABELS: dict[str, str] = {
     "pd": "Probabilidad de incumplimiento",
@@ -247,6 +263,7 @@ __all__ = [
     "HL_NOT_EVALUABLE_REASON_LABELS",
     "NOT_EVALUABLE_PARTITION_FIELDS",
     "PD_TEST_LABELS",
+    "STABILITY_SOURCE_LABELS",
     "TRAFFIC_LIGHT_LABELS",
     "VALIDATION_DECISION_LABELS",
     "VALIDATION_FAMILY_LABELS",
@@ -259,6 +276,9 @@ __all__ = [
     "HlNotEvaluableReason",
     "NotEvaluablePartition",
     "PdTest",
+    "StabilityRecompute",
+    "StabilityRecomputeRecipe",
+    "StabilitySource",
     "ValidationCardSection",
     "ValidationFamily",
     "ValidationResult",
@@ -497,6 +517,37 @@ class NotEvaluablePartition(BaseModel):
 #: las escribe, la prosa y el panel las leen, el tipo del front las espeja (gate en
 #: ``test_vocabulario_en_pantalla``).
 NOT_EVALUABLE_PARTITION_FIELDS: tuple[str, ...] = tuple(NotEvaluablePartition.model_fields)
+
+
+class StabilityRecompute(BaseModel):
+    """Cómo se recalculó el PSI cuando ``consume_stability`` estaba apagado (D-VAL-16).
+
+    Es ``metric_sections.validation.stability_recompute`` de la card: ``None`` cuando la familia
+    consumió el artefacto o no corrió. Cerrado y con su invariante: la receta ``minimal`` es, por
+    construcción (``receta_minima_de_recalculo``), sin eje temporal y con CSI desde los puntos del
+    score; una card que dijera «mínima» con eje ``period`` estaría describiendo otra receta. Con
+    la sección declarada (``declared``) el eje y la fuente del CSI son los de esa sección, y los
+    ``requires`` del paso los exigieron antes de correr.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    recipe: StabilityRecomputeRecipe
+    temporal_axis: str
+    csi_source: str
+
+    @model_validator(mode="after")
+    def _check_invariantes(self) -> Self:
+        """La receta mínima no tiene eje temporal ni bins, o no es la mínima."""
+        if self.recipe == "minimal" and (
+            self.temporal_axis != "none" or self.csi_source != "score_points"
+        ):
+            raise ValueError(
+                "La receta mínima de recálculo es temporal_axis='none' y "
+                f"csi_source='score_points'; observado temporal_axis={self.temporal_axis!r}, "
+                f"csi_source={self.csi_source!r}."
+            )
+        return self
 
 
 class GradeBinomialRecord(BaseModel):
@@ -794,8 +845,72 @@ class ValidationResult(BaseModel):
             raise ValueError("stability exige 'stability' en card.families_run.")
         self._check_semaforo_reconciliado()
         self._check_calibracion_reconciliada()
+        self._check_estabilidad_reconciliada()
         self._check_consolidado_derivado()
         return self
+
+    def _check_estabilidad_reconciliada(self) -> None:
+        """La tabla ``stability`` y la card dicen la misma procedencia del PSI (D-VAL-16).
+
+        La columna ``source`` de la tabla es lo que pinta el informe; ``metric_sections.validation.
+        stability_source`` y ``stability_recompute``, lo que leen la prosa y el panel. Se exige una
+        sola procedencia en la tabla —el toggle no admite mezclar—, que la card la repita cuando la
+        publica, y que la receta de recálculo exista si y sólo si se recalculó, con sus invariantes
+        (DTO cerrado). Un recálculo sin que la card lo diga no vale: el informe diría «recalculado»
+        en la tabla y la prosa callaría de dónde salió.
+        """
+        frame = super().__getattribute__("stability")
+        fuentes = set(frame["source"].tolist()) if len(frame) > 0 else set()
+        if len(fuentes) > 1:
+            raise ValueError(
+                f"La tabla stability mezcla procedencias {sorted(fuentes)!r}: consume_stability "
+                "decide una sola."
+            )
+        permitidas = set(get_args(StabilitySource))
+        if fuentes - permitidas:
+            raise ValueError(
+                f"La tabla stability trae source={sorted(fuentes - permitidas)!r}; los valores "
+                f"cerrados son {sorted(permitidas)!r}."
+            )
+        fuente = next(iter(fuentes)) if fuentes else None
+        section = self.card.metric_sections.get("validation")
+        if not isinstance(section, Mapping):
+            if fuente == "recomputed":
+                raise ValueError(
+                    "Un PSI recalculado exige metric_sections['validation']['stability_source'] "
+                    "y ['stability_recompute'] en la card."
+                )
+            return
+        publicada = section.get("stability_source")
+        if fuente == "recomputed" and publicada is None:
+            raise ValueError(
+                "Un PSI recalculado exige metric_sections['validation']['stability_source'] == "
+                "'recomputed' en la card."
+            )
+        if publicada is not None and fuente is not None and publicada != fuente:
+            raise ValueError(
+                f"metric_sections['validation']['stability_source'] dice {publicada!r} y la tabla "
+                f"stability {fuente!r}: la procedencia repetida tiene que ser la misma."
+            )
+        receta_raw = section.get("stability_recompute")
+        if receta_raw is None:
+            if publicada == "recomputed" or fuente == "recomputed":
+                raise ValueError(
+                    "Un PSI recalculado exige metric_sections['validation']['stability_recompute'] "
+                    "con la receta usada."
+                )
+            return
+        try:
+            StabilityRecompute.model_validate(receta_raw)
+        except ValueError as exc:
+            raise ValueError(
+                f"stability_recompute de la card trae una receta inválida: {exc}"
+            ) from exc
+        if publicada != "recomputed":
+            raise ValueError(
+                "stability_recompute sólo existe con stability_source='recomputed'; la card dice "
+                f"{publicada!r}."
+            )
 
     def _check_calibracion_reconciliada(self) -> None:
         """Las filas sin semáforo, sus records y la card dicen lo mismo de cada HL/Brier.

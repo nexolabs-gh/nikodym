@@ -67,7 +67,27 @@
 > —la reconciliación de las copias de la card (precedencia de causas → anclaje del umbral →
 > retorno anticipado)— sin tocar el kernel, la puerta por grupo, el conteo de decisiones
 > evaluables, el trail, el panel ni los gates del artefacto; la capa C lleva sus propias pasadas—;
-> C, pendiente. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> **capa C implementada en S15 (2026-09-15)** —D-VAL-16: el ensamblador y `compute_stability`
+> públicos en `stability/step.py` (un solo camino, `StabilityStep.execute` los usa), el método
+> declarante `requisitos_de_recalculo_declarados()` y la constante `METODO_REQUISITOS_RECALCULO`,
+> el tercer campo aditivo del DTO de resolución con sus tres estados, la fábrica contextual de
+> `ValidationStep` con la receta mínima (`receta_minima_de_recalculo()`) y el `ConfigError` del
+> preflight, la ficha en `optional_requires` de toda la ruta y la guarda con `campo_de_card`,
+> `execute` que re-deriva y exige lo efectivo, la proyección con `source="recomputed"`, la card con
+> `stability_source`/`stability_recompute` reconciliados, la decisión `stability_source` del trail,
+> `consume_stability` expuesto como `checkbox`, `STABILITY_SOURCE_LABELS` espejado, la prosa y el
+> panel diciendo la procedencia, la guía §4 con los dos caminos y los censos movidos; tests nacidos
+> rojos y controles negativos de §6 «Capa C», detalle en el `HANDOFF`. **Límite medido al
+> implementar, y declarado**: §3.2 afirma que con la sección `stability` declarada «su propio
+> preflight ya cubre lo que el recálculo lee» esté o no en `run.steps`; medido, `check_dataset`
+> filtra los requisitos por `run.steps` (`_secciones_que_corren`), así que con la sección declarada
+> **fuera** de la corrida y `consume_stability=False` la columna temporal y la dirección no se
+> anticipan y el recálculo falla al resolver la columna temporal dentro de `validation` —antes de
+> validar el esquema o calcular un PSI, con el mensaje del motor—; alcanzable sólo por código o
+> YAML (`run` no está en el formulario). Pinado por test; cerrarlo exige que el preflight trate como
+> «corriente» una sección cuyo config lee otra que sí corre (protocolo nuevo del núcleo), decisión
+> que se eleva y no se toma aquí—. Codex sobre el código de la
+> capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

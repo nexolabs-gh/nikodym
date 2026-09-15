@@ -60,6 +60,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   contraste de Jeffreys por grado —cuyo `z` asintótico no está definido— publica el estadístico
   nulo en vez de un `0.0` que se leería como «observado igual a esperado». El copy de «Mínimo de
   operaciones para evaluar» dice lo que el motor hace.
+- **La validación formal puede recalcular el PSI en vez de reusarlo, y el resultado dice de dónde
+  salió cada fila.** La casilla «Reusar el PSI que ya calculó la etapa de estabilidad» sale del
+  formulario (estaba oculta porque apagarla abortaba la corrida: el paso nunca armaba el frame
+  que el recálculo exigía). Apagada, la validación recalcula con **el mismo ensamblador y el mismo
+  evaluador** que la etapa de estabilidad, por la misma llamada —con la misma configuración las
+  filas son idénticas, fila a fila—; con la sección de estabilidad declarada usa su eje temporal y
+  su fuente de CSI, y sin ella recalcula entre particiones sin eje temporal (receta mínima). La
+  comprobación previa declara exactamente lo que el recálculo va a leer —el score, la PD
+  calibrada y, según la sección de estabilidad, el dataset y los bins congelados—, así que un
+  artefacto ausente o una sección de estabilidad inválida se acusan **antes** de ejecutar ningún
+  paso, no a mitad de corrida. La tabla `stability` lleva la procedencia en `source`
+  (`stability_artifact` o `recomputed`), la card la repite en
+  `metric_sections.validation.stability_source` y dice la receta en `stability_recompute`, el
+  trail registra una decisión `stability_source` con la receta y añade `source` al valor de cada
+  `stability_psi`, Resultados muestra la procedencia como nota de la sección y el informe la dice
+  en el capítulo. Un YAML con `consume_stability: false` que hasta hoy abortaba ahora corre y lo
+  declara. La guarda de la dirección del score del paso de estabilidad lee la ficha del scorecard
+  también cuando llega inyectada por la puerta pública (antes una ficha inyectada con la dirección
+  contraria pasaba en silencio). Los identificadores y las palabras están en la referencia de la
+  API. La receta de recálculo con kwargs sueltos (`stability_recomputed`) se retira: no hay dos
+  formas de recalcular.
 
 ## [1.15.1] — 2026-09-13
 

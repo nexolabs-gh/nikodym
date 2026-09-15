@@ -11828,12 +11828,13 @@
         "properties": {
           "consume_stability": {
             "default": true,
-            "description": "Toma el PSI que ya calculó la etapa de estabilidad.",
-            "title": "Reusar el PSI ya calculado",
+            "description": "Encendido, toma el PSI que ya calculó la etapa de estabilidad. Apagado, la validación lo recalcula con el mismo motor sobre el score y la PD calibrada; el resultado dice de dónde salió cada fila.",
+            "title": "Reusar el PSI que ya calculó la etapa de estabilidad",
             "type": "boolean",
             "ui_group": "Estabilidad",
+            "ui_help": "Apagado, el recálculo usa la configuración de la sección de estabilidad si está declarada; si no, recalcula el PSI entre particiones sin eje temporal. La etapa de estabilidad no necesita estar en la corrida.",
             "ui_order": 1,
-            "ui_widget": "hidden"
+            "ui_widget": "checkbox"
           },
           "psi_review_threshold": {
             "default": 0.25,

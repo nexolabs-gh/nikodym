@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "METODO_CONTRATO_VARIABLES",
+    "METODO_REQUISITOS_RECALCULO",
     "ArtifactKey",
     "ContextoDeResolucion",
     "Step",
@@ -50,6 +51,16 @@ ArtifactKey = tuple[str, str]  # (domain, key) — la misma clave namespaced del
 #: claves **no interpreta**, y la sección decide qué significan. Mismo criterio que
 #: ``METODO_CONVENCION_SCORE`` en ``core/dataset_check.py``.
 METODO_CONTRATO_VARIABLES: Final = "contrato_de_variables_declarado"
+
+#: Nombre del método con que una config de sección declara **qué artefactos leerá quien recalcule
+#: con ella** (enmienda VALIDACION-COTEJADA, D-VAL-16). Lo implementa ``StabilityConfig``: el
+#: recálculo del PSI de ``validation`` reutiliza el ensamblador del paso de estabilidad, y lo que
+#: ese ensamblador lee —``data.frame`` sólo con eje temporal, ``binning.bin_frame`` sólo con CSI
+#: por bins— lo deciden los campos de la sección ``stability``, que el paso de validación no puede
+#: leer al construirse (D-INV-1, D-REQ-2). Mismo criterio que :data:`METODO_CONTRATO_VARIABLES`: la
+#: sección que sabe lo declara, el núcleo lo transporta sin interpretarlo y el paso que lo necesita
+#: lo lee del DTO.
+METODO_REQUISITOS_RECALCULO: Final = "requisitos_de_recalculo_declarados"
 
 
 def card_publicada(study: Study, domain: str, key: str) -> Any:
@@ -91,9 +102,10 @@ class ContextoDeResolucion:
 
     ⚠️ **Es un DTO cerrado, y su tamaño ES la garantía**, igual que en
     :class:`~nikodym.core.dataset_check.ContextoConfig`: D-INV-1 rechazó darle el config raíz a cada
-    dominio para no acoplarlos entre sí, y un objeto de dos campos conserva esa restricción por
+    dominio para no acoplarlos entre sí, y un objeto de tres campos conserva esa restricción por
     construcción — un paso **no puede** leer un campo ajeno aunque quiera, porque no está aquí—. Lo
-    que se amplía es el contexto mínimo, no la puerta.
+    que se amplía es el contexto mínimo, no la puerta: cada campo nuevo es un mapa que el núcleo
+    transporta sin interpretar (D-REQ-3, D-VAL-16).
     """
 
     dominios_activos: frozenset[str]
@@ -116,6 +128,26 @@ class ContextoDeResolucion:
     :data:`METODO_CONTRATO_VARIABLES`. ``{}`` significa **«no se sabe»** —nadie activo lo declara, o
     su sección no se pudo coaccionar— y entonces el paso conserva el contrato que declararía por sí
     solo, que es el comportamiento histórico (D-REQ-4).
+    """
+
+    requisitos_de_recalculo: Mapping[str, tuple[ArtifactKey, ...] | None] = field(
+        default_factory=dict
+    )
+    """Lo que cada sección DECLARADA dice que leerá quien recalcule con ella (D-VAL-16).
+
+    Tercer campo del DTO, aditivo: los dos implementadores anteriores no cambian de forma. La clave
+    es el dominio declarante (``"stability"``); el valor, la tupla que devolvió
+    :data:`METODO_REQUISITOS_RECALCULO`. Lo llena :meth:`Study._contexto_de_resolucion` recorriendo
+    las secciones **declaradas** —no las activas, por la misma razón medida en D-REQ—.
+
+    🔴 **Distingue tres estados, y a diferencia de ``contrato_de_variables`` una coacción fallida
+    NO se funde con la ausencia.** Clave **ausente** = la sección no está declarada: quien recalcule
+    usa su receta mínima y el DAG comprueba exactamente eso. Valor **``None``** = la sección está
+    declarada pero no se pudo coaccionar: el paso que va a leerla tiene que detenerse en el
+    preflight con ``ConfigError``, porque en ejecución la releería y abortaría tarde. **Tupla** = lo
+    declarado. Degradar al default sería correcto en D-REQ-4 —allí el paso conserva el contrato que
+    declararía solo—; aquí el paso va a leer esa sección, así que un config inválido no puede pasar
+    la comprobación previa.
     """
 
 

@@ -238,7 +238,13 @@ class StabilityStep(AuditableMixin):
     @classmethod
     def from_config(cls, cfg: StabilityConfig) -> "StabilityStep": ...
     def execute(self, study: "Study", rng: "numpy.random.Generator") -> "StabilityResult": ...
+
+# Públicos desde la enmienda VALIDACION-COTEJADA (D-VAL-16, 2026-09-15): un solo camino de cálculo.
+def assemble_stability_frame(study: "Study", config: StabilityConfig) -> "tuple[pandas.DataFrame, tuple[str, ...]]": ...
+def compute_stability(study: "Study", config: StabilityConfig, *, audit: "AuditSink | None" = None) -> "StabilityResult": ...
 ```
+
+**El ensamblador y el cálculo son públicos.** `assemble_stability_frame` envuelve, sin cambiar una línea, lo que `execute` hacía antes de llamar al evaluador (bins congelados sólo con `woe_bins`, guarda de la dirección del score contra la ficha del scorecard —leída con `campo_de_card`, también cuando la ficha llega como `Mapping`—, `data.frame` sólo si el score no trae la columna temporal, alineación por índice); `compute_stability` ensambla y corre `StabilityEvaluator.from_config(config)`; `StabilityStep.execute` los usa y publica. `validation` recalcula el PSI con `compute_stability` cuando `consume_stability=False` (SDD-22 §7), de modo que con la misma sección el frame recalculado es igual fila a fila al artefacto del paso. Lo que el ensamblador lee lo declara `StabilityConfig.requisitos_de_recalculo_declarados()` (`core.steps.METODO_REQUISITOS_RECALCULO`), y `receta_minima_de_recalculo()` construye la receta sin sección declarada (`temporal_axis="none"`, `csi_source="score_points"`).
 
 **Artefactos que `StabilityStep.execute` escribe en `study.artifacts`.**
 
