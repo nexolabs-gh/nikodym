@@ -1288,7 +1288,9 @@ export function ResultsPanel({
                       ? ", con la configuración de la sección de estabilidad."
                       : "."}
                   {(val.stability ?? []).length === 0
-                    ? " El recálculo no publicó filas."
+                    ? valStabilityProvenance.source === "recomputed"
+                      ? " El recálculo no publicó filas."
+                      : " El artefacto reutilizado no trae filas."
                     : null}
                 </p>
               ) : null}

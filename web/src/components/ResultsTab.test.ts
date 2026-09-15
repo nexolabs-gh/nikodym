@@ -1262,8 +1262,14 @@ describe("la procedencia del PSI (D-VAL-16): el panel dice de dónde salió la s
   })
 
   it("con la tabla vacía y la card diciendo `stability_artifact`, la nota también se pinta", () => {
+    // Pasada 2 de Codex sobre la capa C: la frase de la tabla vacía hablaba de «recálculo» también
+    // con el artefacto reutilizado. La frase sigue a la procedencia y ninguna mención al recálculo
+    // sobrevive aquí.
     const html = render(conProcedencia("stability_artifact", null, []))
     expect(html).toContain("Reusado de la etapa de estabilidad")
+    expect(html).toContain("El artefacto reutilizado no trae filas")
     expect(html).not.toContain("Recalculado en esta etapa")
+    expect(html).not.toContain("recálculo")
+    expect(html).not.toContain("Recálculo")
   })
 })
