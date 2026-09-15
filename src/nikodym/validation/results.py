@@ -837,14 +837,25 @@ class ValidationResult(BaseModel):
             if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable":
                 sin_veredicto.append((record, int(fila["n"])))
         section = self.card.metric_sections.get("validation")
-        if not isinstance(section, Mapping) or section.get("not_evaluable_partitions") is None:
+        if not isinstance(section, Mapping):
             if sin_veredicto:
                 raise ValueError(
                     "Un resultado con Hosmer-Lemeshow sin veredicto exige "
                     "metric_sections['validation']['not_evaluable_partitions'] en la card."
                 )
             return
-        publicadas_raw = section["not_evaluable_partitions"]
+        publicadas_raw = section.get("not_evaluable_partitions")
+        if publicadas_raw is None:
+            if sin_veredicto:
+                raise ValueError(
+                    "Un resultado con Hosmer-Lemeshow sin veredicto exige "
+                    "metric_sections['validation']['not_evaluable_partitions'] en la card."
+                )
+            # Sin HL sin veredicto, la lista ausente vale como vacía; el umbral se coteja igual
+            # contra los grados sin potencia (pasada 5 de Codex: el retorno anticipado saltaba esa
+            # comprobación).
+            self._check_min_rows_canonico(section, [])
+            return
         # Cada entrada es un DTO cerrado con sus invariantes; una malformada no se descarta en
         # silencio (pasada 1 de Codex sobre la capa B).
         try:

@@ -1009,6 +1009,36 @@ def test_validation_result_ancla_min_rows_al_umbral_efectivo_de_la_card() -> Non
     )
 
 
+def test_validation_result_coteja_los_grados_sin_potencia_aunque_no_haya_particiones() -> None:
+    """Pasada 5 de Codex sobre la capa B: con todos los Hosmer-Lemeshow evaluables y grados sin
+    potencia, una card sin `not_evaluable_partitions` retornaba antes de cotejar `min_rows`, así
+    que un umbral falso en los grados pasaba. La lista ausente vale como vacía y el umbral se
+    coteja igual."""
+    grado = {
+        "grade": "Z",
+        "n": 12,
+        "observed_defaults": 3,
+        "expected_pd": 0.2,
+        "observed_dr": 0.25,
+        "min_rows": 30,
+        "status": "not_evaluable",
+    }
+    base = _card().metric_sections["validation"]
+
+    def con(**cambios: Any) -> ValidationCardSection:
+        seccion = {k: v for k, v in {**base, **cambios}.items() if v is not ...}
+        return _card(metric_sections={"validation": seccion})
+
+    # Sin la clave canónica: se exige, aunque la lista de particiones no esté.
+    with pytest.raises(ValidationError, match="min_rows_per_group"):
+        _result(card=con(not_evaluable_grades=[grado]))
+    # Con la clave, el grado tiene que cotejar contra ella.
+    with pytest.raises(ValidationError, match=r"not_evaluable_grades.*min_rows"):
+        _result(card=con(not_evaluable_grades=[grado], min_rows_per_group=200))
+    coherente = _result(card=con(not_evaluable_grades=[grado], min_rows_per_group=30))
+    assert coherente.card.metric_sections["validation"]["min_rows_per_group"] == 30
+
+
 def test_validation_result_exige_que_la_card_cuente_solo_decisiones_evaluables() -> None:
     """D-VAL-17: ``n_tests``/``n_failed`` y ``overall_status`` son derivables de los records y del
     frame de estabilidad, y la card no puede decir otra cosa (una card rehidratada con ``n_tests``

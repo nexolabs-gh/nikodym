@@ -57,8 +57,17 @@
 > efectivo, `metric_sections.validation.min_rows_per_group` (mismo patrón que
 > `traffic_light_cuts`; `null` sin calibración), y `ValidationResult` coteja contra él el
 > `min_rows` de cada partición y de cada grado sin veredicto; **límite declarado**, el mismo de la
-> pasada 4 de la capa A: adulterar todas las copias a la vez no se detecta sin el config—; C,
-> pendiente. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> pasada 4 de la capa A: adulterar todas las copias a la vez no se detecta sin el config—; pasada
+> 5 (`177ae0f`): un hallazgo medio, verificado y absorbido —con todos los HL evaluables y grados
+> sin potencia, una card sin `not_evaluable_partitions` retornaba antes de cotejar el umbral: la
+> lista ausente vale como vacía y `min_rows_per_group` se coteja igual contra los grados—.
+> **Aquí se detiene la revisión de la capa B**: cinco pasadas (~35 min cada una sobre un diff de
+> 33 archivos), ocho hallazgos, los ocho absorbidos con test nacido rojo y control negativo,
+> ninguno contractual; desde la pasada 3 cada pasada sondea un borde nuevo de la misma superficie
+> —la reconciliación de las copias de la card (precedencia de causas → anclaje del umbral →
+> retorno anticipado)— sin tocar el kernel, la puerta por grupo, el conteo de decisiones
+> evaluables, el trail, el panel ni los gates del artefacto; la capa C lleva sus propias pasadas—;
+> C, pendiente. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2
