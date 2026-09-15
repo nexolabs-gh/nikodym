@@ -80,6 +80,13 @@ BacktestDecision: TypeAlias = Literal["pass", "fail", "not_evaluable"]
 #: backtesting y ninguna fila de estabilidad con decisión; antes ese caso terminaba en ``pass``.
 OverallStatus: TypeAlias = Literal["pass", "warn", "fail", "not_evaluable"]
 
+#: Marcador de «toda la población» en las filas agregadas de ``calibration``: ``partition`` de las
+#: filas de grado (el contraste agrupa la población, no la partición) y ``grade`` de las filas de
+#: Hosmer-Lemeshow y Brier (no son por grado). El evaluador lo escribe y el renderer del informe lo
+#: pinta como celda vacía —no es una partición ni un grado, es la ausencia de uno— (pasada 2 de
+#: Codex sobre los rótulos: la tabla de la demo imprimía ``ALL``).
+POOLED_SENTINEL: str = "ALL"
+
 #: Las decisiones que cuentan como evidencia: ``not_evaluable`` no es una prueba corrida sin
 #: veredicto, es una prueba que no se pudo correr, y no entra a ``n_tests`` ni al estado.
 _EVALUABLE_DECISIONS: frozenset[str] = frozenset({"pass", "fail"})
@@ -263,6 +270,7 @@ __all__ = [
     "HL_NOT_EVALUABLE_REASON_LABELS",
     "NOT_EVALUABLE_PARTITION_FIELDS",
     "PD_TEST_LABELS",
+    "POOLED_SENTINEL",
     "STABILITY_SOURCE_LABELS",
     "TRAFFIC_LIGHT_LABELS",
     "VALIDATION_DECISION_LABELS",

@@ -70,7 +70,11 @@ from nikodym.report.results import (
     ReportManifest,
     ReportSection,
 )
-from nikodym.stability.results import BAND_LABELS, STABILITY_METRIC_LABELS
+from nikodym.stability.results import (
+    BAND_LABELS,
+    STABILITY_METRIC_LABELS,
+    TEMPORAL_AXIS_LABELS,
+)
 from nikodym.validation.results import (
     BACKTEST_PARAMETER_LABELS,
     BACKTEST_TEST_LABELS,
@@ -78,6 +82,7 @@ from nikodym.validation.results import (
     DISCRIMINATION_SOURCE_LABELS,
     DISCRIMINATION_STATUS_LABELS,
     PD_TEST_LABELS,
+    POOLED_SENTINEL,
     STABILITY_SOURCE_LABELS,
     TRAFFIC_LIGHT_LABELS,
     VALIDATION_DECISION_LABELS,
@@ -807,6 +812,13 @@ def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
     # de veredictos de fila no tiene: la palabra es la del estado técnico, «Revisar».
     stability_decision = {**VALIDATION_DECISION_LABELS, "warn": VALIDATION_STATUS_LABELS["warn"]}
     calibration_test = {**CALIBRATION_TEST_LABELS, **PD_TEST_LABELS}
+    # Las filas agregadas de calibración llevan el sentinel ``ALL`` donde no hay partición (filas de
+    # grado) o no hay grado (Hosmer-Lemeshow y Brier): es la ausencia de uno, y se pinta como tal.
+    calibration_partition = {**_PARTITION_LABELS, POOLED_SENTINEL: _EMPTY_CELL}
+    calibration_grade = {POOLED_SENTINEL: _EMPTY_CELL}
+    # La fila de estabilidad temporal lleva en ``comparison`` el eje (``period``/``cohort``), no
+    # un par de particiones.
+    stability_comparison = {**_COMPARISON_LABELS, **TEMPORAL_AXIS_LABELS}
     return {
         "validation.discrimination": {
             "partition": _PARTITION_LABELS,
@@ -814,14 +826,15 @@ def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
             "status": DISCRIMINATION_STATUS_LABELS,
         },
         "validation.calibration": {
-            "partition": _PARTITION_LABELS,
+            "partition": calibration_partition,
             "test": calibration_test,
+            "grade": calibration_grade,
             "decision": VALIDATION_DECISION_LABELS,
             "traffic_light": TRAFFIC_LIGHT_LABELS,
         },
         "validation.stability": {
             "metric": STABILITY_METRIC_LABELS,
-            "comparison": _COMPARISON_LABELS,
+            "comparison": stability_comparison,
             "band": BAND_LABELS,
             "source": STABILITY_SOURCE_LABELS,
             "status": DISCRIMINATION_STATUS_LABELS,

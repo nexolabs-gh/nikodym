@@ -106,10 +106,21 @@ STABILITY_METRIC_LABELS: dict[str, str] = {
     "temporal_score": "PSI temporal",
 }
 
+#: El eje de una fila de estabilidad temporal, en palabras: en ``stability_metrics`` la columna
+#: ``comparison`` de ``temporal_score`` lleva el eje (``period``/``cohort``) en vez de un par de
+#: particiones. Las palabras son las del campo ``temporal_axis`` del formulario («período, cohorte
+#: o ninguno»); la tabla de estabilidad de la validación en el informe las pinta (pasada 2 de Codex
+#: sobre los rótulos: la fila temporal de la demo decía ``period``).
+TEMPORAL_AXIS_LABELS: dict[str, str] = {
+    "period": "Período",
+    "cohort": "Cohorte",
+}
+
 __all__ = [
     "BAND_LABELS",
     "PSI_METRIC_LABELS",
     "STABILITY_METRIC_LABELS",
+    "TEMPORAL_AXIS_LABELS",
     "CsiRecord",
     "CsiSource",
     "PsiRecord",

@@ -78,6 +78,7 @@ from nikodym.validation.results import (
     _CALIBRATION_COLUMNS,
     _DISCRIMINATION_COLUMNS,
     _STABILITY_COLUMNS,
+    POOLED_SENTINEL,
     BacktestRecord,
     CalibrationTestRecord,
     DiscriminationRecord,
@@ -110,9 +111,9 @@ _MIN_EVENTS_PER_PARTITION: int = 1
 # Mínimo de observaciones por segmento del backtesting (piso de computabilidad; nitpick B22.4).
 _MIN_OBS_BACKTEST: int = 2
 # Marcador de partición para las filas de grado (el binomial agrupa la población, no la partición).
-_POOLED_PARTITION: str = "ALL"
+_POOLED_PARTITION: str = POOLED_SENTINEL
 # Marcador de grado para las filas de Hosmer-Lemeshow/Brier (no son por grado de rating).
-_POOLED_GRADE: str = "ALL"
+_POOLED_GRADE: str = POOLED_SENTINEL
 # Dependencias cuya versión se registra en la card (evidencia reproducible; SDD-22 §8/§9).
 _DEPENDENCY_LIBRARIES: tuple[str, ...] = ("pandas", "numpy", "scipy")
 

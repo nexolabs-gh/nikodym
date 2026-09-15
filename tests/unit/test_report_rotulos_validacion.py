@@ -63,6 +63,8 @@ _SLUGS: tuple[str, ...] = (
     "dev_vs_holdout",
     "dev_vs_oot",
     "stable",
+    "period",
+    "ALL",
 )
 
 
@@ -102,10 +104,10 @@ def _resultado() -> ValidationResult:
     )
     stability = pd.DataFrame(
         {
-            "metric": ["score_psi", "pd_psi"],
-            "comparison": ["dev_vs_holdout", "dev_vs_oot"],
-            "feature": ["score", "pd_calibrated"],
-            "value": [0.012, 0.3],
+            "metric": ["score_psi", "pd_psi", "temporal_score"],
+            "comparison": ["dev_vs_holdout", "dev_vs_oot", "period"],
+            "feature": ["score", "pd_calibrated", "score"],
+            "value": [0.012, 0.3, 0.02],
         }
     )
     return ValidationEvaluator.from_config(cfg).validate(
@@ -179,6 +181,9 @@ def test_la_tabla_de_calibracion_del_html_pinta_palabras_y_conserva_los_trece_en
     assert {"Pasa", "Falla"} & set(celdas)
     assert "Sin veredicto" in celdas  # el Brier es un puntaje, no una prueba de pasa/falla
     assert {"Verde", "Ámbar", "Rojo"} & set(celdas)
+    # Pasada 2 de Codex: el sentinel `ALL` (partición de las filas de grado, grado de las filas de
+    # HL/Brier) no es una partición ni un grado y se pinta como celda vacía.
+    assert "—" in celdas
     for slug in _SLUGS:
         assert slug not in celdas, slug
 
@@ -194,6 +199,8 @@ def test_las_otras_tres_tablas_de_validacion_tambien_pintan_palabras() -> None:
     assert "Reusado de la etapa de estabilidad" in estabilidad
     assert "PSI del score" in estabilidad or "PSI de la PD" in estabilidad
     assert "Desarrollo vs. Holdout" in estabilidad
+    assert "PSI temporal" in estabilidad and "Período" in estabilidad  # la fila temporal
+    assert "period" not in estabilidad
     assert "Estable" in estabilidad and "Redesarrollar" in estabilidad
     assert "Pasa" in estabilidad and "Falla" in estabilidad
     assert "stability_artifact" not in estabilidad and "redevelop" not in estabilidad
@@ -207,6 +214,34 @@ def test_el_valor_del_dto_no_cambia_solo_su_pintura() -> None:
     assert vista["columns"] == list(_COLUMNAS_CALIBRACION)
     assert any("Hosmer-Lemeshow" in fila for fila in vista["rows"])
     assert set(result.calibration["test"]) >= {"hosmer_lemeshow", "brier"}  # el frame no se tocó
+
+
+def test_la_tabla_de_backtesting_pinta_parametro_prueba_y_veredicto() -> None:
+    """La vista de la cuarta tabla, sobre las columnas canónicas de ``backtesting``."""
+    from nikodym.validation.results import _BACKTESTING_COLUMNS
+
+    fila = {
+        "parameter": "lgd",
+        "segment": "retail",
+        "n": 40,
+        "predicted_mean": 0.45,
+        "realised_mean": 0.6,
+        "test": "t_test",
+        "statistic": 3.0,
+        "p_value": 0.001,
+        "alpha": 0.05,
+        "one_sided": True,
+        "decision": "fail",
+    }
+    otra = {**fila, "parameter": "pd", "test": "jeffreys", "decision": "not_evaluable"}
+    tabla = pd.DataFrame([fila, otra], columns=list(_BACKTESTING_COLUMNS))
+    vista = _table_view("validation.backtesting", tabla, max_rows=50)
+    assert vista["columns"] == list(_BACKTESTING_COLUMNS)
+    assert vista["rows"][0][0] == "Severidad" and vista["rows"][0][5] == "t de Student"
+    assert vista["rows"][0][-1] == "Falla"
+    assert vista["rows"][1][0] == "Probabilidad de incumplimiento"
+    assert vista["rows"][1][5] == "Jeffreys" and vista["rows"][1][-1] == "Sin veredicto"
+    assert vista["rows"][0][1] == "retail"  # el segmento es el nombre del usuario, tal cual
 
 
 def test_una_tabla_ajena_con_una_columna_test_se_pinta_cruda() -> None:

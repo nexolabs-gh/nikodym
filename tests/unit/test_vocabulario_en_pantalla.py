@@ -58,6 +58,7 @@ from nikodym.stability.results import (
     BAND_LABELS,
     PSI_METRIC_LABELS,
     STABILITY_METRIC_LABELS,
+    TEMPORAL_AXIS_LABELS,
     PsiMetricName,
     StabilityBand,
     StabilityMetricName,
@@ -184,6 +185,7 @@ def test_cada_mapa_cubre_exactamente_su_enum(mapa: dict[str, str], enum: Any, no
         (BAND_LABELS, "BAND_LABELS"),
         (PSI_METRIC_LABELS, "PSI_METRIC_LABELS"),
         (STABILITY_METRIC_LABELS, "STABILITY_METRIC_LABELS"),
+        (TEMPORAL_AXIS_LABELS, "TEMPORAL_AXIS_LABELS"),
         (REASON_LABELS, "REASON_LABELS"),
         (IV_BAND_LABELS, "IV_BAND_LABELS"),
         (VALIDATION_STATUS_LABELS, "VALIDATION_STATUS_LABELS"),
@@ -572,6 +574,14 @@ def test_la_particion_sin_veredicto_espeja_lo_que_la_card_publica() -> None:
         NOT_EVALUABLE_PARTITION_FIELDS
     )
     assert _CALIBRATION_COLUMNS[-1] == "not_evaluable_reason"
+
+
+def test_el_eje_temporal_en_palabras_cubre_los_dos_ejes_con_eje() -> None:
+    """``TEMPORAL_AXIS_LABELS`` traduce ``comparison`` de la fila temporal: los ejes de
+    ``TemporalAxis`` salvo ``none``, que no produce fila."""
+    from nikodym.stability.config import TemporalAxis
+
+    assert set(TEMPORAL_AXIS_LABELS) == set(get_args(TemporalAxis)) - {"none"}
 
 
 def test_la_receta_del_recalculo_espeja_lo_que_la_card_publica() -> None:
