@@ -199,7 +199,12 @@ README; es una invariante chequeada.
 !!! note "El config *es* el experimento"
     Como el config declarativo captura todo el pipeline (binning, selección, modelo, scorecard,
     calibración, umbrales), el `config_hash` es una huella completa. Dos corridas con el mismo
-    hash sobre el mismo `data_hash` y `root_seed` son, por diseño, idénticas bit a bit.
+    hash sobre el mismo `data_hash` y `root_seed` son, por diseño, idénticas bit a bit **en el
+    mismo entorno** (misma máquina, mismas versiones). Entre máquinas distintas el scorecard
+    reproduce bit a bit, y los motores que ajustan por optimización numérica —supervivencia y,
+    con ella, las provisiones IFRS 9— pueden diferir en el último decimal por el redondeo de coma
+    flotante del procesador; el lineage lo deja ver: su `runtime_environment_hash` cambia con la
+    máquina.
 
 ### Ficha del modelo (*model card*, SR 11-7)
 

@@ -182,8 +182,9 @@ Nikodym lo modela como un motor separado del CMF.
 Registro que hace **reproducible** cada corrida: git SHA + hash lógico de los datos + `config_hash`
 + semilla + `uv.lock`. Junto con el *audit-trail*, garantiza la propiedad central
 `(datos + config + semilla) → resultado idéntico`: reejecutar el mismo config con la misma semilla
-sobre los mismos datos reproduce el resultado bit a bit. Es la base auditable que exige un
-supervisor.
+sobre los mismos datos, en el mismo entorno, reproduce el resultado bit a bit (entre máquinas
+distintas, los motores de optimización numérica pueden diferir en el último decimal). Es la base
+auditable que exige un supervisor.
 
 ### Model card (tarjeta de modelo)
 
