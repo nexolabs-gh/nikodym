@@ -229,7 +229,10 @@ def test_qmd_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
     assert "# 5 Validación formal" in markdown
     assert "## 5.1 Calibración" in markdown
     assert "Validación formal — calibración" in markdown
-    assert "hosmer_lemeshow" in markdown and "0.4800" in markdown
+    # La celda pinta la palabra pública (rótulos autorizados el 2026-09-15); el encabezado
+    # `test` sigue literal y el identificador ya no llega a la tabla.
+    assert "Hosmer-Lemeshow" in markdown and "0.4800" in markdown
+    assert "| hosmer_lemeshow |" not in markdown
     assert "POR COMPLETAR — Veredicto de validación formal" in markdown
 
 

@@ -81,6 +81,15 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   contraria pasaba en silencio). Los identificadores y las palabras están en la referencia de la
   API. La receta de recálculo con kwargs sueltos (`stability_recomputed`) se retira: no hay dos
   formas de recalcular.
+- **Las tablas del capítulo «Validación formal» del informe dicen palabras, no identificadores.**
+  Las cuatro tablas de la validación —discriminación, calibración, estabilidad y backtesting— del
+  HTML, del PDF, del Word y del Markdown imprimían los identificadores del motor en sus celdas
+  (`hosmer_lemeshow`, `pass`, `not_evaluable`, `performance_artifact`…) mientras Resultados y la
+  guía ya los traducían. Ahora pintan las mismas palabras que la pantalla, con los mismos mapas de
+  fuente única («Hosmer-Lemeshow», «Puntaje de Brier», «Pasa», «Sin veredicto», «Verde»,
+  «Reusada de la etapa de desempeño», «Desarrollo vs. Holdout»…). Sólo en esas cuatro tablas: una
+  variable del usuario que se llame `test` o `decision` en otra tabla se sigue pintando tal cual.
+  Los encabezados no cambian y el JSON, el CSV y la card siguen llevando el identificador.
 
 ## [1.15.1] — 2026-09-13
 

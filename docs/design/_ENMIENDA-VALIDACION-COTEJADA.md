@@ -904,6 +904,9 @@ recaptura (§1.4). Si una capa se aprueba y otra no, cada una es publicable sola
 - No corrige los slugs que la tabla de calibración del informe ya imprime hoy (`hosmer_lemeshow`,
   `pass`, `not_evaluable`, `performance_artifact`; §1.4): es copy preexistente, exige aplicar los
   rótulos de `validation/results.py` en el renderer y recapturar la demo; queda como abierto.
+  **Cerrado fuera de esta enmienda, con OK propio de Cami (2026-09-15)**: el renderer aplica los
+  mapas de fuente única —sólo en las cuatro tablas `validation.*`, por clave de tabla, sin mover
+  los encabezados— y la demo se recaptura con la 1.16.0.
 - No mete `validation` en «Validar un modelo existente» (D-SC-7 mide por qué no).
 - No recaptura la demo, no mueve hashes, no publica.
 

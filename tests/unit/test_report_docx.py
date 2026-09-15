@@ -236,7 +236,10 @@ def test_docx_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
     assert "5 Validación formal" in headings
     assert "5.1 Calibración" in headings
     assert "POR COMPLETAR — Veredicto de validación formal" in text
-    assert any(table.rows[1].cells[0].text == "hosmer_lemeshow" for table in word.tables)
+    # La celda pinta la palabra pública, no el identificador del DTO (rótulos autorizados el
+    # 2026-09-15); el valor del frame sigue siendo `hosmer_lemeshow`.
+    assert any(table.rows[1].cells[0].text == "Hosmer-Lemeshow" for table in word.tables)
+    assert not any(table.rows[1].cells[0].text == "hosmer_lemeshow" for table in word.tables)
 
 
 @_SKIP_DOCX

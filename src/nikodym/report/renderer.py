@@ -70,8 +70,19 @@ from nikodym.report.results import (
     ReportManifest,
     ReportSection,
 )
-from nikodym.stability.results import BAND_LABELS
-from nikodym.validation.results import VALIDATION_STATUS_LABELS
+from nikodym.stability.results import BAND_LABELS, STABILITY_METRIC_LABELS
+from nikodym.validation.results import (
+    BACKTEST_PARAMETER_LABELS,
+    BACKTEST_TEST_LABELS,
+    CALIBRATION_TEST_LABELS,
+    DISCRIMINATION_SOURCE_LABELS,
+    DISCRIMINATION_STATUS_LABELS,
+    PD_TEST_LABELS,
+    STABILITY_SOURCE_LABELS,
+    TRAFFIC_LIGHT_LABELS,
+    VALIDATION_DECISION_LABELS,
+    VALIDATION_STATUS_LABELS,
+)
 
 if TYPE_CHECKING:
     # Sólo el alias de tipo: importar ``charts`` en runtime crearía un borde de import hacia el
@@ -773,6 +784,64 @@ def _audit_only_columns(key: str) -> frozenset[str]:
     return _AUDIT_ONLY_COLUMNS | _AUDIT_ONLY_COLUMNS_BY_TABLE.get(key, frozenset())
 
 
+def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
+    """Qué celdas categóricas de qué tabla se pintan con su palabra pública, y con qué mapa.
+
+    Copy, no diseño (autorizado el 2026-09-15): la tabla «Validación formal · calibración» del
+    documento imprimía los identificadores crudos del DTO —``hosmer_lemeshow``, ``pass``,
+    ``not_evaluable``, ``performance_artifact``— mientras el panel y la guía ya los traducían con
+    los mapas de fuente única de ``nikodym.validation.results``. Aquí se aplican esos mismos mapas
+    —ninguna palabra nueva; los de estabilidad son los de ``nikodym.stability.results`` que la
+    prosa ya usa— **sólo** en las cuatro tablas ``validation.*`` y por clave de tabla, como el
+    filtro de columnas de auditoría: una tabla ajena con una columna llamada ``test`` o
+    ``decision`` se sigue pintando cruda, porque su vocabulario no es éste. Los encabezados no se
+    tocan (los gates de las capas A y B exigen las trece columnas literales) y el valor del JSON,
+    del CSV y de la card sigue siendo el identificador.
+
+    Es una función y no una constante de módulo porque ``_partition_label``/``_comparison_label``
+    viven en la prosa, que se importa perezosamente aquí.
+    """
+    from nikodym.report.prose import _COMPARISON_LABELS, _PARTITION_LABELS
+
+    # La decisión de una fila de estabilidad puede valer ``warn`` (banda de revisión), que el mapa
+    # de veredictos de fila no tiene: la palabra es la del estado técnico, «Revisar».
+    stability_decision = {**VALIDATION_DECISION_LABELS, "warn": VALIDATION_STATUS_LABELS["warn"]}
+    calibration_test = {**CALIBRATION_TEST_LABELS, **PD_TEST_LABELS}
+    return {
+        "validation.discrimination": {
+            "partition": _PARTITION_LABELS,
+            "source": DISCRIMINATION_SOURCE_LABELS,
+            "status": DISCRIMINATION_STATUS_LABELS,
+        },
+        "validation.calibration": {
+            "partition": _PARTITION_LABELS,
+            "test": calibration_test,
+            "decision": VALIDATION_DECISION_LABELS,
+            "traffic_light": TRAFFIC_LIGHT_LABELS,
+        },
+        "validation.stability": {
+            "metric": STABILITY_METRIC_LABELS,
+            "comparison": _COMPARISON_LABELS,
+            "band": BAND_LABELS,
+            "source": STABILITY_SOURCE_LABELS,
+            "status": DISCRIMINATION_STATUS_LABELS,
+            "decision": stability_decision,
+        },
+        "validation.backtesting": {
+            "parameter": BACKTEST_PARAMETER_LABELS,
+            "test": BACKTEST_TEST_LABELS,
+            "decision": VALIDATION_DECISION_LABELS,
+        },
+    }
+
+
+def _public_cell(value: Any, labels: Mapping[str, str] | None) -> Any:
+    """La palabra pública de una celda categórica, o el valor tal cual si no hay mapa o no casa."""
+    if labels is None or not isinstance(value, str):
+        return value
+    return labels.get(value, value)
+
+
 def _table_view(
     key: str,
     table: Any,
@@ -787,13 +856,18 @@ def _table_view(
     audit_only = _audit_only_columns(key)
     columns = tuple(c for c in table.columns if str(c) not in audit_only)
     total_rows = len(table.index)
+    labels_by_column = _public_labels_by_table().get(key, {})
     # Se recorta ANTES de formatear: la tasa por una cohorte casi única trae una fila por
     # operación, y formatear el millón de celdas para mostrar doscientas costaba 5,9 s medidos
     # (cierre 1 de D-SC). El total y la marca de truncado siguen contando la tabla entera.
     records = cast(list[Mapping[Any, Any]], table.head(max_rows).to_dict(orient="records"))
     visible_rows = [
         tuple(
-            _display_scalar(record.get(column), key_path=(key, str(column))) for column in columns
+            _display_scalar(
+                _public_cell(record.get(column), labels_by_column.get(str(column))),
+                key_path=(key, str(column)),
+            )
+            for column in columns
         )
         for record in records
     ]
