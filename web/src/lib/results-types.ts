@@ -496,6 +496,8 @@ export interface ValidationResult {
       not_evaluable_grades?: ValidationNotEvaluableGrade[]
       traffic_light_cuts?: ValidationTrafficLightCuts | null
       not_evaluable_partitions?: ValidationNotEvaluablePartition[]
+      /** El mínimo por grupo con que se decidieron las ausencias; `null` sin calibración. */
+      min_rows_per_group?: number | null
     }
   }
   discrimination?: ValidationDiscriminationRow[] | null

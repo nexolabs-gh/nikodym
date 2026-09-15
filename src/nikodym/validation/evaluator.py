@@ -174,6 +174,7 @@ class ValidationEvaluator:
         if "discrimination" in self.families:
             discrimination_records = self._run_discrimination(analytic, performance_metrics)
         traffic_light_cuts: dict[str, float] | None = None
+        min_rows_per_group: int | None = None
         if "calibration" in self.families:
             (
                 calibration_records,
@@ -183,6 +184,7 @@ class ValidationEvaluator:
                 not_evaluable_partitions,
             ) = self._run_calibration(analytic)
             traffic_light_cuts = self._traffic_light_cuts()
+            min_rows_per_group = self.min_rows
         if "stability" in self.families:
             stability_frame_out = self._run_stability(stability_metrics, stability_frame)
         if "backtesting" in self.families:
@@ -220,6 +222,7 @@ class ValidationEvaluator:
                 not_evaluable_grades=not_evaluable_grades,
                 traffic_light_cuts=traffic_light_cuts,
                 not_evaluable_partitions=not_evaluable_partitions,
+                min_rows_per_group=min_rows_per_group,
             ),
         )
         return ValidationResult(
@@ -981,6 +984,7 @@ def _metric_sections(
     not_evaluable_grades: tuple[dict[str, Any], ...] = (),
     traffic_light_cuts: dict[str, float] | None = None,
     not_evaluable_partitions: tuple[dict[str, Any], ...] = (),
+    min_rows_per_group: int | None = None,
 ) -> dict[str, Any]:
     """Arma la puerta CT-2 ``metric_sections`` tidy para report/governance (SDD-22 §4).
 
@@ -990,7 +994,10 @@ def _metric_sections(
     dos cortes del semáforo cuando corrió el contraste por grado y ``None`` sin él (D-VAL-15).
     ``not_evaluable_partitions`` enumera cada Hosmer-Lemeshow sin veredicto con su causa y sus
     números (D-VAL-17; lista siempre presente, como ``not_evaluable_grades``): es lo que leen la
-    prosa del informe, el panel y el trail.
+    prosa del informe, el panel y el trail. ``min_rows_per_group`` es el umbral efectivo con que se
+    decidieron esas ausencias —y las de los grados—, publicado una vez como fuente canónica del
+    ``min_rows`` de cada entrada (pasada 4 de Codex sobre la capa B); ``None`` cuando la
+    calibración no corrió.
     """
     return {
         "validation": {
@@ -1006,6 +1013,7 @@ def _metric_sections(
             "not_evaluable_grades": [dict(item) for item in not_evaluable_grades],
             "traffic_light_cuts": None if traffic_light_cuts is None else dict(traffic_light_cuts),
             "not_evaluable_partitions": [dict(item) for item in not_evaluable_partitions],
+            "min_rows_per_group": min_rows_per_group,
         }
     }
 

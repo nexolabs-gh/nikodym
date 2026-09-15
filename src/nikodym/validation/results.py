@@ -837,16 +837,14 @@ class ValidationResult(BaseModel):
             if record.test == "hosmer_lemeshow" and record.decision == "not_evaluable":
                 sin_veredicto.append((record, int(fila["n"])))
         section = self.card.metric_sections.get("validation")
-        publicadas_raw = (
-            section.get("not_evaluable_partitions") if isinstance(section, Mapping) else None
-        )
-        if publicadas_raw is None:
+        if not isinstance(section, Mapping) or section.get("not_evaluable_partitions") is None:
             if sin_veredicto:
                 raise ValueError(
                     "Un resultado con Hosmer-Lemeshow sin veredicto exige "
                     "metric_sections['validation']['not_evaluable_partitions'] en la card."
                 )
             return
+        publicadas_raw = section["not_evaluable_partitions"]
         # Cada entrada es un DTO cerrado con sus invariantes; una malformada no se descarta en
         # silencio (pasada 1 de Codex sobre la capa B).
         try:
@@ -874,11 +872,41 @@ class ValidationResult(BaseModel):
                     "not_evaluable_partitions de la card no coincide con el record y la fila de "
                     f"{record.partition!r}: {observada!r} frente a {esperada!r}."
                 )
-        if len({publicada.min_rows for publicada in publicadas}) > 1:
+        self._check_min_rows_canonico(section, publicadas)
+
+    def _check_min_rows_canonico(
+        self, section: Mapping[str, Any], publicadas: list[NotEvaluablePartition]
+    ) -> None:
+        """Cada ``min_rows`` de la card es el umbral efectivo que la propia card publica una vez.
+
+        Pasada 4 de Codex sobre la capa B: la homogeneidad entre entradas es vacua con una sola y
+        se burla alterándolas juntas. ``metric_sections.validation.min_rows_per_group`` es la
+        fuente canónica —mismo patrón que ``traffic_light_cuts``— y contra ella se cotejan las
+        particiones y los grados sin veredicto. Límite declarado, el mismo de la capa A: adulterar
+        todas las copias a la vez no se detecta sin el config.
+        """
+        grados = [item for item in _sequence_of_mappings(section.get("not_evaluable_grades"))]
+        if not publicadas and not grados:
+            return
+        canonico = section.get("min_rows_per_group")
+        if isinstance(canonico, bool) or not isinstance(canonico, int) or canonico < 1:
             raise ValueError(
-                "Todas las entradas de not_evaluable_partitions deben compartir el mismo min_rows: "
-                "hay un solo mínimo configurado por corrida."
+                "Con particiones o grados sin veredicto la card exige "
+                "metric_sections['validation']['min_rows_per_group'] entero >= 1: es la fuente "
+                f"canónica de cada min_rows; observado {canonico!r}."
             )
+        for publicada in publicadas:
+            if publicada.min_rows != canonico:
+                raise ValueError(
+                    f"not_evaluable_partitions de {publicada.partition!r} declara min_rows="
+                    f"{publicada.min_rows}, y el umbral efectivo de la corrida es {canonico}."
+                )
+        for grado in grados:
+            if grado.get("min_rows") != canonico:
+                raise ValueError(
+                    f"not_evaluable_grades de {grado.get('grade')!r} declara min_rows="
+                    f"{grado.get('min_rows')!r}, y el umbral efectivo de la corrida es {canonico}."
+                )
 
     def _check_consolidado_derivado(self) -> None:
         """La card cuenta y consolida exactamente lo que sus records y su estabilidad derivan.
@@ -1093,6 +1121,13 @@ def _stability_has(stability_frame: Any, decision: str) -> bool:
     if stability_frame.shape[0] == 0:
         return False
     return bool((stability_frame["decision"] == decision).any())
+
+
+def _sequence_of_mappings(value: Any) -> list[Mapping[str, Any]]:
+    """Las entradas de una lista de la card que son mappings (las demás no llevan ``min_rows``)."""
+    if not isinstance(value, list | tuple):
+        return []
+    return [item for item in value if isinstance(item, Mapping)]
 
 
 def _same_cell(observado: Any, esperado: Any) -> bool:

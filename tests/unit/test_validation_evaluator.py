@@ -260,6 +260,8 @@ def test_validate_estabilidad_review_da_overall_warn() -> None:
         stability_metrics=_stability_metrics(review=True),
     )
     assert result.card.overall_status == "warn"
+    # Sin calibración no hay umbral por grupo que publicar: la clave está y es nula.
+    assert result.card.metric_sections["validation"]["min_rows_per_group"] is None
 
 
 def test_validate_miscalibrado_da_overall_fail_y_cuenta_fallos() -> None:
@@ -407,8 +409,10 @@ def test_validate_calibracion_hl_bajo_minimo_es_not_evaluable() -> None:
     )
     assert filas.loc[("desarrollo", "brier"), "not_evaluable_reason"] is None
     # Y la card enumera las tres particiones con su causa y sus números (la prosa y el panel leen
-    # de aquí); sin grupos formados, ``min_group_size`` va nulo.
+    # de aquí); sin grupos formados, ``min_group_size`` va nulo. El umbral efectivo se publica una
+    # vez, como fuente canónica de cada `min_rows` (pasada 4 de Codex sobre la capa B).
     section = result.card.metric_sections["validation"]
+    assert section["min_rows_per_group"] == 40
     assert section["not_evaluable_partitions"] == [
         {
             "partition": "desarrollo",
@@ -504,6 +508,7 @@ def test_validate_sin_ninguna_prueba_evaluable_no_dice_pasa() -> None:
     assert result.card.n_tests == 0
     assert result.card.overall_status == "not_evaluable"
     assert result.card.metric_sections["validation"]["overall_status"] == "not_evaluable"
+    assert result.card.metric_sections["validation"]["min_rows_per_group"] == 30
     assert [
         p["partition"]
         for p in result.card.metric_sections["validation"]["not_evaluable_partitions"]

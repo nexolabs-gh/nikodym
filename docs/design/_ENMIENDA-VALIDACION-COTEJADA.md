@@ -50,8 +50,15 @@
 > prueba alcanzó potencia», cuando el estado también sale con sólo el puntaje de Brier, sólo
 > discriminación o las pruebas apagadas: la definición pública es la del motor (ninguna prueba
 > con veredicto de pasa o falla y ninguna decisión de estabilidad) y la falta de potencia queda
-> como una causa posible, con gate sobre las dos páginas—; C, pendiente. Codex sobre el código de
-> la capa A, pasada 1 (`8ca9246`): dos hallazgos,
+> como una causa posible, con gate sobre las dos páginas—; pasada 4 (`9d512d1`): un hallazgo
+> medio, verificado y absorbido —el `min_rows` de cada partición sin veredicto sólo se exigía
+> homogéneo, así que una card rehidratada podía decir «bajo el mínimo de 101» con un umbral
+> ejecutado de 200 (con una entrada la homogeneidad es vacua): la card publica una vez el umbral
+> efectivo, `metric_sections.validation.min_rows_per_group` (mismo patrón que
+> `traffic_light_cuts`; `null` sin calibración), y `ValidationResult` coteja contra él el
+> `min_rows` de cada partición y de cada grado sin veredicto; **límite declarado**, el mismo de la
+> pasada 4 de la capa A: adulterar todas las copias a la vez no se detecta sin el config—; C,
+> pendiente. Codex sobre el código de la capa A, pasada 1 (`8ca9246`): dos hallazgos,
 > verificados y absorbidos —la prosa y el panel redondeaban un corte con más de cuatro decimales
 > hasta describir otra política (ahora con todos sus dígitos), y una corrida toda verde no dejaba
 > los cortes en el trail (decisión incondicional `calibration_semaforo_cortes`)—; pasada 2

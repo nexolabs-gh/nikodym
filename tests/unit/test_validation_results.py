@@ -700,6 +700,7 @@ def _card_hl_no_evaluable(**updates: Any) -> ValidationCardSection:
         "traffic_light": {"green": 1, "amber": 0, "red": 0},
         "not_evaluable_grades": [],
         "traffic_light_cuts": {"green_alpha": 0.05, "red_alpha": 0.01},
+        "min_rows_per_group": 200,
         "not_evaluable_partitions": [
             {
                 "partition": "desarrollo",
@@ -952,6 +953,62 @@ def test_not_evaluable_partition_acepta_lo_que_el_kernel_produce(
     assert entrada.reason == reason
 
 
+def test_validation_result_ancla_min_rows_al_umbral_efectivo_de_la_card() -> None:
+    """Pasada 4 de Codex sobre la capa B: `min_rows` de cada partición sin veredicto sólo se
+    exigía homogéneo, así que una card rehidratada podía decir «bajo el mínimo de 101» cuando el
+    umbral ejecutado fue 200 (con una sola entrada la homogeneidad es vacua). La card publica el
+    umbral efectivo una vez —``metric_sections.validation.min_rows_per_group``, el mismo patrón
+    que ``traffic_light_cuts``— y cada copia (particiones y grados sin veredicto) se coteja contra
+    él. El límite que queda es el mismo declarado en la capa A: adulterar TODAS las copias a la
+    vez no se detecta sin el config."""
+    tabla, records = _hl_no_evaluable()
+    base = _card_hl_no_evaluable().metric_sections["validation"]
+
+    def con(**cambios: Any) -> ValidationCardSection:
+        return _card_hl_no_evaluable(metric_sections={"validation": {**base, **cambios}})
+
+    entrada = dict(base["not_evaluable_partitions"][0])
+    _result(calibration=tabla, calibration_records=records, card=con())
+    # 200 → 101: sigue cumpliendo los invariantes del DTO, pero no es el umbral de la corrida.
+    with pytest.raises(ValidationError, match=r"min_rows.*101.*200"):
+        _result(
+            calibration=tabla,
+            calibration_records=records,
+            card=con(not_evaluable_partitions=[{**entrada, "min_rows": 101}]),
+        )
+    # Sin la clave canónica no hay contra qué cotejar: con particiones sin veredicto se exige.
+    sin_clave = {k: v for k, v in base.items() if k != "min_rows_per_group"}
+    with pytest.raises(ValidationError, match="min_rows_per_group"):
+        _result(
+            calibration=tabla,
+            calibration_records=records,
+            card=_card_hl_no_evaluable(metric_sections={"validation": sin_clave}),
+        )
+    # Un umbral canónico que no es un entero positivo tampoco vale.
+    with pytest.raises(ValidationError, match="min_rows_per_group"):
+        _result(calibration=tabla, calibration_records=records, card=con(min_rows_per_group=0))
+    # Los grados bajo mínimo también llevan `min_rows` (desde B22.6) y se cotejan con la misma
+    # clave.
+    grado = {
+        "grade": "Z",
+        "n": 12,
+        "observed_defaults": 3,
+        "expected_pd": 0.2,
+        "observed_dr": 0.25,
+        "min_rows": 30,
+        "status": "not_evaluable",
+    }
+    with pytest.raises(ValidationError, match=r"not_evaluable_grades.*min_rows"):
+        _result(
+            calibration=tabla, calibration_records=records, card=con(not_evaluable_grades=[grado])
+        )
+    _result(
+        calibration=tabla,
+        calibration_records=records,
+        card=con(not_evaluable_grades=[{**grado, "min_rows": 200}]),
+    )
+
+
 def test_validation_result_exige_que_la_card_cuente_solo_decisiones_evaluables() -> None:
     """D-VAL-17: ``n_tests``/``n_failed`` y ``overall_status`` son derivables de los records y del
     frame de estabilidad, y la card no puede decir otra cosa (una card rehidratada con ``n_tests``
@@ -1005,7 +1062,8 @@ def test_validation_result_sin_evidencia_evaluable_es_not_evaluable() -> None:
             "validation": {
                 "not_evaluable_partitions": _card_hl_no_evaluable().metric_sections["validation"][
                     "not_evaluable_partitions"
-                ]
+                ],
+                "min_rows_per_group": 200,
             }
         },
     )

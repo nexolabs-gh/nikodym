@@ -48,7 +48,8 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   mínimo, un grupo de PD bajo el mínimo, un grupo sin variabilidad o un estadístico que desbordó
   con PD extremas. La causa viaja en la tabla `calibration` (columna `not_evaluable_reason`, al
   final; en el documento no se pinta y la prosa la cuenta con sus números), en la card
-  (`metric_sections.validation.not_evaluable_partitions`, siempre presente) y en el trail (regla
+  (`metric_sections.validation.not_evaluable_partitions`, siempre presente, junto al umbral
+  efectivo `min_rows_per_group` con que se decidieron esas ausencias) y en el trail (regla
   nueva `calibration_hl_not_evaluable`), y Resultados la muestra junto al «Sin veredicto» de la
   fila. Las pruebas que no se pudieron correr **no cuentan** en «pruebas fallidas»: `n_tests` y
   `n_failed` cuentan sólo las decisiones con veredicto en las cuatro familias (antes contaban
