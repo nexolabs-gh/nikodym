@@ -1123,7 +1123,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-09-12</dd>
+      <dd>2026-09-15</dd>
     </div>
   </dl>
 
@@ -1131,7 +1131,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=0071cfc634a64dcb751bd430a4c8d75277a20857</code></div>
+    <div class="lineage-line"><code>git_sha=104226e0c1bb2c4a46356ca4a52be047e738b6d7</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -6078,9 +6078,9 @@ L 357.81 486.278125
   <table id="table-validation-discrimination" data-table-key="validation.discrimination">
     <thead><tr><th>partition</th><th>n_total</th><th>n_bad</th><th>auc</th><th>gini</th><th>ks</th><th>source</th><th>status</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>3961</td><td>924</td><td>0.712346</td><td>0.424692</td><td>0.320144</td><td>performance_artifact</td><td>ok</td></tr>
-      <tr><td>holdout</td><td>1031</td><td>244</td><td>0.694646</td><td>0.389292</td><td>0.311892</td><td>performance_artifact</td><td>ok</td></tr>
-      <tr><td>oot</td><td>1008</td><td>239</td><td>0.656096</td><td>0.312192</td><td>0.251906</td><td>performance_artifact</td><td>ok</td></tr>
+      <tr><td>Desarrollo</td><td>3961</td><td>924</td><td>0.712346</td><td>0.424692</td><td>0.320144</td><td>Reusada de la etapa de desempeño</td><td>Evaluada</td></tr>
+      <tr><td>Holdout</td><td>1031</td><td>244</td><td>0.694646</td><td>0.389292</td><td>0.311892</td><td>Reusada de la etapa de desempeño</td><td>Evaluada</td></tr>
+      <tr><td>Fuera de tiempo (OOT)</td><td>1008</td><td>239</td><td>0.656096</td><td>0.312192</td><td>0.251906</td><td>Reusada de la etapa de desempeño</td><td>Evaluada</td></tr>
     </tbody>
   </table>
 </figure>
@@ -6098,12 +6098,12 @@ L 357.81 486.278125
   <table id="table-validation-calibration" data-table-key="validation.calibration">
     <thead><tr><th>partition</th><th>test</th><th>grade</th><th>n</th><th>observed_defaults</th><th>expected_pd</th><th>observed_dr</th><th>statistic</th><th>degrees_of_freedom</th><th>p_value</th><th>alpha</th><th>decision</th><th>traffic_light</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>hosmer_lemeshow</td><td>ALL</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>6.007946</td><td>8</td><td>0.646342</td><td>0.050000</td><td>pass</td><td>—</td></tr>
-      <tr><td>desarrollo</td><td>brier</td><td>ALL</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>0.160175</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
-      <tr><td>oot</td><td>hosmer_lemeshow</td><td>ALL</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>19.451071</td><td>8</td><td>0.012625</td><td>0.050000</td><td>fail</td><td>—</td></tr>
-      <tr><td>oot</td><td>brier</td><td>ALL</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>0.171278</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
-      <tr><td>holdout</td><td>hosmer_lemeshow</td><td>ALL</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>10.120587</td><td>8</td><td>0.256664</td><td>0.050000</td><td>pass</td><td>—</td></tr>
-      <tr><td>holdout</td><td>brier</td><td>ALL</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>0.164275</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
+      <tr><td>Desarrollo</td><td>Hosmer-Lemeshow</td><td>—</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>6.007946</td><td>8</td><td>0.646342</td><td>0.050000</td><td>Pasa</td><td>—</td></tr>
+      <tr><td>Desarrollo</td><td>Puntaje de Brier</td><td>—</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>0.160175</td><td>—</td><td>—</td><td>—</td><td>Sin veredicto</td><td>—</td></tr>
+      <tr><td>Fuera de tiempo (OOT)</td><td>Hosmer-Lemeshow</td><td>—</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>19.451071</td><td>8</td><td>0.012625</td><td>0.050000</td><td>Falla</td><td>—</td></tr>
+      <tr><td>Fuera de tiempo (OOT)</td><td>Puntaje de Brier</td><td>—</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>0.171278</td><td>—</td><td>—</td><td>—</td><td>Sin veredicto</td><td>—</td></tr>
+      <tr><td>Holdout</td><td>Hosmer-Lemeshow</td><td>—</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>10.120587</td><td>8</td><td>0.256664</td><td>0.050000</td><td>Pasa</td><td>—</td></tr>
+      <tr><td>Holdout</td><td>Puntaje de Brier</td><td>—</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>0.164275</td><td>—</td><td>—</td><td>—</td><td>Sin veredicto</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -6121,21 +6121,21 @@ L 357.81 486.278125
   <table id="table-validation-stability" data-table-key="validation.stability">
     <thead><tr><th>metric</th><th>comparison</th><th>feature</th><th>value</th><th>stable_threshold</th><th>review_threshold</th><th>band</th><th>action</th><th>source</th><th>status</th><th>decision</th></tr></thead>
     <tbody>
-      <tr><td>score_psi</td><td>dev_vs_holdout</td><td>score</td><td>0.012661</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>score_psi</td><td>dev_vs_oot</td><td>score</td><td>0.006792</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>pd_psi</td><td>dev_vs_holdout</td><td>pd_calibrated</td><td>0.013182</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>pd_psi</td><td>dev_vs_oot</td><td>pd_calibrated</td><td>0.006465</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>antiguedad_meses__points</td><td>0.002587</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>antiguedad_meses__points</td><td>0.001531</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>deuda_ingreso__points</td><td>0.003322</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>deuda_ingreso__points</td><td>0.008178</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>ingreso_mensual__points</td><td>0.002994</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>ingreso_mensual__points</td><td>0.009808</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>mora_max_12m__points</td><td>0.010209</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>mora_max_12m__points</td><td>0.006914</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>utilizacion_linea__points</td><td>0.007215</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>utilizacion_linea__points</td><td>0.003973</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
-      <tr><td>temporal_score</td><td>period</td><td>score</td><td>0.010497</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td><td>stability_artifact</td><td>ok</td><td>pass</td></tr>
+      <tr><td>PSI del score</td><td>Desarrollo vs. Holdout</td><td>score</td><td>0.012661</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>PSI del score</td><td>Desarrollo vs. OOT</td><td>score</td><td>0.006792</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>PSI de la PD</td><td>Desarrollo vs. Holdout</td><td>pd_calibrated</td><td>0.013182</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>PSI de la PD</td><td>Desarrollo vs. OOT</td><td>pd_calibrated</td><td>0.006465</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. Holdout</td><td>antiguedad_meses__points</td><td>0.002587</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. OOT</td><td>antiguedad_meses__points</td><td>0.001531</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. Holdout</td><td>deuda_ingreso__points</td><td>0.003322</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. OOT</td><td>deuda_ingreso__points</td><td>0.008178</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. Holdout</td><td>ingreso_mensual__points</td><td>0.002994</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. OOT</td><td>ingreso_mensual__points</td><td>0.009808</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. Holdout</td><td>mora_max_12m__points</td><td>0.010209</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. OOT</td><td>mora_max_12m__points</td><td>0.006914</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. Holdout</td><td>utilizacion_linea__points</td><td>0.007215</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>CSI</td><td>Desarrollo vs. OOT</td><td>utilizacion_linea__points</td><td>0.003973</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
+      <tr><td>PSI temporal</td><td>Período</td><td>score</td><td>0.010497</td><td>0.100000</td><td>0.250000</td><td>Estable</td><td>—</td><td>Reusado de la etapa de estabilidad</td><td>Evaluada</td><td>Pasa</td></tr>
     </tbody>
   </table>
 </figure>
@@ -6176,20 +6176,20 @@ L 357.81 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633</dd>
-    <dt>created_at</dt><dd>2026-09-12T19:00:39.378322Z</dd>
+    <dt>created_at</dt><dd>2026-09-15T13:26:21.606254Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>0071cfc634a64dcb751bd430a4c8d75277a20857</dd>
+    <dt>git_sha</dt><dd>104226e0c1bb2c4a46356ca4a52be047e738b6d7</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.14.0&#34;,
+  &#34;nikodym&#34;: &#34;1.16.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
 }</pre></dd>
     <dt>root_seed</dt><dd>20240706</dd>
-    <dt>runtime_environment_hash</dt><dd>ad15acc13aedcc100420376791828c476418ae6f4407b858d9b5f64273dbcc0b</dd>
+    <dt>runtime_environment_hash</dt><dd>55e3e6faca67ce0ada608c8aa3f9bedba5e7d1348837dda23ed676d8f3b58270</dd>
     <dt>schema_version</dt><dd>1.0.0</dd>
     <dt>uv_lock_hash</dt><dd>32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24</dd>
   </dl>
@@ -7364,15 +7364,20 @@ L 357.81 486.278125
     &#34;calibration&#34;,
     &#34;stability&#34;
   ],
+  &#34;min_rows_per_group&#34;: 30,
   &#34;n_failed&#34;: 1,
   &#34;n_tests&#34;: 3,
   &#34;not_evaluable_grades&#34;: [],
+  &#34;not_evaluable_partitions&#34;: [],
   &#34;overall_status&#34;: &#34;fail&#34;,
+  &#34;stability_recompute&#34;: null,
+  &#34;stability_source&#34;: &#34;stability_artifact&#34;,
   &#34;traffic_light&#34;: {
     &#34;amber&#34;: 0,
     &#34;green&#34;: 0,
     &#34;red&#34;: 0
-  }
+  },
+  &#34;traffic_light_cuts&#34;: null
 }</pre></dd>
   </dl>
 

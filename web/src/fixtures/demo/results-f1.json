@@ -1,16 +1,16 @@
 {
  "status": "done",
- "run_id": "d97078b0b27549ff83a950ff119fbdb4",
+ "run_id": "40cdcfc92a3b4e23bca9db6dd838e3ea",
  "error": null,
  "model_card": {
-  "run_id": "d97078b0b27549ff83a950ff119fbdb4",
+  "run_id": "40cdcfc92a3b4e23bca9db6dd838e3ea",
   "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
-  "git_sha": "0071cfc634a64dcb751bd430a4c8d75277a20857",
+  "git_sha": "104226e0c1bb2c4a46356ca4a52be047e738b6d7",
   "git_dirty": false,
   "root_seed": 20240706,
   "schema_version": "1.0.0",
-  "created_at": "2026-09-12T19:00:39.378322Z",
+  "created_at": "2026-09-15T13:26:21.606254Z",
   "purpose": "Demostración pública de Nikodym RiskLib: scorecard de comportamiento sobre una cartera de consumo sintética. Ilustra el flujo completo de construcción y validación; no decide sobre ninguna operación real.",
   "assumptions": [
    "Los datos son sintéticos y reproducibles: no representan a ninguna institución.",
@@ -110,7 +110,7 @@
     "umbral": "cohort",
     "valor": "cohort",
     "accion": "aplicar_estrategia",
-    "ts": "2026-09-12T19:00:39.703234Z"
+    "ts": "2026-09-15T13:26:21.907856Z"
    },
    {
     "step": null,
@@ -131,7 +131,7 @@
      }
     },
     "accion": "reportar_particiones",
-    "ts": "2026-09-12T19:00:39.703322Z"
+    "ts": "2026-09-15T13:26:21.907928Z"
    },
    {
     "step": null,
@@ -139,7 +139,7 @@
     "umbral": 0.25,
     "valor": "eje de cohorte sin cronología",
     "accion": "no_evaluable",
-    "ts": "2026-09-12T19:00:39.723692Z"
+    "ts": "2026-09-15T13:26:21.927526Z"
    },
    {
     "step": null,
@@ -150,7 +150,7 @@
      "variable": "ingreso_mensual"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-12T19:00:44.333491Z"
+    "ts": "2026-09-15T13:26:26.339311Z"
    },
    {
     "step": null,
@@ -161,7 +161,7 @@
      "variable": "deuda_ingreso"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-12T19:00:44.333583Z"
+    "ts": "2026-09-15T13:26:26.339389Z"
    },
    {
     "step": null,
@@ -172,7 +172,7 @@
      "variable": "utilizacion_linea"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-12T19:00:44.333612Z"
+    "ts": "2026-09-15T13:26:26.339417Z"
    },
    {
     "step": null,
@@ -183,7 +183,7 @@
      "variable": "mora_max_12m"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-12T19:00:44.333660Z"
+    "ts": "2026-09-15T13:26:26.339435Z"
    },
    {
     "step": null,
@@ -194,7 +194,7 @@
      "variable": "antiguedad_meses"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-12T19:00:44.333679Z"
+    "ts": "2026-09-15T13:26:26.339451Z"
    },
    {
     "step": null,
@@ -205,7 +205,7 @@
      "variable": "utilizacion_linea"
     },
     "accion": "conservar_variable",
-    "ts": "2026-09-12T19:00:44.334243Z"
+    "ts": "2026-09-15T13:26:26.340040Z"
    },
    {
     "step": null,
@@ -216,7 +216,7 @@
      "variable": "segmento"
     },
     "accion": "conservar_variable",
-    "ts": "2026-09-12T19:00:44.334294Z"
+    "ts": "2026-09-15T13:26:26.340081Z"
    },
    {
     "step": null,
@@ -227,7 +227,7 @@
      "variable": "segmento"
     },
     "accion": "diagnosticar_sin_eliminar",
-    "ts": "2026-09-12T19:00:44.334315Z"
+    "ts": "2026-09-15T13:26:26.340104Z"
    },
    {
     "step": null,
@@ -240,7 +240,7 @@
      "woe_column": "segmento__woe"
     },
     "accion": "excluir",
-    "ts": "2026-09-12T19:00:44.521805Z"
+    "ts": "2026-09-15T13:26:26.535702Z"
    },
    {
     "step": null,
@@ -253,7 +253,7 @@
      "p_value": 9.904266606971208e-41
     },
     "accion": "enter",
-    "ts": "2026-09-12T19:00:44.680065Z"
+    "ts": "2026-09-15T13:26:26.810933Z"
    },
    {
     "step": null,
@@ -266,7 +266,7 @@
      "p_value": null
     },
     "accion": "flag",
-    "ts": "2026-09-12T19:00:44.692828Z"
+    "ts": "2026-09-15T13:26:26.824582Z"
    },
    {
     "step": null,
@@ -279,7 +279,7 @@
      "p_value": 4.298619202001231e-28
     },
     "accion": "enter",
-    "ts": "2026-09-12T19:00:44.744384Z"
+    "ts": "2026-09-15T13:26:26.879116Z"
    },
    {
     "step": null,
@@ -292,7 +292,7 @@
      "p_value": 9.970285673886036e-12
     },
     "accion": "enter",
-    "ts": "2026-09-12T19:00:44.796529Z"
+    "ts": "2026-09-15T13:26:26.941851Z"
    },
    {
     "step": null,
@@ -305,7 +305,7 @@
      "p_value": 1.7899471110037847e-07
     },
     "accion": "enter",
-    "ts": "2026-09-12T19:00:44.836258Z"
+    "ts": "2026-09-15T13:26:26.985572Z"
    },
    {
     "step": null,
@@ -318,7 +318,7 @@
      "p_value": 0.00036461213095663236
     },
     "accion": "enter",
-    "ts": "2026-09-12T19:00:44.863573Z"
+    "ts": "2026-09-15T13:26:27.019007Z"
    },
    {
     "step": null,
@@ -335,7 +335,7 @@
      "woe_column": "ingreso_mensual__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-12T19:00:44.926183Z"
+    "ts": "2026-09-15T13:26:27.083178Z"
    },
    {
     "step": null,
@@ -354,7 +354,7 @@
      "woe_column": "ingreso_mensual__woe"
     },
     "accion": "flag",
-    "ts": "2026-09-12T19:00:44.926289Z"
+    "ts": "2026-09-15T13:26:27.083246Z"
    },
    {
     "step": null,
@@ -371,7 +371,7 @@
      "woe_column": "deuda_ingreso__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-12T19:00:44.926333Z"
+    "ts": "2026-09-15T13:26:27.083281Z"
    },
    {
     "step": null,
@@ -388,7 +388,7 @@
      "woe_column": "utilizacion_linea__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-12T19:00:44.926363Z"
+    "ts": "2026-09-15T13:26:27.083308Z"
    },
    {
     "step": null,
@@ -405,7 +405,7 @@
      "woe_column": "antiguedad_meses__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-12T19:00:44.926388Z"
+    "ts": "2026-09-15T13:26:27.083331Z"
    },
    {
     "step": null,
@@ -422,7 +422,7 @@
      "woe_column": "mora_max_12m__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-12T19:00:44.926410Z"
+    "ts": "2026-09-15T13:26:27.083351Z"
    },
    {
     "step": null,
@@ -437,7 +437,7 @@
      "optimizer": "newton"
     },
     "accion": "aceptar_ajuste",
-    "ts": "2026-09-12T19:00:44.926436Z"
+    "ts": "2026-09-15T13:26:27.083376Z"
    },
    {
     "step": null,
@@ -481,7 +481,7 @@
      }
     ],
     "accion": "usar_punto_determinista",
-    "ts": "2026-09-12T19:00:44.943414Z"
+    "ts": "2026-09-15T13:26:27.100103Z"
    },
    {
     "step": null,
@@ -493,7 +493,7 @@
      "n_variables": 5
     },
     "accion": "publicar_puntos_redondeados",
-    "ts": "2026-09-12T19:00:44.943758Z"
+    "ts": "2026-09-15T13:26:27.100372Z"
    },
    {
     "step": null,
@@ -504,7 +504,7 @@
      "feature": "antiguedad_meses"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-12T19:00:44.954776Z"
+    "ts": "2026-09-15T13:26:27.111181Z"
    },
    {
     "step": null,
@@ -515,7 +515,7 @@
      "feature": "deuda_ingreso"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-12T19:00:44.962001Z"
+    "ts": "2026-09-15T13:26:27.118405Z"
    },
    {
     "step": null,
@@ -526,7 +526,7 @@
      "feature": "ingreso_mensual"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-12T19:00:44.968783Z"
+    "ts": "2026-09-15T13:26:27.125103Z"
    },
    {
     "step": null,
@@ -537,7 +537,7 @@
      "feature": "mora_max_12m"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-12T19:00:44.976147Z"
+    "ts": "2026-09-15T13:26:27.132438Z"
    },
    {
     "step": null,
@@ -548,7 +548,7 @@
      "feature": "utilizacion_linea"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-12T19:00:44.983421Z"
+    "ts": "2026-09-15T13:26:27.139771Z"
    },
    {
     "step": null,
@@ -560,7 +560,7 @@
      "target_pd": 0.23327442565008835
     },
     "accion": "fijar_ancla",
-    "ts": "2026-09-12T19:00:45.046064Z"
+    "ts": "2026-09-15T13:26:27.199373Z"
    },
    {
     "step": null,
@@ -571,7 +571,7 @@
      "n_fit": 3961
     },
     "accion": "ajustar_calibracion",
-    "ts": "2026-09-12T19:00:45.046152Z"
+    "ts": "2026-09-15T13:26:27.199422Z"
    },
    {
     "step": null,
@@ -583,7 +583,7 @@
      "raw_mean_pd_dev": 0.23327442565008835
     },
     "accion": "publicar_pd_calibrada",
-    "ts": "2026-09-12T19:00:45.046185Z"
+    "ts": "2026-09-15T13:26:27.199452Z"
    },
    {
     "step": null,
@@ -594,7 +594,7 @@
      "ties_created": 0
     },
     "accion": "registrar_ranking",
-    "ts": "2026-09-12T19:00:45.046213Z"
+    "ts": "2026-09-15T13:26:27.199478Z"
    },
    {
     "step": null,
@@ -606,7 +606,7 @@
      "statistic": 19.451071238480708
     },
     "accion": "revisar_calibracion",
-    "ts": "2026-09-12T19:00:45.296260Z"
+    "ts": "2026-09-15T13:26:27.325513Z"
    },
    {
     "step": null,
@@ -667,7 +667,7 @@
      ]
     },
     "accion": "renderizar_reporte",
-    "ts": "2026-09-12T19:01:00.784378Z"
+    "ts": "2026-09-15T13:26:42.421997Z"
    },
    {
     "step": null,
@@ -677,7 +677,7 @@
      "provider": "none"
     },
     "accion": "usar_narrativa_basica",
-    "ts": "2026-09-12T19:01:00.785896Z"
+    "ts": "2026-09-15T13:26:42.423409Z"
    },
    {
     "step": null,
@@ -685,10 +685,10 @@
     "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
     "valor": {
      "path": "scorecard_report.html",
-     "sha256": "d49b72a46febe38cca85d5795cdd0453782276414180b8350a8ebc6b79bf6f01"
+     "sha256": "a10dfa6afe753cccf773b659b9329430d5080109247cb7b28d467bc0ae9bb3c9"
     },
     "accion": "publicar_html_local",
-    "ts": "2026-09-12T19:01:00.785946Z"
+    "ts": "2026-09-15T13:26:42.423481Z"
    },
    {
     "step": null,
@@ -698,7 +698,7 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.pdf"
     },
     "accion": "publicar_pdf_local",
-    "ts": "2026-09-12T19:01:00.785975Z"
+    "ts": "2026-09-15T13:26:42.423522Z"
    },
    {
     "step": null,
@@ -708,7 +708,7 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.qmd"
     },
     "accion": "publicar_qmd_local",
-    "ts": "2026-09-12T19:01:00.785994Z"
+    "ts": "2026-09-15T13:26:42.423544Z"
    },
    {
     "step": null,
@@ -718,17 +718,17 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.docx"
     },
     "accion": "publicar_docx_local",
-    "ts": "2026-09-12T19:01:00.786016Z"
+    "ts": "2026-09-15T13:26:42.423564Z"
    }
   ],
   "determinism_caveats": [],
-  "review_date": "2026-09-12T19:01:00.794191Z",
-  "next_review_date": "2027-09-12T19:01:00.794191Z",
+  "review_date": "2026-09-15T13:26:42.438045Z",
+  "next_review_date": "2027-09-15T13:26:42.438045Z",
   "environment": {
    "python_version": "3.12.14",
    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
    "library_versions": {
-    "nikodym": "1.14.0",
+    "nikodym": "1.16.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "pandera": "0.32.0",
@@ -738,26 +738,26 @@
     "PyYAML": "6.0.3"
    },
    "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-   "captured_at": "2026-09-12T19:01:00.795165Z"
+   "captured_at": "2026-09-15T13:26:42.438983Z"
   }
  },
  "lineage": {
-  "git_sha": "0071cfc634a64dcb751bd430a4c8d75277a20857",
+  "git_sha": "104226e0c1bb2c4a46356ca4a52be047e738b6d7",
   "git_dirty": false,
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
   "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "ad15acc13aedcc100420376791828c476418ae6f4407b858d9b5f64273dbcc0b",
+  "runtime_environment_hash": "55e3e6faca67ce0ada608c8aa3f9bedba5e7d1348837dda23ed676d8f3b58270",
   "library_versions": {
-   "nikodym": "1.14.0",
+   "nikodym": "1.16.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-12T19:00:39.378322Z",
+  "created_at": "2026-09-15T13:26:21.606254Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -825,6 +825,10 @@
     "period_type": "str"
    }
   ],
+  "default_rate_window": {
+   "total_periods": 5,
+   "truncated": false
+  },
   "quality": [
    {
     "col": "ingreso_mensual",
@@ -11320,7 +11324,12 @@
      "amber": 0,
      "red": 0
     },
-    "not_evaluable_grades": []
+    "not_evaluable_grades": [],
+    "traffic_light_cuts": null,
+    "not_evaluable_partitions": [],
+    "min_rows_per_group": 30,
+    "stability_source": "stability_artifact",
+    "stability_recompute": null
    }
   },
   "discrimination": [
@@ -11369,7 +11378,10 @@
     "p_value": 0.6463417818687744,
     "alpha": 0.05,
     "decision": "pass",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    },
    {
     "partition": "desarrollo",
@@ -11384,7 +11396,10 @@
     "p_value": null,
     "alpha": null,
     "decision": "not_evaluable",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    },
    {
     "partition": "oot",
@@ -11399,7 +11414,10 @@
     "p_value": 0.012624826300114127,
     "alpha": 0.05,
     "decision": "fail",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    },
    {
     "partition": "oot",
@@ -11414,7 +11432,10 @@
     "p_value": null,
     "alpha": null,
     "decision": "not_evaluable",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    },
    {
     "partition": "holdout",
@@ -11429,7 +11450,10 @@
     "p_value": 0.2566641296613826,
     "alpha": 0.05,
     "decision": "pass",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    },
    {
     "partition": "holdout",
@@ -11444,7 +11468,10 @@
     "p_value": null,
     "alpha": null,
     "decision": "not_evaluable",
-    "traffic_light": null
+    "traffic_light": null,
+    "green_alpha": null,
+    "red_alpha": null,
+    "not_evaluable_reason": null
    }
   ],
   "stability": [
