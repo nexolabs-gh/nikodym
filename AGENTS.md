@@ -100,6 +100,13 @@ producto, no un extra.
 
 - **Medir antes de escribir.** Todo censo, relevamiento o recuerdo es hipótesis hasta medirlo contra
   el código, la salida o el servicio real.
+- **Menos configuraciones, defaults que funcionan** (directriz de Cami, 2026-09-15 y 2026-09-18;
+  contrato en [`docs/design/31-simplicidad-y-flujo-guiado.md`](docs/design/31-simplicidad-y-flujo-guiado.md)).
+  Antes de añadir una perilla, medir que el default falla en un caso real; si no falla, es una
+  constante. Cada enmienda declara qué NO se configura, sus campos esenciales y su presupuesto de
+  perillas (plantilla §13). Toda capacidad se entrega por las tres puertas —guiada, completa y de
+  pantalla— con resúmenes legibles por etapa. El escaparate se juzga por lo que funciona sin tocar
+  nada.
 - Una capacidad nueva o un cambio contractual requiere enmienda/SDD escrito, revisión independiente
   y aprobación explícita de Cami **antes de programar**. Usar
   [`docs/design/_PLANTILLA-SDD.md`](docs/design/_PLANTILLA-SDD.md).

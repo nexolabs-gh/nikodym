@@ -3,15 +3,91 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.10 |
-| **Fecha** | 2026-07-31 |
-| **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.10 · [`design/00-INDICE.md`](design/00-INDICE.md) |
+| **Versión** | 1.11 |
+| **Fecha** | 2026-09-18 |
+| **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.10 · [`design/00-INDICE.md`](design/00-INDICE.md) · [`design/31-simplicidad-y-flujo-guiado.md`](design/31-simplicidad-y-flujo-guiado.md) |
 
-> **Autoridad actual:** este documento conserva el plan y los estados tal como quedaron el
-> 2026-07-31; no es la foto vigente ni una cola automática. Para estado y próximo paso manda el
-> `HANDOFF.md` interno; para decisiones cerradas,
-> [`design/DECISIONES-VIGENTES.md`](design/DECISIONES-VIGENTES.md). La corrección de autoridad no
-> cambia ningún nodo del roadmap.
+> **Autoridad actual:** el plan de producto vigente es la sección siguiente, «Plan vigente desde
+> 2026-09-18». Todo lo que va después (estado al 2026-07-31, plan operativo del 2026-07-30, bloques
+> B1–B8 y fases F0–F8) conserva el diseño y los DoD históricos y **no es una cola automática**. Para
+> estado medido y próximo paso manda el `HANDOFF.md` interno; para decisiones cerradas,
+> [`design/DECISIONES-VIGENTES.md`](design/DECISIONES-VIGENTES.md).
+
+## Plan vigente desde 2026-09-18 — pavimentar hasta terminar la librería
+
+> Sección viva. Nace de la sesión S16 (2026-09-18), en la que Cami fijó seis decisiones de
+> producto (SDD-31 §0.2) y pidió un plan completo hasta terminar la librería, con el scorecard e
+> IFRS 9 como urgentes. Nada de esta sección autoriza a programar: cada hito entra con su enmienda
+> medida, la revisión adversarial y el OK explícito de Cami (`AGENTS.md`).
+
+### El criterio que ordena todo: SDD-31
+
+[`design/31-simplicidad-y-flujo-guiado.md`](design/31-simplicidad-y-flujo-guiado.md) es el contrato
+transversal de simplicidad: **tres puertas de uso sobre un solo motor** (guiada, completa y de
+pantalla), **entrada mínima** igual a las decisiones institucionales, **defaults que funcionan o
+constantes**, campos **esenciales** visibles y el resto plegado en «Avanzado», **cada etapa habla**
+con un resumen legible en español, **parar y seguir** con decisiones humanas registradas, Excel por
+etapa **opcional**, un **notebook mínimo** por módulo ejecutado en CI, identificadores en inglés y
+lectura en español, MLflow opt-in, y **poda sin ruptura** (plegar y fijar en 1.x; retirar en 2.0).
+La medición que lo motiva —572 campos en pantalla, un preset de ~380 líneas que toca 14 hojas, un
+`run()` mudo y un informe de 126 tablas, frente a un flujo de banco de 27 llamadas que hablaba en
+cada paso— está en su §0.3. Cada hito de abajo se mide con sus cinco cifras (SDD-31 §5).
+
+### Estado medido el 2026-09-18 (`fcd058d`, 1.16.0)
+
+| Módulo | Motor | Pantalla | Informe | Forma de uso (SDD-31) |
+|---|---|---|---|---|
+| Scorecard F1 (eda, binning, selección, modelo, scorecard, calibración, desempeño, estabilidad, validación) | **Estable** (SemVer 1.x) | sí: 409 campos en 12 secciones | sí: 126 tablas | **no**: config completo o preset; `run()` mudo |
+| IFRS 9 / ECL (`survival` + `provisioning_ifrs9`) | Experimental | sí: 72 campos en 2 secciones más `data` | sí | no |
+| LGD modelada y provisión interna | Experimental | sí | sí | no |
+| Validación formal (cotejada contra el BCE) | Experimental | sí | sí | no |
+| ML retador, tuning, explain | Experimental | no | no | no |
+| Survival standalone | Experimental | sí | sí | no |
+| Forward, Markov, stress | Experimental | no (por código) | no | no |
+| CMF (caso de referencia, congelado) | Experimental | opt-in (`--casos-de-referencia`) | sí | fuera del plan (D-JUR) |
+| Monitoreo periódico con historia | — | — | — | **falta el módulo** |
+| Escala maestra y puntos de corte | — | — | — | **falta el módulo** |
+| Originación y reject inference | — | — | — | **falta el módulo** |
+
+### Los hitos, en orden
+
+| Hito | Qué entrega | Diseño | Release |
+|---|---|---|---|
+| **H1 · Scorecard sencillo** | Capa A: puerta guiada `nikodym.Scorecard` (entrada mínima e inferencias declaradas, `run()`/`run(until=)`/`resume()`, decisiones humanas con motivo, resumen por etapa y resumen final con los dos estados, `compare`, MLflow opt-in, IV por muestra y alerta de monotonía fuera de desarrollo, notebook mínimo). Capa B: esenciales/«Avanzado» en pantalla, Excel opcional por etapa, `export()`. Capa C: informe con página ejecutiva, tipografía y marca, ficha renderizada | [`design/_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](design/_ENMIENDA-FLUJO-GUIADO-SCORECARD.md) (propuesta) | 1.17.0 (A) · 1.18.0 (B + C) |
+| **H2 · IFRS 9 sencillo** | `nikodym.Ecl` con la entrada mínima de cartera (fecha de corte, exposición, mora, tasa efectiva, PD del scorecard o curva propia), resúmenes por etapa (curva de PD, staging, LGD/EAD, ECL por cartera y stage), esenciales de `survival` y `provisioning_ifrs9`, notebook mínimo, y lo que el motor necesite para correr sobre un caso real (se mide primero: hoy el preset F4 corre `data → survival → provisioning_ifrs9` con ~12 columnas de insumo) | `_ENMIENDA-FLUJO-GUIADO-IFRS9.md`, por escribir con la misma plantilla | minor propia |
+| **H3 · PD + LGD y provisión interna** | El trabajo «PD + LGD en una corrida» con el mismo molde | enmienda | minor |
+| **H4 · Validación y monitoreo periódico** | «Validar un modelo existente» sencillo, y un módulo **nuevo** `monitoring`: corridas periódicas sobre datos nuevos con el bundle, historia de PSI/CSI/AUC por período, gatillos y semáforos, informe de monitoreo; absorbe los tests de representatividad y el bootstrap de coeficientes cuando tengan evidencia | SDD nuevo + enmienda | minor |
+| **H5 · Escala maestra y puntos de corte** | Módulo pequeño: tramos monótonos de score o PD, PD por tramo, tabla de puntos de corte (aprobación vs. tasa de malos), exportable a la tarjeta | SDD nuevo | minor |
+| **H6 · ML retador** | Bloque B de PARIDAD-1-1 bajo SDD-31 | enmienda | minor |
+| **H7 · Forward, survival, Markov y stress** | Bloque C de PARIDAD-1-1 bajo SDD-31 (empieza por los datos que hoy faltan) | enmienda | minor |
+| **H8 · Originación y reject inference** | Scorecard de admisión con reject inference (parcelling, fuzzy, reweighting) | SDD nuevo | minor |
+| **Transversales** | SIMPLICIDAD-DEL-CONFIG (censo y poda, hacia 2.0); export SQL de la tarjeta y de los tramos para puntuar en el DWH; conectores (BigQuery/SQL) sobre la entrada `("data", "input_frame")`; INTEGRACION-EXTERNA #1/#2/#6/#7; lo residual de ENTREGABLES-LEGIBLES | enmiendas | — |
+
+### Qué falta para que Nikodym sea la librería de referencia en LatAm
+
+Con los módulos de hoy al 100 % **y sencillos**, ninguna librería abierta cubre lo mismo: las de
+scorecard (OptBinning, scorecardpy, skorecard; en R, `scorecard` y `smbinning`) paran en el
+binning, la tarjeta y a veces el monitoreo; las de supervivencia (lifelines, scikit-survival) no
+saben de crédito; las de monitoreo (Evidently, NannyML) son genéricas de ML; SHAP, MLflow y el
+model-card-toolkit son piezas sueltas. Ninguna junta scorecard + calibración + validación formal +
+IFRS 9 + ficha + informe + interfaz, y ninguna habla español. Lo que aún falta para ser la
+referencia:
+
+- **Módulos:** monitoreo periódico con historia (H4), escala maestra y puntos de corte (H5),
+  originación y reject inference (H8); y tres piezas menores: definición del target por curvas de
+  vintage y roll-rate (en `eda`, cuando H1 lo pida), export SQL de la tarjeta, conectores.
+- **No módulos, y pesan igual:** comunidad (issues, contribuciones, releases previsibles),
+  benchmarks públicos reproducibles contra las alternativas (German credit, Lending Club, Home
+  Credit), material de curso sobre el notebook mínimo (Academia Bayes), la estabilidad del API con
+  un 2.0 podado, y casos reales publicados con permiso.
+
+### Regla de secuencia
+
+Un módulo a la vez, en el orden de la tabla; Cami puede reordenar. Nada arranca sin su enmienda
+medida, la revisión de Codex y el OK. Cada hito termina con el notebook mínimo en CI y sus cinco
+cifras ancladas; hasta H1, F1 no se declara «cumplido» en su forma de uso, sólo en su motor.
+
+---
 
 En la foto del 2026-07-31 PyPI publicaba `1.10.0`; `main` se encontraba en mejora continua. La puerta de artefactos y la fuga del
 target están cerradas; el contrato conjunto de defaults efectivos de UI y prerequisitos del report

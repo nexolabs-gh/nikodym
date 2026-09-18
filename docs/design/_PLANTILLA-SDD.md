@@ -76,3 +76,13 @@
 ## 12. Decisiones abiertas y riesgos
 - Lo que queda por decidir (con responsable sugerido).
 - Riesgos técnicos/metodológicos y mitigación.
+
+## 13. Simplicidad (SDD-31) — obligatoria desde el 2026-09-18
+> Sin esta sección el documento no se revisa. Contrato: [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md).
+- **Entrada mínima**: qué pide la puerta guiada (sólo decisiones institucionales) y qué se infiere y se declara en el trail.
+- **Qué NO se configura**, y por qué cada cosa es una constante.
+- **Campos esenciales** por sección (con el tope vigente) y qué queda en «Avanzado».
+- **Presupuesto de perillas**: cuántas hojas nuevas entra la capa (nace en cero) y, por cada excepción, la evidencia de que el default de fábrica falla en un caso real.
+- **Resumen por etapa**: qué dice cada uno, cuál es su tabla de decisión, qué decisiones humanas admite.
+- **Notebook mínimo**: cuántas líneas de usuario y qué recorre.
+- **Las cinco cifras** (SDD-31 D-SIM-11), medidas antes y objetivo después.

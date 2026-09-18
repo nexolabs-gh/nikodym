@@ -40,9 +40,16 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 
 ## 2. Usuarios objetivo
 
-- **Modeladores / científicos de riesgo** de bancos, financieras, fintech, cooperativas, retail financiero.
-- **Equipos de riesgo / provisiones** que reportan a la **CMF** (Chile) y/o bajo **IFRS 9**.
-- **Validadores y auditores** (consumidores de la trazabilidad y documentación automática).
+En orden de prioridad de diseño (decidido por Cami el 2026-09-18, SDD-31): se diseña primero para
+el primero, y los demás no pierden nada.
+
+- **Modeladores de riesgo que saben estadística y no necesariamente Python** (el perfil del área
+  de modelos de un banco): construyen, revisan y documentan con la puerta guiada y con la
+  interfaz, decidiendo sobre resultados legibles por etapa.
+- **Científicos de datos** de bancos, financieras, fintech, cooperativas y retail financiero: la
+  misma puerta guiada en notebook, el config completo cuando lo necesitan, MLflow opcional.
+- **Equipos de riesgo / provisiones** bajo **IFRS 9** (y el caso de referencia CMF, congelado).
+- **Validadores y auditores** (consumidores de la trazabilidad, la ficha y el informe).
 - **Analistas no-programadores** vía la interfaz visual React/FastAPI.
 - **La propia consultora Nikodym** como usuaria intensiva en sus engagements.
 
@@ -95,6 +102,7 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 9. **Núcleo liviano.** `core/` sin dependencias pesadas; backends ML/UI/forecasting detrás de *extras* opcionales con import perezoso.
 10. **Calidad ejemplar (es marketing).** Cobertura de tests, tipado, docs y ejemplos al nivel de un proyecto de referencia.
 11. **Doble verificación de datos externos.** Todo dato, tabla o parámetro extraído de internet o de normativa se confirma contra la **fuente oficial por una segunda vía** (ideal: render visual del documento original, no solo extracción de texto). El producto será usado por instituciones financieras: un número errado es **riesgo regulatorio**, no un detalle cosmético. Nada se da por bueno sin doble check trazado.
+12. **Menos configuraciones, defaults que funcionan** (2026-09-18, [`design/31-simplicidad-y-flujo-guiado.md`](design/31-simplicidad-y-flujo-guiado.md)). Tres puertas de uso sobre un solo motor —guiada, completa y de pantalla— con el mismo config y el mismo `config_hash`. La entrada mínima son las decisiones institucionales; todo lo demás tiene un default probado o es una constante. Antes de añadir una perilla se mide que el default falla en un caso real; cada sección declara sus campos esenciales y pliega el resto; cada etapa produce un resumen legible en español; el escaparate se juzga por lo que funciona sin tocar nada.
 
 ---
 
@@ -188,9 +196,17 @@ Pipeline:
 - Adjuntos tabulares **CSV/XLSX**; manifest y DTOs serializables a JSON para integración.
 
 ### 5.9 Interfaces de uso
-- **API programática** (todas las fases), estilo scikit-learn.
-- **UI visual React/Vite + FastAPI**: editor del config Pydantic, ejecución local y demo estática
-  multi-dominio en `demo.nikodym.cl`.
+Tres puertas sobre un solo motor (SDD-31, D-SIM-1); las tres producen el mismo config y la misma
+evidencia, y una capacidad que sólo tiene una de ellas no está entregada:
+
+- **Puerta guiada** (la que se documenta primero): un objeto por módulo —`Scorecard`, `Ecl`, …—
+  construido con la entrada mínima, que corre de punta a punta con defaults, habla en cada etapa,
+  admite parar, decidir con motivo y seguir, y exporta Excel por etapa a pedido.
+- **Puerta completa**: el `NikodymConfig` íntegro, por YAML o por código, estilo scikit-learn en
+  los componentes. Es la verdad que las otras dos rellenan.
+- **UI visual React/Vite + FastAPI**: editor del mismo config con los campos esenciales visibles y
+  el resto plegado en «Avanzado», ejecución local y demo estática multi-dominio en
+  `demo.nikodym.cl`.
 
 ---
 
@@ -330,6 +346,11 @@ Estado resumido a `1.10.0`:
 > recaptura de la release. El motor CMF, sus pruebas, su evidencia y su página siguen enteros, y
 > el caso sigue alcanzable con `nikodym-ui --casos-de-referencia`, por id y desde un config
 > propio. La fila de arriba conserva el estado que la versión que nombra publicaba.
+>
+> **Lectura actual (2026-09-18, SDD-31).** El motor F1 sigue estable; lo que se rediseña es su
+> **forma de uso** (puerta guiada, esenciales, resúmenes por etapa). El plan vivo hasta terminar la
+> librería, con el scorecard e IFRS 9 como urgentes y los tres módulos que faltan (monitoreo, escala
+> maestra y originación), es la sección «Plan vigente desde 2026-09-18» de [`ROADMAP.md`](ROADMAP.md).
 | Parámetros CMF | Implementados con tests; **validación humana pre-producción pendiente** |
 | Originación/reject inference y plataforma institucional multiusuario | Futuro; requieren priorización y SDD |
 

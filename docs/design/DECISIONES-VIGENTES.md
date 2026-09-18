@@ -19,6 +19,8 @@
 
 | Familia | Estado canónico | Fuente histórica principal |
 |---|---|---|
+| D-SIM-1…12 | **Propuesta el 2026-09-18 (S16)** sobre seis decisiones interactivas de Cami del mismo día (`run()` de una línea con parar y seguir; público primario el modelador que sabe estadística y no Python, con resultados legibles por etapa en notebook o pantalla y Excel opcional; esenciales visibles y «Avanzado» plegado; MLflow opt-in; identificadores en inglés y lectura en español; la simplicidad se aplica a la librería completa y el plan se pavimenta hasta terminarla). Contrato transversal: tres puertas, entrada mínima, defaults o constantes, cinco cifras por módulo, plantilla §13 obligatoria, poda sin ruptura. Pendiente de su aprobación a §12 (tope de esenciales, líneas del notebook, frase de AGENTS.md, horizonte 2.0, orden de módulos) | [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) |
+| D-FLU-1…12 | **Propuesta el 2026-09-18 (S16)**, primera aplicación de SDD-31 al scorecard: puerta guiada `nikodym.Scorecard`, etapas con resumen, `run(until=)`/`resume()`, decisiones humanas con motivo al trail, resumen final con los dos estados, Excel opcional, IV por muestra y alerta de monotonía fuera de desarrollo (aditivas), esenciales por sección (≈35 de 409), MLflow opt-in, notebook mínimo; capas A/B/C. Absorbe la forma de ENTREGABLES-LEGIBLES y los hallazgos #4/#5/#8 de INTEGRACION-EXTERNA-1-16. Pendiente de la aprobación de Cami a §8 | [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md) |
 | D-JUR-1…8 | Aprobada; implementada; B5 humano pendiente | [`_VEREDICTO-NORMATIVA-LOCAL.md`](_VEREDICTO-NORMATIVA-LOCAL.md) |
 | D-MON-1…6 | Aprobada e implementada | [`_ENMIENDA-MONEDA-DEL-INFORME.md`](_ENMIENDA-MONEDA-DEL-INFORME.md) |
 | D-CAP-1…3 | Aprobada e implementada | [`_ENMIENDA-CAPITULO-DE-PROVISIONES.md`](_ENMIENDA-CAPITULO-DE-PROVISIONES.md) |
@@ -811,6 +813,7 @@ corpus histórico o de conocer un ID de memoria:
 
 | Si la tarea toca… | Contratos que gobiernan |
 |---|---|
+| simplicidad de uso, puerta guiada, esenciales/«Avanzado», resúmenes por etapa, notebook mínimo, perillas nuevas | D-SIM en [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) y, para el scorecard, D-FLU en [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md) |
 | abanico de métodos, opciones o requisitos visibles | D-ABA-1…12 en [`_SDD-ABANICO-METODOLOGICO.md`](_SDD-ABANICO-METODOLOGICO.md) |
 | trabajos, formas de respuesta o ejecutabilidad de UI | D-JOB en [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md) y D-EJE en [`_ENMIENDA-TRABAJO-EJECUTABLE.md`](_ENMIENDA-TRABAJO-EJECUTABLE.md) |
 | coacción, errores y anclas | D-ANC en [`_ENMIENDA-ANCLA-DESCARTADA.md`](_ENMIENDA-ANCLA-DESCARTADA.md), además de D-EXI/D-VIS |
