@@ -1,10 +1,12 @@
 # SDD-31 — Simplicidad y flujo guiado (contrato transversal)
 
-> **Estado: PROPUESTO el 2026-09-18** (sesión S16), sobre seis decisiones que Cami tomó de forma
-> interactiva ese mismo día (§0.2). Queda pendiente su aprobación a las decisiones de §12; hasta
-> entonces **no autoriza programar nada**. Es un contrato **transversal**, como SDD-30: no crea un
-> paquete. Fija cómo se diseña, se expone y se entrega cada capacidad de `nikodym` desde ahora, y
-> qué gate lo hace cumplir cuando, diez sesiones después, nadie se acuerde de por qué.
+> **Estado: APROBADO por Cami el 2026-09-18** (sesión S16), de forma interactiva y con la
+> recomendación de cada uno de los cinco puntos de §12, sobre seis decisiones que tomó ese mismo
+> día (§0.2). Aprobar el contrato **no programa nada por sí solo**: cada módulo entra con su
+> enmienda de simplicidad (la primera, la del scorecard, aprobada el mismo día). Es un contrato
+> **transversal**, como SDD-30: no crea un paquete. Fija cómo se diseña, se expone y se entrega
+> cada capacidad de `nikodym` desde ahora, y qué gate lo hace cumplir cuando, diez sesiones
+> después, nadie se acuerde de por qué.
 >
 > **Base medida:** `main` = `fcd058d` (1.16.0). **Enmienda a:** [`../../AGENTS.md`](../../AGENTS.md)
 > «Método de trabajo» (la directriz), [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) (sección §13 nueva),
@@ -22,7 +24,7 @@
 | **Módulo** | Contrato transversal de `nikodym`: cómo se usa la librería. No crea un paquete |
 | **Fase** | F1…F8, todas; se aplica módulo a módulo en el orden de §10 |
 | **Tanda de producción** | T9 (nueva): una enmienda de simplicidad por módulo, cada una con su implementación |
-| **Estado** | Propuesto (2026-09-18); aprobación de Cami pendiente (§12) |
+| **Estado** | Aprobado por Cami el 2026-09-18 con la recomendación de cada punto de §12 |
 | **Depende de** | CT-1…4, SDD-01/05/23/26, D-JOB (UI por trabajos), D-SUB (subsección inerte), D-OBL (decisiones obligatorias), D-PAR (paridad 1:1), SCORECARD-COMPLETO |
 | **Lo consumen** | Toda enmienda y SDD posterior, la plantilla, `ROADMAP.md`, `docs_site/`, la UI, los notebooks públicos |
 | **Autor / Fecha** | Claude Code / 2026-09-18 |
@@ -147,8 +149,13 @@ Se apoya en contratos que ya existen y **no los reabre**:
 **D-SIM-1 — Tres puertas, un motor.** Toda capacidad entregada se usa por (a) la **puerta guiada**
 —una línea con defaults, resúmenes por etapa, parar y seguir—, (b) la **puerta completa** —el
 `NikodymConfig` íntegro, por YAML o por código— y (c) la **pantalla**. Las tres producen el mismo
-config, el mismo `config_hash` y la misma evidencia; una capacidad que sólo tiene una de las tres
-no está entregada (misma regla que D-PAR). La guiada es la que se documenta primero en `docs_site/`.
+config, el mismo `config_hash` y **los mismos resultados** (artefactos, métricas, informe); la
+**procedencia** puede diferir —la guiada registra además sus inferencias y las decisiones humanas
+con autor y motivo— y el trail declara por qué puerta entró la corrida. Una capacidad se declara
+**entregada** cuando cierran las tres puertas (misma regla que D-PAR); una puerta puede publicarse
+antes que las otras **sólo marcada «experimental»** en el copy público y en el CHANGELOG, como el
+resto de superficies experimentales bajo SemVer 1.x (cláusula aprobada por Cami el 2026-09-18 tras
+la pasada 1 de Codex). La guiada es la que se documenta primero en `docs_site/`.
 
 **D-SIM-2 — Entrada mínima = decisiones institucionales.** La puerta guiada se construye sólo con lo
 que el motor no puede saber: los datos, qué es «malo», el identificador, el eje temporal (fecha o
@@ -156,6 +163,10 @@ cohorte) y cómo se separa la muestra; en módulos con insumos propios, sus colu
 (exposición, fecha de corte, severidad…). Lo que se puede inferir **se infiere y se declara** (el
 esquema de las columnas, los tipos, cuáles son categóricas, qué columnas son predictoras), con la
 inferencia registrada en el trail como decisión, para que quien la quiera cambiar sepa qué cambió.
+Lo que es decisión institucional **no se infiere** (D-OBL-5: el motor no siembra criterio
+institucional): la regla del target se pasa; la estrategia de partición **sigue a lo declarado**
+(`date` → por fecha, `cohort` → por cohortes; sin eje, `partition="random"` explícito) y la frontera
+OOT se exige; si falta, la puerta se detiene **antes de correr** y dice qué valor usaría.
 
 **D-SIM-3 — Defaults que funcionan, o constantes.** Cada default se prueba sobre los datasets del
 paquete y sobre el caso real disponible; una perilla nueva entra sólo con la evidencia escrita de
@@ -177,11 +188,15 @@ identificadores del motor: el gate de códigos internos (`test_report_codigos_in
 a estos resúmenes.
 
 **D-SIM-6 — Parar y seguir.** La puerta guiada corre completa por defecto y admite detenerse en una
-etapa (`run(until="selection")`) y continuar (`resume()`). Entre etapas el usuario toma decisiones
-humanas con motivo (descartar, mantener, recategorizar, fijar cortes); cada una **modifica el
-config** y se emite al trail como `decision` con autor `usuario` y su motivo. Así el config final
-sigue siendo la verdad: `run()` completo sobre ese config reproduce la corrida, y las decisiones se
-leen en el trail y en la ficha.
+etapa (`run(until="selection")`) y continuar (`resume()`). **`run(until=)` corre el prefijo del
+pipeline (`run.steps`) y `resume()` es una corrida nueva y completa sobre el config vigente**
+—`run_id`, lineage y `run_dir` propios; la anterior queda como respaldo—: no se reutilizan
+artefactos entre corridas (la puerta de artefactos D-ART queda como candidata, con evidencia de
+costo, para carteras grandes). Entre etapas el usuario toma decisiones humanas con motivo
+(descartar, mantener, recategorizar, fijar cortes); cada una **modifica el config** y se emite al
+trail como `decision` con autor `usuario` y su motivo. Así el config final sigue siendo la verdad:
+`run()` completo sobre ese config reproduce los resultados, y las decisiones se leen en el trail y,
+cuando hay `governance`, en la ficha.
 
 **D-SIM-7 — Entregable por etapa, opcional.** La guiada exporta a pedido un libro Excel numerado por
 etapa (`export_excel()`), con las mismas tablas del resumen y las tablas completas del anexo. Nunca
@@ -255,16 +270,18 @@ scorecard (la primera aplicación los mide y los fija; §12.2 decide N):
 
 ## 8. Casos borde del contrato
 
-- **Sin eje temporal en los datos:** la partición cae a aleatoria y el resumen lo dice; la
-  estabilidad temporal queda «No evaluable» con causa (regla que ya existe en `eda`/`stability`).
+- **Sin eje temporal en los datos:** el usuario declara `partition="random"` (D-OBL-5: no se
+  siembra) y la estabilidad temporal queda «No evaluable» con causa (regla que ya existe en
+  `eda`/`stability`).
+- **Frontera OOT ausente con `date`/`cohort`:** la puerta se detiene antes de correr, con el rango
+  del archivo y el valor que usaría (D-OBL-5).
 - **Sin identificador:** se usa el índice del archivo y se declara en el trail.
 - **Target con nulos:** son solicitudes recientes sin desempeño (TTD); se puntúan, no se ajustan;
   el resumen de datos lo cuenta.
 - **Decisión humana que deja el modelo sin variables:** la etapa siguiente falla con el mensaje del
   motor y el resumen anterior sigue disponible; nada se pierde.
-- **Cambio del config después de parar:** invalida las etapas aguas abajo; `resume()` las vuelve a
-  correr desde la primera afectada (la puerta de artefactos ya sabe reanudar desde claves
-  existentes).
+- **Cambio del config después de parar:** `resume()` corre el pipeline completo de nuevo sobre el
+  config vigente; nada se reutiliza y nada queda obsoleto.
 - **Un campo esencial sin default (decisión institucional):** se pregunta; no hay valor de fábrica
   que lo tape (D-OBL).
 
@@ -273,7 +290,9 @@ scorecard (la primera aplicación los mide y los fija; §12.2 decide N):
 - El config final de una corrida guiada es un `NikodymConfig` completo; su `config_hash` es la
   identidad, y `run()` sobre ese config reproduce la corrida sin la puerta guiada.
 - Cada inferencia (esquema, categóricas, predictoras) y cada decisión humana se emite al trail como
-  `decision` con `autor` y `motivo`; la ficha del modelo las lista en su sección de decisiones.
+  `decision` con `autor` y `motivo`, y un evento de entrada nombra la puerta; la ficha del modelo
+  —cuando hay `governance`— las lista en su sección de decisiones. La **procedencia es declarada,
+  no idéntica** entre puertas (D-SIM-1); el lineage no cambia.
 - El Excel opcional y los resúmenes se derivan de los mismos artefactos que el informe: no hay una
   segunda aritmética.
 
@@ -313,3 +332,14 @@ El detalle, con hitos y lo que falta para que la librería sea de referencia, vi
 | 12.3 | La frase en `AGENTS.md` («Método de trabajo») | (a) **la propuesta**: «Menos configuraciones, defaults que funcionan. Antes de añadir una perilla, medir que el default falla en un caso real; si no falla, es una constante. Cada enmienda declara qué NO se configura, sus campos esenciales y su presupuesto de perillas (SDD-31). El escaparate se juzga por lo que funciona sin tocar nada»; (b) otra redacción de Cami | **(a)** |
 | 12.4 | Horizonte de la poda (D-SIM-12) | (a) **2.0 con censo de uso**; (b) plegar y fijar bastan, no habrá retiro | **(a)**: fijar sin retirar deja 572 hojas que alguien debe seguir documentando y gateando |
 | 12.5 | Orden de módulos de §10 | (a) **el propuesto**; (b) IFRS 9 antes que el scorecard; (c) otro | **(a)**: el scorecard produce la PD que IFRS 9 consume, y su enmienda ya está escrita |
+
+**Respuestas de Cami (2026-09-18, interactivas): (a) en las cinco.** Valores vigentes: tope de
+**6** campos esenciales por sección; notebook mínimo de **≤ 25** líneas de usuario; la frase de
+12.3 ya vive en `AGENTS.md` («Método de trabajo»); la poda espera al **2.0 con censo de uso**; el
+orden de §10 es el vigente.
+
+**Respuestas de Cami a la pasada 1 de Codex (2026-09-18, cuatro hallazgos contractuales):**
+D-OBL-5 **se respeta** (la frontera OOT se exige y la estrategia sigue a lo declarado; D-SIM-2);
+D-SIM-1 gana la **cláusula de adelanto declarado** (una puerta puede salir antes marcada
+«experimental»); la paridad es de **config, `config_hash` y resultados**, con la procedencia
+declarada (D-SIM-1/6, §9); `resume()` es una **corrida nueva y completa** (D-SIM-6).

@@ -196,8 +196,9 @@ Pipeline:
 - Adjuntos tabulares **CSV/XLSX**; manifest y DTOs serializables a JSON para integración.
 
 ### 5.9 Interfaces de uso
-Tres puertas sobre un solo motor (SDD-31, D-SIM-1); las tres producen el mismo config y la misma
-evidencia, y una capacidad que sólo tiene una de ellas no está entregada:
+Tres puertas sobre un solo motor (SDD-31, D-SIM-1); las tres producen el mismo config, el mismo
+`config_hash` y los mismos resultados —la procedencia se declara—, y una capacidad se declara
+entregada cuando cierran las tres (una puerta puede adelantarse sólo marcada «experimental»):
 
 - **Puerta guiada** (la que se documenta primero): un objeto por módulo —`Scorecard`, `Ecl`, …—
   construido con la entrada mínima, que corre de punta a punta con defaults, habla en cada etapa,

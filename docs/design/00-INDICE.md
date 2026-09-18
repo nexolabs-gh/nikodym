@@ -18,7 +18,7 @@
 > **Hito 0 — Contratos transversales (2026-06-24):** antes de codificar F0 se estabilizó la *extensibilidad* de los 4 contratos que cruzan todas las capas (orquestación DAG vía `requires`/`provides`; resultados/metrics/overlay con puerta de extensión estructurada; frontera datos transversal-vs-longitudinal; owner del ensamblado de corrida). Decisiones en [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagadas a SDD-01/02/03 (cabecera "rev. Hito 0"). Estrategia de construcción confirmada: **mixto-troncal-más-incremental** (spike troncal acotado → código F0 → incremental por capa con diseño *just-in-time*).
 
 Este índice lista los **28 Documentos de Diseño (SDD)** que guiaron la construcción de Nikodym
-RiskLib y los dos contratos transversales: **SDD-30 (aprobado)** y **SDD-31 (propuesto el
+RiskLib y los dos contratos transversales: **SDD-30 (aprobado)** y **SDD-31 (aprobado el
 2026-09-18)**. El número 29 permanece reservado por SDD-28 para el CLI y no se reutiliza. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md); un cambio
 contractual nuevo requiere un SDD nuevo o una revisión explícita.
 
@@ -72,7 +72,7 @@ contractual nuevo requiere un SDD nuevo o una revisión explícita.
 | **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | ✅ Implementado · experimental |
 | **29** | CLI | Producto | F8 | — | 28 | ⏸️ Número reservado por SDD-28; documento no redactado |
 | **30** | [`readiness integral`](30-readiness-integral.md) (contrato transversal) | Producto | F0–F8 | T8 | 01–28, contratos vigentes | ✅ Aprobado · H9R aprobada · W0 cerrada/PASS · W1 NO PASS/bloqueada por recalibración |
-| **31** | [`simplicidad y flujo guiado`](31-simplicidad-y-flujo-guiado.md) (contrato transversal: tres puertas de uso, entrada mínima, defaults, esenciales, resúmenes por etapa, notebook mínimo) | Producto | F1–F8 | T9 | CT-1…4, 01/05/23/26, D-JOB, D-SUB, D-OBL, D-PAR | 📝 Propuesto el 2026-09-18 (S16); primera aplicación: [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md) (propuesta) |
+| **31** | [`simplicidad y flujo guiado`](31-simplicidad-y-flujo-guiado.md) (contrato transversal: tres puertas de uso, entrada mínima, defaults, esenciales, resúmenes por etapa, notebook mínimo) | Producto | F1–F8 | T9 | CT-1…4, 01/05/23/26, D-JOB, D-SUB, D-OBL, D-PAR | ✅ Aprobado por Cami el 2026-09-18 (S16); primera aplicación: [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md), aprobada el mismo día; capa A por implementar |
 
 Evidencia operativa de la oleada cerrada:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
@@ -109,7 +109,7 @@ memoria en el candidato con el diseño vigente y que esa vía **se cierra sin ad
 DACL restrictiva más un ACE de `OWNER RIGHTS` —la DACL sola no basta, porque el dueño la reescribe—.
 No autoriza START ni mueve la puerta global.
 
-**28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · SDD-31 propuesto · 10 tandas
+**28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · SDD-31 aprobado · 10 tandas
 identificadas (T0–T9; T0 = verificación, sin SDD nuevo; T9 = simplicidad por módulos, una enmienda
 por módulo bajo SDD-31, la primera
 [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md)).** La madurez pública y la garantía SemVer se declaran

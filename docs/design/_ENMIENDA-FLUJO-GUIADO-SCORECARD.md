@@ -1,9 +1,15 @@
 # Enmienda SDD — Flujo guiado del scorecard (primera aplicación de SDD-31)
 
-> **Estado: PROPUESTA el 2026-09-18** (sesión S16), sobre las decisiones interactivas de Cami de ese
-> día (SDD-31 §0.2). Pendiente de su aprobación a §8. Diseño sin código: **no autoriza programar**
-> ninguna capa; cada capa se implementa sólo tras el OK, con tests nacidos rojos, controles
-> negativos y revisión adversarial.
+> **Estado: APROBADA por Cami el 2026-09-18** (sesión S16), de forma interactiva y con la
+> recomendación de cada uno de los siete puntos de §8, sobre sus decisiones del mismo día (SDD-31
+> §0.2). Diseño sin código: **la capa A se implementa en la sesión siguiente**, con tests nacidos
+> rojos, controles negativos y revisión adversarial; B y C después, cada una con el OK de su
+> release (1.17.0 la A, **declarada experimental hasta que cierre B**; 1.18.0 B + C).
+> **Corregida el mismo día tras la pasada 1 de Codex** (seis hallazgos high, todos absorbidos; los
+> cuatro contractuales decididos por Cami: D-OBL-5 se respeta —la frontera OOT se exige—, adelanto
+> declarado en D-SIM-1, paridad de resultados con procedencia declarada, `resume()` como corrida
+> nueva completa; los otros dos, artefactos aditivos separados y ficha sólo con `purpose`, son
+> correcciones de diseño).
 >
 > **Base medida:** `main` = `fcd058d` (1.16.0). **Enmienda a:**
 > [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) (lo aplica), SDD-06…11 y
@@ -136,7 +142,8 @@ sc = Scorecard(
     data="cartera.parquet",             # ruta (csv/parquet/xlsx) o DataFrame
     target="malo",                      # columna 0/1, o una regla: {"col": "dias_mora", "op": ">", "value": 90}
     id="id_cliente",
-    date="fecha_solicitud",             # o cohort="cohorte"; sin ninguno, partición aleatoria declarada
+    date="fecha_solicitud",             # o cohort="cohorte"; sin ninguno, partition="random" explícito
+    oot_from="2024-01",                 # frontera OOT: obligatoria con date (oot_cohorts= con cohort); D-OBL-5
     name="consumo_v01",                 # versión del proyecto; opcional
     run_dir="modelos",                  # la evidencia queda en modelos/consumo_v01
 )
@@ -144,17 +151,20 @@ sc.run()                                # corre todo e imprime el resumen de cad
 sc.summary()                            # el resumen final: ejecución y veredicto técnico, por separado
 ```
 
-- **Lo que se pide** es sólo lo institucional (D-SIM-2): datos, target, identificador, eje
-  temporal y —si no hay eje— nada más. Todo lo demás tiene default.
+- **Lo que se pide** es sólo lo institucional (D-SIM-2, D-OBL-5): datos, target, identificador,
+  eje temporal **y la frontera OOT** (`oot_from=` con `date`, `oot_cohorts=` con `cohort`) o, sin
+  eje, `partition="random"`. Si con `date`/`cohort` falta la frontera, `Scorecard` se detiene
+  **antes de correr** con el rango del archivo y el valor que usaría («los últimos 12 meses serían
+  desde 2024-01»). Nada institucional se siembra. Todo lo demás tiene default.
 - **Lo que se infiere y se declara** (una decisión `inferencia_*` en el trail por cada una): el
   esquema (`data.schema.columns` desde los dtypes), las categóricas (dtype `object`/`category`/
   `bool`), las predictoras (todas menos id, target, fecha/cohorte y las columnas de la regla del
-  target, por D-FUGA), la partición (temporal si hay `date`, por cohorte si hay `cohort`, aleatoria
-  si no; el corte OOT por la regla de §8-2), y los rótulos de las muestras.
+  target, por D-FUGA) y los rótulos de las muestras. La estrategia de partición **sigue a lo
+  declarado** (`date` → temporal, `cohort` → cohorte), no se infiere.
 - **Argumentos opcionales = campos esenciales** (D-FLU-7): `features=`, `categorical=`,
-  `oot_from=`/`oot_cohorts=`, `holdout=`, `max_bins=`, `min_iv=`, `pdo=`/`target_score=`/
-  `target_odds=`, `target_pd=`, `track=`. Ninguno es una hoja nueva: cada uno escribe una hoja
-  existente del config.
+  `holdout=`, `max_bins=`, `min_iv=`, `pdo=`/`target_score=`/`target_odds=`, `target_pd=`,
+  `purpose=` (enciende `governance` y con ella la ficha; sin él no hay ficha, D-GOB-8), `track=`.
+  Ninguno es una hoja nueva: cada uno escribe una hoja existente del config.
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 
@@ -189,16 +199,23 @@ sc.merge_bins("antiguedad_meses", [2, 3], reason="tramos con la misma tasa")
 sc.resume()                             # continúa desde la primera etapa afectada
 ```
 
-- `run(until=<etapa>)` ejecuta hasta esa etapa inclusive; `resume()` continúa. Si una decisión
-  cambia el config de una etapa ya corrida, `resume()` vuelve a correr desde ella (la puerta de
-  artefactos conserva lo anterior).
+- `run(until=<etapa>)` ejecuta el **prefijo** del pipeline hasta esa etapa inclusive (es
+  `run.steps` recortado: una corrida parcial con su propio `config_hash`, `run_id` y lineage).
+  **`resume()` es una corrida nueva y completa** sobre el config vigente (D-SIM-6): `nikodym.run`
+  con `run.steps` completo, `run_id`, lineage y `run_dir` propios; la corrida anterior queda como
+  respaldo lateral (`.<nombre>.old.*`, comportamiento que `nikodym.run` ya tiene). No se reutilizan
+  artefactos entre corridas y la puerta D-ART no interviene: nada queda obsoleto bajo un lineage
+  nuevo. El costo de recomputar se mide en la capa A (cifra 4 de SDD-31 §5); la reutilización queda
+  como candidata con evidencia (§3.7).
 - Decisiones humanas de la capa A: `exclude(cols, reason=)`, `keep(cols, reason=)` (fuerza
   inclusión), `merge_bins(col, bins, reason=)`, `set_bins(col, cuts, reason=)`. Cada una escribe
   la hoja de config correspondiente (`selection.force_exclude`, `model.force_include`,
-  `binning.variable_overrides`) y emite `decision` al trail con `autor="usuario"`, `motivo` y la
-  hoja tocada. La ficha las lista en «Decisiones».
-- `run()` sobre `sc.config` sin la puerta guiada reproduce el mismo resultado: las decisiones viven
-  en el config, no en el objeto.
+  `binning.variable_overrides`) y, en la corrida siguiente, emite `decision` al trail con
+  `autor="usuario"`, `motivo` y la hoja tocada. La ficha las lista en «Decisiones» cuando hay
+  `governance` (`purpose=`); el resumen final las lista siempre.
+- `run()` sobre `sc.config` sin la puerta guiada reproduce los mismos **resultados**: las decisiones
+  viven en el config, no en el objeto. La **procedencia** (inferencias y motivos en el trail) es de
+  la puerta guiada y se declara (D-SIM-1).
 
 ### 3.4 D-FLU-4 — El resumen final: dos estados, cinco cifras y qué revisar
 
@@ -216,16 +233,29 @@ de §3.2 (`01 Datos y muestras.xlsx` … `09 Validación.xlsx`, más `10 Decisio
 tablas de decisión y las tablas completas del anexo, por `report/exports.py` (misma protección de
 celdas). `sc.export("corrida.zip")` empaqueta el `run_dir` (#8). Ninguno corre solo.
 
-### 3.6 D-FLU-6 — Lo que se adopta del banco en la capa A (dos publicaciones aditivas del motor)
+### 3.6 D-FLU-6 — Lo que se adopta del banco en la capa A (dos artefactos aditivos, separados)
 
-1. **IV por partición** en la tabla de selección: `selection` publica, además del IV en desarrollo,
-   el IV de cada variable en holdout y OOT sobre los tramos fijados en desarrollo. Aditivo (una
-   columna por partición en `selection_table`); ningún umbral nuevo: el descarte sigue siendo por
+Las tablas estables de F1 (`selection_table`, las tablas de binning) **no cambian de esquema**: los
+diagnósticos nuevos son artefactos aparte, con clave propia, que los consumidores 1.x pueden
+ignorar y cuyos goldens nacen con ellos.
+
+1. **`("selection", "iv_by_partition")`** — una fila por variable y partición (`desarrollo`,
+   `holdout`, `oot`), columnas `feature`, `partition`, `n`, `n_bad`, `iv`, `not_evaluable_reason`.
+   Metodología: los tramos y el WoE son los fijados en desarrollo (`binning` ya transforma todas las
+   particiones con ellos); el IV se calcula con la fórmula de SDD-07 sobre las filas de esa partición
+   con target no nulo; Missing y Special cuentan como tramos si existen. Casos borde: partición
+   ausente → sin fila; partición con una sola clase o con menos de 30 filas → `iv` nulo con causa
+   (`single_class`, `below_min_rows`; la constante 30 es la misma que `min_bads_per_partition` de
+   fábrica, y es una constante, no una perilla). Ningún umbral nuevo: el descarte sigue siendo por
    `min_iv` en desarrollo. Evidencia: es la primera pregunta de un validador y el flujo del banco
    descartaba por «IV HO/OOT».
-2. **Alerta de monotonía fuera de desarrollo**: `binning` publica la tasa de malos por tramo en
-   cada partición y el resumen marca «invierte en <muestra>» cuando la tendencia de desarrollo no
-   se sostiene. Sólo alerta; no descarta.
+2. **`("binning", "event_rate_by_partition")`** — una fila por variable, tramo y partición, con
+   `feature`, `bin_id`, `bin_label`, `partition`, `n`, `n_bad`, `event_rate`, `inverts`. Metodología:
+   la tendencia de referencia es la de desarrollo (`monotonic_trend` efectivo); un tramo `inverts`
+   cuando el signo de la diferencia de tasa con el tramo anterior contradice esa tendencia; Missing y
+   Special quedan fuera de la comparación; empates (diferencia cero) no invierten; un tramo con
+   menos de 30 filas en la partición no se evalúa (`inverts` nulo). El resumen de binning marca
+   «invierte en <muestra>» por variable. Sólo alerta; no descarta.
 
 Además, sin tocar motores: la traza legible del stepwise, `merge_bins`, `exclude` con motivo,
 `name=` y `compare(other)` (dos corridas lado a lado: cifras, variables y decisiones).
@@ -240,7 +270,7 @@ enmienda cuando un caso real muestre que el default falla o que el módulo falta
 
 | Sección | Esenciales | Hoy visibles |
 |---|---|---|
-| `data` | archivo, regla del target, identificador, fecha o cohorte, partición | 158 |
+| `data` | archivo, regla del target, identificador, fecha o cohorte, frontera OOT (o partición aleatoria), proporción de holdout | 158 |
 | `eda` | ninguno: todo default; el resumen lo muestra | 17 |
 | `binning` | `max_n_bins`, `min_bin_size`, `monotonic_trend` | 42 |
 | `selection` | `min_iv`, `correlation.threshold`, `vif.threshold` | 33 |
@@ -279,7 +309,7 @@ lectura.
 
 | Capa | Qué | Gate de cierre |
 |---|---|---|
-| **A** | Puerta guiada por código: entrada mínima e inferencias, `run`/`until`/`resume`, decisiones humanas, resúmenes por etapa, resumen final, `compare`, `track=`, las dos publicaciones de §3.6, `raise_on_error`, notebook mínimo | las cinco cifras ancladas; notebook en CI; `config_hash` de `sc.config` == el del YAML exportado; `run()` == `run(until)+resume()` sin decisiones |
+| **A** | Puerta guiada por código: entrada mínima e inferencias, `run`/`until`/`resume`, decisiones humanas, resúmenes por etapa, resumen final, `compare`, `track=`, `purpose=`, los dos artefactos de §3.6, `raise_on_error`, notebook mínimo. Sale en 1.17.0 **declarada experimental** en copy público y CHANGELOG hasta que cierre B (D-SIM-1) | las cinco cifras ancladas; notebook en CI; `config_hash` de `sc.config` == el del YAML exportado; `run()` y `resume()` tras `run(until)` dejan artefactos idénticos sin decisiones; los goldens de `selection_table` y de las tablas de binning **no se mueven** |
 | **B** | Pantalla esenciales/«Avanzado» con su golden; Excel opcional y `export()`; Resultados sobre la fuente de `summary()` | golden de esenciales; copy gate; Excel byte a byte con las tablas del informe |
 | **C** | Informe: página ejecutiva = resumen final; tipografía y marca del sitio; ficha renderizada (lo que ENTREGABLES-LEGIBLES pedía y no depende de la API) | goldens del informe declarados antes de moverlos |
 
@@ -299,13 +329,17 @@ su razón: cada una de ellas es exactamente lo que hoy obliga al usuario a saber
 - **Salida:** `sc.study` (el `Study`), `sc.config` (`NikodymConfig`), `sc.results[<etapa>]` (los
   DataFrames de decisión), `sc.summary(<etapa>|None)`, y en disco el layout de SDD-03 §6 bajo
   `<run_dir>/<name>/` más `excel/` si se pidió.
-- **Invariantes:** `config_hash(sc.config)` es estable entre `run()`, `run(until)+resume()` y el
-  YAML exportado; toda decisión humana aparece una vez en el trail y una vez en el config.
+- **Invariantes:** `config_hash(sc.config)` es el de la corrida completa y coincide con el del YAML
+  exportado; una corrida parcial (`run(until=)`) tiene su propio hash porque `run.steps` entra al
+  hash; `resume()` produce los mismos artefactos que `run()` sobre el mismo config; toda decisión
+  humana aparece una vez en el config y una vez en el trail de la corrida que la ejecuta.
 
 ## 5. Casos borde
 
-Sin `date` ni `cohort` (partición aleatoria declarada; estabilidad temporal «No evaluable» con
-causa); `id` ausente (índice del archivo, declarado); target con nulos (TTD: se puntúa, no se ajusta);
+Sin `date` ni `cohort` (hay que declarar `partition="random"`; estabilidad temporal «No evaluable»
+con causa); `date`/`cohort` sin frontera OOT (se detiene antes de correr con el rango y el valor
+sugerido); sin `purpose=` (no hay ficha; el resumen final lista igual las decisiones); `id` ausente
+(índice del archivo, declarado); target con nulos (TTD: se puntúa, no se ajusta);
 categórica con cardinalidad alta (`cat_cutoff` de fábrica agrupa el resto y el resumen lo dice);
 todas las variables descartadas (el modelo falla con el mensaje del motor; los resúmenes anteriores
 quedan); `merge_bins` sobre tramos no adyacentes (error legible: el motor exige adyacencia);
@@ -317,13 +351,17 @@ comando exacto, como `polars`).
 1. Golden de las cinco cifras del scorecard (SDD-31 §5) y del tope de esenciales por sección.
 2. El notebook mínimo ejecutado en CI; control negativo: una línea de más lo pone rojo.
 3. `config_hash(sc.config) == config_hash(load_config(sc.to_yaml()))`.
-4. `run()` y `run(until="model") + resume()` dejan artefactos idénticos sin decisiones humanas.
-5. Una decisión humana aparece en el trail con motivo y en la ficha; control negativo: retirar la
-   emisión → gate rojo.
+4. `run()` y `run(until="model") + resume()` dejan artefactos idénticos sin decisiones humanas
+   (`resume()` es una corrida completa nueva).
+5. Una decisión humana aparece en el trail con motivo y, con `purpose=`, en la ficha; control
+   negativo: retirar la emisión → gate rojo.
 6. Los resúmenes no contienen identificadores del motor (gate de códigos internos extendido).
-7. Las dos publicaciones de §3.6 son aditivas: los goldens actuales de `selection_table` y de las
-   tablas de binning no se mueven salvo por las columnas nuevas, declaradas.
-8. El Excel opcional reproduce byte a byte las tablas de los exports del informe.
+7. Los dos artefactos de §3.6 son aparte: los goldens actuales de `selection_table` y de las tablas
+   de binning **no se mueven**; los nuevos nacen con golden propio y sus casos borde (partición con
+   una clase, tramo con pocas filas, Missing/Special) con test nacido rojo.
+8. Con `date`/`cohort` y sin frontera OOT la puerta se detiene antes de correr (test con el mensaje
+   y el valor sugerido); sin eje y sin `partition="random"`, también.
+9. El Excel opcional reproduce byte a byte las tablas de los exports del informe.
 
 ## 7. Lo que esta enmienda NO hace
 
@@ -343,3 +381,17 @@ convierte el Excel en obligatorio; no reabre D-SC (bandas y estados), D-VAL (pru
 | 8-5 | Releases | (a) **capa A en 1.17.0; B y C en 1.18.0**; (b) A+B+C en 1.17.0 | **(a)**: A ya cambia cómo se usa la librería y merece salir sola; B y C mueven front, informe y goldens |
 | 8-6 | Notebook mínimo como ejemplo canónico | (a) **sí**, y la Clase 6 se actualiza fuera del repo; (b) los dos conviven | **(a)**: dos ejemplos canónicos son dos maneras de empezar |
 | 8-7 | Nombres del Excel opcional | (a) **los de §3.5**; (b) otros | **(a)** |
+
+**Respuestas de Cami (2026-09-18, interactivas): (a) en los siete.** Vigente: la puerta guiada se
+llama `nikodym.Scorecard`; la escala maestra es el hito H5 del roadmap; la capa A sale en 1.17.0 y
+B + C en 1.18.0; la tabla de §3.8 es borrador aprobado y sus rótulos se revisan contra la pantalla
+al implementar; el notebook mínimo es el único ejemplo canónico; los nombres del Excel son los de
+§3.5.
+
+**8-2, superada el mismo día tras la pasada 1 de Codex:** inferir el corte OOT contradecía D-OBL-5
+(«no se siembra una `partition.strategy` por defecto»). Cami eligió **respetar D-OBL**: la
+estrategia sigue a lo declarado (`date` → temporal, `cohort` → cohorte, sin eje `partition="random"`
+explícito) y la **frontera OOT se exige**; si falta, la puerta se detiene antes de correr con el
+rango del archivo y el valor que usaría. Las otras tres decisiones contractuales de esa pasada
+(adelanto declarado, paridad de resultados con procedencia declarada, `resume()` como corrida
+nueva) están en SDD-31 §12.
