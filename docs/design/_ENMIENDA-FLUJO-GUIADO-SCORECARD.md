@@ -16,7 +16,13 @@
 > con el `DecisionRecord` actual intacto (la ficha muestra la decisión, no el motivo, hasta la
 > capa C); el gate de paridad compara una proyección computacional, no los archivos; la firma de
 > `Scorecard` tiene un mapeo exhaustivo con los esenciales (§3.8); `run_dir` y `name` tienen
-> default (§3.1, §8-8).
+> default (§3.1, §8-8). **Pasada 3 (cinco high, todos absorbidos, ninguno contractual):** `keep`
+> escribe `selection.force_include` y `model.force_include`; `id` es opcional y mapea a
+> `unique_keys` (columna) o `index_col` (índice); un `DataFrame` se persiste como snapshot y el
+> config lo referencia; `partition="random"` fija las tres fracciones y ajusta las listas de
+> particiones; cada resumen usa sólo lo que publica su etapa o una anterior (sin AUC en `model`,
+> sin Brier ni ECE en `calibration`). **Con esto se cierra la revisión de diseño en el tope
+> declarado de tres pasadas**: las siguientes van sobre el código de la capa A.
 >
 > **Base medida:** `main` = `fcd058d` (1.16.0). **Enmienda a:**
 > [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) (lo aplica), SDD-06…11 y
@@ -159,9 +165,12 @@ sc.run()                                # corre todo e imprime el resumen de cad
 sc.summary()                            # el resumen final: ejecución y veredicto técnico, por separado
 ```
 
-- **Lo que se pide** es sólo lo institucional (D-SIM-2, D-OBL-5): datos, target, identificador,
-  eje temporal **y la frontera OOT** (`oot_from=` con `date`, `oot_cohorts=` con `cohort`) o, sin
-  eje, `partition="random"`. Si con `date`/`cohort` falta la frontera, `Scorecard` se detiene
+- **Lo que se pide** es sólo lo institucional (D-SIM-2, D-OBL-5): datos, target, eje temporal
+  **y la frontera OOT** (`oot_from=` con `date`, `oot_cohorts=` con `cohort`) o, sin eje,
+  `partition="random"`. El identificador (`id=`) es opcional y recomendado: si nombra una columna
+  va a `data.schema.unique_keys`; si nombra el índice del archivo, a `index_col` (que el motor
+  reserva a un índice pandas nombrado, `data/schema.py:36`); sin él se usa el índice del archivo
+  y se declara. Si con `date`/`cohort` falta la frontera, `Scorecard` se detiene
   **antes de correr** con el rango del archivo y el valor que usaría («los últimos 12 meses serían
   desde 2024-01»). Nada institucional se siembra. Todo lo demás tiene default.
 - **Lo que se infiere y se declara** (una decisión `inferencia_*` en el trail por cada una): el
@@ -174,6 +183,14 @@ sc.summary()                            # el resumen final: ejecución y veredic
   esencial), ninguno más; `purpose=` enciende `governance` y con ella la ficha (sin él no hay ficha,
   D-GOB-8); `track=` enciende `tracking`. Ninguno es una hoja nueva: cada uno escribe una hoja
   existente del config. Lo que no está en esa tabla se alcanza por `sc.config` (la puerta completa).
+- **`data` como `DataFrame`:** la puerta lo persiste como snapshot parquet determinista en
+  `<run_dir>/<name>/input/data.parquet` y apunta `data.load.source` a esa ruta, de modo que
+  `sc.config` y `sc.to_yaml()` reproducen la corrida por sí solos (la entrada `("data",
+  "input_frame")` no se usa: no forma parte del config).
+- **`partition="random"`:** `holdout_fraction = holdout`, `oot_fraction = 0.0` y `dev_fraction =
+  1 − holdout` (`RandomSplitConfig` exige que sumen 1); no hay muestra OOT, y la puerta ajusta las
+  listas de particiones de `performance.partitions`, `validation.discrimination.partitions` y
+  `stability.comparisons` a las que existen, declarándolo como inferencia.
 - **Dónde queda la evidencia (§8-8):** `run_dir` tiene default `"nikodym-runs"` (relativo al
   directorio de trabajo) y `name` default `"scorecard"`; la corrida escribe en `<run_dir>/<name>/`
   el layout de SDD-03 §6 (trail incluido: el preset F1 trae `audit` encendido y el trail relativo
@@ -190,19 +207,23 @@ las alertas en palabras.
 
 | Etapa | Rótulo | Lo que dice | Tabla de decisión |
 |---|---|---|---|
-| `data` | Datos y muestras | filas, malos y tasa; por muestra (DEV/HO/OOT/TTD) con fechas o cohortes; qué se infirió | tasa de malos por período con la banda de estabilidad de `eda` |
+| `data` | Datos y muestras | filas, malos y tasa; por muestra (DEV/HO/OOT/TTD) con fechas o cohortes; qué se infirió; dónde queda la evidencia | filas y malos por muestra |
+| `eda` | Análisis exploratorio | la tasa de malos en el tiempo y su banda; las marcas de calidad del archivo | tasa de malos por período o cohorte con la banda de estabilidad |
 | `binning` | Tramos y WoE | variables tramificadas, descartadas por no tramificables, alertas de monotonía en HO/OOT (§3.6) | IV por variable con tendencia y número de tramos |
 | `selection` | Selección de variables | cuántas entran, cuáles salen y por qué (IV, correlación, VIF, estabilidad, decisión humana) | IV por muestra, correlación máxima, VIF (§3.6) |
-| `model` | Modelo | variables finales, iteraciones del stepwise y qué salió en cada una, AUC/KS por muestra | coeficientes con signo, p-valor y contribución al IV |
+| `model` | Modelo | variables finales, iteraciones del stepwise y qué salió en cada una, ajuste (pseudo-R², AIC, LLR) | coeficientes con signo, p-valor y contribución al IV |
 | `scorecard` | Tarjeta de puntuación | escala (PDO, puntaje y odds objetivo), rango de puntajes | puntos por tramo |
-| `calibration` | Calibración | ancla y fuente, PD media antes y después, ranking preservado | Brier/ECE por muestra |
+| `calibration` | Calibración | ancla y fuente, desplazamiento aplicado, ranking preservado y empates | PD media por muestra antes y después del ajuste |
 | `performance` | Desempeño | AUC, Gini y KS por muestra y la caída DEV→OOT en palabras | deciles por muestra (la tabla de rendimiento) |
 | `stability` | Estabilidad | peor PSI con su banda, CSI peor por variable | PSI/CSI por comparación con banda |
 | `validation` | Validación formal | estado técnico en palabras y qué prueba lo decidió | pruebas por familia con veredicto |
 | `report` | Informe y ficha | dónde quedó cada archivo | — |
 
-Las tablas y las palabras son las que ya publican las cards y los mapas de rótulos del informe:
-**una sola fuente** (D-SIM-5). En notebook el resumen se pinta por `_repr_html_`; en consola, texto;
+Cada resumen usa **sólo lo que publica su etapa o una anterior**: `run(until=)` habla al terminar
+el prefijo sin recalcular nada (la discriminación es de `performance`, Brier y las pruebas son de
+`validation`, y ninguna cifra que el árbol no publique —no existe un ECE— entra a un resumen). Las
+tablas y las palabras son las que ya publican las cards y los mapas de rótulos del informe: **una
+sola fuente** (D-SIM-5). En notebook el resumen se pinta por `_repr_html_`; en consola, texto;
 en pantalla, el panel de Resultados que ya existe, alineado a esta misma fuente.
 
 ### 3.3 D-FLU-3 — Parar, decidir y seguir
@@ -222,10 +243,14 @@ sc.resume()                             # corrida nueva y completa sobre el conf
   artefactos entre corridas y la puerta D-ART no interviene: nada queda obsoleto bajo un lineage
   nuevo. El costo de recomputar se mide en la capa A (cifra 4 de SDD-31 §5); la reutilización queda
   como candidata con evidencia (§3.7).
-- Decisiones humanas de la capa A: `exclude(cols, reason=)`, `keep(cols, reason=)` (fuerza
-  inclusión), `merge_bins(col, bins, reason=)`, `set_bins(col, cuts, reason=)`. Cada una escribe
-  la hoja de config correspondiente (`selection.force_exclude`, `model.force_include`,
-  `binning.variable_overrides`) y, en la corrida siguiente, `Scorecard` emite **un** evento
+- Decisiones humanas de la capa A: `exclude(cols, reason=)`, `keep(cols, reason=)`,
+  `merge_bins(col, bins, reason=)`, `set_bins(col, cuts, reason=)`. Cada una escribe las hojas de
+  config que la hacen efectiva en **todo** el pipeline: `exclude` → `selection.force_exclude` y
+  `model.force_exclude`; `keep` → `selection.force_include` **y** `model.force_include` (sólo con
+  la primera, `model` no vería una variable que `selection` descartó por IV, correlación o VIF);
+  `merge_bins`/`set_bins` → `binning.variable_overrides`. La última decisión sobre una variable
+  gana y la retira de la lista contraria, porque `selection` rechaza una variable en las dos
+  listas a la vez (`selection/config.py:562`). En la corrida siguiente, `Scorecard` emite **un** evento
   `decision` al trail con los seis campos que `DecisionRecord` ya materializa
   (`governance/model_card.py:31`: `step="scorecard_guided"`, `regla="decision_del_usuario"`,
   `umbral=None`, `valor={hoja: valor}`, `accion=<exclude|keep|merge_bins|set_bins>`, `ts`) **más**
@@ -320,8 +345,8 @@ ninguno más; el default es el del preset F1 salvo que se indique):
 |---|---|---|
 | `data.load.source` | `data` | ruta (csv/parquet/xlsx) o `DataFrame` · obligatorio |
 | `data.target.bad_rule` | `target` | nombre de columna 0/1, o regla `{"col","op","value"}` · obligatorio |
-| `data.schema.index_col` | `id` | `str` · obligatorio |
-| `data.partition.strategy` (con `date_col` / `cohort_col`) | `date=` / `cohort=` / `partition="random"` | `str` · obligatorio uno de los tres |
+| `data.schema.unique_keys` (columna) o `data.schema.index_col` (índice nombrado del archivo) | `id` | `str` · opcional: una columna va a `unique_keys`, el nombre del índice a `index_col`; sin él, el índice del archivo, declarado |
+| `data.partition.strategy` (con `date_col` / `cohort_col`; con `random`, `holdout_fraction=holdout`, `oot_fraction=0.0`, `dev_fraction=1−holdout`) | `date=` / `cohort=` / `partition="random"` | `str` · obligatorio uno de los tres |
 | `data.partition.strategy.oot_from` / `.oot_cohorts` | `oot_from=` / `oot_cohorts=` | `str` / `list[str]` · obligatorio con `date`/`cohort` |
 | `data.partition.strategy.holdout_fraction` | `holdout=` | `float` · 0.2 |
 | `binning.feature_columns` / `.categorical_columns` | `features=` / `categorical=` | `list[str]` · inferidas (§3.1) |
@@ -380,9 +405,10 @@ su razón: cada una de ellas es exactamente lo que hoy obliga al usuario a saber
 
 ## 4. Contratos de datos (I/O)
 
-- **Entrada:** ruta a csv/parquet/xlsx o `pandas.DataFrame` (por `("data", "input_frame")`);
-  target como columna o regla en la forma de `data.target.bad_rule`; `date` o `cohort` nombran
-  columnas existentes.
+- **Entrada:** ruta a csv/parquet/xlsx, o `pandas.DataFrame` que la puerta persiste como snapshot
+  parquet bajo `<run_dir>/<name>/input/` y referencia desde `data.load.source` (§3.1); target como
+  columna o regla en la forma de `data.target.bad_rule`; `date` o `cohort` nombran columnas
+  existentes; `id` una columna (`unique_keys`) o el índice nombrado (`index_col`).
 - **Salida:** `sc.study` (el `Study`), `sc.config` (`NikodymConfig`), `sc.results[<etapa>]` (los
   DataFrames de decisión), `sc.summary(<etapa>|None)`, y en disco el layout de SDD-03 §6 bajo
   `<run_dir>/<name>/` más `excel/` si se pidió.
@@ -396,7 +422,8 @@ su razón: cada una de ellas es exactamente lo que hoy obliga al usuario a saber
 Sin `date` ni `cohort` (hay que declarar `partition="random"`; estabilidad temporal «No evaluable»
 con causa); `date`/`cohort` sin frontera OOT (se detiene antes de correr con el rango y el valor
 sugerido); sin `purpose=` (no hay ficha; el resumen final lista igual las decisiones); `id` ausente
-(índice del archivo, declarado); target con nulos (TTD: se puntúa, no se ajusta);
+(índice del archivo, declarado); `id` con duplicados (falla la unicidad de `unique_keys` con el
+mensaje del motor); target con nulos (TTD: se puntúa, no se ajusta);
 categórica con cardinalidad alta (`cat_cutoff` de fábrica agrupa el resto y el resumen lo dice);
 todas las variables descartadas (el modelo falla con el mensaje del motor; los resúmenes anteriores
 quedan); `merge_bins` sobre tramos no adyacentes (error legible: el motor exige adyacencia);
