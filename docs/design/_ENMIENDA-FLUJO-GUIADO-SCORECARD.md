@@ -9,7 +9,14 @@
 > cuatro contractuales decididos por Cami: D-OBL-5 se respeta —la frontera OOT se exige—, adelanto
 > declarado en D-SIM-1, paridad de resultados con procedencia declarada, `resume()` como corrida
 > nueva completa; los otros dos, artefactos aditivos separados y ficha sólo con `purpose`, son
-> correcciones de diseño).
+> correcciones de diseño). **Pasada 2 de Codex (siete high, todos absorbidos, ninguno
+> contractual):** residuos de la reanudación incremental retirados; el IV por muestra es un
+> artefacto aparte también en la tabla de §1.2; el umbral de los diagnósticos es una constante de
+> filas por tramo, independiente de `min_bads_per_partition`; autor y motivo viajan en el trail
+> con el `DecisionRecord` actual intacto (la ficha muestra la decisión, no el motivo, hasta la
+> capa C); el gate de paridad compara una proyección computacional, no los archivos; la firma de
+> `Scorecard` tiene un mapeo exhaustivo con los esenciales (§3.8); `run_dir` y `name` tienen
+> default (§3.1, §8-8).
 >
 > **Base medida:** `main` = `fcd058d` (1.16.0). **Enmienda a:**
 > [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) (lo aplica), SDD-06…11 y
@@ -29,7 +36,7 @@
 | **Enmienda** | FLUJO-GUIADO-SCORECARD (D-FLU-1…D-FLU-12) |
 | **Módulos** | Puerta guiada nueva (`nikodym.Scorecard`, nombre en §8-1); `selection` y `binning` (dos publicaciones aditivas, §3.6); `report` (resúmenes, página ejecutiva, Excel opcional); `nikodym.ui` + `web/` (esenciales/«Avanzado»); `docs_site/` |
 | **Fase** | F1 |
-| **Depende de** | SDD-31; puerta de artefactos (D-ART) para reanudar; D-OBL (decisiones institucionales); D-SUB/`hidden` (mecánica de ocultar); D-SC (bandas y estados en palabras); D-FUGA (exclusión de las columnas del target) |
+| **Depende de** | SDD-31; D-OBL (decisiones institucionales); D-SUB/`hidden` (mecánica de ocultar); D-SC (bandas y estados en palabras); D-FUGA (exclusión de las columnas del target); D-GOB-8 (la ficha sólo con `purpose`). **No** depende de D-ART: `resume()` no reutiliza artefactos (§3.3) |
 | **Lo consumen** | El notebook mínimo, «Empezar», el tutorial, la UI (trabajos `scorecard_pd` y `pd_y_lgd`), la demo, la enmienda de IFRS 9 (mismo molde) |
 | **Release** | Capa A aditiva en un minor (§8-5); B y C en el siguiente o el mismo, según §8-5 |
 
@@ -93,7 +100,7 @@ metodología institucional (`ROADMAP.md`, «Qué no hacer»).
 | `muestra_train`: busca una semilla que deje la PD por período dentro de su IC en train y test | `data.partition` aleatoria/temporal/cohorte/columna, sin control de PD por período | ⚠️ | **No ahora**: la partición temporal ya protege lo que ese muestreo buscaba; sin evidencia de que el default falle (D-SIM-3). Candidato anotado en §3.7 |
 | `proceso_woeizacion` (OptBinning, códigos especiales) | `binning` (OptBinning, `special_values`, `variable_overrides`) | ✅ | Reúso |
 | `categorizacion_manual` (juntar dos tramos) | `binning.variable_overrides` por config, antes de correr | ⚠️ | **Capa A**: `merge_bins()` como decisión humana (D-FLU-3) |
-| `ejecutar_bivariado`: IV, IEP y ROC **por muestra** (DEV/HO/OOT/TTD), Excel `02` | `selection` publica IV/AUC/KS/Gini univariados **sólo en desarrollo**; CSI por partición en `selection.stability` | ⚠️ | **Capa A**: IV por partición en la tabla de selección (D-FLU-6, §3.6) |
+| `ejecutar_bivariado`: IV, IEP y ROC **por muestra** (DEV/HO/OOT/TTD), Excel `02` | `selection` publica IV/AUC/KS/Gini univariados **sólo en desarrollo**; CSI por partición en `selection.stability` | ⚠️ | **Capa A**: IV por partición como artefacto aparte `("selection", "iv_by_partition")`; `selection_table` conserva su esquema (D-FLU-6, §3.6) |
 | `descartar_inversion_br`: monotonía de la tasa de malos por tramo, por muestra | `binning.monotonic_trend` garantiza monotonía en desarrollo; nada la comprueba en holdout/OOT | ⚠️ | **Capa A**: alerta «tramo que invierte en HO/OOT» en el resumen de binning (D-FLU-6, §3.6) |
 | `estabilidad_periodos`: IEP por período por variable, Excel `03` | `eda.stability`, `stability` temporal (PSI/CSI por período) | ✅ parcial | Reúso en el resumen de estabilidad |
 | Descartes manuales con lista y motivo | `selection.force_exclude` (sin motivo) | ⚠️ | **Capa A**: `exclude(cols, reason=)` al trail (D-FLU-3) |
@@ -115,8 +122,9 @@ metodología institucional (`ROADMAP.md`, «Qué no hacer»).
 ## 2. Lo que ya está construido y no hay que inventar
 
 - `nikodym.run` / `Study` (`core/study.py`): orquestación, `run_step` (`:468`), `save`/`load`.
-- La puerta de artefactos (`nikodym.run(..., artifacts=…)`, `docs_site/guias/puerta-artefactos.md`):
-  reanudar desde claves ya calculadas es exactamente `resume()` (D-FLU-3).
+- La puerta de artefactos (`nikodym.run(..., artifacts=…)`, `docs_site/guias/puerta-artefactos.md`)
+  existe y **no la usa esta enmienda**: `resume()` es una corrida completa (D-FLU-3); la
+  reutilización de artefactos queda como candidata con evidencia de costo (§3.7).
 - `binning.variable_overrides` (`binning/config.py:203`): cortes y categorías por variable.
 - `selection.force_exclude` / `model.force_exclude` / `force_include`.
 - `report/exports.py`: csv y xlsx por tabla con `spreadsheet_safety`.
@@ -144,8 +152,8 @@ sc = Scorecard(
     id="id_cliente",
     date="fecha_solicitud",             # o cohort="cohorte"; sin ninguno, partition="random" explícito
     oot_from="2024-01",                 # frontera OOT: obligatoria con date (oot_cohorts= con cohort); D-OBL-5
-    name="consumo_v01",                 # versión del proyecto; opcional
-    run_dir="modelos",                  # la evidencia queda en modelos/consumo_v01
+    name="consumo_v01",                 # versión del proyecto; default "scorecard"
+    run_dir="modelos",                  # la evidencia queda en modelos/consumo_v01; default "nikodym-runs"
 )
 sc.run()                                # corre todo e imprime el resumen de cada etapa
 sc.summary()                            # el resumen final: ejecución y veredicto técnico, por separado
@@ -161,10 +169,17 @@ sc.summary()                            # el resumen final: ejecución y veredic
   `bool`), las predictoras (todas menos id, target, fecha/cohorte y las columnas de la regla del
   target, por D-FUGA) y los rótulos de las muestras. La estrategia de partición **sigue a lo
   declarado** (`date` → temporal, `cohort` → cohorte), no se infiere.
-- **Argumentos opcionales = campos esenciales** (D-FLU-7): `features=`, `categorical=`,
-  `holdout=`, `max_bins=`, `min_iv=`, `pdo=`/`target_score=`/`target_odds=`, `target_pd=`,
-  `purpose=` (enciende `governance` y con ella la ficha; sin él no hay ficha, D-GOB-8), `track=`.
-  Ninguno es una hoja nueva: cada uno escribe una hoja existente del config.
+- **Argumentos opcionales ⊆ campos esenciales** (D-SIM-4, D-FLU-7): la firma de `Scorecard`
+  expone **exactamente** los argumentos de la tabla de §3.8 (nombre, tipo y default por cada path
+  esencial), ninguno más; `purpose=` enciende `governance` y con ella la ficha (sin él no hay ficha,
+  D-GOB-8); `track=` enciende `tracking`. Ninguno es una hoja nueva: cada uno escribe una hoja
+  existente del config. Lo que no está en esa tabla se alcanza por `sc.config` (la puerta completa).
+- **Dónde queda la evidencia (§8-8):** `run_dir` tiene default `"nikodym-runs"` (relativo al
+  directorio de trabajo) y `name` default `"scorecard"`; la corrida escribe en `<run_dir>/<name>/`
+  el layout de SDD-03 §6 (trail incluido: el preset F1 trae `audit` encendido y el trail relativo
+  exige un `run_dir`, D-GOB-7). `run_dir=None` no se acepta en la puerta guiada. Una corrida
+  repetida sobre el mismo `<run_dir>/<name>/` aparta la anterior a `.<name>.old.*`, que es lo que
+  `nikodym.run` ya hace. La primera línea del resumen de datos dice la ruta absoluta.
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 
@@ -196,7 +211,7 @@ en pantalla, el panel de Resultados que ya existe, alineado a esta misma fuente.
 sc.run(until="selection")
 sc.exclude(["saldo_promedio_6m", "n_productos"], reason="inversión de negocio")
 sc.merge_bins("antiguedad_meses", [2, 3], reason="tramos con la misma tasa")
-sc.resume()                             # continúa desde la primera etapa afectada
+sc.resume()                             # corrida nueva y completa sobre el config vigente
 ```
 
 - `run(until=<etapa>)` ejecuta el **prefijo** del pipeline hasta esa etapa inclusive (es
@@ -210,9 +225,18 @@ sc.resume()                             # continúa desde la primera etapa afect
 - Decisiones humanas de la capa A: `exclude(cols, reason=)`, `keep(cols, reason=)` (fuerza
   inclusión), `merge_bins(col, bins, reason=)`, `set_bins(col, cuts, reason=)`. Cada una escribe
   la hoja de config correspondiente (`selection.force_exclude`, `model.force_include`,
-  `binning.variable_overrides`) y, en la corrida siguiente, emite `decision` al trail con
-  `autor="usuario"`, `motivo` y la hoja tocada. La ficha las lista en «Decisiones» cuando hay
-  `governance` (`purpose=`); el resumen final las lista siempre.
+  `binning.variable_overrides`) y, en la corrida siguiente, `Scorecard` emite **un** evento
+  `decision` al trail con los seis campos que `DecisionRecord` ya materializa
+  (`governance/model_card.py:31`: `step="scorecard_guided"`, `regla="decision_del_usuario"`,
+  `umbral=None`, `valor={hoja: valor}`, `accion=<exclude|keep|merge_bins|set_bins>`, `ts`) **más**
+  dos claves aditivas del payload, `autor="usuario"` y `motivo`, que el trail conserva y la ficha
+  ignora (misma regla que D-ERR-6: un lector existente no se entera de las claves nuevas).
+  **Propietarios distintos, sin duplicado:** ese evento registra la *intención*; los eventos que
+  ya emiten los motores por los mismos overrides (`model/step.py:192-199`: `force_include`/
+  `force_exclude`) registran la *ejecución*; el resumen final los une por hoja. La ficha (con
+  `purpose=`) muestra la decisión con sus seis campos; **el motivo no llega a la ficha en la capa
+  A**: extender `DecisionRecord` es una enmienda a D-GOB que va con la ficha renderizada de la
+  capa C. El resumen final lista siempre decisión y motivo desde el trail.
 - `run()` sobre `sc.config` sin la puerta guiada reproduce los mismos **resultados**: las decisiones
   viven en el config, no en el objeto. La **procedencia** (inferencias y motivos en el trail) es de
   la puerta guiada y se declara (D-SIM-1).
@@ -244,18 +268,21 @@ ignorar y cuyos goldens nacen con ellos.
    Metodología: los tramos y el WoE son los fijados en desarrollo (`binning` ya transforma todas las
    particiones con ellos); el IV se calcula con la fórmula de SDD-07 sobre las filas de esa partición
    con target no nulo; Missing y Special cuentan como tramos si existen. Casos borde: partición
-   ausente → sin fila; partición con una sola clase o con menos de 30 filas → `iv` nulo con causa
-   (`single_class`, `below_min_rows`; la constante 30 es la misma que `min_bads_per_partition` de
-   fábrica, y es una constante, no una perilla). Ningún umbral nuevo: el descarte sigue siendo por
-   `min_iv` en desarrollo. Evidencia: es la primera pregunta de un validador y el flujo del banco
-   descartaba por «IV HO/OOT».
+   ausente → sin fila; partición con una sola clase → `iv` nulo con causa `single_class` (no hay
+   umbral de filas propio: `data.partition.min_bads_per_partition` ya garantiza los malos mínimos
+   de cada partición con target, y ese es el único criterio de tamaño). Ningún umbral nuevo: el
+   descarte sigue siendo por `min_iv` en desarrollo. Evidencia: es la primera pregunta de un
+   validador y el flujo del banco descartaba por «IV HO/OOT».
 2. **`("binning", "event_rate_by_partition")`** — una fila por variable, tramo y partición, con
    `feature`, `bin_id`, `bin_label`, `partition`, `n`, `n_bad`, `event_rate`, `inverts`. Metodología:
    la tendencia de referencia es la de desarrollo (`monotonic_trend` efectivo); un tramo `inverts`
    cuando el signo de la diferencia de tasa con el tramo anterior contradice esa tendencia; Missing y
    Special quedan fuera de la comparación; empates (diferencia cero) no invierten; un tramo con
-   menos de 30 filas en la partición no se evalúa (`inverts` nulo). El resumen de binning marca
-   «invierte en <muestra>» por variable. Sólo alerta; no descarta.
+   menos de **30 filas** en la partición no se evalúa (`inverts` nulo). Ese 30 es una **constante
+   del diagnóstico** —filas por tramo, no malos por partición: no tiene relación con
+   `min_bads_per_partition` ni con ningún campo del config, y se elige por ser la cifra que un
+   validador ya reconoce como grupo mínimo (el default de Hosmer-Lemeshow)—. El resumen de binning
+   marca «invierte en <muestra>» por variable. Sólo alerta; no descarta.
 
 Además, sin tocar motores: la traza legible del stepwise, `merge_bins`, `exclude` con motivo,
 `name=` y `compare(other)` (dos corridas lado a lado: cifras, variables y decisiones).
@@ -272,7 +299,7 @@ enmienda cuando un caso real muestre que el default falla o que el módulo falta
 |---|---|---|
 | `data` | archivo, regla del target, identificador, fecha o cohorte, frontera OOT (o partición aleatoria), proporción de holdout | 158 |
 | `eda` | ninguno: todo default; el resumen lo muestra | 17 |
-| `binning` | `max_n_bins`, `min_bin_size`, `monotonic_trend` | 42 |
+| `binning` | `feature_columns`, `categorical_columns`, `max_n_bins`, `min_bin_size`, `monotonic_trend` | 42 |
 | `selection` | `min_iv`, `correlation.threshold`, `vif.threshold` | 33 |
 | `model` | `stepwise.enabled`, `stepwise.entry_p_value`, `stepwise.exit_p_value`, `sign_policy.action` | 23 |
 | `scorecard` | `pdo`, `target_score`, `target_odds` | 17 |
@@ -283,8 +310,38 @@ enmienda cuando un caso real muestre que el default falla o que el módulo falta
 | `report` | `document.model_name`, `document.entity`, `document.portfolio`, `document.author`, `formats` | 33 |
 | `governance` | `purpose`, responsable, periodicidad de revisión | 14 |
 
-De 409 campos visibles a **≈ 35 esenciales**; el resto se pliega en «Avanzado» (D-FLU-8). La marca
+De 409 campos visibles a **≈ 37 esenciales**; el resto se pliega en «Avanzado» (D-FLU-8). La marca
 es un metadato del schema (`json_schema_extra={"ui_essential": True}`), con golden bidireccional.
+
+**Mapeo exhaustivo path esencial → argumento de `Scorecard`** (D-SIM-4: la firma expone estos y
+ninguno más; el default es el del preset F1 salvo que se indique):
+
+| Path esencial | Argumento | Tipo · default |
+|---|---|---|
+| `data.load.source` | `data` | ruta (csv/parquet/xlsx) o `DataFrame` · obligatorio |
+| `data.target.bad_rule` | `target` | nombre de columna 0/1, o regla `{"col","op","value"}` · obligatorio |
+| `data.schema.index_col` | `id` | `str` · obligatorio |
+| `data.partition.strategy` (con `date_col` / `cohort_col`) | `date=` / `cohort=` / `partition="random"` | `str` · obligatorio uno de los tres |
+| `data.partition.strategy.oot_from` / `.oot_cohorts` | `oot_from=` / `oot_cohorts=` | `str` / `list[str]` · obligatorio con `date`/`cohort` |
+| `data.partition.strategy.holdout_fraction` | `holdout=` | `float` · 0.2 |
+| `binning.feature_columns` / `.categorical_columns` | `features=` / `categorical=` | `list[str]` · inferidas (§3.1) |
+| `binning.max_n_bins` / `.min_bin_size` / `.monotonic_trend` | `max_bins=` / `min_bin_size=` / `monotonic=` | `int` 6 / `float` 0.05 / literal `"auto_asc_desc"` |
+| `selection.min_iv` / `.correlation.threshold` / `.vif.threshold` | `min_iv=` / `max_correlation=` / `max_vif=` | 0.02 / 0.75 / 5.0 |
+| `model.stepwise.enabled` / `.entry_p_value` / `.exit_p_value` | `stepwise=` / `p_enter=` / `p_exit=` | `True` / 0.05 / 0.05 |
+| `model.sign_policy.action` | `sign_policy=` | literal de `SignPolicyConfig.action` · `"flag"` |
+| `scorecard.pdo` / `.target_score` / `.target_odds` | `pdo=` / `target_score=` / `target_odds=` | 20 / 600 / 50 |
+| `calibration.anchor_source` / `.target_pd` | `anchor=` / `target_pd=` | `"development_observed"` / `None` |
+| `performance.n_deciles` | `deciles=` | 10 |
+| `stability.psi_stable_threshold` / `.psi_review_threshold` | `psi_thresholds=` | `(0.10, 0.25)` |
+| `validation.families` | `validation=` | `("discrimination", "calibration", "stability")` |
+| `report.document.model_name` / `.entity` / `.portfolio` / `.author` | `document=` | `dict` · vacío (la portada declara «sin dato», como hoy) |
+| `report.formats` | `formats=` | los del preset (`html` siempre; `pdf`/`md`/`docx` sin detener la corrida si falta el extra) |
+| `governance.purpose` / responsable / periodicidad de revisión | `purpose=` / `owner=` / `review_every=` | `str` · `None` (sin ficha) |
+| `tracking` (sección entera con sus defaults) | `track=` | URI o ruta · `None` |
+
+Los nombres de los argumentos de gobernanza y de informe se fijan al implementar sobre los campos
+reales de `GovernanceConfig` y `DocumentConfig`; el mapeo (un argumento por path esencial) es el
+contrato, y el golden de esenciales lo ata en los dos sentidos.
 
 ### 3.9 D-FLU-8 — Pantalla
 
@@ -351,8 +408,13 @@ comando exacto, como `polars`).
 1. Golden de las cinco cifras del scorecard (SDD-31 §5) y del tope de esenciales por sección.
 2. El notebook mínimo ejecutado en CI; control negativo: una línea de más lo pone rojo.
 3. `config_hash(sc.config) == config_hash(load_config(sc.to_yaml()))`.
-4. `run()` y `run(until="model") + resume()` dejan artefactos idénticos sin decisiones humanas
-   (`resume()` es una corrida completa nueva).
+4. **Paridad computacional:** `run()` y `run(until="model") + resume()` sin decisiones humanas
+   producen la misma **proyección canónica** —`study.results` (métricas planas) y los DataFrames y
+   DTOs de los dominios de cálculo (`eda`, `binning`, `selection`, `model`, `scorecard`,
+   `calibration`, `performance`, `stability`, `validation`), serializados sin los campos de
+   procedencia (`run_id`, sellos de tiempo, rutas, `created_from_lineage_at`, lineage)—; `report`
+   y `audit` quedan fuera de la comparación. Un segundo aserto comprueba que `run_id` y lineage
+   **sí** son distintos. El helper de esa proyección vive en `tests/` y nace con la capa A.
 5. Una decisión humana aparece en el trail con motivo y, con `purpose=`, en la ficha; control
    negativo: retirar la emisión → gate rojo.
 6. Los resúmenes no contienen identificadores del motor (gate de códigos internos extendido).
@@ -381,6 +443,7 @@ convierte el Excel en obligatorio; no reabre D-SC (bandas y estados), D-VAL (pru
 | 8-5 | Releases | (a) **capa A en 1.17.0; B y C en 1.18.0**; (b) A+B+C en 1.17.0 | **(a)**: A ya cambia cómo se usa la librería y merece salir sola; B y C mueven front, informe y goldens |
 | 8-6 | Notebook mínimo como ejemplo canónico | (a) **sí**, y la Clase 6 se actualiza fuera del repo; (b) los dos conviven | **(a)**: dos ejemplos canónicos son dos maneras de empezar |
 | 8-7 | Nombres del Excel opcional | (a) **los de §3.5**; (b) otros | **(a)** |
+| 8-8 | Dónde escribe la puerta guiada sin `run_dir` (decidido por el writer tras la pasada 2 de Codex; veto de Cami) | (a) **default `"nikodym-runs"` relativo al directorio de trabajo, con `name="scorecard"`**, y la ruta absoluta en la primera línea del resumen; (b) exigir `run_dir` siempre | **(a)**: quien llama a `Scorecard(...).run()` pide un modelo con su evidencia, y el notebook mínimo no gasta una línea en ello; `nikodym.run(run_dir=None)` sigue sin escribir nada (D-GOB-6) |
 
 **Respuestas de Cami (2026-09-18, interactivas): (a) en los siete.** Vigente: la puerta guiada se
 llama `nikodym.Scorecard`; la escala maestra es el hito H5 del roadmap; la capa A sale en 1.17.0 y
