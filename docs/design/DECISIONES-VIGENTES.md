@@ -837,8 +837,10 @@ reimplementa por motor. El chequeo PIT de IFRS 9 es incondicional y ningún flag
   [`../ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) §1.1 (misión y usuario de referencia) y
   [`../ROADMAP.md`](../ROADMAP.md) («Plan vigente desde 2026-09-18»: criterios C1–C10, hitos
   H1–H11 y la matriz de alineación por módulo). Los hitos H9 (crédito justo), H10 (benchmarks y
-  documentación bilingüe) y H11 (comunidad y 2.0) los propuso el writer para alcanzar C4, C6, C8 y
-  C9 y **esperan el OK de Cami**; ninguno autoriza a programar sin su SDD.
+  documentación bilingüe) y H11 (comunidad y 2.0), propuestos por el writer para alcanzar C4, C6,
+  C8 y C9, **fueron aprobados por Cami el mismo día**, con H9 **tras H4** (orden de ejecución: H1 →
+  H2 → H3 → H4 → H9 → H5 → H6 → H7 → H8; H10 por release desde H1; H11 con el 2.0). Ninguno
+  autoriza a programar sin su SDD.
 - CT-1…4 siguen vigentes en
   [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md): DAG explícito en
   `Step.requires/provides`, extensiones aditivas de resultados/metrics/overlay, datos scorecard

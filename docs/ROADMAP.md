@@ -38,7 +38,7 @@ consultoría**: la consultoría vive encima, nunca dentro. Todo lo que sigue se 
 | C1 | **Usable por el banco chico** | notebook mínimo ≤ 25 líneas por módulo; ≤ 6 esenciales por sección; Excel/CSV entra y Excel opcional sale; todo en español; primer resultado ≤ 30 s con el dataset del paquete; **prueba con un tercero**: una persona sin Python construye y documenta un scorecard en una tarde con la guía (nombre, fecha y tiempo en el HANDOFF) | H1 y cada hito |
 | C2 | **Ciclo completo** | datos y target (vintage, roll-rate) → scorecard de comportamiento y de admisión (reject inference) → calibración y escala maestra → validación formal cotejada → informe y ficha → despliegue (bundle, SQL) → monitoreo con historia y gatillos → provisiones IFRS 9 (PD/LGD/EAD, staging, ECL, forward-looking, stress) → LGD/EAD modeladas; cada eslabón con sus tres puertas, notebook y capítulo | H1–H8 |
 | C3 | **Defendible ante validador y regulador** | reproducible bit a bit en el mismo entorno; trail, lineage y ficha SR 11-7; cotejos trazados contra fuentes oficiales; tests contra valores canónicos; **un validador independiente replica una corrida sin el autor** (prueba con un tercero) | hoy en F1; se sostiene en cada hito |
-| C4 | **Crédito más justo** | explicación por solicitud en palabras (reason codes); impacto dispar por grupos declarados, sin variables prohibidas en el modelo; capacidad de pago como restricción declarada; límites de uso en la ficha | H9 (nuevo) |
+| C4 | **Crédito más justo** | explicación por solicitud en palabras (reason codes); impacto dispar por grupos declarados, sin variables prohibidas en el modelo; capacidad de pago como restricción declarada; límites de uso en la ficha | H9 (nuevo; tras H4) |
 | C5 | **Calidad ejemplar** | CI en tres SO y tres Python (18 jobs hoy), gates de copy, seguridad, licencias, tipado, cobertura publicada; releases previsibles con CHANGELOG | sostenido |
 | C6 | **Benchmarks públicos reproducibles** | German credit, Lending Club, Home Credit y PAKDD contra scorecardpy, OptBinning y skorecard (y `scorecard` de R): AUC/Gini, tiempo y líneas hasta un scorecard documentado; notebooks públicos re-ejecutados por release | H10 (nuevo), desde H1 |
 | C7 | **Escala del banco real** | 1–5 M de filas y 100–300 variables en 4 CPU / 8 GB (H9 de SDD-30), con tiempos publicados | readiness W1+ |
@@ -101,13 +101,13 @@ cada paso— está en su §0.3. Cada hito de abajo se mide con sus cinco cifras 
 | **H2 · IFRS 9 sencillo** | `nikodym.Ecl` con la entrada mínima de cartera (fecha de corte, exposición, mora, tasa efectiva, PD del scorecard o curva propia), resúmenes por etapa (curva de PD, staging, LGD/EAD, ECL por cartera y stage), esenciales de `survival` y `provisioning_ifrs9`, notebook mínimo, y lo que el motor necesite para correr sobre un caso real (se mide primero: hoy el preset F4 corre `data → survival → provisioning_ifrs9` con ~12 columnas de insumo) | `_ENMIENDA-FLUJO-GUIADO-IFRS9.md`, por escribir con la misma plantilla | minor propia |
 | **H3 · PD + LGD y provisión interna** | El trabajo «PD + LGD en una corrida» con el mismo molde | enmienda | minor |
 | **H4 · Validación y monitoreo periódico** | «Validar un modelo existente» sencillo, y un módulo **nuevo** `monitoring`: corridas periódicas sobre datos nuevos con el bundle, historia de PSI/CSI/AUC por período, gatillos y semáforos, informe de monitoreo; absorbe los tests de representatividad y el bootstrap de coeficientes cuando tengan evidencia | SDD nuevo + enmienda | minor |
+| **H9 · Crédito justo** (aprobado por Cami el 2026-09-18; **va aquí, tras H4**, por su decisión) | Módulo nuevo (nombre al diseñar): explicación por solicitud en palabras (reason codes sobre la tarjeta y sobre el modelo retador), análisis de impacto dispar por grupos que declara la institución (sin variables prohibidas en el modelo), capacidad de pago como restricción de política declarada, y un capítulo «Límites de uso y equidad» en informe y ficha | SDD nuevo | minor |
 | **H5 · Escala maestra y puntos de corte** | Módulo pequeño: tramos monótonos de score o PD, PD por tramo, tabla de puntos de corte (aprobación vs. tasa de malos), exportable a la tarjeta | SDD nuevo | minor |
 | **H6 · ML retador** | Bloque B de PARIDAD-1-1 bajo SDD-31 | enmienda | minor |
 | **H7 · Forward, survival, Markov y stress** | Bloque C de PARIDAD-1-1 bajo SDD-31 (empieza por los datos que hoy faltan) | enmienda | minor |
 | **H8 · Originación y reject inference** | Scorecard de admisión con reject inference (parcelling, fuzzy, reweighting) | SDD nuevo | minor |
-| **H9 · Crédito justo** (propuesto por el writer para C4; decide Cami) | Módulo nuevo (nombre al diseñar): explicación por solicitud en palabras (reason codes sobre la tarjeta y sobre el modelo retador), análisis de impacto dispar por grupos que declara la institución (sin variables prohibidas en el modelo), capacidad de pago como restricción de política declarada, y un capítulo «Límites de uso y equidad» en informe y ficha | SDD nuevo | minor |
-| **H10 · Benchmarks públicos y documentación bilingüe** (propuesto para C6 y C8; decide Cami) | Notebooks públicos reproducibles sobre German credit, Lending Club, Home Credit y PAKDD contra scorecardpy, OptBinning y skorecard, re-ejecutados por release y publicados en docs (el primero, del scorecard, al cerrar H1); inglés como segunda lengua de `docs_site/` cuando el 2.0 esté podado | enmienda (docs, CI) | por release |
-| **H11 · Comunidad y 2.0** (propuesto para C9; decide Cami) | CONTRIBUTING, plantillas de issues/PR, código de conducta, releases semestrales, métricas de adopción en la landing; el **2.0**: poda con censo de uso (SIMPLICIDAD-DEL-CONFIG), API guiada estable por módulo, una sola ruptura declarada | enmienda + SDD del 2.0 | 2.0 |
+| **H10 · Benchmarks públicos y documentación bilingüe** (aprobado por Cami el 2026-09-18) | Notebooks públicos reproducibles sobre German credit, Lending Club, Home Credit y PAKDD contra scorecardpy, OptBinning y skorecard, re-ejecutados por release y publicados en docs (el primero, del scorecard, al cerrar H1); inglés como segunda lengua de `docs_site/` cuando el 2.0 esté podado | enmienda (docs, CI) | por release |
+| **H11 · Comunidad y 2.0** (aprobado por Cami el 2026-09-18) | CONTRIBUTING, plantillas de issues/PR, código de conducta, releases semestrales, métricas de adopción en la landing; el **2.0**: poda con censo de uso (SIMPLICIDAD-DEL-CONFIG), API guiada estable por módulo, una sola ruptura declarada | enmienda + SDD del 2.0 | 2.0 |
 | **Transversales** | SIMPLICIDAD-DEL-CONFIG (censo y poda, hacia 2.0); export SQL de la tarjeta y de los tramos para puntuar en el DWH; conectores (BigQuery/SQL) sobre la entrada `("data", "input_frame")`; INTEGRACION-EXTERNA #1/#2/#6/#7; lo residual de ENTREGABLES-LEGIBLES; el segundo caso de norma local (C10) | enmiendas | — |
 
 ### Matriz de alineación por módulo (para el agente que programa)
@@ -155,7 +155,11 @@ referencia:
 
 ### Regla de secuencia
 
-Un módulo a la vez, en el orden de la tabla; Cami puede reordenar. Nada arranca sin su enmienda
+**Orden de ejecución (decidido por Cami el 2026-09-18):** H1 → H2 → H3 → H4 → **H9** → H5 → H6 →
+H7 → H8; H10 corre por release desde que cierre H1 (el primer benchmark es el del scorecard); H11
+cierra la serie con el 2.0. Los números son identificadores estables, no el orden.
+
+Un módulo a la vez, en ese orden; Cami puede reordenar. Nada arranca sin su enmienda
 medida, la revisión de Codex y el OK. Cada hito termina con el notebook mínimo en CI y sus cinco
 cifras ancladas; hasta H1, F1 no se declara «cumplido» en su forma de uso, sólo en su motor.
 
