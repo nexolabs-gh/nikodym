@@ -478,6 +478,9 @@ B + C en 1.18.0; la tabla de §3.8 es borrador aprobado y sus rótulos se revisa
 al implementar; el notebook mínimo es el único ejemplo canónico; los nombres del Excel son los de
 §3.5.
 
+**8-2, superada el mismo día tras la pasada 1 de Codex** (ver más abajo). Tras la tabla y sus
+respuestas, la §13 obligatoria de la plantilla cierra el documento.
+
 **8-2, superada el mismo día tras la pasada 1 de Codex:** inferir el corte OOT contradecía D-OBL-5
 («no se siembra una `partition.strategy` por defecto»). Cami eligió **respetar D-OBL**: la
 estrategia sigue a lo declarado (`date` → temporal, `cohort` → cohorte, sin eje `partition="random"`
@@ -485,3 +488,35 @@ explícito) y la **frontera OOT se exige**; si falta, la puerta se detiene antes
 rango del archivo y el valor que usaría. Las otras tres decisiones contractuales de esa pasada
 (adelanto declarado, paridad de resultados con procedencia declarada, `resume()` como corrida
 nueva) están en SDD-31 §12.
+
+## 13. Simplicidad (SDD-31)
+
+Sección obligatoria de la plantilla desde el 2026-09-18; aquí remite a donde cada punto está
+especificado, para que el agente que implemente la capa A no tenga que reconstruirlo.
+
+- **Entrada mínima (§3.1):** datos (ruta o `DataFrame`, persistido como snapshot), regla o columna
+  del target, eje temporal (`date` o `cohort`) **con su frontera OOT** o `partition="random"`
+  explícito (D-OBL-5); `id` opcional. Se infieren y se declaran en el trail: el esquema, las
+  categóricas, las predictoras (D-FUGA) y los rótulos de las muestras.
+- **Qué NO se configura (§3.13):** el formato y el idioma de los resúmenes, la numeración y los
+  nombres del Excel, la regla de inferencia del esquema y de las predictoras, el orden de las
+  etapas, los rótulos, qué tabla es «de decisión» en cada etapa, el umbral de 30 filas por tramo
+  del diagnóstico de monotonía (§3.6). Cada uno es una constante con su razón.
+- **Campos esenciales (§3.8):** ≈ 37 en doce secciones, ninguna sección por encima del tope de 6;
+  mapeo exhaustivo path → argumento de `Scorecard`; el resto se pliega en «Avanzado» (capa B).
+- **Presupuesto de perillas:** **cero** hojas nuevas de config. `ui_essential` es metadato del
+  schema; cada argumento de la puerta guiada escribe una hoja existente; los dos diagnósticos del
+  banco son artefactos aparte sin umbral configurable (§3.6).
+- **Resumen por etapa (§3.2):** diez etapas con rótulo en español, 3–8 líneas, una tabla de decisión
+  y alertas; una sola fuente para texto, `_repr_html_` y pantalla; cada uno usa sólo lo que publica
+  su etapa o una anterior. Decisiones humanas admitidas: `exclude`, `keep`, `merge_bins`,
+  `set_bins` (§3.3).
+- **Notebook mínimo (§3.11):** «Tu primer scorecard en ≤ 25 líneas» (SDD-31 §12.2): construir,
+  correr, leer el resumen, una decisión humana, `resume()`, exportar; ejecutado en CI.
+- **Las cinco cifras (SDD-31 §5), línea base y objetivo:** líneas de usuario 83 + ~60 → ≤ 25;
+  esenciales por sección: todos (409 en 12) → ≤ 6 por sección (≈ 37); perillas de las doce
+  secciones: 409 → sin crecer; segundos al primer resumen: sin resumen hoy → ≤ 30 s con el dataset
+  del paquete; conceptos antes del primer resultado: ≥ 8 (`standard_preset`, `materialize`,
+  `NikodymConfig`, `run`, `Study`, `run_context`, `artifacts.get`, dominio/clave) → ≤ 5. La capa A
+  mide la línea base exacta sobre `fcd058d` antes de escribir código y ancla el después en su
+  golden.
