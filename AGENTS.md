@@ -71,6 +71,13 @@ términos técnicos conservan su forma original.
 La librería es el escaparate reputacional de Nikodym. La calidad verificable es requisito de
 producto, no un extra.
 
+**Objetivo último (Cami, 2026-09-18):** ser la librería de referencia mundial para construir modelos
+de riesgo de crédito, abierta y usable por un banco chico que hoy decide en Excel, para que el
+crédito sea más justo —menos créditos que no debieron darse, menos negados a quien sí podía pagar—
+y, en diez años, el estándar. El usuario de referencia de todo diseño es ese modelador. Los
+criterios medibles (C1–C10) y el plan viven en [`docs/ROADMAP.md`](docs/ROADMAP.md) («Plan vigente
+desde 2026-09-18») y la misión en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md) §1.1.
+
 ## Contratos que no se reabren por iniciativa del agente
 
 - La librería es 100 % gratuita y se publica completa. No existe tier cerrado ni se retiene una

@@ -831,6 +831,14 @@ reimplementa por motor. El chequeo PIT de IFRS 9 es incondicional y ningún flag
 
 ## Decisiones transversales que también permanecen
 
+- **Objetivo último y misión (Cami, 2026-09-18, S16):** ser la librería de referencia mundial para
+  construir modelos de riesgo de crédito, abierta y usable por un banco chico que hoy decide en
+  Excel, para que el crédito sea más justo y, en diez años, el estándar. Fuente:
+  [`../ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) §1.1 (misión y usuario de referencia) y
+  [`../ROADMAP.md`](../ROADMAP.md) («Plan vigente desde 2026-09-18»: criterios C1–C10, hitos
+  H1–H11 y la matriz de alineación por módulo). Los hitos H9 (crédito justo), H10 (benchmarks y
+  documentación bilingüe) y H11 (comunidad y 2.0) los propuso el writer para alcanzar C4, C6, C8 y
+  C9 y **esperan el OK de Cami**; ninguno autoriza a programar sin su SDD.
 - CT-1…4 siguen vigentes en
   [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md): DAG explícito en
   `Step.requires/provides`, extensiones aditivas de resultados/metrics/overlay, datos scorecard

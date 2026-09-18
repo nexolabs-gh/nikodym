@@ -13,6 +13,15 @@
 > [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md); para prioridad de producto, el `HANDOFF` y
 > [`ROADMAP.md`](../ROADMAP.md).
 
+> **Lectura bajo SDD-31 (2026-09-18):** los 28 SDD históricos se releen con el objetivo último de
+> `ESPECIFICACIONES.md` §1.1 y con la **matriz de alineación por módulo** de `ROADMAP.md` («Plan
+> vigente desde 2026-09-18»), que dice, por cada uno, qué le falta para ser «sencillo» (SDD-31 §7) y
+> para ser «el mejor del mundo» (criterios C1–C10). **Ningún SDD se reescribe de oficio:** cada
+> módulo recibe su enmienda de simplicidad —con la §13 obligatoria de la plantilla— cuando le toca
+> su hito, y las capacidades que faltan (monitoreo, escala maestra, originación, crédito justo)
+> nacen con SDD numerado nuevo. Un SDD histórico cuya API contradiga SDD-31 no es una cola de
+> trabajo: es un punto de la enmienda de su hito.
+
 > **Tanda 1 Rev (2026-06-24):** los 7 SDD de Fundación (01-05, 24, 25) se revisaron de forma adversarial e integraron sus correcciones (cabecera "rev. Tanda 1 Rev" en cada uno). Cambios de alcance: **+SDD-27 `eda`** (de 26 a **27 SDD**); **D2** revierte el `data_hash` a hash de contenido lógico (SDD-02). Detalle de hallazgos y decisiones en el cierre de la sesión.
 >
 > **Hito 0 — Contratos transversales (2026-06-24):** antes de codificar F0 se estabilizó la *extensibilidad* de los 4 contratos que cruzan todas las capas (orquestación DAG vía `requires`/`provides`; resultados/metrics/overlay con puerta de extensión estructurada; frontera datos transversal-vs-longitudinal; owner del ensamblado de corrida). Decisiones en [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagadas a SDD-01/02/03 (cabecera "rev. Hito 0"). Estrategia de construcción confirmada: **mixto-troncal-más-incremental** (spike troncal acotado → código F0 → incremental por capa con diseño *just-in-time*).

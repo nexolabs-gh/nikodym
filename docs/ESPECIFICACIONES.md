@@ -36,6 +36,36 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 
 **Principio rector:** todo lo que la librería calcula debe poder **justificarse y replicarse bit a bit**. La IA documenta; **nunca calcula**.
 
+### 1.1 Objetivo último y misión (fijados por Cami el 2026-09-18)
+
+**Ser la librería de referencia mundial para construir modelos de riesgo de crédito: abierta,
+completa y usable por un banco chico que hoy decide en Excel, para que el crédito sea más justo y, en
+diez años, el estándar.** Literal de Cami: «esto debería tener a lo largo del tiempo un beneficio a
+la sociedad, donde el riesgo y el acceso al crédito sea justo con herramientas predictivas más
+eficientes; se evitarían moras de personas que acceden a un mal crédito que no debió entregarse y
+terminan pagando cinco veces más por interés o en cobranzas abusivas. Piensa en Bolivia, Chile o
+Perú, en bancos chicos: lo puede usar el Banco de Chile pero también un banco chico en Bolivia donde
+las decisiones se toman en un Excel por una persona […] mejorar la economía de un país si todos los
+bancos lo adoptan y de aquí a diez años ser el estándar».
+
+Lo que eso fija para todo diseño:
+
+- **El usuario de referencia** es el modelador o analista de riesgo de un banco chico: sabe
+  estadística de crédito, no necesariamente Python, y hoy decide con Excel. Si una capacidad le
+  exige conocer el motor, no está entregada. El banco grande recibe lo mismo con más volumen; su
+  validador, la evidencia.
+- **El resultado que importa** es una decisión de crédito mejor: menos créditos que no debieron
+  darse y menos negados a quien sí podía pagar. Cada módulo se juzga por cuánto acerca eso al banco
+  chico —predicción eficiente, calibrada, monitoreada y explicable—, no por lo que se puede
+  configurar (principio 12).
+- **Estándar a diez años**: código abierto completo (Apache-2.0), en español primero, defendible
+  ante un validador o un regulador, con un camino de adopción que no exige consultoría; la
+  consultoría vive encima, nunca dentro (§1, modelo de negocio).
+
+Los criterios medibles de «la mejor librería del mundo» (C1–C10) y el plan que los alcanza viven en
+[`ROADMAP.md`](ROADMAP.md) («Plan vigente desde 2026-09-18»); el contrato de simplicidad que los
+hace usables, en [`design/31-simplicidad-y-flujo-guiado.md`](design/31-simplicidad-y-flujo-guiado.md).
+
 ---
 
 ## 2. Usuarios objetivo

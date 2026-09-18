@@ -20,6 +20,50 @@
 > IFRS 9 como urgentes. Nada de esta sección autoriza a programar: cada hito entra con su enmienda
 > medida, la revisión adversarial y el OK explícito de Cami (`AGENTS.md`).
 
+### El objetivo último (fijado por Cami el 2026-09-18)
+
+**Ser la librería de referencia mundial para construir modelos de riesgo de crédito: abierta,
+completa y usable por un banco chico que hoy decide en Excel, para que el crédito sea más justo y, en
+diez años, el estándar.** El literal de Cami y lo que fija para todo diseño están en
+[`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) §1.1. En una frase por cada cosa: el **usuario de
+referencia** es el modelador de un banco chico (Bolivia, Chile, Perú) que sabe estadística y no
+necesariamente Python; el **resultado que importa** es una decisión de crédito mejor —menos créditos
+que no debieron darse, menos negados a quien sí podía pagar—; y la **adopción no exige
+consultoría**: la consultoría vive encima, nunca dentro. Todo lo que sigue se ordena por eso.
+
+### Qué debe tener para ser la mejor librería del mundo (criterios medibles C1–C10)
+
+| # | Criterio | Se mide con | Dónde se cumple |
+|---|---|---|---|
+| C1 | **Usable por el banco chico** | notebook mínimo ≤ 25 líneas por módulo; ≤ 6 esenciales por sección; Excel/CSV entra y Excel opcional sale; todo en español; primer resultado ≤ 30 s con el dataset del paquete; **prueba con un tercero**: una persona sin Python construye y documenta un scorecard en una tarde con la guía (nombre, fecha y tiempo en el HANDOFF) | H1 y cada hito |
+| C2 | **Ciclo completo** | datos y target (vintage, roll-rate) → scorecard de comportamiento y de admisión (reject inference) → calibración y escala maestra → validación formal cotejada → informe y ficha → despliegue (bundle, SQL) → monitoreo con historia y gatillos → provisiones IFRS 9 (PD/LGD/EAD, staging, ECL, forward-looking, stress) → LGD/EAD modeladas; cada eslabón con sus tres puertas, notebook y capítulo | H1–H8 |
+| C3 | **Defendible ante validador y regulador** | reproducible bit a bit en el mismo entorno; trail, lineage y ficha SR 11-7; cotejos trazados contra fuentes oficiales; tests contra valores canónicos; **un validador independiente replica una corrida sin el autor** (prueba con un tercero) | hoy en F1; se sostiene en cada hito |
+| C4 | **Crédito más justo** | explicación por solicitud en palabras (reason codes); impacto dispar por grupos declarados, sin variables prohibidas en el modelo; capacidad de pago como restricción declarada; límites de uso en la ficha | H9 (nuevo) |
+| C5 | **Calidad ejemplar** | CI en tres SO y tres Python (18 jobs hoy), gates de copy, seguridad, licencias, tipado, cobertura publicada; releases previsibles con CHANGELOG | sostenido |
+| C6 | **Benchmarks públicos reproducibles** | German credit, Lending Club, Home Credit y PAKDD contra scorecardpy, OptBinning y skorecard (y `scorecard` de R): AUC/Gini, tiempo y líneas hasta un scorecard documentado; notebooks públicos re-ejecutados por release | H10 (nuevo), desde H1 |
+| C7 | **Escala del banco real** | 1–5 M de filas y 100–300 variables en 4 CPU / 8 GB (H9 de SDD-30), con tiempos publicados | readiness W1+ |
+| C8 | **Documentación que enseña** | cada guía abre con el notebook mínimo; glosario; curso sobre los notebooks (Academia Bayes); **inglés como segunda lengua** para ser conocida en el mundo | H10 (nuevo) |
+| C9 | **Comunidad y gobernanza del proyecto** | CONTRIBUTING, plantillas de issues/PR, código de conducta, roadmap público (este), releases semestrales, **2.0 con API podada y estable**; adopción medida en la landing (descargas, instituciones con permiso) | H11 (nuevo) |
+| C10 | **Norma local encima, nunca dentro** (D-JUR) | la guía «Aterrizar una norma local» con un segundo caso trabajado no chileno (Bolivia o Perú) sin motor nuevo; CMF como caso de referencia | transversal |
+
+### Cómo leer este roadmap si eres el agente que programa
+
+- **El usuario es el modelador del banco chico.** Si una decisión de diseño lo obliga a saber algo
+  del motor, a tocar una perilla o a leer un identificador, está mal.
+- **Una capacidad existe** cuando tiene sus tres puertas, su notebook mínimo y su capítulo de
+  informe (SDD-31 §7). Antes de eso es motor, no producto.
+- **El fondo casi siempre existe** (112.000 líneas, 276 archivos de test): buscar y conectar antes
+  de escribir; un segundo motor para lo mismo es un defecto.
+- **Lo que un validador pregunta primero va en el resumen de la etapa**, no en un anexo.
+- **Español en todo lo que se lee, inglés en identificadores, una sola fuente de rótulos.**
+- **Medir antes y después** (las cinco cifras de SDD-31 §5); un gate que nace verde no prueba nada.
+- **Aditivo en 1.x:** ningún resultado cambia con el mismo config; la poda espera al 2.0.
+- **Ningún hito arranca por estar aquí:** enmienda con §13, revisión de Codex y OK de Cami, siempre.
+- **Los módulos nuevos** (monitoreo, escala maestra, originación, crédito justo) nacen con SDD
+  numerado, §13, notebook y capítulo de informe.
+- **La lista de comprobación literal** para implementar una capa está en
+  [`operacion/RUNBOOK.md`](operacion/RUNBOOK.md) §12.
+
 ### El criterio que ordena todo: SDD-31
 
 [`design/31-simplicidad-y-flujo-guiado.md`](design/31-simplicidad-y-flujo-guiado.md) es el contrato
@@ -61,7 +105,35 @@ cada paso— está en su §0.3. Cada hito de abajo se mide con sus cinco cifras 
 | **H6 · ML retador** | Bloque B de PARIDAD-1-1 bajo SDD-31 | enmienda | minor |
 | **H7 · Forward, survival, Markov y stress** | Bloque C de PARIDAD-1-1 bajo SDD-31 (empieza por los datos que hoy faltan) | enmienda | minor |
 | **H8 · Originación y reject inference** | Scorecard de admisión con reject inference (parcelling, fuzzy, reweighting) | SDD nuevo | minor |
-| **Transversales** | SIMPLICIDAD-DEL-CONFIG (censo y poda, hacia 2.0); export SQL de la tarjeta y de los tramos para puntuar en el DWH; conectores (BigQuery/SQL) sobre la entrada `("data", "input_frame")`; INTEGRACION-EXTERNA #1/#2/#6/#7; lo residual de ENTREGABLES-LEGIBLES | enmiendas | — |
+| **H9 · Crédito justo** (propuesto por el writer para C4; decide Cami) | Módulo nuevo (nombre al diseñar): explicación por solicitud en palabras (reason codes sobre la tarjeta y sobre el modelo retador), análisis de impacto dispar por grupos que declara la institución (sin variables prohibidas en el modelo), capacidad de pago como restricción de política declarada, y un capítulo «Límites de uso y equidad» en informe y ficha | SDD nuevo | minor |
+| **H10 · Benchmarks públicos y documentación bilingüe** (propuesto para C6 y C8; decide Cami) | Notebooks públicos reproducibles sobre German credit, Lending Club, Home Credit y PAKDD contra scorecardpy, OptBinning y skorecard, re-ejecutados por release y publicados en docs (el primero, del scorecard, al cerrar H1); inglés como segunda lengua de `docs_site/` cuando el 2.0 esté podado | enmienda (docs, CI) | por release |
+| **H11 · Comunidad y 2.0** (propuesto para C9; decide Cami) | CONTRIBUTING, plantillas de issues/PR, código de conducta, releases semestrales, métricas de adopción en la landing; el **2.0**: poda con censo de uso (SIMPLICIDAD-DEL-CONFIG), API guiada estable por módulo, una sola ruptura declarada | enmienda + SDD del 2.0 | 2.0 |
+| **Transversales** | SIMPLICIDAD-DEL-CONFIG (censo y poda, hacia 2.0); export SQL de la tarjeta y de los tramos para puntuar en el DWH; conectores (BigQuery/SQL) sobre la entrada `("data", "input_frame")`; INTEGRACION-EXTERNA #1/#2/#6/#7; lo residual de ENTREGABLES-LEGIBLES; el segundo caso de norma local (C10) | enmiendas | — |
+
+### Matriz de alineación por módulo (para el agente que programa)
+
+Cada SDD histórico se relee con esta tabla: qué le falta para ser «sencillo» y qué para ser «el
+mejor del mundo». Ningún SDD se reescribe de oficio; su enmienda de simplicidad llega con su hito.
+
+| Módulo / SDD | Hoy (`fcd058d`) | Para «sencillo» (SDD-31 §7) | Para «el mejor del mundo» (C1–C10) | Hito |
+|---|---|---|---|---|
+| `core`, `data`, `audit`, `governance`, `tracking` (01–04) | estables; trail, lineage, ficha; MLflow opt-in | entrada mínima e inferencias declaradas; decisiones humanas al trail; `track=` | C3 sostenido; C7 (escala) | H1 |
+| `eda` (27) | estable; en pantalla e informe | resumen de etapa | curvas de vintage y roll-rate para definir el target (C2) | H1; después |
+| `binning`, `selection`, `model`, `scorecard`, `calibration` (06–10) | estables, SemVer 1.x | resúmenes por etapa, decisiones humanas, IV por muestra y monotonía fuera de desarrollo como artefactos aparte, esenciales | benchmarks (C6); export SQL de la tarjeta (C2) | H1; H10 |
+| `performance`, `stability` (11) | estables | resúmenes por etapa | historia por período → módulo de monitoreo (C2) | H1; H4 |
+| `validation` (22) | experimental, cotejada contra el BCE | resumen y esenciales | representatividad y bootstrap cuando tengan evidencia; «Validar un modelo existente» en ≤ 25 líneas | H4 |
+| `report` (26) | estable; 126 tablas en la demo | página ejecutiva = resumen final; Excel opcional; marca | capítulos nuevos por módulo (monitoreo, escala maestra, equidad) | H1 (C); cada hito |
+| `ui` (23) + `web/` | 17 secciones, 572 campos | esenciales/«Avanzado»; Resultados sobre la fuente de `summary()` | Excel entra y sale para el banco chico (C1) | H1 (B) |
+| `survival`, `provisioning_ifrs9`, `provisioning` (16–18) | experimentales; el preset F4 corre `data → survival → provisioning_ifrs9` | `nikodym.Ecl` con entrada mínima de cartera y resúmenes (curva de PD, staging, LGD/EAD, ECL) | escenarios y stress sencillos (H7); segundo caso de norma local (C10) | H2; H7 |
+| `provisioning_internal`, LGD modelada (28, D-LGD) | experimentales; en pantalla e informe | el mismo molde («PD + LGD en una corrida») | LGD/EAD modeladas con notebook | H3 |
+| `ml`, `tuning`, `explain` (12–14) | experimentales; sin pantalla ni informe | trabajo «Scorecard con modelo retador» bajo SDD-31 | reason codes para H9 | H6 |
+| `forward`, `markov`, `stress` (19–21) | experimentales; sin datos, pantalla ni informe | datos del paquete primero; después el molde | escenarios y stress para IFRS 9 | H7 |
+| `provisioning_cmf` (15) | caso de referencia congelado (D-JUR) | — | — | fuera del plan |
+| **monitoreo** (nuevo) | — | SDD nuevo con §13 | C2: el eslabón que un banco usa cada mes | H4 |
+| **escala maestra y puntos de corte** (nuevo) | — | SDD nuevo con §13 | C2 | H5 |
+| **originación y reject inference** (nuevo) | — | SDD nuevo con §13 | C2 | H8 |
+| **crédito justo** (nuevo) | — | SDD nuevo con §13 | C4 | H9 |
+| packaging, CI, readiness (24, 25, 30) | 18 jobs; W0 PASS; W1 bloqueada por H9 | — | C5, C7, C9 (releases, 2.0) | sostenido; H11 |
 
 ### Qué falta para que Nikodym sea la librería de referencia en LatAm
 

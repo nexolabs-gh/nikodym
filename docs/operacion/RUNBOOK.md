@@ -1268,3 +1268,82 @@ subproceso su propio `--basetemp`. Si el síntoma vuelve, buscar otro subproceso
 
 ⚠️ Corolario de método: **no lanzar `pytest` en paralelo a la suite completa** desde otra ventana.
 Reproduce el mismo falso rojo por el mismo mecanismo y hace perder la corrida entera (25 min).
+
+## 12. Implementar bajo SDD-31 — lista de comprobación para el agente que programa
+
+> Para quien implemente una capa de cualquier módulo desde el 2026-09-18 (hoy, Claude Code; el
+> modelo cambia entre sesiones y lo que aquí es literal no depende de él). El contrato está en
+> [`../design/31-simplicidad-y-flujo-guiado.md`](../design/31-simplicidad-y-flujo-guiado.md); el
+> porqué, en [`../ROADMAP.md`](../ROADMAP.md) («El objetivo último»). Esta lista existe porque lo que
+> es obvio para quien diseñó el contrato no lo es para quien llega a programarlo diez sesiones
+> después.
+
+### 12.1 Antes de escribir código
+
+1. Arranque de `AGENTS.md` completo, y después SDD-31 entero y la enmienda del módulo entera. Si la
+   enmienda no tiene su §13 (plantilla), **no se programa**: se escribe, se revisa y se aprueba.
+2. Medir la **línea base de las cinco cifras** (SDD-31 §5) sobre el HEAD del que se parte y
+   anotarla en el HANDOFF: líneas de usuario del ejemplo vigente, campos visibles por sección
+   (`tests/unit/test_copy_del_formulario.py::_campos_visibles`, agrupando por el primer tramo de la
+   ruta), perillas de las secciones del módulo, segundos hasta el primer resultado con el dataset
+   del paquete, y conceptos que el ejemplo obliga a conocer. Sin línea base no hay «después».
+3. Buscar en `src/nikodym` lo que ya existe: el fondo casi siempre está (`grep -rn` por dominio,
+   `Step.requires/provides`, los mapas de rótulos de `report/prose.py`, `validation.results`,
+   `stability.results`). **Conectar, no reimplementar.** Un segundo motor para lo mismo es un
+   defecto, no una mejora.
+4. Escribir primero el **notebook mínimo** (o el bloque `quickstart:start/end` de `docs_site/`)
+   como el test que nace rojo: es la definición de «terminado» de la capa.
+
+### 12.2 Al escribir
+
+5. La puerta guiada es un cliente de `nikodym.run`/`Study`: construye el `NikodymConfig`, lo corre y
+   lee sus artefactos. **Nunca un segundo orquestador**, nunca un cálculo propio: el config sigue
+   siendo la verdad y el `config_hash`, la identidad.
+6. **Cero perillas.** Si crees necesitar una, parar: medir que el default falla en un caso real,
+   escribir la evidencia en el §13 de la enmienda y pedir el OK. Si no falla, es una constante con
+   su razón en el código.
+7. Todo lo que una persona lee sale en **español** y de los mapas de rótulos existentes; los
+   identificadores, en inglés. El gate de códigos internos (`test_report_codigos_internos`) cubre
+   también los resúmenes; el copy gate, los rótulos nuevos.
+8. **Cada etapa habla**: un resumen de 3–8 líneas más su tabla de decisión, con **una sola fuente**
+   para texto, `_repr_html_` y pantalla; usa sólo lo que publica su etapa o una anterior.
+9. Esenciales: la marca `ui_essential` en el schema (`json_schema_extra`), con golden bidireccional
+   y tope de 6 por sección; el resto, plegado en «Avanzado» en la pantalla.
+10. **Aditivo en 1.x**: con el mismo config los resultados son bit a bit los de antes (comparar los
+    artefactos de una corrida F1 del preset antes y después); lo nuevo se publica con clave propia
+    (`(dominio, clave)`), no ampliando una tabla estable; ningún `config_hash` de preset se mueve.
+11. Decisiones humanas e inferencias van al trail como `decision` con las claves aditivas `autor` y
+    `motivo`; `DecisionRecord` no cambia salvo enmienda a D-GOB.
+
+### 12.3 Antes de cerrar
+
+12. Tests nacidos rojos por cada regla nueva; un control negativo por cada gate nuevo (§6); la suite
+    completa con el árbol congelado; Codex sobre el HEAD commiteado con tope y criterio de parada
+    declarados (§11.1); CHANGELOG «No publicado» con su «Sabido» si algo quedó declarado.
+13. Las cinco cifras **después**, ancladas en su golden con la fecha y la razón; el notebook mínimo
+    corriendo en CI.
+14. HANDOFF con la línea base y el después, y el prompt de la capa siguiente.
+
+### 12.4 Trampas que un agente nuevo paga (ya medidas)
+
+- §2.4: bootstrap UTF-8 en cada proceso PowerShell; symlinks y reparse points.
+- §11.3: los conteos de deuda que un `grep` ingenuo devuelve mal.
+- Herramienta Bash: un heredoc largo o con `\\` corrompe (escribir el script con `Write` y
+  ejecutarlo aparte); `grep` con tildes no casa (censar con Python); `/tmp` es `%TEMP%`.
+- Herramienta PowerShell: `& cmd /c "…"` lo bloquea el sandbox de la herramienta; usar
+  `(Get-Command …).Source`.
+- `git status` muestra `HANDOFF.md` como `M` (symlink con `core.symlinks=false`): **no se stagea**;
+  los avisos «LF will be replaced by CRLF» son ruido de `autocrlf` y no cambian el repo.
+- `pytest` en paralelo a la suite completa produce el falso rojo de §11.4.
+- Codex revisa el **HEAD commiteado**, no el working tree; sobre documentos de diseño devuelve 5–7
+  hallazgos high por pasada y converge lento: fijar tope y criterio de parada antes de lanzar.
+
+### 12.5 Qué no hacer
+
+- Cambiar un resultado numérico con el mismo config en 1.x.
+- Retirar, renombrar o añadir hojas de config sin enmienda; añadir una perilla sin evidencia.
+- Reabrir una decisión registrada; tocar el arnés H9R; borrar CMF.
+- Copiar código o metodología institucional de un flujo de banco: patrón sí, código no.
+- Publicar en PyPI o recapturar la demo sin el OK específico.
+- Declarar entregada una capacidad sin sus tres puertas, su notebook y su capítulo de informe (una
+  puerta adelantada se marca «experimental»).
