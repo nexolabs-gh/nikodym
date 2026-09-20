@@ -13,6 +13,7 @@ import hashlib
 import io
 import os
 import shutil
+import uuid
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
@@ -686,6 +687,7 @@ class Scorecard:
         las decisiones humanas editan campo a campo (medido fuera de pytest, donde nadie importa
         los dominios de antemano).
         """
+        from nikodym.api import _audit_config, _governance_config, _tracking_config
         from nikodym.core.study import Study
 
         study = Study(config, apply_global_seed=False)
@@ -699,7 +701,16 @@ class Scorecard:
             ) from exc
         except Exception as exc:
             raise ScorecardInputError(f"El config armado no es ejecutable: {exc}") from exc
-        return study.config, tuple(pasos)
+        # Las secciones de infraestructura no son pasos y la comprobación del pipeline no las
+        # toca: sin este paso quedan opacas en un intérprete que no importó su capa, y
+        # `sc.config.governance.purpose` dependería del orden de import.
+        coaccionado = study.config
+        tipadas = {
+            "audit": _audit_config(coaccionado.audit),
+            "governance": _governance_config(coaccionado.governance),
+            "tracking": _tracking_config(coaccionado.tracking),
+        }
+        return coaccionado.model_copy(update=tipadas), tuple(pasos)
 
     # ── propiedades ─────────────────────────────────────────────────────────────────────
 
@@ -769,12 +780,25 @@ class Scorecard:
         self._until = until
         self._stage_summaries = {}
         self._final = None
-        self._study = nikodym.run(
-            config,
-            run_dir=self._run_dir,
-            preamble=self._preamble(),
-            on_step=self._contar_etapa,
-        )
+        # El informe se asocia a su corrida por identidad de intento (pasadas de Codex sobre A2):
+        # el `reports/` previo se aparta con el token de este intento y sólo vuelve a moverse al
+        # hermano `.run.old.*` que ESTA consolidación cree; si el intento revienta, su propio
+        # `reports/` va al `.run.failed.*` que ESTE intento deje, y el previo vuelve a su sitio.
+        token = uuid.uuid4().hex[:8]
+        previo = self._apartar_informe_previo(token)
+        hermanos_antes = self._hermanos_de_corrida()
+        try:
+            self._study = nikodym.run(
+                config,
+                run_dir=self._run_dir,
+                preamble=self._preamble(),
+                on_step=self._contar_etapa,
+            )
+        except BaseException:
+            self._asociar_informe_de_intento_fallido(hermanos_antes)
+            self._restaurar_informe_previo(previo)
+            raise
+        self._archivar_informe_previo(previo, hermanos_antes)
         self._pending_decisions = False
         self._final = build_final_summary(
             self._study, tuple(self._stage_summaries.values()), self._context()
@@ -979,45 +1003,88 @@ class Scorecard:
     # ── mecánica ────────────────────────────────────────────────────────────────────────
 
     def _preparar_proyecto(self) -> None:
-        """Crea la carpeta, escribe el config vigente y archiva el informe de la corrida previa."""
+        """Crea la carpeta del proyecto y escribe el config vigente."""
         self._project_dir.mkdir(parents=True, exist_ok=True)
         self._config_path.write_text(self.to_yaml(), encoding="utf-8")
-        if _tiene_archivos(self._reports_dir):
-            shutil.move(str(self._reports_dir), str(self._destino_del_informe_residual()))
         self._reports_dir.mkdir(parents=True, exist_ok=True)
 
-    def _destino_del_informe_residual(self) -> Path:
-        """Dónde va el `reports/` que dejó la corrida anterior: junto a SU evidencia.
+    # El informe se escribe fuera del `run_dir` (§3.1) y ``nikodym.run`` sustituye entero su
+    # destino al consolidar; asociar cada informe a la evidencia de SU corrida —y sólo a ésa— es
+    # lo que las cuatro funciones siguientes garantizan por identidad de intento, nunca por
+    # heurísticas sobre qué hay en `run/` (pasadas de Codex sobre A2, A2-bis y A2-ter).
 
-        El informe se escribe fuera del `run_dir` (§3.1) y hay que archivarlo antes de que
-        ``nikodym.run`` aparte la evidencia previa a ``.run.old.*``; nunca se borra nada. Tres
-        casos, y el segundo es el que la pasada de Codex sobre A2-bis destapó:
+    def _hermanos_de_corrida(self) -> frozenset[str]:
+        """Los `.run.old.*` y `.run.failed.*` que existen ahora.
 
-        - `run/` consolidado y sin `reports` dentro: el informe es de esa corrida → `run/reports`,
-          y el respaldo lateral se lo lleva completo.
-        - `run/` ya lleva su `reports`: el informe residual es de una corrida que FALLÓ después
-          de escribirlo y antes de consolidar (su evidencia quedó en ``.run.failed.*``) → va
-          dentro del `.run.failed.*` más reciente que aún no tenga informe. Meterlo en `run/`
-          mezclaría el informe de una corrida con el trail y el lineage de otra.
-        - Sin `run/` (la primera corrida falló tras escribirlo): mismo criterio, y si no hay
-          evidencia fallida a la que asociarlo, un hermano `.reports.old.*` independiente.
+        La diferencia con el censo posterior identifica los que este intento cree.
         """
-        archivado_en_run = self._run_dir / _REPORTS_SUBDIR
-        if self._run_dir.is_dir() and not archivado_en_run.exists():
-            return archivado_en_run
-        fallidas = sorted(
-            (
-                p
-                for p in self._project_dir.iterdir()
-                if p.is_dir()
-                and p.name.startswith(f".{_RUN_SUBDIR}.failed.")
-                and not (p / _REPORTS_SUBDIR).exists()
-            ),
-            key=lambda p: p.stat().st_mtime,
+        return frozenset(
+            p.name
+            for p in self._project_dir.iterdir()
+            if p.is_dir()
+            and (
+                p.name.startswith(f".{_RUN_SUBDIR}.old.")
+                or p.name.startswith(f".{_RUN_SUBDIR}.failed.")
+            )
         )
-        if fallidas:
-            return fallidas[-1] / _REPORTS_SUBDIR
-        return _ruta_libre(self._project_dir / f".{_REPORTS_SUBDIR}.old")
+
+    def _hermanos_nuevos(self, antes: frozenset[str], etiqueta: str) -> list[Path]:
+        return sorted(
+            p
+            for p in self._project_dir.iterdir()
+            if p.is_dir()
+            and p.name.startswith(f".{_RUN_SUBDIR}.{etiqueta}.")
+            and p.name not in antes
+        )
+
+    def _apartar_informe_previo(self, token: str) -> Path | None:
+        """Aparta el `reports/` de la corrida previa a `.reports.prev.<token>` y deja uno limpio."""
+        if not _tiene_archivos(self._reports_dir):
+            return None
+        apartado = self._project_dir / f".{_REPORTS_SUBDIR}.prev.{token}"
+        shutil.move(str(self._reports_dir), str(apartado))
+        self._reports_dir.mkdir(parents=True, exist_ok=True)
+        return apartado
+
+    def _restaurar_informe_previo(self, previo: Path | None) -> None:
+        """La corrida reventó sin consolidar: el informe previo vuelve a `reports/`."""
+        if previo is None:
+            return
+        if _tiene_archivos(self._reports_dir):
+            # El informe del intento fallido no encontró evidencia a la que ir (`_asociar_…`
+            # lo deja en su sitio si no hay `.run.failed.*`): se conserva aparte, nunca se pisa.
+            shutil.move(
+                str(self._reports_dir),
+                str(_ruta_libre(previo.with_name(f".{_REPORTS_SUBDIR}.old"))),
+            )
+        elif self._reports_dir.exists():
+            shutil.rmtree(self._reports_dir)  # vacío: no es evidencia
+        shutil.move(str(previo), str(self._reports_dir))
+
+    def _asociar_informe_de_intento_fallido(self, hermanos_antes: frozenset[str]) -> None:
+        """El `reports/` que ESTE intento escribió va con la evidencia `.run.failed.*` que dejó."""
+        if not _tiene_archivos(self._reports_dir):
+            return
+        fallidas = self._hermanos_nuevos(hermanos_antes, "failed")
+        if not fallidas:
+            return  # sin evidencia fallida: `_restaurar_informe_previo` lo conserva aparte
+        shutil.move(str(self._reports_dir), str(fallidas[-1] / _REPORTS_SUBDIR))
+        self._reports_dir.mkdir(parents=True, exist_ok=True)
+
+    def _archivar_informe_previo(self, previo: Path | None, hermanos_antes: frozenset[str]) -> None:
+        """La corrida consolidó: el informe previo va al `.run.old.*` que ESTA consolidación creó.
+
+        Sin `.run.old.*` nuevo (no había corrida previa consolidada) queda aparte, nunca se pisa.
+        """
+        if previo is None:
+            return
+        viejas = self._hermanos_nuevos(hermanos_antes, "old")
+        destino = (
+            viejas[-1] / _REPORTS_SUBDIR
+            if viejas
+            else _ruta_libre(previo.with_name(f".{_REPORTS_SUBDIR}.old"))
+        )
+        shutil.move(str(previo), str(destino))
 
     def _preamble(self) -> tuple[tuple[str, dict[str, Any]], ...]:
         """Lo que la corrida declara al trail antes del primer paso.
@@ -1063,12 +1130,8 @@ class Scorecard:
     def _context(self) -> SummaryContext:
         trail: Path | None = None
         card: Path | None = None
-        audit = self._config.audit
-        if audit is not None:
-            nombre = getattr(audit, "trail_filename", None) or (
-                audit.get("trail_filename") if isinstance(audit, Mapping) else None
-            )
-            trail = self._run_dir / str(nombre or "audit_trail.jsonl")
+        if self._config.audit is not None:
+            trail = self._run_dir / self._config.audit.trail_filename
         if self._config.governance is not None:
             card = self._run_dir / _MODEL_CARD_NAME
         return SummaryContext(

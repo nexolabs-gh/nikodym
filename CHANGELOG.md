@@ -74,13 +74,15 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 - La puerta guiada es sólo por código: la pantalla no muestra todavía los campos esenciales
   plegando el resto en «Avanzado» (capa B de la enmienda). `merge_bins`/`set_bins` esperan la
   decisión de Cami sobre la hoja de cortes por variable (enmienda §8-9).
-- Un snapshot de `DataFrame` se nombra por su contenido y nunca se pisa; el informe de una
-  corrida anterior viaja a su respaldo lateral (`run/reports` dentro de `.run.old.*`), y el de
-  una corrida que falló después de escribirlo y antes de consolidar va junto a su propia
-  evidencia fallida (`.run.failed.*/reports`; si no la hubiera, a `.reports.old.*`): ningún
-  reintento sobrescribe un informe ni lo asocia al trail de otra corrida. Dos corridas con el mismo `name`
-  se comparan con las columnas rotuladas «(esta)» y «(otra)»; un tramo de desarrollo sin filas
-  en una muestra se publica con `n=0` y corta la cadena de comparación de la monotonía.
+- Un snapshot de `DataFrame` se nombra por su contenido y nunca se pisa. Cada informe queda con
+  la evidencia de su propia corrida, por identidad de intento: el de la corrida anterior viaja al
+  respaldo lateral que crea la consolidación (`run/reports` dentro de `.run.old.*`); el de un
+  intento que falló después de escribirlo y antes de consolidar va con su evidencia fallida
+  (`.run.failed.*/reports`) y el anterior vuelve a `reports/`; sin evidencia a la que asociarlo,
+  se conserva en `.reports.old.*`. Ningún reintento sobrescribe un informe ni lo asocia al trail
+  de otra corrida. Dos corridas con el mismo `name` se comparan con las columnas rotuladas
+  «(esta)» y «(otra)»; un tramo de desarrollo sin filas en una muestra se publica con `n=0` y
+  corta la cadena de comparación de la monotonía.
 
 ## [1.16.0] — 2026-09-15
 

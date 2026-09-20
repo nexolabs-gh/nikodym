@@ -202,13 +202,17 @@ sc.summary()                            # el resumen final: ejecución y veredic
   mientras corría—, así que el layout de SDD-03 §6 vive en `<run_dir>/<name>/run/` y a su lado,
   donde ninguna consolidación se los lleva, quedan `config.yaml` (el config vigente que la puerta
   reescribe en cada corrida), `input/data.parquet` (el snapshot, sólo con `DataFrame`) y
-  `reports/` (el informe, con `report.output_dir` absoluto). Antes de cada corrida la puerta mueve
-  el `reports/` anterior dentro de `run/` para que el respaldo lateral `.run.old.*` que
-  `nikodym.run` crea lleve también su informe: cada corrida archivada queda completa. Si `run/`
-  ya lleva su informe, el `reports/` residual es de una corrida que falló después de escribirlo
-  y va dentro de su evidencia `.run.failed.*` (la más reciente sin informe); sin evidencia
-  fallida, a un hermano `.reports.old.*`. Nunca se borra un informe ni se asocia al trail de
-  otra corrida (pasadas de Codex sobre A2 y A2-bis).
+  `reports/` (el informe, con `report.output_dir` absoluto). Cada informe se asocia a la
+  evidencia de SU corrida por identidad de intento, no por heurísticas sobre qué hay en `run/`:
+  al arrancar, la puerta aparta el `reports/` anterior a `.reports.prev.<token>` y censa los
+  hermanos `.run.old.*`/`.run.failed.*` existentes; si `nikodym.run` consolida —éxito o fallo de
+  dominio—, el informe apartado va dentro del `.run.old.*` que ESA consolidación creó (cada
+  corrida archivada queda completa); si el intento revienta sin consolidar, el `reports/` que
+  ESTE intento escribió va dentro del `.run.failed.*` que ESTE intento dejó y el apartado vuelve
+  a `reports/`, porque `run/` sigue siendo la corrida a la que pertenece. Sin hermano nuevo al
+  que ir —no había corrida previa consolidada, o el fallo no dejó evidencia—, el informe se
+  conserva como hermano `.reports.old.*`. Nunca se borra un informe ni se asocia al trail de
+  otra corrida (pasadas de Codex sobre A2, A2-bis y A2-ter).
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 

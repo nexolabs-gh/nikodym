@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import inspect
 import json
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -341,6 +344,37 @@ def test_purpose_enciende_la_gobernanza_y_track_el_tracking(fuente: Path, tmp_pa
     assert sc.config.tracking.tracking_uri == str(tmp_path / "mlruns")
     with pytest.raises(ScorecardInputError, match="purpose= está en blanco"):
         _puerta(fuente, tmp_path, purpose="   ")
+
+
+def test_las_secciones_infra_llegan_tipadas_sin_importar_sus_capas(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """En un intérprete fresco nadie importó `nikodym.governance` ni `nikodym.tracking`; el
+    core deja esas secciones opacas (`dict`) y la puerta las coacciona igual: leer
+    `sc.config.governance.purpose` no puede depender de qué se importó antes."""
+    codigo = textwrap.dedent(
+        f"""
+        import nikodym
+
+        sc = nikodym.Scorecard(
+            {str(fuente)!r}, target="bad_flag", id="loan_id", cohort="cohort",
+            oot_cohorts=["oot"], name="prueba", run_dir={str(tmp_path / "corridas")!r},
+            purpose="Decidir consumo.", owner="riesgo@banco",
+            track={str(tmp_path / "mlruns")!r},
+        )
+        print("|".join([
+            type(sc.config.audit).__name__, type(sc.config.governance).__name__,
+            type(sc.config.tracking).__name__, sc.config.governance.purpose,
+        ]))
+        """
+    )
+    salida = subprocess.run(
+        [sys.executable, "-c", codigo], capture_output=True, text=True, encoding="utf-8"
+    )
+    assert salida.returncode == 0, salida.stderr[-2000:]
+    assert salida.stdout.strip().splitlines()[-1] == (
+        "AuditConfig|GovernanceConfig|TrackingConfig|Decidir consumo."
+    )
 
 
 def test_un_argumento_fuera_de_rango_se_rechaza_antes_de_correr(

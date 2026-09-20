@@ -243,14 +243,15 @@ def test_un_reintento_tras_un_fallo_inesperado_no_borra_el_informe_archivado(
         parche.setattr(Study, "run", revienta)
         with pytest.raises(RuntimeError, match="se cayó la luz"):
             sc.run()
-    archivado = proyecto / "run" / "reports" / "scorecard_report.html"
-    assert archivado.read_bytes() == contenido, "el informe viajó junto a su evidencia"
+    assert informe.read_bytes() == contenido, "sin consolidación, el informe previo vuelve"
+    assert not (proyecto / "run" / "reports").exists()
     # El reintento vuelve a fallar del mismo modo: nada se borra.
     with pytest.MonkeyPatch.context() as parche:
         parche.setattr(Study, "run", revienta)
         with pytest.raises(RuntimeError):
             sc.run()
-    assert archivado.read_bytes() == contenido
+    assert informe.read_bytes() == contenido
+    assert not any(p.name.startswith(".reports.") for p in proyecto.iterdir())
     sc.run()
     assert sc.study.run_context.status == "done", sc.study.run_context.error
     respaldos = [p for p in proyecto.iterdir() if p.name.startswith(".run.old.")]
@@ -278,15 +279,18 @@ def test_el_informe_de_una_primera_corrida_fallida_no_lo_pisa_el_reintento(
         with pytest.raises(RuntimeError, match="disco lleno"):
             sc.run()
     informe = proyecto / "reports" / "scorecard_report.html"
-    assert informe.is_file() and not (proyecto / "run").exists()
-    contenido = informe.read_bytes()
+    assert not (proyecto / "run").exists()
     fallidas = [p for p in proyecto.iterdir() if p.name.startswith(".run.failed.")]
     assert len(fallidas) == 1 and (fallidas[0] / "audit_trail.jsonl").is_file()
+    fallido = fallidas[0] / "reports" / "scorecard_report.html"
+    assert fallido.is_file(), "el informe del intento fallido viaja con su evidencia al fallar"
+    assert not informe.exists()
+    contenido = fallido.read_bytes()
     sc.run()
     assert sc.study.run_context.status == "done", sc.study.run_context.error
-    assert (fallidas[0] / "reports" / "scorecard_report.html").read_bytes() == contenido
-    assert not any(p.name.startswith(".reports.old") for p in proyecto.iterdir())
-    assert informe.is_file()
+    assert fallido.read_bytes() == contenido
+    assert not any(p.name.startswith(".reports.") for p in proyecto.iterdir())
+    assert informe.is_file() and informe.read_bytes() != contenido
 
 
 def test_cada_informe_queda_solo_con_la_evidencia_de_su_corrida(
@@ -301,7 +305,9 @@ def test_cada_informe_queda_solo_con_la_evidencia_de_su_corrida(
     proyecto = tmp_path / "corridas" / "prueba"
     sc.run()
     assert sc.study.run_context.status == "done", sc.study.run_context.error
+    informe = proyecto / "reports" / "scorecard_report.html"
     (proyecto / "reports" / "marca-A.txt").write_text("A", encoding="utf-8")
+    informe_a = informe.read_bytes()
     trail_a = (proyecto / "run" / "audit_trail.jsonl").read_bytes()
 
     def revienta(*args: Any, **kwargs: Any) -> None:
@@ -311,25 +317,63 @@ def test_cada_informe_queda_solo_con_la_evidencia_de_su_corrida(
         parche.setattr(api_module, "_escribir_layout_del_run", revienta)
         with pytest.raises(RuntimeError, match="disco lleno"):
             sc.run()
-    (proyecto / "reports" / "marca-B.txt").write_text("B", encoding="utf-8")
     fallidas = [p for p in proyecto.iterdir() if p.name.startswith(".run.failed.")]
     assert len(fallidas) == 1 and (fallidas[0] / "audit_trail.jsonl").is_file()
+    informe_b = (fallidas[0] / "reports" / "scorecard_report.html").read_bytes()
+    assert informe_b != informe_a, "cada corrida deja su propio informe (sellos distintos)"
+    assert not (fallidas[0] / "reports" / "marca-A.txt").exists()
     assert (proyecto / "run" / "audit_trail.jsonl").read_bytes() == trail_a, "A sigue intacta"
+    assert informe.read_bytes() == informe_a, "sin consolidación, el informe de A vuelve"
+    assert (proyecto / "reports" / "marca-A.txt").is_file()
 
     sc.run()
     assert sc.study.run_context.status == "done", sc.study.run_context.error
-    (proyecto / "reports" / "marca-C.txt").write_text("C", encoding="utf-8")
     viejas = [p for p in proyecto.iterdir() if p.name.startswith(".run.old.")]
     assert len(viejas) == 1
     assert (viejas[0] / "audit_trail.jsonl").read_bytes() == trail_a
+    assert (viejas[0] / "reports" / "scorecard_report.html").read_bytes() == informe_a
     assert (viejas[0] / "reports" / "marca-A.txt").is_file()
-    assert not (viejas[0] / "reports" / "marca-B.txt").exists()
     assert not (viejas[0] / "reports.1").exists()
-    assert (fallidas[0] / "reports" / "marca-B.txt").is_file()
-    assert not (fallidas[0] / "reports" / "marca-A.txt").exists()
-    assert (proyecto / "reports" / "marca-C.txt").is_file()
+    assert (fallidas[0] / "reports" / "scorecard_report.html").read_bytes() == informe_b
+    assert informe.read_bytes() not in {informe_a, informe_b}
+    assert not (proyecto / "reports" / "marca-A.txt").exists()
     assert not (proyecto / "run" / "reports").exists()
-    assert not any(p.name.startswith(".reports.old") for p in proyecto.iterdir())
+    assert not any(p.name.startswith(".reports.") for p in proyecto.iterdir())
+
+
+def test_una_corrida_parcial_no_se_apropia_del_informe_de_una_fallida_posterior(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """Parcial A (sin informe) → B completa falla tras escribir su informe → C (Codex sobre
+    A2-ter): el informe de B sólo puede estar en la evidencia fallida de B."""
+    import nikodym.api as api_module
+
+    sc = _puerta(fuente, tmp_path)
+    proyecto = tmp_path / "corridas" / "prueba"
+    sc.run(until="data")
+    assert not _tiene_archivos(proyecto / "reports")
+
+    def revienta(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("disco lleno al escribir la evidencia")
+
+    with pytest.MonkeyPatch.context() as parche:
+        parche.setattr(api_module, "_escribir_layout_del_run", revienta)
+        with pytest.raises(RuntimeError, match="disco lleno"):
+            sc.run()
+    fallidas = [p for p in proyecto.iterdir() if p.name.startswith(".run.failed.")]
+    assert len(fallidas) == 1
+    assert (fallidas[0] / "reports" / "scorecard_report.html").is_file()
+    assert not _tiene_archivos(proyecto / "reports")
+    sc.run()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    viejas = [p for p in proyecto.iterdir() if p.name.startswith(".run.old.")]
+    assert len(viejas) == 1 and not (viejas[0] / "reports").exists()
+    assert (proyecto / "reports" / "scorecard_report.html").is_file()
+    assert not (proyecto / "run" / "reports").exists()
+
+
+def _tiene_archivos(ruta: Path) -> bool:
+    return ruta.is_dir() and any(p.is_file() for p in ruta.rglob("*"))
 
 
 def test_compare_con_el_mismo_nombre_no_pierde_ninguna_columna(
