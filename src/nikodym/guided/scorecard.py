@@ -916,45 +916,46 @@ class Scorecard:
             raise ScorecardInputError("compare() necesita que las dos corridas hayan corrido.")
         propio = build_final_summary(self._study, (), self._context())
         ajeno = build_final_summary(other._study, (), other._context())
+        # Dos corridas pueden llevar el mismo `name` (el de fábrica, en carpetas distintas): las
+        # columnas se rotulan sin ambigüedad o la tabla perdería una de las dos en silencio
+        # (pasada de Codex sobre A2).
+        mio, suyo = self._name, other._name
+        if mio == suyo:
+            mio, suyo = f"{self._name} (esta)", f"{other._name} (otra)"
         filas: list[dict[str, Any]] = [
-            {"Cifra": "Ejecución", self._name: propio.execution, other._name: ajeno.execution},
-            {
-                "Cifra": "Validación técnica",
-                self._name: propio.validation,
-                other._name: ajeno.validation,
-            },
+            {"Cifra": "Ejecución", mio: propio.execution, suyo: ajeno.execution},
+            {"Cifra": "Validación técnica", mio: propio.validation, suyo: ajeno.validation},
         ]
         mias = dict(propio.figures)
         suyas = dict(ajeno.figures)
         for rotulo in dict.fromkeys([*mias, *suyas]):
             filas.append(
-                {
-                    "Cifra": rotulo,
-                    self._name: mias.get(rotulo, "—"),
-                    other._name: suyas.get(rotulo, "—"),
-                }
+                {"Cifra": rotulo, mio: mias.get(rotulo, "—"), suyo: suyas.get(rotulo, "—")}
             )
         filas.append(
             {
                 "Cifra": "Variables finales",
-                self._name: ", ".join(_variables_finales(self._study)) or "—",
-                other._name: ", ".join(_variables_finales(other._study)) or "—",
+                mio: ", ".join(_variables_finales(self._study)) or "—",
+                suyo: ", ".join(_variables_finales(other._study)) or "—",
             }
         )
         filas.append(
             {
                 "Cifra": "Decisiones humanas",
-                self._name: "; ".join(propio.decisions) or "ninguna",
-                other._name: "; ".join(ajeno.decisions) or "ninguna",
+                mio: "; ".join(propio.decisions) or "ninguna",
+                suyo: "; ".join(ajeno.decisions) or "ninguna",
             }
         )
+        filas.append(
+            {"Cifra": "Carpeta", mio: str(self._project_dir), suyo: str(other._project_dir)}
+        )
         lines = (
-            f"{self._name}: {propio.execution} · validación técnica {propio.validation}",
-            f"{other._name}: {ajeno.execution} · validación técnica {ajeno.validation}",
+            f"{mio}: {propio.execution} · validación técnica {propio.validation}",
+            f"{suyo}: {ajeno.execution} · validación técnica {ajeno.validation}",
         )
         return StageSummary(
             stage="compare",
-            label=f"Comparación: {self._name} frente a {other._name}",
+            label=f"Comparación: {mio} frente a {suyo}",
             lines=lines,
             table=pd.DataFrame(filas),
         )
@@ -987,8 +988,15 @@ class Scorecard:
         # un reintento tras un fallo inesperado encuentra `run/reports` ya archivado y un
         # `reports/` vacío o parcial, y ninguno de los dos puede pisar al otro (pasada 1 de
         # Codex sobre la capa A).
-        if self._run_dir.is_dir() and _tiene_archivos(self._reports_dir):
-            destino = _ruta_libre(self._run_dir / _REPORTS_SUBDIR)
+        if _tiene_archivos(self._reports_dir):
+            if self._run_dir.is_dir():
+                destino = _ruta_libre(self._run_dir / _REPORTS_SUBDIR)
+            else:
+                # Un informe sin corrida consolidada (la primera corrida escribió el informe y
+                # falló antes de consolidar) se aparta como hermano `.reports.old.*`, igual que
+                # `nikodym.run` aparta lo suyo: nunca lo sobrescribe el reintento (pasada de
+                # Codex sobre A2).
+                destino = _ruta_libre(self._project_dir / f".{_REPORTS_SUBDIR}.old")
             shutil.move(str(self._reports_dir), str(destino))
         self._reports_dir.mkdir(parents=True, exist_ok=True)
 

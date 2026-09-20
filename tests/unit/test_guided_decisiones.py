@@ -259,6 +259,50 @@ def test_un_reintento_tras_un_fallo_inesperado_no_borra_el_informe_archivado(
     assert informe.is_file()
 
 
+def test_el_informe_de_una_primera_corrida_fallida_no_lo_pisa_el_reintento(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """La primera corrida escribe el informe y falla antes de consolidar: no hay `run/` y el
+    informe queda en `reports/`; el reintento lo aparta como `.reports.old.*` (Codex sobre A2)."""
+    import nikodym.api as api_module
+
+    sc = _puerta(fuente, tmp_path)
+    proyecto = tmp_path / "corridas" / "prueba"
+
+    def revienta(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("disco lleno al escribir la evidencia")
+
+    with pytest.MonkeyPatch.context() as parche:
+        parche.setattr(api_module, "_escribir_layout_del_run", revienta)
+        with pytest.raises(RuntimeError, match="disco lleno"):
+            sc.run()
+    informe = proyecto / "reports" / "scorecard_report.html"
+    assert informe.is_file() and not (proyecto / "run").exists()
+    contenido = informe.read_bytes()
+    sc.run()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    apartados = [p for p in proyecto.iterdir() if p.name.startswith(".reports.old")]
+    assert len(apartados) == 1
+    assert (apartados[0] / "scorecard_report.html").read_bytes() == contenido
+    assert informe.is_file()
+
+
+def test_compare_con_el_mismo_nombre_no_pierde_ninguna_columna(
+    fuente: Path, tmp_path: Path
+) -> None:
+    una = _puerta(fuente, tmp_path, name="scorecard", run_dir=tmp_path / "a")
+    una.run()
+    otra = _puerta(fuente, tmp_path, name="scorecard", run_dir=tmp_path / "b")
+    otra.exclude("score", reason="sin la variable fuerte")
+    otra.run()
+    tabla = una.compare(otra).table
+    assert list(tabla.columns) == ["Cifra", "scorecard (esta)", "scorecard (otra)"]
+    fila = tabla.set_index("Cifra")
+    assert "score" in fila.loc["Variables finales", "scorecard (esta)"]
+    assert "score" not in fila.loc["Variables finales", "scorecard (otra)"]
+    assert fila.loc["Carpeta", "scorecard (esta)"] != fila.loc["Carpeta", "scorecard (otra)"]
+
+
 def test_un_sink_que_no_puede_escribir_el_preambulo_deja_la_corrida_fallida(
     fuente: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

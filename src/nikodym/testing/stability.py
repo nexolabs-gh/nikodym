@@ -54,6 +54,10 @@ EXPERIMENTAL_DOMAINS: Final[tuple[str, ...]] = (
     "explain",
     "forward",
     "governance",
+    # La puerta guiada del scorecard (SDD-31, enmienda FLUJO-GUIADO-SCORECARD): adelanto
+    # declarado (D-SIM-1) hasta que cierre la capa B; su firma y sus resúmenes crecen de forma
+    # aditiva en 1.x.
+    "guided",
     "markov",
     "ml",
     "provisioning",

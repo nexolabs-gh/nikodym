@@ -14,7 +14,9 @@ Metodología (constante, sin perilla):
   anterior contradice esa tendencia; los empates (diferencia cero) no invierten; ``Special`` y
   ``Missing`` quedan fuera de la comparación; un tramo con menos de
   :data:`MIN_FILAS_POR_TRAMO` filas en la muestra no se evalúa (``inverts`` nulo), y tampoco se
-  evalúa el tramo que lo sigue, porque no tiene con qué compararse.
+  evalúa el tramo que lo sigue, porque no tiene con qué compararse. Un tramo de desarrollo
+  **sin filas** en una muestra se publica igual (``n=0``, tasa nula) y reinicia la cadena: dos
+  tramos no adyacentes nunca se comparan entre sí (pasada de Codex sobre A2).
 - Sólo hay veredicto para tendencias ascendente o descendente (las que el motor resuelve para una
   variable numérica); con cualquier otra forma o sin tendencia —categóricas— ``inverts`` es nulo.
 
@@ -101,6 +103,13 @@ def event_rate_by_partition(
             if not bool(en_muestra.any()):
                 continue
             conteos = _conteos_por_tramo(etiquetas[en_muestra], objetivo[en_muestra])
+            # Los tramos regulares de desarrollo sin filas en la muestra se publican con n=0
+            # y reinician la cadena de comparación; Special y Missing sólo si traen filas.
+            for etiqueta_dev in orden:
+                if etiqueta_dev in _TRAMOS_ESPECIALES:
+                    continue
+                if not any(_normalizar(e) == etiqueta_dev for e in conteos):
+                    conteos[etiqueta_dev] = (0, 0)
             tramos = _tramos_ordenados(conteos, orden)
             inversiones = _inversiones(tramos, conteos, tendencia)
             for etiqueta, bin_id in tramos:

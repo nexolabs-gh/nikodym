@@ -156,6 +156,31 @@ def test_un_tramo_con_pocas_filas_no_se_evalua_ni_el_que_lo_sigue() -> None:
     assert holdout["inverts"].isna().all(), "sin tramo anterior evaluable no hay veredicto"
 
 
+def test_un_tramo_ausente_en_la_muestra_se_publica_vacio_y_reinicia_la_cadena() -> None:
+    """A-B-C en desarrollo y B sin filas en OOT: C no se compara con A (Codex sobre A2)."""
+    n = MIN_FILAS_POR_TRAMO
+    filas = (
+        _repetir("[0, 1)", "desarrollo", n, 5)
+        + _repetir("[1, 2)", "desarrollo", n, 10)
+        + _repetir("[2, inf)", "desarrollo", n, 15)
+        + _repetir("[0, 1)", "oot", n, 20)
+        + _repetir("[2, inf)", "oot", n, 5)  # baja respecto de A, pero B no está: sin veredicto
+    )
+    bin_frame, target, partition = _frame(filas)
+    tabla = event_rate_by_partition(
+        bin_frame=bin_frame,
+        target=target,
+        partition=partition,
+        tables=_tablas("[0, 1)", "[1, 2)", "[2, inf)"),
+        trends={"x": "ascending"},
+    )
+    oot = tabla[tabla["partition"] == "oot"].set_index("bin_label")
+    assert oot.index.tolist() == ["[0, 1)", "[1, 2)", "[2, inf)"]
+    assert oot.loc["[1, 2)", "n"] == 0 and oot.loc["[1, 2)", "n_bad"] == 0
+    assert pd.isna(oot.loc["[1, 2)", "event_rate"])
+    assert oot["inverts"].isna().all()
+
+
 def test_special_y_missing_se_publican_pero_no_se_comparan() -> None:
     n = MIN_FILAS_POR_TRAMO
     filas = (

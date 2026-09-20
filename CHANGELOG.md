@@ -75,9 +75,11 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   plegando el resto en «Avanzado» (capa B de la enmienda). `merge_bins`/`set_bins` esperan la
   decisión de Cami sobre la hoja de cortes por variable (enmienda §8-9).
 - Un snapshot de `DataFrame` se nombra por su contenido y nunca se pisa; el informe de una
-  corrida anterior viaja a su respaldo lateral y ningún reintento lo borra. El informe de una
-  corrida que falló **después** de escribirlo y antes de consolidar queda en `reports/` y la
-  corrida siguiente lo sobrescribe: es el único hueco declarado del layout de la capa A.
+  corrida anterior viaja a su respaldo lateral (`run/reports` dentro de `.run.old.*`), y el de
+  una corrida que falló después de escribirlo y antes de consolidar se aparta como
+  `.reports.old.*`: ningún reintento sobrescribe un informe. Dos corridas con el mismo `name`
+  se comparan con las columnas rotuladas «(esta)» y «(otra)»; un tramo de desarrollo sin filas
+  en una muestra se publica con `n=0` y corta la cadena de comparación de la monotonía.
 
 ## [1.16.0] — 2026-09-15
 
