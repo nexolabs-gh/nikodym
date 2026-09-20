@@ -982,23 +982,42 @@ class Scorecard:
         """Crea la carpeta, escribe el config vigente y archiva el informe de la corrida previa."""
         self._project_dir.mkdir(parents=True, exist_ok=True)
         self._config_path.write_text(self.to_yaml(), encoding="utf-8")
-        # El informe de la corrida previa se guarda junto a su evidencia ANTES de que
-        # ``nikodym.run`` aparte esa evidencia a ``.run.old.*``: así cada respaldo lateral queda
-        # completo y el informe nuevo se escribe sobre una carpeta limpia. Nunca se borra nada:
-        # un reintento tras un fallo inesperado encuentra `run/reports` ya archivado y un
-        # `reports/` vacío o parcial, y ninguno de los dos puede pisar al otro (pasada 1 de
-        # Codex sobre la capa A).
         if _tiene_archivos(self._reports_dir):
-            if self._run_dir.is_dir():
-                destino = _ruta_libre(self._run_dir / _REPORTS_SUBDIR)
-            else:
-                # Un informe sin corrida consolidada (la primera corrida escribió el informe y
-                # falló antes de consolidar) se aparta como hermano `.reports.old.*`, igual que
-                # `nikodym.run` aparta lo suyo: nunca lo sobrescribe el reintento (pasada de
-                # Codex sobre A2).
-                destino = _ruta_libre(self._project_dir / f".{_REPORTS_SUBDIR}.old")
-            shutil.move(str(self._reports_dir), str(destino))
+            shutil.move(str(self._reports_dir), str(self._destino_del_informe_residual()))
         self._reports_dir.mkdir(parents=True, exist_ok=True)
+
+    def _destino_del_informe_residual(self) -> Path:
+        """Dónde va el `reports/` que dejó la corrida anterior: junto a SU evidencia.
+
+        El informe se escribe fuera del `run_dir` (§3.1) y hay que archivarlo antes de que
+        ``nikodym.run`` aparte la evidencia previa a ``.run.old.*``; nunca se borra nada. Tres
+        casos, y el segundo es el que la pasada de Codex sobre A2-bis destapó:
+
+        - `run/` consolidado y sin `reports` dentro: el informe es de esa corrida → `run/reports`,
+          y el respaldo lateral se lo lleva completo.
+        - `run/` ya lleva su `reports`: el informe residual es de una corrida que FALLÓ después
+          de escribirlo y antes de consolidar (su evidencia quedó en ``.run.failed.*``) → va
+          dentro del `.run.failed.*` más reciente que aún no tenga informe. Meterlo en `run/`
+          mezclaría el informe de una corrida con el trail y el lineage de otra.
+        - Sin `run/` (la primera corrida falló tras escribirlo): mismo criterio, y si no hay
+          evidencia fallida a la que asociarlo, un hermano `.reports.old.*` independiente.
+        """
+        archivado_en_run = self._run_dir / _REPORTS_SUBDIR
+        if self._run_dir.is_dir() and not archivado_en_run.exists():
+            return archivado_en_run
+        fallidas = sorted(
+            (
+                p
+                for p in self._project_dir.iterdir()
+                if p.is_dir()
+                and p.name.startswith(f".{_RUN_SUBDIR}.failed.")
+                and not (p / _REPORTS_SUBDIR).exists()
+            ),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if fallidas:
+            return fallidas[-1] / _REPORTS_SUBDIR
+        return _ruta_libre(self._project_dir / f".{_REPORTS_SUBDIR}.old")
 
     def _preamble(self) -> tuple[tuple[str, dict[str, Any]], ...]:
         """Lo que la corrida declara al trail antes del primer paso.

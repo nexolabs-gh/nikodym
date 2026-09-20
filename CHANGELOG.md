@@ -76,8 +76,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   decisión de Cami sobre la hoja de cortes por variable (enmienda §8-9).
 - Un snapshot de `DataFrame` se nombra por su contenido y nunca se pisa; el informe de una
   corrida anterior viaja a su respaldo lateral (`run/reports` dentro de `.run.old.*`), y el de
-  una corrida que falló después de escribirlo y antes de consolidar se aparta como
-  `.reports.old.*`: ningún reintento sobrescribe un informe. Dos corridas con el mismo `name`
+  una corrida que falló después de escribirlo y antes de consolidar va junto a su propia
+  evidencia fallida (`.run.failed.*/reports`; si no la hubiera, a `.reports.old.*`): ningún
+  reintento sobrescribe un informe ni lo asocia al trail de otra corrida. Dos corridas con el mismo `name`
   se comparan con las columnas rotuladas «(esta)» y «(otra)»; un tramo de desarrollo sin filas
   en una muestra se publica con `n=0` y corta la cadena de comparación de la monotonía.
 

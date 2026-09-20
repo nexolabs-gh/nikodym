@@ -204,9 +204,11 @@ sc.summary()                            # el resumen final: ejecución y veredic
   reescribe en cada corrida), `input/data.parquet` (el snapshot, sólo con `DataFrame`) y
   `reports/` (el informe, con `report.output_dir` absoluto). Antes de cada corrida la puerta mueve
   el `reports/` anterior dentro de `run/` para que el respaldo lateral `.run.old.*` que
-  `nikodym.run` crea lleve también su informe: cada corrida archivada queda completa; sin `run/`
-  consolidado (la primera corrida falló después de escribir el informe) el `reports/` no vacío
-  se aparta como `.reports.old.*`. Nunca se borra un informe (pasada de Codex sobre A2).
+  `nikodym.run` crea lleve también su informe: cada corrida archivada queda completa. Si `run/`
+  ya lleva su informe, el `reports/` residual es de una corrida que falló después de escribirlo
+  y va dentro de su evidencia `.run.failed.*` (la más reciente sin informe); sin evidencia
+  fallida, a un hermano `.reports.old.*`. Nunca se borra un informe ni se asocia al trail de
+  otra corrida (pasadas de Codex sobre A2 y A2-bis).
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 
