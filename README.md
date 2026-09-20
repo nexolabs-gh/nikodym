@@ -119,7 +119,11 @@ pipeline de producción que promete PDF), pon `report.pdf.fail_if_unavailable = 
 
 ## Quickstart
 
-El experimento es un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)` lo ejecuta de
+La forma más corta es la **puerta guiada** `nikodym.Scorecard` (experimental hasta que cierre su
+capa de pantalla): datos, qué es «malo», identificador, eje temporal y muestra fuera de tiempo, y
+`run()` corre y cuenta cada etapa; está en «Tu primer scorecard en 13 líneas» de la documentación.
+Debajo, la puerta completa: el experimento es un `NikodymConfig` declarativo;
+`nikodym.run(config, run_dir=...)` lo ejecuta de
 extremo a extremo (binning → selección → modelo → scorecard → calibración → desempeño →
 estabilidad), deja la evidencia de la corrida en `run_dir` y devuelve un `Study` reproducible.
 Este ejemplo usa el **preset estándar F1** sobre un dataset sintético de consumo, así corre sin

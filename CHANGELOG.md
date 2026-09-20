@@ -5,6 +5,45 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Añadido
+
+- **Puerta guiada del scorecard: `nikodym.Scorecard` (experimental).** Un scorecard de
+  comportamiento de punta a punta con la entrada mínima —los datos, qué es «malo», el
+  identificador, el eje temporal (`date=` o `cohort=`) con su muestra fuera de tiempo, o
+  `partition="random"` sin eje— y valores de fábrica que funcionan. Lo que se puede inferir se
+  infiere y se **declara** en el registro de auditoría (el esquema, las categóricas, las
+  predictoras sin las columnas que definen el incumplimiento, las muestras); lo institucional no
+  se siembra: sin la frontera fuera de tiempo la puerta se detiene antes de correr y dice el rango
+  del archivo y el valor que usaría. `run()` corre el pipeline F1 completo con `nikodym.run` y
+  **cuenta cada etapa** en español —de tres a ocho líneas, sus alertas y una tabla de decisión con
+  rótulos en español, disponibles en `sc.summary(<etapa>)` y `sc.results[<etapa>]`, con la misma
+  fuente para consola y notebook—; `run(until=<etapa>)` corre el prefijo del pipeline como una
+  corrida parcial con su propio `config_hash`; `resume()` es una corrida nueva y completa sobre el
+  config vigente, con la anterior apartada a un respaldo lateral que conserva su informe. El
+  resumen final (`sc.summary()`) separa **Ejecución** («completada» o «fallida en …») de
+  **Validación técnica** (la palabra del motor y qué prueba la decidió), publica cinco cifras
+  (AUC, Gini y KS fuera de tiempo, la caída del AUC y el peor PSI con su banda), qué revisar, las
+  decisiones humanas registradas y dónde quedó cada archivo; `run(raise_on_error=True)` levanta
+  en vez de devolver el estado. `purpose=` enciende la gobernanza y con ella la ficha del modelo;
+  `track=` enciende el registro en MLflow. `sc.config` es el `NikodymConfig` completo,
+  `sc.to_yaml()` lo exporta y la puerta completa produce con él **los mismos resultados**: la
+  procedencia (inferencias y decisiones con autor y motivo) es lo único que la corrida guiada
+  añade al trail. Ninguna hoja nueva de config, ningún `config_hash` de preset se mueve y con el
+  mismo config los resultados son bit a bit los de antes. La guía «Empezar» y el tutorial abren
+  con «Tu primer scorecard en 13 líneas», ejecutado en CI.
+- **`nikodym.run` y `Study.run` ganan dos ganchos aditivos**, opcionales y sin efecto sobre el
+  cálculo: `preamble=` —pares `(paso, payload)` que se emiten al registro de auditoría como
+  decisiones justo después de `run_start`, la vía con que una puerta de entrada declara su
+  procedencia— y `on_step=` —un *callback* `(nombre_del_paso, study)` tras cada paso—.
+
+### Sabido
+
+- La puerta guiada es sólo por código: la pantalla no muestra todavía los campos esenciales
+  plegando el resto en «Avanzado» (capa B de la enmienda), y las decisiones humanas entre etapas
+  (`exclude`, `keep`, `merge_bins`, `set_bins`) llegan en la misma serie.
+
 ## [1.16.0] — 2026-09-15
 
 ### Cambiado

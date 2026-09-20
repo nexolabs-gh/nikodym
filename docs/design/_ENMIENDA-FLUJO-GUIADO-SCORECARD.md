@@ -197,6 +197,14 @@ sc.summary()                            # el resumen final: ejecución y veredic
   exige un `run_dir`, D-GOB-7). `run_dir=None` no se acepta en la puerta guiada. Una corrida
   repetida sobre el mismo `<run_dir>/<name>/` aparta la anterior a `.<name>.old.*`, que es lo que
   `nikodym.run` ya hace. La primera línea del resumen de datos dice la ruta absoluta.
+  **Precisión al implementar la capa A (S17, 2026-09-19):** `nikodym.run` sustituye **entero** su
+  destino al consolidar y aparta lo que había —incluido lo que la propia corrida escribió allí
+  mientras corría—, así que el layout de SDD-03 §6 vive en `<run_dir>/<name>/run/` y a su lado,
+  donde ninguna consolidación se los lleva, quedan `config.yaml` (el config vigente que la puerta
+  reescribe en cada corrida), `input/data.parquet` (el snapshot, sólo con `DataFrame`) y
+  `reports/` (el informe, con `report.output_dir` absoluto). Antes de cada corrida la puerta mueve
+  el `reports/` anterior dentro de `run/` para que el respaldo lateral `.run.old.*` que
+  `nikodym.run` crea lleve también su informe: cada corrida archivada queda completa.
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 

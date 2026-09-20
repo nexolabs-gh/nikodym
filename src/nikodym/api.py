@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -177,6 +177,8 @@ def run(
     *,
     artifacts: Mapping[ArtifactKey, Any] | None = None,
     run_dir: str | Path | None = None,
+    preamble: Sequence[tuple[str | None, Mapping[str, Any]]] = (),
+    on_step: Callable[[str, Study], None] | None = None,
 ) -> Study:
     """Ejecuta una corrida completa de extremo a extremo y devuelve el ``Study``.
 
@@ -236,6 +238,13 @@ def run(
     enumera en ``lineage.injected_artifacts`` y declara que no es reconstruible sólo desde config
     y datos. Esta puerta es de código: la UI/HTTP no deserializa artefactos externos.
 
+    **Declarar la procedencia y escuchar cada paso.** ``preamble`` y ``on_step`` son los dos
+    ganchos aditivos de :meth:`Study.run`: pares ``(step, payload)`` que se emiten al trail como
+    ``decision`` justo después de ``run_start`` —la puerta guiada declara así sus inferencias y
+    las decisiones humanas con motivo— y un *callback* ``(nombre_del_paso, study)`` tras cada paso,
+    con el que esa puerta cuenta cada etapa al terminar. Ninguno cambia el cálculo ni el
+    ``config_hash``; sin ellos la corrida es exactamente la de siempre.
+
     **Dónde queda el diagnóstico.** En ``study.run_context.error``
     (:class:`~nikodym.core.lineage.RunError`): tipo de la excepción, mensaje del motor y paso que
     falló, sin que haya que configurar nada. El audit-trail lo repite en el evento ``run_end``, pero
@@ -259,7 +268,12 @@ def run(
             study.set_audit_sink(sink)
             _inject_artifacts(study, artifacts or {})
             try:
-                study.run()
+                # Sin ganchos, la llamada es exactamente la histórica: quien parchee o
+                # envuelva ``Study.run`` con la firma de siempre no se entera de los kwargs.
+                if preamble or on_step is not None:
+                    study.run(preamble=preamble, on_step=on_step)
+                else:
+                    study.run()
             except NikodymError:
                 # Fallo esperado de dominio: el Study queda con status="failed" + lineage
                 # conservado (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).

@@ -101,7 +101,50 @@ sus imports son perezosos. Para verificar que el extra `scoring` quedó disponib
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
 `optbinning` de forma explícita, no en silencio.
 
-## Primer contacto: correr el preset F1
+## Tu primer scorecard en 13 líneas
+
+La **puerta guiada** construye un scorecard de comportamiento de punta a punta con lo que sólo tu
+institución sabe: los datos, qué es «malo», el identificador, el eje temporal y la muestra fuera
+de tiempo. Todo lo demás lo infiere, lo declara en el registro de auditoría y lo corre con
+valores de fábrica que funcionan. Cada etapa cuenta lo que hizo en español, con su tabla de
+decisión (`sc.results["selection"]`, `sc.summary("binning")`), y el resumen final separa si la
+corrida **terminó** de si el modelo **pasa** la validación técnica.
+
+!!! note "Experimental hasta que cierre la capa de pantalla"
+    La puerta guiada por código es la primera de las tres puertas (guiada, completa y de
+    pantalla) y sale declarada experimental: su firma puede crecer de forma aditiva hasta que la
+    interfaz muestre los mismos campos esenciales. Necesita el extra `scoring`.
+
+<!-- primer-scorecard:start -->
+```python
+from pathlib import Path
+
+from nikodym import Scorecard
+from nikodym.ui.datasets import materialize
+
+# La cartera sintética de consumo del paquete (6.000 operaciones, determinista).
+datos = materialize("consumo_comportamiento", workdir=Path("nikodym-runs"))
+
+sc = Scorecard(
+    data=datos,
+    target="bad_flag",          # 1 = malo
+    id="loan_id",
+    cohort="cohorte",           # la añada de cada operación
+    oot_cohorts=["2024Q2"],     # la muestra fuera de tiempo la decide la institución
+    name="consumo_v01",
+)
+sc.run()          # corre todo y cuenta cada etapa
+sc.summary()      # ejecución y validación técnica por separado, cifras clave y archivos
+```
+<!-- primer-scorecard:end -->
+
+`run()` imprime el resumen de cada etapa mientras corre; `sc.run(until="selection")` se detiene
+tras esa etapa y `sc.resume()` vuelve a correr todo sobre el config vigente. La evidencia queda en
+`nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el registro de auditoría y el
+estudio en `run/`, y el informe en `reports/`. Ese `config.yaml` es un `NikodymConfig` entero:
+la puerta completa de abajo lo corre tal cual y produce los mismos resultados.
+
+## La puerta completa: correr el preset F1
 
 El experimento en Nikodym *es* un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)`
 lo ejecuta de extremo a extremo, deja la evidencia de la corrida en `run_dir` y devuelve un `Study`

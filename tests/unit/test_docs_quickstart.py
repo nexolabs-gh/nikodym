@@ -43,6 +43,13 @@ _BLOQUE_QUICKSTART = "quickstart"
 #: ``config``, ``workdir``), así que ejecutarlos juntos es lo único que prueba que el relato cierra.
 _TUTORIAL = ("tutorial-paso-1", "tutorial-paso-2", "tutorial-paso-3")
 
+#: El notebook mínimo de la puerta guiada (SDD-31 D-SIM-8; enmienda FLUJO-GUIADO-SCORECARD
+#: D-FLU-10): abre «Empezar» y el tutorial con el mismo bloque, byte a byte, y se ejecuta como el
+#: quickstart. Su tope de líneas de usuario es el que Cami fijó el 2026-09-18 (SDD-31 §12.2).
+_PRIMER_SCORECARD = "primer-scorecard"
+_PAGINAS_PRIMER_SCORECARD = ("getting-started.md", "tutorial.md")
+_TOPE_LINEAS_NOTEBOOK_MINIMO = 25
+
 _FENCE_PYTHON = re.compile(r"```python\n(.*?)\n```", re.DOTALL)
 _USA_PRESET = re.compile(r"standard_preset\(|get_preset\(")
 _LLAMA_RUN = re.compile(r"nikodym\.run\(")
@@ -123,6 +130,43 @@ def test_el_tutorial_se_ejecuta_de_corrido(tmp_path: Path, monkeypatch: pytest.M
     assert "materialize(" in codigo and "standard_preset()" in codigo and "nikodym.run(" in codigo
     espacio = _ejecutar(codigo, _DOCS / "tutorial.md", tmp_path, monkeypatch)
     assert espacio["study"].run_context.status == "done", espacio["study"].run_context.error
+
+
+def _lineas_de_usuario(codigo: str) -> list[str]:
+    """Las líneas que el usuario escribe: sin vacías ni comentarios (regla de las cinco cifras)."""
+    return [ln for ln in codigo.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+
+
+def test_el_primer_scorecard_se_publica_igual_en_empezar_y_en_el_tutorial() -> None:
+    referencia = _bloque(
+        (_DOCS / _PAGINAS_PRIMER_SCORECARD[0]).read_text(encoding="utf-8"),
+        _PRIMER_SCORECARD,
+        _PAGINAS_PRIMER_SCORECARD[0],
+    )
+    assert "Scorecard(" in referencia and "sc.run()" in referencia, "el bloque perdió la puerta"
+    for pagina in _PAGINAS_PRIMER_SCORECARD[1:]:
+        assert (
+            _bloque((_DOCS / pagina).read_text(encoding="utf-8"), _PRIMER_SCORECARD, pagina)
+            == referencia
+        ), f"{pagina} publica un notebook mínimo distinto del de {_PAGINAS_PRIMER_SCORECARD[0]}"
+
+
+def test_el_primer_scorecard_cabe_en_el_tope_de_lineas_y_corre_hasta_el_final(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El notebook mínimo es la definición de «terminado» de la capa (RUNBOOK §12.1-4)."""
+    origen = _DOCS / _PAGINAS_PRIMER_SCORECARD[0]
+    codigo = _bloque(origen.read_text(encoding="utf-8"), _PRIMER_SCORECARD, origen.name)
+    lineas = _lineas_de_usuario(codigo)
+    assert len(lineas) <= _TOPE_LINEAS_NOTEBOOK_MINIMO, len(lineas)
+    espacio = _ejecutar(codigo, origen, tmp_path, monkeypatch)
+    sc = espacio["sc"]
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    proyecto = tmp_path / "nikodym-runs" / "consumo_v01"
+    assert (proyecto / "config.yaml").is_file()
+    assert (proyecto / "run" / "audit_trail.jsonl").is_file()
+    assert (proyecto / "reports" / "scorecard_report.html").is_file()
+    assert sc.summary().execution == "completada"
 
 
 def _fragmentos_con_preset() -> list[tuple[str, str]]:

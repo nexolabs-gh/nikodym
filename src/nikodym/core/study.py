@@ -26,7 +26,7 @@ import tempfile
 import time
 import uuid
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from datetime import UTC, datetime
 from importlib import metadata
@@ -320,7 +320,13 @@ class Study:
 
     # --- Orquestación (motor v1: orden de declaración + validación de prerequisitos, CT-1) -----
 
-    def run(self, steps: list[str] | None = None) -> Study:
+    def run(
+        self,
+        steps: list[str] | None = None,
+        *,
+        preamble: Sequence[tuple[str | None, Mapping[str, Any]]] = (),
+        on_step: Callable[[str, Study], None] | None = None,
+    ) -> Study:
         """Ejecuta el pipeline y devuelve ``self`` (encadenable).
 
         El argumento ``steps`` tiene prioridad sobre ``config.run.steps``. ``fail_fast=False`` no se
@@ -330,6 +336,22 @@ class Study:
         ``run_context.error`` (:class:`~nikodym.core.lineage.RunError`: tipo, mensaje y paso), sella
         ``finished_at``, emite ``run_end`` y se re-levanta; el ``Study`` parcial sigue siendo
         guardable.
+
+        **Dos ganchos aditivos, ambos opcionales y sin efecto sobre el cálculo** (enmienda
+        FLUJO-GUIADO-SCORECARD, D-FLU-1/D-FLU-3; el motor no cambia de resultado con ellos):
+
+        - ``preamble``: pares ``(step, payload)`` que se emiten al trail como eventos ``decision``
+          **justo después de** ``run_start`` y antes del primer paso, en ese orden. Es la vía con
+          que una puerta de entrada declara su procedencia —qué infirió y qué decisión humana con
+          motivo trae el config— sin construir un segundo sink ni tocar el sobre del evento: el
+          ``payload`` es del llamador y viaja tal cual (las claves aditivas que la ficha no lee,
+          como ``autor`` y ``motivo``, se conservan; D-ERR-6). No emite nada si la resolución del
+          pipeline falla: entonces el trail lleva ``run_start`` y el ``run_end`` con el diagnóstico.
+        - ``on_step``: se llama con ``(nombre_del_paso, self)`` después de que cada paso ejecutó y
+          publicó sus métricas, para que quien orquesta pueda **contar** lo que ya está en el
+          store (el resumen por etapa de la puerta guiada). Una excepción del gancho se propaga
+          como fallo del paso en curso, con su rastro: silenciarla escondería un error del
+          llamador dentro de una corrida que se diría completa.
         """
         nombres = steps if steps is not None else self.config.run.steps
         if not self.config.run.fail_fast:
@@ -379,6 +401,12 @@ class Study:
             # campos explícitos, ni con un config construido en Python, que ya llega tipado.
             self.run_context.lineage = self._build_lineage()
 
+        # Las declaraciones de procedencia van después de `run_start` y antes del primer paso: el
+        # orden SDD-01 §11 (run_start → decision → artifact → run_end) se conserva, y un lector del
+        # trail encuentra qué puerta entró y qué trajo antes de cualquier decisión del motor.
+        for paso_declarante, payload in preamble:
+            self._emit("decision", paso_declarante, dict(payload))
+
         # El paso en curso se rastrea fuera del try para poder nombrarlo en el rastro del fallo:
         # sin él, "falló la corrida" no dice en qué etapa del pipeline (enmienda RUN-ERROR, D-ERR-2)
         paso_actual: Step | None = None
@@ -386,6 +414,8 @@ class Study:
             for paso in pasos:
                 paso_actual = paso
                 self._run_one(paso)
+                if on_step is not None:
+                    on_step(paso.name, self)
         except Exception as exc:
             self._registrar_fallo(exc, paso=paso_actual, run_id=run_id)
             raise

@@ -22,6 +22,38 @@ El pipeline F1 vive tras el extra `scoring` (optbinning + statsmodels + sklearn)
 pip install 'nikodym[scoring]'
 ```
 
+## Antes de los seis pasos: el mismo scorecard en 13 líneas
+
+Si sólo quieres ver el resultado, la **puerta guiada** corre el pipeline entero y lo cuenta etapa
+por etapa (es la misma corrida que recorre el resto del tutorial; experimental hasta que cierre la
+capa de pantalla):
+
+<!-- primer-scorecard:start -->
+```python
+from pathlib import Path
+
+from nikodym import Scorecard
+from nikodym.ui.datasets import materialize
+
+# La cartera sintética de consumo del paquete (6.000 operaciones, determinista).
+datos = materialize("consumo_comportamiento", workdir=Path("nikodym-runs"))
+
+sc = Scorecard(
+    data=datos,
+    target="bad_flag",          # 1 = malo
+    id="loan_id",
+    cohort="cohorte",           # la añada de cada operación
+    oot_cohorts=["2024Q2"],     # la muestra fuera de tiempo la decide la institución
+    name="consumo_v01",
+)
+sc.run()          # corre todo y cuenta cada etapa
+sc.summary()      # ejecución y validación técnica por separado, cifras clave y archivos
+```
+<!-- primer-scorecard:end -->
+
+Lo que sigue abre la **puerta completa**: el `NikodymConfig` sección por sección, para entender
+qué decide cada etapa y qué artefacto deja.
+
 ## Los seis pasos del pipeline F1
 
 Una corrida F1 encadena estos pasos, cada uno gobernado por su sección del `NikodymConfig` y cada uno

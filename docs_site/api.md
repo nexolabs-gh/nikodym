@@ -22,6 +22,18 @@ publicado (`1.16.0`).
     optbinning, XGBoost, …) se cargan solo al ejecutar el paso correspondiente, tras sus *extras*
     opcionales.
 
+## Puerta guiada (experimental)
+
+`nikodym.Scorecard` construye, corre y cuenta un scorecard de comportamiento con la entrada
+mínima; es un cliente de `run` que arma el `NikodymConfig`, lo ejecuta y lee sus artefactos.
+Experimental hasta que cierre la capa de pantalla de la misma enmienda.
+
+::: nikodym.guided.scorecard.Scorecard
+
+::: nikodym.guided.summaries.StageSummary
+
+::: nikodym.guided.summaries.FinalSummary
+
 ## Ejecución y estado de la corrida
 
 Punto de entrada único (`run`) y las estructuras *stateful* que produce: el `Study` contenedor, su

@@ -16,6 +16,7 @@ __all__ = [
     "DatasetCheck",
     "FittedScorecardBundle",
     "PipelineCheck",
+    "Scorecard",
     "__version__",
     "apply",
     "assemble_run",
@@ -37,6 +38,9 @@ _LAZY = frozenset(
 )
 
 _SCORECARD_LAZY = frozenset({"apply", "fit_scorecard_bundle", "FittedScorecardBundle"})
+# La puerta guiada (SDD-31, enmienda FLUJO-GUIADO-SCORECARD) se importa al acceder al atributo,
+# como `run`: arrastra pandas y los mapas de rótulos del informe, que el núcleo liviano no carga.
+_GUIDED_LAZY = frozenset({"Scorecard"})
 
 if TYPE_CHECKING:  # pragma: no cover - solo para el type-checker, no en runtime
     from nikodym.api import (
@@ -47,6 +51,7 @@ if TYPE_CHECKING:  # pragma: no cover - solo para el type-checker, no en runtime
         check_pipeline,
         run,
     )
+    from nikodym.guided import Scorecard
     from nikodym.scorecard.bundle import FittedScorecardBundle, apply, fit_scorecard_bundle
 
 
@@ -64,9 +69,13 @@ def __getattr__(name: str) -> Any:
         from nikodym.scorecard import bundle
 
         return getattr(bundle, name)
+    if name in _GUIDED_LAZY:
+        from nikodym import guided
+
+        return getattr(guided, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
     """Expone los símbolos perezosos en ``dir(nikodym)`` además de los del módulo."""
-    return sorted({*globals(), *_LAZY, *_SCORECARD_LAZY})
+    return sorted({*globals(), *_LAZY, *_SCORECARD_LAZY, *_GUIDED_LAZY})
