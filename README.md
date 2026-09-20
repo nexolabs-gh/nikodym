@@ -121,7 +121,7 @@ pipeline de producción que promete PDF), pon `report.pdf.fail_if_unavailable = 
 
 La forma más corta es la **puerta guiada** `nikodym.Scorecard` (experimental hasta que cierre su
 capa de pantalla): datos, qué es «malo», identificador, eje temporal y muestra fuera de tiempo, y
-`run()` corre y cuenta cada etapa; está en «Tu primer scorecard en 13 líneas» de la documentación.
+`run()` corre y cuenta cada etapa; está en «Tu primer scorecard en 15 líneas» de la documentación.
 Debajo, la puerta completa: el experimento es un `NikodymConfig` declarativo;
 `nikodym.run(config, run_dir=...)` lo ejecuta de
 extremo a extremo (binning → selección → modelo → scorecard → calibración → desempeño →

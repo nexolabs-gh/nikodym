@@ -92,6 +92,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="PD objetivo",
         description=("Tasa central de anclaje, entre 0 y 1."),
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Ancla",
             "ui_order": 1,
@@ -130,6 +131,7 @@ class CalibrationConfig(NikodymBaseConfig):
             "como long-run average TTC."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "selectbox",
             "ui_group": "Ancla",
             "ui_order": 3,

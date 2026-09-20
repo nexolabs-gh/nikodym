@@ -78,20 +78,28 @@ def dtype_logico(serie: pd.Series) -> str:
     return "str"
 
 
-def columnas_esquema(frame: pd.DataFrame, *, fechas: Iterable[str] = ()) -> list[dict[str, Any]]:
+def columnas_esquema(
+    frame: pd.DataFrame, *, fechas: Iterable[str] = (), textos: Iterable[str] = ()
+) -> list[dict[str, Any]]:
     """Las ``ColumnSpec`` de ``data.schema.columns`` inferidas de los dtypes del frame.
 
     ``nullable`` se declara medido: es verdadero sólo si la columna trae vacíos. Las columnas de
     ``fechas`` —el eje temporal que el usuario nombró— se declaran ``datetime`` con coacción, para
     que un archivo que trae la fecha como texto (``2024-01-15``) entre igual: la partición temporal
-    y el análisis exploratorio exigen una fecha de verdad.
+    y el análisis exploratorio exigen una fecha de verdad. Las de ``textos`` —la cohorte— se
+    declaran ``str`` con coacción: la partición por cohorte compara con las cohortes reservadas
+    escritas como texto, y una añada guardada como número (``2024``) no casaría nunca (pasada 1
+    de Codex sobre la capa A).
     """
     fechas_declaradas = set(fechas)
+    textos_declarados = set(textos)
     columnas: list[dict[str, Any]] = []
     for nombre in frame.columns:
         serie = frame[nombre]
         if str(nombre) in fechas_declaradas:
             dtype, coerce = "datetime", True
+        elif str(nombre) in textos_declarados:
+            dtype, coerce = "str", True
         else:
             dtype, coerce = dtype_logico(serie), False
         columnas.append(

@@ -138,14 +138,24 @@ class StabilityConfig(NikodymBaseConfig):
             "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo "
             "inicia la banda de revisión."
         ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Métricas", "ui_order": 3},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "number_input",
+            "ui_group": "Métricas",
+            "ui_order": 3,
+        },
     )
     psi_review_threshold: float = Field(
         default=0.25,
         ge=0.0,
         title="Umbral PSI de redesarrollo",
         description="Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Métricas", "ui_order": 4},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "number_input",
+            "ui_group": "Métricas",
+            "ui_order": 4,
+        },
     )
     smoothing: float = Field(
         default=1e-6,

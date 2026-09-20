@@ -25,6 +25,7 @@ from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.selection.config import SelectionConfig
+from nikodym.selection.diagnostics import IV_BY_PARTITION_COLUMNS, iv_by_partition
 from nikodym.selection.exceptions import SelectionFitError, SelectionForcedVifConflictError
 
 if TYPE_CHECKING:
@@ -63,6 +64,9 @@ SELECTION_ARTIFACTS: Final[tuple[str, ...]] = (
     "stability_table",
     "result",
     "selection_card",
+    # Aditivo (enmienda FLUJO-GUIADO-SCORECARD §3.6-1, D-FLU-6): el IV por variable y muestra;
+    # clave propia, `selection_table` conserva su esquema.
+    "iv_by_partition",
 )
 _SCORING_EXTRA_MESSAGE: Final = (
     "SelectionStep requiere FeatureSelector y el extra de scoring; instale nikodym[scoring]."
@@ -97,6 +101,10 @@ class SelectionStep(AuditableMixin):
         ("binning", "woe_frame"),
         ("binning", "result"),
     )
+    #: Las etiquetas congeladas de los tramos alimentan el IV por muestra (§3.6-1). Se adoptan si
+    #: existen y no se exigen (D-ART-5): quien entra por la mitad con sus propios artefactos de
+    #: binning sin ``bin_frame`` recibe el artefacto vacío, no un prerequisito nuevo.
+    optional_requires: tuple[ArtifactKey, ...] = (("binning", "bin_frame"),)
     provides: tuple[ArtifactKey, ...] = tuple(("selection", key) for key in SELECTION_ARTIFACTS)
 
     def __init__(self, config: SelectionConfig) -> None:
@@ -154,7 +162,10 @@ class SelectionStep(AuditableMixin):
         result = _build_result(selector, selected_woe_frame)
         selection_card = _build_selection_card(result, cfg)
         self._log_selection_decisions(result=result, config=cfg)
-        self._publish_artifacts(study, result, selection_card)
+        iv_por_muestra = _iv_por_muestra(
+            study, woe_frame=woe_frame, target_col=target_col, partition_col=partition_col, pd=pd
+        )
+        self._publish_artifacts(study, result, selection_card, iv_por_muestra)
         return result
 
     def _log_forced_conflict_if_present(
@@ -246,8 +257,9 @@ class SelectionStep(AuditableMixin):
         study: Study,
         result: SelectionResult,
         selection_card: SelectionCardSection,
+        iv_by_partition_table: DataFrame,
     ) -> None:
-        """Publica los nueve artefactos estables del dominio ``selection``."""
+        """Publica los nueve artefactos estables de ``selection`` y el IV por muestra."""
         study.artifacts.set("selection", "selected_features", result.selected_features)
         study.artifacts.set("selection", "selected_woe_columns", result.selected_woe_columns)
         study.artifacts.set(
@@ -261,6 +273,26 @@ class SelectionStep(AuditableMixin):
         study.artifacts.set("selection", "stability_table", result.stability_table.copy(deep=True))
         study.artifacts.set("selection", "result", result)
         study.artifacts.set("selection", "selection_card", selection_card)
+        study.artifacts.set("selection", "iv_by_partition", iv_by_partition_table)
+
+
+def _iv_por_muestra(
+    study: Study,
+    *,
+    woe_frame: DataFrame,
+    target_col: str,
+    partition_col: str,
+    pd: Any,
+) -> DataFrame:
+    """El IV por variable y muestra sobre las etiquetas congeladas (§3.6-1), o vacío sin ellas."""
+    if not study.artifacts.has("binning", "bin_frame"):
+        return cast("DataFrame", pd.DataFrame(columns=list(IV_BY_PARTITION_COLUMNS)))
+    bin_frame = _as_dataframe(study.artifacts.get("binning", "bin_frame"), pd, "bin_frame")
+    return iv_by_partition(
+        bin_frame=bin_frame,
+        target=woe_frame[target_col],
+        partition=woe_frame[partition_col],
+    )
 
 
 def _import_pandas() -> Any:

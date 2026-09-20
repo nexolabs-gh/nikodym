@@ -115,6 +115,7 @@ class GovernanceConfig(NikodymBaseConfig):
             "Quién responde por este modelo: correo o identificación de la persona o el equipo."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "text_input",
             "ui_group": _GRUPO_INVENTARIO,
             "ui_order": 5,
@@ -131,7 +132,12 @@ class GovernanceConfig(NikodymBaseConfig):
             "institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se "
             "emite."
         ),
-        json_schema_extra={"ui_widget": "textarea", "ui_group": _GRUPO_FICHA, "ui_order": 1},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "textarea",
+            "ui_group": _GRUPO_FICHA,
+            "ui_order": 1,
+        },
     )
     assumptions: tuple[str, ...] = Field(
         default_factory=tuple,
@@ -162,6 +168,7 @@ class GovernanceConfig(NikodymBaseConfig):
             "próxima revisión, contada desde su emisión."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": _GRUPO_FICHA,
             "ui_order": 4,

@@ -5152,6 +5152,7 @@
             "description": "Columna de añada/vintage de cada observación.",
             "title": "Columna de cohorte",
             "type": "string",
+            "ui_essential": true,
             "ui_help": "Columna que identifica la cohorte o añada (vintage) de cada observación (p.ej. mes de originación)."
           },
           "holdout_fraction": {
@@ -5161,6 +5162,7 @@
             "minimum": 0.0,
             "title": "Fracción Holdout dentro de in-cohort",
             "type": "number",
+            "ui_essential": true,
             "ui_help": "Proporción de las cohortes que NO son OOT que se reserva como Holdout; el resto queda en Desarrollo."
           },
           "oot_cohorts": {
@@ -5170,6 +5172,7 @@
             },
             "title": "Cohortes reservadas como OOT",
             "type": "array",
+            "ui_essential": true,
             "ui_help": "Cohortes que se reservan íntegramente como OOT. El resto de las cohortes se reparte entre Desarrollo y Holdout."
           },
           "type": {
@@ -5449,6 +5452,7 @@
             "default": null,
             "description": "Ruta a un archivo CSV, Parquet o Excel; se deja vacía si los datos se entregan ya cargados desde Python.",
             "title": "Ruta del dataset",
+            "ui_essential": true,
             "ui_help": "Ruta al archivo CSV, Parquet o Excel (.xlsx) que se va a cargar. Déjala vacía si el dataset se entrega directamente por código/API en vez de apuntar a un archivo."
           }
         },
@@ -5676,6 +5680,7 @@
             "minimum": 0.0,
             "title": "Fracción Holdout",
             "type": "number",
+            "ui_essential": true,
             "ui_help": "Proporción de observaciones que va al conjunto de Holdout (validación out-of-sample dentro de la misma muestra)."
           },
           "oot_fraction": {
@@ -5801,6 +5806,7 @@
             "default": null,
             "description": "Columnas cuya combinación debe ser única por fila.",
             "title": "Llave(s) de unicidad de fila",
+            "ui_essential": true,
             "ui_help": "Columna o combinación de columnas que debe identificar de forma única cada fila (p.ej. cliente + fecha). Filas repetidas en esa combinación hacen fallar la validación."
           }
         },
@@ -5867,6 +5873,7 @@
             "$ref": "#/$defs/data__Rule",
             "description": "Condición que marca la observación como 'malo' (target = 1), p. ej. all_of=[{col: dpd_12m, op: '>=', value: 90}].",
             "title": "Regla de 'malo'",
+            "ui_essential": true,
             "ui_help": "Condición que define cuándo una observación es 'malo' (p.ej. mora >= 90 días). Es la regla central del target: 1 = malo."
           },
           "exclusion_rules": {
@@ -5944,6 +5951,7 @@
             "description": "Fecha que define el corte OOT.",
             "title": "Columna de fecha para el corte OOT",
             "type": "string",
+            "ui_essential": true,
             "ui_help": "Columna de fecha que define el corte entre datos dentro y fuera de tiempo (OOT)."
           },
           "holdout_fraction": {
@@ -5953,12 +5961,14 @@
             "minimum": 0.0,
             "title": "Fracción Holdout dentro de in-time",
             "type": "number",
+            "ui_essential": true,
             "ui_help": "Proporción del conjunto dentro de tiempo (no-OOT) que se reserva como Holdout; el resto queda en Desarrollo."
           },
           "oot_from": {
             "description": "Filas con date_col >= oot_from van a OOT; el resto a Dev/HO.",
             "title": "Fecha inicio OOT (ISO 8601)",
             "type": "string",
+            "ui_essential": true,
             "ui_help": "Fecha desde la cual las observaciones van al conjunto OOT (fuera de tiempo). Todo lo anterior queda disponible para Desarrollo/Holdout."
           },
           "type": {
@@ -8138,6 +8148,7 @@
             ],
             "title": "Acción ante signo invertido",
             "type": "string",
+            "ui_essential": true,
             "ui_group": "Signos beta",
             "ui_help": "Qué hacer cuando una variable WoE queda con signo contrario al esperado (beta positivo): 'exclude' la saca del modelo, 'flag' la deja pero la marca, 'fail' detiene el ajuste.",
             "ui_order": 2,
@@ -8208,6 +8219,7 @@
             "description": "Activa la selección iterativa dentro del ajuste logístico.",
             "title": "Activar stepwise",
             "type": "boolean",
+            "ui_essential": true,
             "ui_group": "Stepwise",
             "ui_help": "Enciende o apaga la selección automática de variables paso a paso. Desactívalo si prefieres definir tú mismo qué variables entran, dejando solo los filtros de signo e IV-contribution.",
             "ui_order": 1,
@@ -8220,6 +8232,7 @@
             "minimum": 0.0,
             "title": "p-value máximo de entrada",
             "type": "number",
+            "ui_essential": true,
             "ui_group": "Stepwise",
             "ui_help": "Un candidato solo entra al modelo si su p-value es igual o menor a este umbral. Bajarlo (ej. 0.01) hace el modelo más selectivo y exige más significancia estadística para incorporar una variable.",
             "ui_order": 4,
@@ -8232,6 +8245,7 @@
             "minimum": 0.0,
             "title": "p-value máximo para permanecer",
             "type": "number",
+            "ui_essential": true,
             "ui_group": "Stepwise",
             "ui_help": "Umbral máximo de p-value para que una variable ya incluida se mantenga en el modelo; si su p-value sube por encima de este valor, el stepwise la retira en la siguiente iteración.",
             "ui_order": 5,
@@ -9597,6 +9611,7 @@
             "description": "Área o persona responsable del desarrollo del modelo.",
             "title": "Autor",
             "type": "string",
+            "ui_essential": true,
             "ui_group": "Documento",
             "ui_order": 4,
             "ui_widget": "text_input"
@@ -9606,6 +9621,7 @@
             "description": "Entidad o institución financiera propietaria del modelo.",
             "title": "Entidad",
             "type": "string",
+            "ui_essential": true,
             "ui_group": "Documento",
             "ui_order": 2,
             "ui_widget": "text_input"
@@ -9615,6 +9631,7 @@
             "description": "Nombre del modelo tal como se identifica en el inventario de la entidad.",
             "title": "Nombre del modelo",
             "type": "string",
+            "ui_essential": true,
             "ui_group": "Documento",
             "ui_order": 1,
             "ui_widget": "text_input"
@@ -9637,6 +9654,7 @@
             "description": "Cartera o producto sobre el que aplica el modelo (p. ej. consumo).",
             "title": "Cartera",
             "type": "string",
+            "ui_essential": true,
             "ui_group": "Documento",
             "ui_order": 3,
             "ui_widget": "text_input"
@@ -9950,6 +9968,7 @@
             "minimum": 0.0,
             "title": "Umbral |rho|",
             "type": "number",
+            "ui_essential": true,
             "ui_group": "Correlación",
             "ui_help": "Correlación absoluta máxima tolerada entre dos variables candidatas; por sobre este valor se descarta la de menor prioridad (ver Orden de prioridad).",
             "ui_order": 3,
@@ -10072,6 +10091,7 @@
             "minimum": 1.0,
             "title": "Umbral VIF",
             "type": "number",
+            "ui_essential": true,
             "ui_group": "VIF",
             "ui_help": "Factor de inflación de varianza máximo tolerado (valores de corte típicos: 5 a 10). Por sobre este umbral se elimina, de forma iterativa, la variable con peor VIF.",
             "ui_order": 2,
@@ -11922,6 +11942,7 @@
                 },
                 "title": "Variables categóricas",
                 "type": "array",
+                "ui_essential": true,
                 "ui_group": "Variables",
                 "ui_help": "Fuerza a que estas variables se traten como categóricas aunque su tipo de dato luzca numérico (p. ej. códigos de región guardados como enteros).",
                 "ui_order": 3,
@@ -11967,6 +11988,7 @@
                 "default": "*",
                 "description": "'*' = columnas no estructurales, salvo las que definen el target y una llave de unicidad simple.",
                 "title": "Variables candidatas",
+                "ui_essential": true,
                 "ui_group": "Variables",
                 "ui_help": "Variables a binear. Deja '*' para incluir las columnas no estructurales salvo las que definen el target y una llave de unicidad de una sola columna. Una llave compuesta conserva sus columnas. Una lista explícita se respeta; si incluye una columna del target, esa decisión queda auditada.",
                 "ui_order": 1,
@@ -11997,6 +12019,7 @@
                 "default": 8,
                 "description": "Número máximo de bins finales por variable.",
                 "title": "Máximo de bins",
+                "ui_essential": true,
                 "ui_group": "Restricciones",
                 "ui_help": "Tope de bins (grupos) por variable tras optimizar. Menos bins = scorecard más robusta y estable; más bins captan no linealidades pero arriesgan sobreajuste.",
                 "ui_order": 4,
@@ -12133,6 +12156,7 @@
                 "default": 0.05,
                 "description": "Fracción mínima de observaciones por bin final; en blanco usa el valor del motor.",
                 "title": "Tamaño mínimo de bin",
+                "ui_essential": true,
                 "ui_group": "Restricciones",
                 "ui_help": "Fracción mínima de observaciones que debe tener cada bin final. Evita bins con pocos casos, donde el WoE queda inestable y poco confiable fuera de muestra.",
                 "ui_order": 5,
@@ -12220,6 +12244,7 @@
                 "default": "auto_asc_desc",
                 "description": "Default Nikodym: escoger automáticamente event rate ascendente/descendente.",
                 "title": "Monotonía por defecto",
+                "ui_essential": true,
                 "ui_group": "Monotonía",
                 "ui_help": "Forma de la relación entre cada variable y el riesgo que debe respetar el binning. Fuerza un valor solo si conoces de antemano el comportamiento esperado.",
                 "ui_order": 1,
@@ -12387,6 +12412,7 @@
                 ],
                 "title": "Fuente de la ancla",
                 "type": "string",
+                "ui_essential": true,
                 "ui_group": "Ancla",
                 "ui_help": "De dónde sale la tasa central: puede fijarse a mano (negocio, histórico o regulatorio, informando PD objetivo) o calcularse sola como el promedio observado en Desarrollo (opción por defecto, sin PD objetivo).",
                 "ui_order": 3,
@@ -12547,6 +12573,7 @@
                 "default": null,
                 "description": "Tasa central de anclaje, entre 0 y 1.",
                 "title": "PD objetivo",
+                "ui_essential": true,
                 "ui_group": "Ancla",
                 "ui_help": "Tasa central (PD promedio) a la que se ancla la calibración, entre 0 y 1. Con la fuente development_observed se deja VACÍA: esa fuente la estima como el promedio de largo plazo observado en Desarrollo, así que fijar aquí un número es un error y la configuración lo rechaza en vez de descartarlo en silencio. Con 'business_input', 'historical_default_rate' y 'external_regulatory' es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos, así que sin ella la configuración falla en vez de anclar a un número inventado.",
                 "ui_order": 1,
@@ -13006,6 +13033,7 @@
                 "default": null,
                 "description": "Quién responde por este modelo: correo o identificación de la persona o el equipo.",
                 "title": "Autor / responsable",
+                "ui_essential": true,
                 "ui_group": "Inventario",
                 "ui_order": 5,
                 "ui_widget": "text_input"
@@ -13122,6 +13150,7 @@
                 "description": "Para qué se va a usar este modelo y sobre qué cartera decide. Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
                 "title": "Propósito del modelo",
                 "type": "string",
+                "ui_essential": true,
                 "ui_group": "Ficha del modelo",
                 "ui_order": 1,
                 "ui_widget": "textarea"
@@ -13142,6 +13171,7 @@
                 "minimum": 1,
                 "title": "Periodicidad de revisión (meses)",
                 "type": "integer",
+                "ui_essential": true,
                 "ui_group": "Ficha del modelo",
                 "ui_order": 4,
                 "ui_widget": "number_input"
@@ -13646,6 +13676,7 @@
                 "minimum": 2,
                 "title": "Número de grupos de gains",
                 "type": "integer",
+                "ui_essential": true,
                 "ui_group": "Métricas",
                 "ui_help": "Cantidad de grupos (típicamente 10, es decir deciles) en que se ordena la población por riesgo para la tabla de gains. Con pocos registros el motor puede usar menos grupos de los pedidos.",
                 "ui_order": 1,
@@ -14647,6 +14678,7 @@
                 },
                 "title": "Formatos del informe",
                 "type": "array",
+                "ui_essential": true,
                 "ui_group": "General",
                 "ui_order": 5,
                 "ui_widget": "multiselect"
@@ -14824,6 +14856,7 @@
                 "exclusiveMinimum": 0.0,
                 "title": "PDO",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "Escala",
                 "ui_help": "Cuántos puntos de score se necesitan para duplicar el ratio de buenos sobre malos (odds). Un PDO menor hace el score más sensible: la misma diferencia de riesgo se traduce en más puntos de separación.",
                 "ui_order": 1,
@@ -14888,6 +14921,7 @@
                 "exclusiveMinimum": 0.0,
                 "title": "Odds objetivo buenos/malos",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "Escala",
                 "ui_help": "Odds buenos/malos (ej. 50 significa 50 buenos por cada malo) usados como referencia para anclar la escala junto con el score objetivo.",
                 "ui_order": 3,
@@ -14898,6 +14932,7 @@
                 "description": "Score asignado a una observación con los odds objetivo configurados.",
                 "title": "Score objetivo",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "Escala",
                 "ui_help": "Puntaje que recibe una observación cuyos odds de buenos/malos son exactamente los odds objetivo. Es el punto de anclaje de toda la escala.",
                 "ui_order": 2,
@@ -15109,6 +15144,7 @@
                 "minimum": 0.0,
                 "title": "IV mínimo",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "IV",
                 "ui_help": "IV mínimo para que una variable entre a selección; por debajo de este valor se descarta por poder predictivo insuficiente.",
                 "ui_order": 1,
@@ -15293,6 +15329,7 @@
                 "minimum": 0.0,
                 "title": "Umbral PSI de redesarrollo",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "Métricas",
                 "ui_order": 4,
                 "ui_widget": "number_input"
@@ -15303,6 +15340,7 @@
                 "minimum": 0.0,
                 "title": "Umbral PSI de revisión",
                 "type": "number",
+                "ui_essential": true,
                 "ui_group": "Métricas",
                 "ui_order": 3,
                 "ui_widget": "number_input"
@@ -15766,6 +15804,7 @@
                 },
                 "title": "Familias de pruebas que corren",
                 "type": "array",
+                "ui_essential": true,
                 "ui_group": "General",
                 "ui_order": 2,
                 "ui_widget": "multiselect"

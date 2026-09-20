@@ -550,7 +550,12 @@ class ValidationConfig(NikodymBaseConfig):
             "backtesting. El backtesting viene apagado: necesita el cálculo IFRS 9 y las "
             "columnas con lo que de verdad ocurrió."
         ),
-        json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 2},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "multiselect",
+            "ui_group": "General",
+            "ui_order": 2,
+        },
     )
     discrimination: DiscriminationValidationConfig = Field(
         default_factory=DiscriminationValidationConfig,

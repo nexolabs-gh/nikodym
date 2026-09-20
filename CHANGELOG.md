@@ -32,7 +32,38 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   procedencia (inferencias y decisiones con autor y motivo) es lo único que la corrida guiada
   añade al trail. Ninguna hoja nueva de config, ningún `config_hash` de preset se mueve y con el
   mismo config los resultados son bit a bit los de antes. La guía «Empezar» y el tutorial abren
-  con «Tu primer scorecard en 13 líneas», ejecutado en CI.
+  con «Tu primer scorecard en 15 líneas», ejecutado en CI.
+- **Decisiones humanas con motivo y comparación de corridas (puerta guiada).** `sc.exclude(cols,
+  reason=)` escribe `selection.force_exclude` (y retira la variable de las listas de inclusión
+  forzada de selección y modelo); `sc.keep(cols, reason=)` escribe `selection.force_include` **y**
+  `model.force_include` (sólo con la primera, el modelo no vería una variable que la selección
+  descartó); la última decisión sobre una variable gana. En la corrida siguiente (`resume()`)
+  cada decisión llega al registro de auditoría como **un** evento `decision` con los seis campos
+  de siempre más `autor="usuario"` y `motivo` (la ficha muestra la decisión; el motivo llega a
+  ella con la capa C), y el resumen final las lista con su motivo. `sc.compare(otra)` pone dos
+  corridas lado a lado: ejecución, validación técnica, cifras clave, variables finales y
+  decisiones. `merge_bins`/`set_bins` **no entran todavía**: el motor no tiene dónde fijar cortes
+  por variable (`binning.variable_overrides` no lleva cortes) y añadirlos es una hoja nueva de
+  config que la enmienda no presupuestó; está elevado a Cami en su §8-9.
+- **Dos diagnósticos que un validador pregunta primero, como artefactos aparte.**
+  `("selection", "iv_by_partition")`: el IV de cada variable tramificada en Desarrollo, Holdout y
+  Fuera de tiempo, con los tramos fijados en Desarrollo y las distribuciones de cada muestra (el
+  de Desarrollo coincide con el del binning); una muestra con una sola clase publica `iv` nulo
+  con la causa. `("binning", "event_rate_by_partition")`: filas, malos y tasa de malos por
+  variable, tramo y muestra, con `inverts` cuando la tasa contradice la tendencia resuelta en
+  Desarrollo (sólo tendencias ascendente o descendente; `Special`/`Missing` fuera de la
+  comparación; un tramo con menos de 30 filas en la muestra no se evalúa, constante del
+  diagnóstico). `selection_table` y las tablas de binning no cambian; el resumen de selección
+  muestra el IV por muestra y el de binning avisa «invierte la tendencia en <muestra>». Sólo
+  alertan.
+- **Los campos esenciales de las doce secciones del scorecard llevan la marca `ui_essential`
+  en el schema** (35 visibles a la vez, ninguna sección sobre 6; tabla §3.8 de la enmienda), con
+  golden bidireccional. Es un metadato: no es una hoja de config y el `config_hash` no lo mira. La
+  pantalla los pinta abiertos y pliega el resto en «Avanzado» en la capa B.
+- **`nikodym.run` y `Study.run`: el preámbulo de procedencia va dentro del manejo de fallos**
+  (un sink que no pueda escribirlo deja la corrida fallida con diagnóstico, no «running»), y el
+  gancho `on_step` de la puerta guiada convierte un resumen que no se pudo armar en un fallo de la
+  corrida con la etapa y el motivo, con lo calculado conservado en la evidencia.
 - **`nikodym.run` y `Study.run` ganan dos ganchos aditivos**, opcionales y sin efecto sobre el
   cálculo: `preamble=` —pares `(paso, payload)` que se emiten al registro de auditoría como
   decisiones justo después de `run_start`, la vía con que una puerta de entrada declara su
@@ -41,8 +72,12 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 ### Sabido
 
 - La puerta guiada es sólo por código: la pantalla no muestra todavía los campos esenciales
-  plegando el resto en «Avanzado» (capa B de la enmienda), y las decisiones humanas entre etapas
-  (`exclude`, `keep`, `merge_bins`, `set_bins`) llegan en la misma serie.
+  plegando el resto en «Avanzado» (capa B de la enmienda). `merge_bins`/`set_bins` esperan la
+  decisión de Cami sobre la hoja de cortes por variable (enmienda §8-9).
+- Un snapshot de `DataFrame` se nombra por su contenido y nunca se pisa; el informe de una
+  corrida anterior viaja a su respaldo lateral y ningún reintento lo borra. El informe de una
+  corrida que falló **después** de escribirlo y antes de consolidar queda en `reports/` y la
+  corrida siguiente lo sobrescribe: es el único hueco declarado del layout de la capa A.
 
 ## [1.16.0] — 2026-09-15
 

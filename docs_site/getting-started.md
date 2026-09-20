@@ -101,7 +101,7 @@ sus imports son perezosos. Para verificar que el extra `scoring` quedó disponib
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
 `optbinning` de forma explícita, no en silencio.
 
-## Tu primer scorecard en 13 líneas
+## Tu primer scorecard en 15 líneas
 
 La **puerta guiada** construye un scorecard de comportamiento de punta a punta con lo que sólo tu
 institución sabe: los datos, qué es «malo», el identificador, el eje temporal y la muestra fuera
@@ -133,16 +133,29 @@ sc = Scorecard(
     oot_cohorts=["2024Q2"],     # la muestra fuera de tiempo la decide la institución
     name="consumo_v01",
 )
-sc.run()          # corre todo y cuenta cada etapa
-sc.summary()      # ejecución y validación técnica por separado, cifras clave y archivos
+sc.run()                            # corre todo y cuenta cada etapa
+sc.exclude("mora_max_12m", reason="no estará disponible al originar")
+sc.resume()                         # corrida nueva y completa con la decisión; muestra el resumen final
 ```
 <!-- primer-scorecard:end -->
 
-`run()` imprime el resumen de cada etapa mientras corre; `sc.run(until="selection")` se detiene
-tras esa etapa y `sc.resume()` vuelve a correr todo sobre el config vigente. La evidencia queda en
-`nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el registro de auditoría y el
-estudio en `run/`, y el informe en `reports/`. Ese `config.yaml` es un `NikodymConfig` entero:
-la puerta completa de abajo lo corre tal cual y produce los mismos resultados.
+`run()` imprime el resumen de cada etapa mientras corre y, en un notebook, la última línea pinta
+el resumen final (también con `sc.summary()`; el de una etapa, con `sc.summary("binning")`, y su
+tabla de decisión en `sc.results["binning"]`). `sc.run(until="selection")` se detiene tras esa
+etapa para mirar antes de seguir. Las **decisiones humanas** —`sc.exclude(...)` y `sc.keep(...)`,
+siempre con `reason=`— escriben el config y quedan en el registro de auditoría con autor y motivo
+en la corrida siguiente; `sc.resume()` es una corrida nueva y completa sobre el config vigente (la
+anterior queda como respaldo lateral con su informe), y `sc.compare(otra)` pone dos corridas lado a
+lado. La evidencia queda en `nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el
+registro de auditoría y el estudio en `run/`, y el informe en `reports/`. Ese `config.yaml` es un
+`NikodymConfig` entero: la puerta completa de abajo lo corre tal cual y produce los mismos
+resultados.
+
+Dos cosas que un validador pregunta primero salen ahora como artefactos aparte, sin tocar las
+tablas de siempre: el **IV por muestra** (`("selection", "iv_by_partition")`, en la tabla de
+decisión de la selección) y la **tasa de malos por tramo y muestra** con la marca de inversión
+(`("binning", "event_rate_by_partition")`; el resumen de binning avisa «invierte la tendencia en
+Holdout / Fuera de tiempo»). Sólo alertan; el descarte sigue siendo decisión tuya.
 
 ## La puerta completa: correr el preset F1
 

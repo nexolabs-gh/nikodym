@@ -401,16 +401,18 @@ class Study:
             # campos explícitos, ni con un config construido en Python, que ya llega tipado.
             self.run_context.lineage = self._build_lineage()
 
-        # Las declaraciones de procedencia van después de `run_start` y antes del primer paso: el
-        # orden SDD-01 §11 (run_start → decision → artifact → run_end) se conserva, y un lector del
-        # trail encuentra qué puerta entró y qué trajo antes de cualquier decisión del motor.
-        for paso_declarante, payload in preamble:
-            self._emit("decision", paso_declarante, dict(payload))
-
         # El paso en curso se rastrea fuera del try para poder nombrarlo en el rastro del fallo:
         # sin él, "falló la corrida" no dice en qué etapa del pipeline (enmienda RUN-ERROR, D-ERR-2)
         paso_actual: Step | None = None
         try:
+            # Las declaraciones de procedencia van después de `run_start` y antes del primer paso:
+            # el orden SDD-01 §11 (run_start → decision → artifact → run_end) se conserva, y un
+            # lector del trail encuentra qué puerta entró y qué trajo antes de cualquier decisión
+            # del motor. Van DENTRO del manejo de fallos: un sink que no pueda escribirlas deja la
+            # corrida fallida con su diagnóstico, no «running» para siempre (pasada 1 de Codex
+            # sobre la capa A).
+            for paso_declarante, payload in preamble:
+                self._emit("decision", paso_declarante, dict(payload))
             for paso in pasos:
                 paso_actual = paso
                 self._run_one(paso)

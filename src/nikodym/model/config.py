@@ -48,6 +48,7 @@ class StepwiseConfig(NikodymBaseConfig):
         title="Activar stepwise",
         description="Activa la selección iterativa dentro del ajuste logístico.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "checkbox",
             "ui_group": "Stepwise",
             "ui_order": 1,
@@ -99,6 +100,7 @@ class StepwiseConfig(NikodymBaseConfig):
         title="p-value máximo de entrada",
         description="Umbral máximo para que una variable candidata entre al modelo.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Stepwise",
             "ui_order": 4,
@@ -116,6 +118,7 @@ class StepwiseConfig(NikodymBaseConfig):
         title="p-value máximo para permanecer",
         description="Umbral máximo aceptado para conservar una variable dentro del modelo.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Stepwise",
             "ui_order": 5,
@@ -198,6 +201,7 @@ class SignPolicyConfig(NikodymBaseConfig):
         title="Acción ante signo invertido",
         description="Acción cuando una variable WoE queda con beta contrario al riesgo esperado.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "selectbox",
             "ui_group": "Signos beta",
             "ui_order": 2,

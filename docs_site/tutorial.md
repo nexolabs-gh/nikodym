@@ -22,7 +22,7 @@ El pipeline F1 vive tras el extra `scoring` (optbinning + statsmodels + sklearn)
 pip install 'nikodym[scoring]'
 ```
 
-## Antes de los seis pasos: el mismo scorecard en 13 líneas
+## Antes de los seis pasos: el mismo scorecard en 15 líneas
 
 Si sólo quieres ver el resultado, la **puerta guiada** corre el pipeline entero y lo cuenta etapa
 por etapa (es la misma corrida que recorre el resto del tutorial; experimental hasta que cierre la
@@ -46,8 +46,9 @@ sc = Scorecard(
     oot_cohorts=["2024Q2"],     # la muestra fuera de tiempo la decide la institución
     name="consumo_v01",
 )
-sc.run()          # corre todo y cuenta cada etapa
-sc.summary()      # ejecución y validación técnica por separado, cifras clave y archivos
+sc.run()                            # corre todo y cuenta cada etapa
+sc.exclude("mora_max_12m", reason="no estará disponible al originar")
+sc.resume()                         # corrida nueva y completa con la decisión; muestra el resumen final
 ```
 <!-- primer-scorecard:end -->
 

@@ -271,9 +271,10 @@ def test_con_fecha_declara_partition_temporal_eje_de_periodo_y_snapshot_del_data
     assert sc.config.stability.temporal_axis == "period"
     assert sc.config.stability.temporal_column == "fecha"
     assert "fecha" not in sc.config.binning.feature_columns
-    snapshot = tmp_path / "corridas" / "con-fecha" / "input" / "data.parquet"
+    snapshot = Path(sc.config.data.load.source)
     assert snapshot.is_file()
-    assert sc.config.data.load.source == str(snapshot)
+    assert snapshot.parent == tmp_path / "corridas" / "con-fecha" / "input"
+    assert snapshot.name.startswith("data-") and snapshot.suffix == ".parquet"
     # El snapshot conserva el índice nombrado, que es lo que `index_col` exige.
     assert pd.read_parquet(snapshot).index.name == "loan_id"
 

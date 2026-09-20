@@ -253,12 +253,23 @@ sc.resume()                             # corrida nueva y completa sobre el conf
   como candidata con evidencia (§3.7).
 - Decisiones humanas de la capa A: `exclude(cols, reason=)`, `keep(cols, reason=)`,
   `merge_bins(col, bins, reason=)`, `set_bins(col, cuts, reason=)`. Cada una escribe las hojas de
-  config que la hacen efectiva en **todo** el pipeline: `exclude` → `selection.force_exclude` y
-  `model.force_exclude`; `keep` → `selection.force_include` **y** `model.force_include` (sólo con
+  config que la hacen efectiva en **todo** el pipeline: `exclude` → `selection.force_exclude`;
+  `keep` → `selection.force_include` **y** `model.force_include` (sólo con
   la primera, `model` no vería una variable que `selection` descartó por IV, correlación o VIF);
   `merge_bins`/`set_bins` → `binning.variable_overrides`. La última decisión sobre una variable
   gana y la retira de la lista contraria, porque `selection` rechaza una variable en las dos
-  listas a la vez (`selection/config.py:562`). En la corrida siguiente, `Scorecard` emite **un** evento
+  listas a la vez (`selection/config.py:562`).
+  **Dos correcciones medidas al implementar (S17, 2026-09-19):** (1) `exclude` **no** escribe
+  `model.force_exclude`: el motor rechaza un override de `model` sobre una variable que la
+  selección ya descartó (`model/step.py::_validate_force_overrides`, «los overrides de model deben
+  referirse a features seleccionadas»), y con `selection.force_exclude` la variable no llega al
+  modelo; sí se retira de `model.force_include`. (2) `merge_bins`/`set_bins` **no se pueden
+  implementar con cero hojas nuevas**: `binning.variable_overrides` (`VariableBinningConfig`)
+  lleva tipo, monotonía, máximo de tramos, tamaño mínimo y umbral de categorías raras, **no
+  cortes ni categorías** —la frase de §2 «cortes y categorías por variable» era falsa—, y
+  `user_splits` no existe en `src/nikodym`. Fijar cortes exige una hoja nueva (`user_splits` /
+  `user_splits_fixed` de OptBinning en `VariableBinningConfig`); es una decisión de Cami (§8-9)
+  y la capa A las deja fuera. En la corrida siguiente, `Scorecard` emite **un** evento
   `decision` al trail con los seis campos que `DecisionRecord` ya materializa
   (`governance/model_card.py:31`: `step="scorecard_guided"`, `regla="decision_del_usuario"`,
   `umbral=None`, `valor={hoja: valor}`, `accion=<exclude|keep|merge_bins|set_bins>`, `ts`) **más**
@@ -305,7 +316,11 @@ ignorar y cuyos goldens nacen con ellos.
    umbral de filas propio: `data.partition.min_bads_per_partition` ya garantiza los malos mínimos
    de cada partición con target, y ese es el único criterio de tamaño). Ningún umbral nuevo: el
    descarte sigue siendo por `min_iv` en desarrollo. Evidencia: es la primera pregunta de un
-   validador y el flujo del banco descartaba por «IV HO/OOT».
+   validador y el flujo del banco descartaba por «IV HO/OOT». **Precisión al implementar (S17):**
+   los tramos son los de desarrollo y las distribuciones (y por tanto el WoE de cada tramo) son
+   **las de cada muestra**; así el IV de desarrollo coincide con el que publica el binning
+   (medido: diferencia 5,6e-17 sobre el dataset del paquete). Un tramo sin malos o sin buenos en
+   la muestra no aporta al IV, como OptBinning con un tramo vacío.
 2. **`("binning", "event_rate_by_partition")`** — una fila por variable, tramo y partición, con
    `feature`, `bin_id`, `bin_label`, `partition`, `n`, `n_bad`, `event_rate`, `inverts`. Metodología:
    la tendencia de referencia es la de desarrollo (`monotonic_trend` efectivo); un tramo `inverts`
@@ -488,6 +503,10 @@ al implementar; el notebook mínimo es el único ejemplo canónico; los nombres 
 
 **8-2, superada el mismo día tras la pasada 1 de Codex** (ver más abajo). Tras la tabla y sus
 respuestas, la §13 obligatoria de la plantilla cierra el documento.
+
+| # | Decisión | Opciones | Recomendación |
+|---|---|---|---|
+| 8-9 | **Cortes por variable para `merge_bins`/`set_bins`** (abierto por el writer en S17, 2026-09-19, al medir que `binning.variable_overrides` no lleva cortes y que `user_splits` no existe en el motor) | (a) **una hoja nueva `user_splits: tuple[float, ...] \| None` (y `user_splits_fixed`) en `VariableBinningConfig`, cableada a `binning_fit_params[col]["user_splits"]` de OptBinning**, como excepción justificada al presupuesto cero: es una decisión humana del flujo del banco (`categorizacion_manual`), no un default que falle; (b) `merge_bins` sólo, implementado bajando `max_n_bins` de la variable (OptBinning reoptimiza y puede juntar otros tramos: no hace lo que el usuario pidió); (c) dejar las dos fuera de la puerta guiada hasta la escala maestra (H5) | **(a)**: sin cortes fijos la decisión humana «junta estos dos tramos» no existe en ninguna puerta, y (b) mentiría. Entra en la capa B con su golden de `HOJAS_DEL_FORMULARIO` (+2) y su test de paridad |
 
 **8-2, superada el mismo día tras la pasada 1 de Codex:** inferir el corte OOT contradecía D-OBL-5
 («no se siembra una `partition.strategy` por defecto»). Cami eligió **respetar D-OBL**: la

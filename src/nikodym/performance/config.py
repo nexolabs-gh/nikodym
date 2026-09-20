@@ -197,6 +197,7 @@ class PerformanceConfig(NikodymBaseConfig):
         title="Número de grupos de gains",
         description="Cantidad de grupos ordenados por riesgo para la tabla de deciles/gains.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Métricas",
             "ui_order": 1,

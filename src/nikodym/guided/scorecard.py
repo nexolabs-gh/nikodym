@@ -9,6 +9,9 @@ mismos resultados (D-SIM-1).
 
 from __future__ import annotations
 
+import hashlib
+import io
+import os
 import shutil
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -53,7 +56,6 @@ GUIDED_STEP: Final = "scorecard_guided"
 _RUN_SUBDIR: Final = "run"
 _REPORTS_SUBDIR: Final = "reports"
 _INPUT_SUBDIR: Final = "input"
-_SNAPSHOT_NAME: Final = "data.parquet"
 _CONFIG_NAME: Final = "config.yaml"
 _MODEL_CARD_NAME: Final = "model_card.json"
 
@@ -178,7 +180,9 @@ class Scorecard:
         self._stage_summaries: dict[str, StageSummary] = {}
         self._final: FinalSummary | None = None
         self._decisions: list[dict[str, Any]] = []
+        self._pending_decisions = False
         self._echo: Callable[[str], None] = print
+        self._snapshot_pendiente: tuple[Path, bytes] | None = None
 
         frame, source, source_label = self._cargar(data)
         inferencias: list[Inferencia] = []
@@ -211,7 +215,8 @@ class Scorecard:
 
         # ── esquema, predictoras y categóricas ───────────────────────────────────────────
         fechas = (date,) if date is not None else ()
-        esquema = columnas_esquema(frame, fechas=fechas)
+        textos = (cohort,) if cohort is not None and dtype_logico(frame[cohort]) != "str" else ()
+        esquema = columnas_esquema(frame, fechas=fechas, textos=textos)
         n_texto = sum(1 for c in esquema if c["dtype"] in {"str", "category", "bool"})
         inferencias.append(
             Inferencia(
@@ -409,20 +414,41 @@ class Scorecard:
             raise ScorecardInputError(
                 f"Un argumento no cumple las restricciones del motor: {_mensaje_de_validacion(exc)}"
             ) from exc
-        self._steps: tuple[str, ...] = self._resolver_pipeline(self._config)
+        self._config, self._steps = self._resolver_pipeline(self._config)
+        self._publicar_snapshot()
 
     # ── construcción ────────────────────────────────────────────────────────────────────
+
+    def _publicar_snapshot(self) -> None:
+        """Escribe el snapshot del DataFrame, ya validado todo, sin pisar uno existente."""
+        if self._snapshot_pendiente is None:
+            return
+        snapshot, contenido = self._snapshot_pendiente
+        self._snapshot_pendiente = None
+        if snapshot.exists():
+            return  # mismo contenido por construcción (el nombre es su hash)
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        temporal = snapshot.with_name(f".{snapshot.name}.{os.getpid()}.tmp")
+        temporal.write_bytes(contenido)
+        os.replace(temporal, snapshot)
 
     def _cargar(self, data: str | Path | pd.DataFrame) -> tuple[pd.DataFrame, str, str]:
         """Carga el archivo con el cargador del motor, o persiste el DataFrame como snapshot."""
         if isinstance(data, pd.DataFrame):
             if data.empty:
                 raise ScorecardInputError("data= es un DataFrame vacío.")
-            snapshot = self._project_dir / _INPUT_SUBDIR / _SNAPSHOT_NAME
-            snapshot.parent.mkdir(parents=True, exist_ok=True)
-            data.to_parquet(snapshot)
+            # El snapshot es inmutable y se nombra por su contenido: otro DataFrame con el mismo
+            # `name` deja un archivo nuevo y no pisa el que referencia la evidencia de una
+            # corrida anterior. Se escribe en disco sólo después de validar todo el Scorecard
+            # (`_publicar_snapshot`), no aquí (pasada 1 de Codex sobre la capa A).
+            buffer = io.BytesIO()
+            data.to_parquet(buffer)
+            contenido = buffer.getvalue()
+            huella = hashlib.sha256(contenido).hexdigest()[:16]
+            snapshot = self._project_dir / _INPUT_SUBDIR / f"data-{huella}.parquet"
+            self._snapshot_pendiente = (snapshot, contenido)
             return (
-                pd.read_parquet(snapshot),
+                pd.read_parquet(io.BytesIO(contenido)),
                 str(snapshot),
                 f"DataFrame en memoria, guardado como {snapshot}",
             )
@@ -651,14 +677,29 @@ class Scorecard:
         )
 
     @staticmethod
-    def _resolver_pipeline(config: NikodymConfig) -> tuple[str, ...]:
-        """Los pasos en el orden en que correrán, comprobados sin correr (D-PIPE-3)."""
-        from nikodym.api import check_pipeline
+    def _resolver_pipeline(config: NikodymConfig) -> tuple[NikodymConfig, tuple[str, ...]]:
+        """El config con sus secciones coaccionadas y los pasos en orden, comprobados sin correr.
 
-        veredicto = check_pipeline(config)
-        if not veredicto.executable:
-            raise ScorecardInputError(f"El config armado no es ejecutable: {veredicto.message}")
-        return tuple(veredicto.steps)
+        Un ``NikodymConfig`` recién validado lleva las secciones de dominio **opacas** (``dict``)
+        si su capa no está importada; la comprobación del pipeline (D-PIPE-3) las coacciona a su
+        clase real, y la puerta se queda con ESE config: es el que corre, el que exporta y el que
+        las decisiones humanas editan campo a campo (medido fuera de pytest, donde nadie importa
+        los dominios de antemano).
+        """
+        from nikodym.core.study import Study
+
+        study = Study(config, apply_global_seed=False)
+        try:
+            pasos = study.check_pipeline()
+        except ValidationError as exc:
+            from nikodym.api import _mensaje_de_validacion
+
+            raise ScorecardInputError(
+                f"El config armado no es ejecutable: {_mensaje_de_validacion(exc)}"
+            ) from exc
+        except Exception as exc:
+            raise ScorecardInputError(f"El config armado no es ejecutable: {exc}") from exc
+        return study.config, tuple(pasos)
 
     # ── propiedades ─────────────────────────────────────────────────────────────────────
 
@@ -734,6 +775,7 @@ class Scorecard:
             preamble=self._preamble(),
             on_step=self._contar_etapa,
         )
+        self._pending_decisions = False
         self._final = build_final_summary(
             self._study, tuple(self._stage_summaries.values()), self._context()
         )
@@ -755,7 +797,9 @@ class Scorecard:
         """El resumen final (D-FLU-4) o el de una etapa que ya corrió (D-FLU-2)."""
         if stage is None:
             if self._final is None:
-                self._final = build_final_summary(self._study, (), self._context())
+                self._final = build_final_summary(
+                    self._study, tuple(self._stage_summaries.values()), self._context()
+                )
             return self._final
         if stage not in STAGE_LABELS:
             raise ScorecardInputError(
@@ -767,6 +811,153 @@ class Scorecard:
                 f"La etapa «{STAGE_LABELS[stage]}» no corrió todavía: llama a run() primero."
             )
         return resumen
+
+    # ── decidir (D-FLU-3) ───────────────────────────────────────────────────────────────
+
+    def exclude(self, columns: str | Sequence[str], *, reason: str) -> Scorecard:
+        """Descarta variables en toda la corrida siguiente, con motivo.
+
+        Escribe ``selection.force_exclude`` —con eso la variable no llega al modelo; un
+        ``model.force_exclude`` sobre una variable ya descartada lo rechaza el propio motor— y la
+        retira de ``force_include`` en las dos secciones (la última decisión sobre una variable
+        gana). La corrida siguiente (``resume()``) emite al trail **un** evento ``decision`` con
+        autor ``usuario`` y este motivo; el motor registra aparte la ejecución de la exclusión.
+        """
+        return self._decidir("exclude", columns, reason=reason)
+
+    def keep(self, columns: str | Sequence[str], *, reason: str) -> Scorecard:
+        """Fuerza variables a entrar al modelo, con motivo.
+
+        Escribe ``selection.force_include`` **y** ``model.force_include`` (sólo con la primera,
+        ``model`` no vería una variable que ``selection`` descartó por IV, correlación o VIF) y
+        las retira de las listas contrarias. Una variable forzada que falle una validación dura
+        del motor —signo invertido con la política en ``fail``— sigue fallando: ``keep`` no
+        apaga ninguna guarda.
+        """
+        return self._decidir("keep", columns, reason=reason)
+
+    def _decidir(self, accion: str, columns: str | Sequence[str], *, reason: str) -> Scorecard:
+        motivo = str(reason).strip() if reason is not None else ""
+        if not motivo:
+            raise ScorecardInputError(
+                f"{accion}() exige reason=: la decisión queda en el registro de auditoría con su "
+                "motivo, y un motivo en blanco no le sirve a quien valide."
+            )
+        nombres = [columns] if isinstance(columns, str) else [str(c) for c in columns]
+        if not nombres:
+            raise ScorecardInputError(f"{accion}() necesita al menos una variable.")
+        binning = self._config.binning
+        predictoras = tuple(binning.feature_columns) if binning is not None else ()
+        desconocidas = [c for c in nombres if c not in predictoras]
+        if desconocidas:
+            raise ScorecardInputError(
+                f"{accion}(): {', '.join(desconocidas)} no está entre las predictoras de esta "
+                f"corrida ({', '.join(predictoras)})."
+            )
+        propia = "force_exclude" if accion == "exclude" else "force_include"
+        contraria = "force_include" if accion == "exclude" else "force_exclude"
+        # `keep` escribe las dos secciones (sólo con `selection`, `model` no vería una variable
+        # que la selección descartó). `exclude` escribe SÓLO `selection.force_exclude`: la
+        # variable no llega al modelo, y `model` rechaza un override sobre una variable que no
+        # está entre las seleccionadas (`model/step.py::_validate_force_overrides`; medido al
+        # implementar: la enmienda §3.3 decía «las dos hojas» y está corregida). En las dos
+        # secciones se retira de la lista contraria: la última decisión gana.
+        escribe_en = ("selection", "model") if accion == "keep" else ("selection",)
+        hojas: dict[str, list[str]] = {}
+        for seccion in ("selection", "model"):
+            actual = getattr(self._config, seccion)
+            opuesta = [c for c in getattr(actual, contraria) if c not in nombres]
+            campos: dict[str, Any] = {contraria: tuple(opuesta)}
+            if seccion in escribe_en:
+                lista = [c for c in getattr(actual, propia) if c not in nombres] + nombres
+                campos[propia] = tuple(lista)
+                hojas[f"{seccion}.{propia}"] = list(lista)
+            self._actualizar_seccion(seccion, campos)
+        self._decisions.append(
+            {
+                "regla": "decision_del_usuario",
+                "umbral": None,
+                "valor": hojas,
+                "accion": accion,
+                "autor": "usuario",
+                "motivo": motivo,
+                "variables": nombres,
+            }
+        )
+        self._pending_decisions = True
+        self._config, self._steps = self._resolver_pipeline(self._config)
+        self._final = None
+        self._echo(
+            f"Decisión registrada: {accion} {', '.join(nombres)} — «{motivo}». Se aplica en la "
+            "corrida siguiente: resume()."
+        )
+        return self
+
+    def _actualizar_seccion(self, seccion: str, campos: Mapping[str, Any]) -> None:
+        """Reconstruye una sección del config con ``campos`` y la vuelve a validar entera."""
+        actual = getattr(self._config, seccion)
+        volcado = actual.model_dump(mode="python", by_alias=True)
+        volcado.update(campos)
+        try:
+            nueva = type(actual).model_validate(volcado)
+        except ValidationError as exc:
+            from nikodym.api import _mensaje_de_validacion
+
+            raise ScorecardInputError(
+                f"La decisión deja la sección «{seccion}» inválida: {_mensaje_de_validacion(exc)}"
+            ) from exc
+        self._config = self._config.model_copy(update={seccion: nueva})
+
+    # ── comparar (D-FLU-6) ──────────────────────────────────────────────────────────────
+
+    def compare(self, other: Scorecard) -> StageSummary:
+        """Dos corridas lado a lado: cifras clave, variables finales y decisiones humanas."""
+        if self._study is None or other._study is None:
+            raise ScorecardInputError("compare() necesita que las dos corridas hayan corrido.")
+        propio = build_final_summary(self._study, (), self._context())
+        ajeno = build_final_summary(other._study, (), other._context())
+        filas: list[dict[str, Any]] = [
+            {"Cifra": "Ejecución", self._name: propio.execution, other._name: ajeno.execution},
+            {
+                "Cifra": "Validación técnica",
+                self._name: propio.validation,
+                other._name: ajeno.validation,
+            },
+        ]
+        mias = dict(propio.figures)
+        suyas = dict(ajeno.figures)
+        for rotulo in dict.fromkeys([*mias, *suyas]):
+            filas.append(
+                {
+                    "Cifra": rotulo,
+                    self._name: mias.get(rotulo, "—"),
+                    other._name: suyas.get(rotulo, "—"),
+                }
+            )
+        filas.append(
+            {
+                "Cifra": "Variables finales",
+                self._name: ", ".join(_variables_finales(self._study)) or "—",
+                other._name: ", ".join(_variables_finales(other._study)) or "—",
+            }
+        )
+        filas.append(
+            {
+                "Cifra": "Decisiones humanas",
+                self._name: "; ".join(propio.decisions) or "ninguna",
+                other._name: "; ".join(ajeno.decisions) or "ninguna",
+            }
+        )
+        lines = (
+            f"{self._name}: {propio.execution} · validación técnica {propio.validation}",
+            f"{other._name}: {ajeno.execution} · validación técnica {ajeno.validation}",
+        )
+        return StageSummary(
+            stage="compare",
+            label=f"Comparación: {self._name} frente a {other._name}",
+            lines=lines,
+            table=pd.DataFrame(filas),
+        )
 
     def _repr_html_(self) -> str:
         if self._final is None:
@@ -792,11 +983,12 @@ class Scorecard:
         self._config_path.write_text(self.to_yaml(), encoding="utf-8")
         # El informe de la corrida previa se guarda junto a su evidencia ANTES de que
         # ``nikodym.run`` aparte esa evidencia a ``.run.old.*``: así cada respaldo lateral queda
-        # completo y el informe nuevo se escribe sobre una carpeta limpia.
-        if self._reports_dir.is_dir() and self._run_dir.is_dir():
-            destino = self._run_dir / _REPORTS_SUBDIR
-            if destino.exists():
-                shutil.rmtree(destino)
+        # completo y el informe nuevo se escribe sobre una carpeta limpia. Nunca se borra nada:
+        # un reintento tras un fallo inesperado encuentra `run/reports` ya archivado y un
+        # `reports/` vacío o parcial, y ninguno de los dos puede pisar al otro (pasada 1 de
+        # Codex sobre la capa A).
+        if self._run_dir.is_dir() and _tiene_archivos(self._reports_dir):
+            destino = _ruta_libre(self._run_dir / _REPORTS_SUBDIR)
             shutil.move(str(self._reports_dir), str(destino))
         self._reports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -817,18 +1009,27 @@ class Scorecard:
         }
         eventos: list[tuple[str, dict[str, Any]]] = [(GUIDED_STEP, entrada)]
         eventos.extend((GUIDED_STEP, inferencia.payload()) for inferencia in self._inferences)
-        eventos.extend((GUIDED_STEP, dict(decision)) for decision in self._decisions)
+        eventos.extend(
+            (GUIDED_STEP, {k: v for k, v in decision.items() if k != "variables"})
+            for decision in self._decisions
+        )
         return tuple(eventos)
 
     def _contar_etapa(self, stage: str, study: Any) -> None:
+        """Arma y cuenta el resumen de la etapa recién terminada (gancho ``on_step``).
+
+        Un resumen que no se puede armar es un fallo de ESTA corrida, no un detalle: se levanta
+        como error de dominio para que el motor lo registre con su etapa y ``nikodym.run``
+        devuelva la corrida fallida con el diagnóstico —los artefactos calculados quedan en la
+        evidencia—, en vez de declarar «completada» una corrida sin resúmenes (pasada 1 de Codex
+        sobre la capa A).
+        """
         try:
             resumen = build_stage_summary(stage, study, self._context())
         except Exception as exc:
-            resumen = StageSummary(
-                stage=stage,
-                label=STAGE_LABELS.get(stage, stage),
-                lines=(f"El resumen de esta etapa no se pudo armar: {exc}",),
-            )
+            raise ScorecardRunError(
+                f"El resumen de la etapa «{STAGE_LABELS.get(stage, stage)}» no se pudo armar: {exc}"
+            ) from exc
         self._stage_summaries[stage] = resumen
         self._echo(resumen.text(with_table=False))
 
@@ -860,9 +1061,34 @@ class Scorecard:
     def _lineas_de_decision(self) -> list[str]:
         lineas: list[str] = []
         for decision in self._decisions:
-            valor = decision.get("valor")
-            lineas.append(f"{decision.get('accion')}: {valor} — «{decision.get('motivo')}»")
+            variables = ", ".join(decision.get("variables", ()))
+            lineas.append(f"{decision.get('accion')} {variables} — «{decision.get('motivo')}»")
+        if lineas and self._pending_decisions:
+            lineas.append(
+                "Hay decisiones posteriores a la última corrida: llama a resume() para aplicarlas."
+            )
         return lineas
+
+
+def _variables_finales(study: Any) -> tuple[str, ...]:
+    if study is None or not study.artifacts.has("model", "final_features"):
+        return ()
+    return tuple(str(v) for v in study.artifacts.get("model", "final_features"))
+
+
+def _tiene_archivos(ruta: Path) -> bool:
+    """Si bajo ``ruta`` hay al menos un archivo (un directorio vacío no es evidencia)."""
+    return ruta.is_dir() and any(p.is_file() for p in ruta.rglob("*"))
+
+
+def _ruta_libre(ruta: Path) -> Path:
+    """``ruta`` si no existe; si no, el primer hermano ``<nombre>.<n>`` libre."""
+    if not ruta.exists():
+        return ruta
+    n = 1
+    while (candidata := ruta.with_name(f"{ruta.name}.{n}")).exists():
+        n += 1
+    return candidata
 
 
 def _comparaciones(partitions: Sequence[str]) -> tuple[str, ...]:

@@ -96,6 +96,7 @@ class LoadingConfig(NikodymBaseConfig):
             "cargados desde Python."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Ruta al archivo CSV, Parquet o Excel (.xlsx) que se va a cargar. Déjala "
             "vacía si el dataset se entrega directamente por código/API en vez de apuntar a un "
             "archivo.",
@@ -274,6 +275,7 @@ class SchemaConfig(NikodymBaseConfig):
         title="Llave(s) de unicidad de fila",
         description="Columnas cuya combinación debe ser única por fila.",
         json_schema_extra={
+            "ui_essential": True,
             "column_role": "input",
             "ui_help": "Columna o combinación de columnas que debe identificar de forma única "
             "cada fila (p.ej. cliente + fecha). Filas repetidas en esa combinación hacen fallar "
@@ -443,6 +445,7 @@ class TargetConfig(NikodymBaseConfig):
             "all_of=[{col: dpd_12m, op: '>=', value: 90}]."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Condición que define cuándo una observación es 'malo' (p.ej. mora >= 90 "
             "días). Es la regla central del target: 1 = malo.",
         },
@@ -610,6 +613,7 @@ class TemporalSplitConfig(NikodymBaseConfig):
         title="Columna de fecha para el corte OOT",
         description="Fecha que define el corte OOT.",
         json_schema_extra={
+            "ui_essential": True,
             "column_role": "input",
             "ui_help": "Columna de fecha que define el corte entre datos dentro y fuera de "
             "tiempo (OOT).",
@@ -620,6 +624,7 @@ class TemporalSplitConfig(NikodymBaseConfig):
         title="Fecha inicio OOT (ISO 8601)",
         description="Filas con date_col >= oot_from van a OOT; el resto a Dev/HO.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Fecha desde la cual las observaciones van al conjunto OOT (fuera de "
             "tiempo). Todo lo anterior queda disponible para Desarrollo/Holdout.",
         },
@@ -631,6 +636,7 @@ class TemporalSplitConfig(NikodymBaseConfig):
         title="Fracción Holdout dentro de in-time",
         description="Proporción reservada como Holdout del subconjunto in-time.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Proporción del conjunto dentro de tiempo (no-OOT) que se reserva como "
             "Holdout; el resto queda en Desarrollo.",
         },
@@ -704,6 +710,7 @@ class RandomSplitConfig(NikodymBaseConfig):
         title="Fracción Holdout",
         description="Proporción de la partición HO.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Proporción de observaciones que va al conjunto de Holdout (validación "
             "out-of-sample dentro de la misma muestra).",
         },
@@ -756,6 +763,7 @@ class CohortSplitConfig(NikodymBaseConfig):
         title="Columna de cohorte",
         description="Columna de añada/vintage de cada observación.",
         json_schema_extra={
+            "ui_essential": True,
             "column_role": "input",
             "ui_help": "Columna que identifica la cohorte o añada (vintage) de cada observación "
             "(p.ej. mes de originación).",
@@ -766,6 +774,7 @@ class CohortSplitConfig(NikodymBaseConfig):
         title="Cohortes reservadas como OOT",
         description="Valores de cohorte que forman el OOT.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Cohortes que se reservan íntegramente como OOT. El resto de las "
             "cohortes se reparte entre Desarrollo y Holdout.",
         },
@@ -777,6 +786,7 @@ class CohortSplitConfig(NikodymBaseConfig):
         title="Fracción Holdout dentro de in-cohort",
         description="Proporción reservada como Holdout del subconjunto in-cohort.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_help": "Proporción de las cohortes que NO son OOT que se reserva como Holdout; "
             "el resto queda en Desarrollo.",
         },

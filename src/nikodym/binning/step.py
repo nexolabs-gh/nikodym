@@ -21,6 +21,7 @@ from importlib import metadata
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from nikodym.binning.config import BinningConfig, VariableBinningConfig
+from nikodym.binning.diagnostics import event_rate_by_partition
 from nikodym.binning.exceptions import BinningFitError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
@@ -53,6 +54,9 @@ BINNING_ARTIFACTS: Final[tuple[str, ...]] = (
     "bin_frame",
     "result",
     "binning_card",
+    # Aditivo (enmienda FLUJO-GUIADO-SCORECARD §3.6-2, D-FLU-6): la tasa de malos por tramo y
+    # muestra con la marca de inversión; clave propia, las tablas estables no cambian.
+    "event_rate_by_partition",
 )
 _MODEL_PARTITIONS: Final[frozenset[str]] = frozenset({"desarrollo", "holdout", "oot"})
 _AUTO_MONOTONIC_TRENDS: Final[frozenset[str]] = frozenset(
@@ -167,6 +171,15 @@ class BinningStep(AuditableMixin):
             feature_columns=feature_columns,
             pd=pd,
         )
+        # Diagnóstico aparte (§3.6-2): sobre las etiquetas congeladas de las filas elegibles, con
+        # la tendencia resuelta en desarrollo como referencia. No toca tablas ni summary.
+        tasas_por_muestra = event_rate_by_partition(
+            bin_frame=bin_frame,
+            target=frame.loc[eligible_mask, target_col],
+            partition=frame.loc[eligible_mask, partition_col],
+            tables=tables,
+            trends=_resolved_trends_by_variable(summary),
+        )
         self._publish_artifacts(
             study,
             binner,
@@ -176,6 +189,7 @@ class BinningStep(AuditableMixin):
             bin_frame,
             result,
             binning_card,
+            tasas_por_muestra,
         )
         return result
 
@@ -383,8 +397,9 @@ class BinningStep(AuditableMixin):
         bin_frame: DataFrame,
         result: BinningResult,
         binning_card: BinningCardSection,
+        event_rate_by_partition_table: DataFrame,
     ) -> None:
-        """Publica artefactos estables y las etiquetas congeladas requeridas por CSI."""
+        """Publica los artefactos estables, los tramos congelados y el diagnóstico por muestra."""
         study.artifacts.set("binning", "process", process)
         study.artifacts.set("binning", "tables", tables)
         study.artifacts.set("binning", "summary", summary)
@@ -392,6 +407,7 @@ class BinningStep(AuditableMixin):
         study.artifacts.set("binning", "bin_frame", bin_frame.copy(deep=True))
         study.artifacts.set("binning", "result", result)
         study.artifacts.set("binning", "binning_card", binning_card)
+        study.artifacts.set("binning", "event_rate_by_partition", event_rate_by_partition_table)
 
 
 def _import_pandas() -> Any:

@@ -248,25 +248,45 @@ class DocumentStructureConfig(NikodymBaseConfig):
         default="",
         title="Nombre del modelo",
         description="Nombre del modelo tal como se identifica en el inventario de la entidad.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 1},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "text_input",
+            "ui_group": "Documento",
+            "ui_order": 1,
+        },
     )
     entity: str = Field(
         default="",
         title="Entidad",
         description="Entidad o institución financiera propietaria del modelo.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 2},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "text_input",
+            "ui_group": "Documento",
+            "ui_order": 2,
+        },
     )
     portfolio: str = Field(
         default="",
         title="Cartera",
         description="Cartera o producto sobre el que aplica el modelo (p. ej. consumo).",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 3},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "text_input",
+            "ui_group": "Documento",
+            "ui_order": 3,
+        },
     )
     author: str = Field(
         default="",
         title="Autor",
         description="Área o persona responsable del desarrollo del modelo.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 4},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "text_input",
+            "ui_group": "Documento",
+            "ui_order": 4,
+        },
     )
     version: str = Field(
         default="",
@@ -414,7 +434,12 @@ class ReportConfig(NikodymBaseConfig):
             "observación que no caben en el documento: **quedan como archivos en el directorio de "
             "salida**, no entre los botones de descarga."
         ),
-        json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
+        json_schema_extra={
+            "ui_essential": True,
+            "ui_widget": "multiselect",
+            "ui_group": "General",
+            "ui_order": 5,
+        },
     )
 
     @model_validator(mode="before")

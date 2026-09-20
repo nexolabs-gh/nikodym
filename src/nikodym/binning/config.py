@@ -162,6 +162,7 @@ class BinningConfig(NikodymBaseConfig):
             "unicidad simple."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
@@ -192,6 +193,7 @@ class BinningConfig(NikodymBaseConfig):
             "Variables que OptBinning debe tratar como categóricas aunque pandas no lo infiera."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
@@ -264,6 +266,7 @@ class BinningConfig(NikodymBaseConfig):
         title="Máximo de bins",
         description="Número máximo de bins finales por variable.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "slider",
             "ui_group": "Restricciones",
             "ui_order": 4,
@@ -280,6 +283,7 @@ class BinningConfig(NikodymBaseConfig):
             "Fracción mínima de observaciones por bin final; en blanco usa el valor del motor."
         ),
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Restricciones",
             "ui_order": 5,
@@ -319,6 +323,7 @@ class BinningConfig(NikodymBaseConfig):
         title="Monotonía por defecto",
         description="Default Nikodym: escoger automáticamente event rate ascendente/descendente.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "selectbox",
             "ui_group": "Monotonía",
             "ui_order": 1,

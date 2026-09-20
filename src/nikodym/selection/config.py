@@ -71,6 +71,7 @@ class CorrelationSelectionConfig(NikodymBaseConfig):
         title="Umbral |rho|",
         description="Si |rho| supera este valor, se conserva la variable con mayor prioridad.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Correlación",
             "ui_order": 3,
@@ -120,6 +121,7 @@ class VifSelectionConfig(NikodymBaseConfig):
         title="Umbral VIF",
         description="VIF máximo aceptado para variables retenidas tras la poda iterativa.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "VIF",
             "ui_order": 2,
@@ -340,6 +342,7 @@ class SelectionConfig(NikodymBaseConfig):
         title="IV mínimo",
         description="Umbral mínimo de Information Value final publicado por binning.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "IV",
             "ui_order": 1,

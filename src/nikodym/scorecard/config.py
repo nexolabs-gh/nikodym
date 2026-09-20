@@ -141,6 +141,7 @@ class ScorecardConfig(NikodymBaseConfig):
         title="PDO",
         description="Puntos necesarios para duplicar los odds definidos por la dirección.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Escala",
             "ui_order": 1,
@@ -156,6 +157,7 @@ class ScorecardConfig(NikodymBaseConfig):
         title="Score objetivo",
         description="Score asignado a una observación con los odds objetivo configurados.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Escala",
             "ui_order": 2,
@@ -171,6 +173,7 @@ class ScorecardConfig(NikodymBaseConfig):
         title="Odds objetivo buenos/malos",
         description="Odds de referencia asociados al score objetivo según la dirección.",
         json_schema_extra={
+            "ui_essential": True,
             "ui_widget": "number_input",
             "ui_group": "Escala",
             "ui_order": 3,
