@@ -139,6 +139,53 @@ def test_el_target_admite_columna_0_1_o_una_regla(fuente: Path, tmp_path: Path) 
         _puerta(fuente, tmp_path, target={"col": "score"})
 
 
+def test_los_resultados_vacios_del_target_quedan_indeterminados_y_fuera_del_ajuste(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """Pasada de cierre de Codex sobre la capa A: con `good_rule` vacía el motor toma por bueno
+    todo lo que no es malo, también los resultados vacíos (operaciones sin desempeño maduro). La
+    puerta arma las tres reglas y los vacíos quedan indeterminados: se puntúan, no se ajustan."""
+    from nikodym.guided.summaries import _card
+
+    frame = pd.read_parquet(fuente)
+    frame["bad_flag"] = frame["bad_flag"].astype("Int64")
+    frame.loc[frame.index[:40], "bad_flag"] = pd.NA
+    sc = _puerta(frame, tmp_path)
+    objetivo = sc.config.data.target
+    assert objetivo.bad_rule.all_of[0].value == 1
+    assert objetivo.good_rule is not None and objetivo.good_rule.all_of[0].value == 0
+    assert objetivo.indeterminate_rule is not None
+    vacio = objetivo.indeterminate_rule.all_of[0]
+    assert (vacio.col, vacio.op) == ("bad_flag", "isna")
+    inferencia = next(i for i in sc.inferences if i.regla == "inferencia_resultado_vacio")
+    assert inferencia.valor == {"columnas": ["bad_flag"], "filas": 40}
+    sc.run(until="data")
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    card = _card(sc.study, "data", "data_card")
+    assert card is not None and card["class_counts"]["indeterminado"] == 40
+    texto = sc.summary("data").text()
+    assert "40 indeterminadas" in texto
+    assert "Resultado vacío en 40 filas (bad_flag)" in texto
+
+    # Con una regla, la columna de la regla vacía también es desconocida, no «bueno».
+    con_huecos = frame.assign(score=frame["score"].mask(frame.index.isin(frame.index[:10])))
+    regla = _puerta(
+        con_huecos, tmp_path, target={"col": "score", "op": ">=", "value": 3}, name="regla"
+    )
+    objetivo = regla.config.data.target
+    assert objetivo.good_rule is None
+    assert objetivo.indeterminate_rule is not None
+    vacio = objetivo.indeterminate_rule.all_of[0]
+    assert (vacio.col, vacio.op) == ("score", "isna")
+    inferencia = next(i for i in regla.inferences if i.regla == "inferencia_resultado_vacio")
+    assert inferencia.valor == {"columnas": ["score"], "filas": 10}
+
+    # Sin vacíos no hay nada que declarar: las reglas van igual, la inferencia no.
+    limpio = _puerta(fuente, tmp_path, name="limpio")
+    assert limpio.config.data.target.indeterminate_rule is not None
+    assert not any(i.regla == "inferencia_resultado_vacio" for i in limpio.inferences)
+
+
 def test_features_explicitas_se_respetan_y_una_fuga_se_rechaza(
     fuente: Path, tmp_path: Path
 ) -> None:
@@ -481,6 +528,30 @@ def test_resume_es_una_corrida_nueva_y_completa_con_respaldo_lateral(
     )
     assert not (proyecto / "reports" / "marca.txt").exists()
     assert (proyecto / "reports" / "scorecard_report.html").is_file()
+
+
+def test_dos_corridas_a_la_vez_sobre_la_misma_carpeta_se_rechazan(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """Pasada de cierre de Codex: dos procesos sobre el mismo `run_dir/name` mezclarían informe y
+    evidencia. Un candado por carpeta rechaza la segunda corrida antes de mover nada."""
+    from nikodym.guided.scorecard import _bloquear_carpeta, _liberar_carpeta
+
+    sc = _puerta(fuente, tmp_path)
+    sc.run()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    proyecto = tmp_path / "corridas" / "prueba"
+    informe = (proyecto / "reports" / "scorecard_report.html").read_bytes()
+    candado = _bloquear_carpeta(proyecto / ".lock")  # «otro proceso» tiene la carpeta
+    try:
+        with pytest.raises(ScorecardRunError, match="Otra corrida está en curso"):
+            sc.run()
+    finally:
+        _liberar_carpeta(candado)
+    assert (proyecto / "reports" / "scorecard_report.html").read_bytes() == informe
+    assert not any(p.name.startswith((".reports.", ".run.")) for p in proyecto.iterdir())
+    sc.run()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
 
 
 def test_run_fallido_devuelve_el_estado_y_raise_on_error_levanta(

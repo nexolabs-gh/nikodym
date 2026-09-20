@@ -212,7 +212,17 @@ sc.summary()                            # el resumen final: ejecución y veredic
   a `reports/`, porque `run/` sigue siendo la corrida a la que pertenece. Sin hermano nuevo al
   que ir —no había corrida previa consolidada, o el fallo no dejó evidencia—, el informe se
   conserva como hermano `.reports.old.*`. Nunca se borra un informe ni se asocia al trail de
-  otra corrida (pasadas de Codex sobre A2, A2-bis y A2-ter).
+  otra corrida (pasadas de Codex sobre A2, A2-bis y A2-ter). La carpeta admite **una corrida a
+  la vez**: un candado `.lock` en `<run_dir>/<name>/` —que el sistema operativo suelta si el
+  proceso muere— rechaza la segunda con un error legible antes de mover nada (pasada de cierre
+  de Codex sobre la capa A).
+- **Precisión (pasada de cierre de Codex, S17):** la puerta arma las **tres** reglas del target
+  —«malo», «bueno» e «indeterminado»—, no sólo la de «malo»: con `good_rule` vacía el motor toma
+  por bueno todo lo que no es malo, incluidos los resultados vacíos (operaciones sin desempeño
+  maduro), que entrarían al ajuste como no-default sin error alguno. Un resultado vacío en la
+  columna del target —o en la columna de la regla— es desconocido: queda indeterminado, se
+  puntúa, no entra al ajuste, y la puerta lo declara al trail (`inferencia_resultado_vacio`,
+  con la cifra) y en el resumen de datos.
 - `sc.config` es el `NikodymConfig` completo que corre; `sc.study` el `Study`; `sc.config_hash`
   la identidad. `sc.to_yaml()` exporta el config para la puerta completa o la pantalla.
 

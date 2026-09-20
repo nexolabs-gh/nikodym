@@ -13,12 +13,13 @@ import hashlib
 import io
 import os
 import shutil
+import sys
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import IO, Any, Final, Literal
 
 import pandas as pd
 from pydantic import ValidationError
@@ -43,7 +44,7 @@ from nikodym.guided.summaries import (
     build_final_summary,
     build_stage_summary,
 )
-from nikodym.report.prose import _pct, _plural
+from nikodym.report.prose import _miles, _pct, _plural
 
 __all__ = ["Scorecard", "ScorecardInputError", "ScorecardRunError"]
 
@@ -61,6 +62,24 @@ _CONFIG_NAME: Final = "config.yaml"
 _MODEL_CARD_NAME: Final = "model_card.json"
 
 _TargetRule = Mapping[str, Any]
+_LOCK_NAME: Final = ".lock"
+
+
+@dataclass(frozen=True)
+class _Target:
+    """Las tres reglas del target que la puerta arma, las columnas que las definen y los vacíos.
+
+    Con ``good_rule`` vacía el motor toma por bueno todo lo que no es malo, **incluidos los
+    resultados vacíos** (operaciones sin desempeño maduro): entrarían al ajuste como no-default
+    sin error alguno (pasada de cierre de Codex sobre la capa A). Un resultado vacío es
+    desconocido: queda indeterminado, se puntúa y no entra al ajuste.
+    """
+
+    bad_rule: dict[str, Any]
+    good_rule: dict[str, Any] | None
+    indeterminate_rule: dict[str, Any]
+    columnas: tuple[str, ...]
+    n_vacios: int
 
 
 class ScorecardInputError(ConfigError):
@@ -71,7 +90,10 @@ class ScorecardInputError(ConfigError):
 
 
 class ScorecardRunError(NikodymError):
-    """La corrida terminó fallida y se pidió ``raise_on_error=True`` (D-FLU-4, hallazgo #4)."""
+    """La corrida terminó fallida y se pidió ``raise_on_error=True`` (D-FLU-4, hallazgo #4).
+
+    También cuando la corrida no pudo empezar porque otra tiene la carpeta del proyecto.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,8 +222,20 @@ class Scorecard:
             )
 
         # ── target ───────────────────────────────────────────────────────────────────────
-        bad_rule, columnas_target = self._regla_del_target(frame, target)
+        objetivo = self._regla_del_target(frame, target)
+        columnas_target = objetivo.columnas
         target_col = "target" if "target" not in frame.columns else "target_nikodym"
+        if objetivo.n_vacios:
+            inferencias.append(
+                Inferencia(
+                    regla="inferencia_resultado_vacio",
+                    valor={"columnas": list(columnas_target), "filas": objetivo.n_vacios},
+                    motivo=(
+                        "un resultado vacío es desconocido, no bueno: la fila queda "
+                        "indeterminada, se puntúa y no entra al ajuste"
+                    ),
+                )
+            )
 
         # ── muestras ─────────────────────────────────────────────────────────────────────
         muestras = self._resolver_muestras(
@@ -305,6 +339,8 @@ class Scorecard:
             categoricas=categoricas,
             motivos=motivos,
             id_label=id_label,
+            n_vacios_target=objetivo.n_vacios,
+            columnas_target=columnas_target,
         )
 
         # ── el config ────────────────────────────────────────────────────────────────────
@@ -328,9 +364,9 @@ class Scorecard:
             "missing": {"special_values": [], "max_missing_rate": 0.99},
             "target": {
                 "target_col": target_col,
-                "bad_rule": bad_rule,
-                "good_rule": None,
-                "indeterminate_rule": None,
+                "bad_rule": objetivo.bad_rule,
+                "good_rule": objetivo.good_rule,
+                "indeterminate_rule": objetivo.indeterminate_rule,
                 "exclusion_rules": [],
                 "window": None,
             },
@@ -483,9 +519,7 @@ class Scorecard:
         )
 
     @staticmethod
-    def _regla_del_target(
-        frame: pd.DataFrame, target: str | _TargetRule
-    ) -> tuple[dict[str, Any], tuple[str, ...]]:
+    def _regla_del_target(frame: pd.DataFrame, target: str | _TargetRule) -> _Target:
         if isinstance(target, Mapping):
             faltan = [k for k in ("col", "op", "value") if k not in target]
             if faltan:
@@ -500,7 +534,13 @@ class Scorecard:
                     f"La regla del target usa la columna {columna!r}, que el archivo no trae."
                 )
             predicado = {"col": columna, "op": target["op"], "value": target["value"]}
-            return {"all_of": [predicado], "any_of": []}, (columna,)
+            return _Target(
+                bad_rule={"all_of": [predicado], "any_of": []},
+                good_rule=None,  # bueno es todo lo que no es malo, indeterminado ni excluido
+                indeterminate_rule=_regla_de_vacios(columna),
+                columnas=(columna,),
+                n_vacios=int(frame[columna].isna().sum()),
+            )
         columna = str(target)
         if columna not in frame.columns:
             raise ScorecardInputError(
@@ -508,8 +548,10 @@ class Scorecard:
                 f"{', '.join(str(c) for c in frame.columns)}."
             )
         serie = frame[columna]
+        malo: Any
+        bueno: Any
         if dtype_logico(serie) == "bool":
-            valor: Any = True
+            malo, bueno = True, False
         else:
             valores = set(pd.unique(serie.dropna()))
             if not valores or not valores <= {0, 1}:
@@ -518,8 +560,14 @@ class Scorecard:
                     f"otros valores. Para definir «malo» con una condición pasa una regla: "
                     f'target={{"col": "{columna}", "op": ">=", "value": 90}}.'
                 )
-            valor = 1
-        return {"all_of": [{"col": columna, "op": "==", "value": valor}], "any_of": []}, (columna,)
+            malo, bueno = 1, 0
+        return _Target(
+            bad_rule={"all_of": [{"col": columna, "op": "==", "value": malo}], "any_of": []},
+            good_rule={"all_of": [{"col": columna, "op": "==", "value": bueno}], "any_of": []},
+            indeterminate_rule=_regla_de_vacios(columna),
+            columnas=(columna,),
+            n_vacios=int(serie.isna().sum()),
+        )
 
     @staticmethod
     def _resolver_muestras(
@@ -664,9 +712,11 @@ class Scorecard:
         categoricas: Sequence[str],
         motivos: Mapping[str, str],
         id_label: str,
+        n_vacios_target: int,
+        columnas_target: Sequence[str],
     ) -> tuple[str, ...]:
         fuera = ", ".join(f"{c} ({m})" for c, m in motivos.items())
-        return (
+        lineas = [
             (
                 f"Se infirió: esquema de {len(esquema)} columnas ({len(esquema) - n_texto} "
                 f"numéricas o de fecha, {n_texto} de texto); {len(predictoras)} "
@@ -675,7 +725,14 @@ class Scorecard:
                 + (f"; fuera: {fuera}" if fuera else "")
             ),
             f"Identificador: {id_label}",
-        )
+        ]
+        if n_vacios_target:
+            lineas.append(
+                f"Resultado vacío en {_miles(n_vacios_target)} "
+                f"{_plural(n_vacios_target, 'fila', 'filas')} ({', '.join(columnas_target)}): "
+                "quedan indeterminadas, se puntúan y no entran al ajuste"
+            )
+        return tuple(lineas)
 
     @staticmethod
     def _resolver_pipeline(config: NikodymConfig) -> tuple[NikodymConfig, tuple[str, ...]]:
@@ -765,10 +822,10 @@ class Scorecard:
         ``until`` recorta ``run.steps`` al prefijo del pipeline: es una corrida parcial con su
         propio ``config_hash`` (D-FLU-3). Ante un fallo de dominio la corrida devuelve el estado
         y el resumen final lo dice; con ``raise_on_error=True`` se levanta
-        :class:`ScorecardRunError` con el mismo diagnóstico (D-FLU-4).
+        :class:`ScorecardRunError` con el mismo diagnóstico (D-FLU-4). La carpeta del proyecto
+        admite una corrida a la vez: si otra la tiene, se levanta :class:`ScorecardRunError`
+        antes de mover nada.
         """
-        import nikodym
-
         if until is not None and until not in self._steps:
             raise ScorecardInputError(
                 f"until={until!r} no es una etapa de este pipeline. Etapas: "
@@ -776,6 +833,30 @@ class Scorecard:
             )
         pasos = list(self._steps[: self._steps.index(until) + 1]) if until is not None else None
         config = self._config.model_copy(update={"run": RunConfig(steps=pasos)})
+        # Un solo escritor por carpeta de proyecto: dos corridas a la vez sobre el mismo
+        # `run_dir/name` —los defaults, en dos notebooks— mezclarían informe y evidencia (pasada
+        # de cierre de Codex sobre la capa A). El candado lo suelta el sistema operativo si el
+        # proceso muere, así que nunca queda uno huérfano.
+        self._project_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            candado = _bloquear_carpeta(self._project_dir / _LOCK_NAME)
+        except OSError as exc:
+            raise ScorecardRunError(
+                f"Otra corrida está en curso en la carpeta '{self._project_dir}' (candado "
+                f"'{_LOCK_NAME}'). Espera a que termine, o usa otro name= o run_dir= para "
+                "correr en paralelo."
+            ) from exc
+        try:
+            return self._correr(config, until, raise_on_error=raise_on_error)
+        finally:
+            _liberar_carpeta(candado)
+
+    def _correr(
+        self, config: NikodymConfig, until: str | None, *, raise_on_error: bool
+    ) -> Scorecard:
+        """El intento, ya con el candado de la carpeta tomado."""
+        import nikodym
+
         self._preparar_proyecto()
         self._until = until
         self._stage_summaries = {}
@@ -1164,6 +1245,50 @@ def _variables_finales(study: Any) -> tuple[str, ...]:
     if study is None or not study.artifacts.has("model", "final_features"):
         return ()
     return tuple(str(v) for v in study.artifacts.get("model", "final_features"))
+
+
+def _regla_de_vacios(columna: str) -> dict[str, Any]:
+    """La regla «resultado vacío → indeterminado» sobre la columna que define el target."""
+    return {"all_of": [{"col": columna, "op": "isna", "value": None}], "any_of": []}
+
+
+def _bloquear_carpeta(ruta: Path) -> IO[bytes]:
+    """Candado exclusivo entre procesos sobre el archivo ``ruta`` (vacío, se crea si no existe).
+
+    Levanta ``OSError`` si otro proceso —u otro descriptor— ya lo tiene. El sistema operativo lo
+    suelta cuando el proceso termina, muera como muera: no hay candados huérfanos que limpiar.
+    """
+    handle = ruta.open("a+b")
+    try:
+        handle.seek(0)
+        if sys.platform == "win32":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise
+    return handle
+
+
+def _liberar_carpeta(handle: IO[bytes]) -> None:
+    """Suelta el candado tomado con :func:`_bloquear_carpeta` y cierra el archivo."""
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
 
 
 def _tiene_archivos(ruta: Path) -> bool:

@@ -69,8 +69,17 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   decisiones justo después de `run_start`, la vía con que una puerta de entrada declara su
   procedencia— y `on_step=` —un *callback* `(nombre_del_paso, study)` tras cada paso—.
 
+- **Un resultado vacío del target es desconocido, no «bueno».** La puerta guiada arma las tres
+  reglas del target —«malo», «bueno» e «indeterminado»—: las filas con el resultado vacío (o con
+  la columna de la regla vacía) quedan indeterminadas, se puntúan y no entran al ajuste, y la
+  puerta lo declara en el registro de auditoría y en el resumen de datos con la cifra. Con sólo la
+  regla de «malo», el motor las habría tomado por buenas sin avisar.
+
 ### Sabido
 
+- La carpeta de un proyecto guiado (`<run_dir>/<name>/`) admite una corrida a la vez: un
+  candado `.lock` rechaza la segunda con un error legible antes de mover nada, y el sistema
+  operativo lo suelta si el proceso muere. Para correr en paralelo, otro `name=` o `run_dir=`.
 - La puerta guiada es sólo por código: la pantalla no muestra todavía los campos esenciales
   plegando el resto en «Avanzado» (capa B de la enmienda). `merge_bins`/`set_bins` esperan la
   decisión de Cami sobre la hoja de cortes por variable (enmienda §8-9).
