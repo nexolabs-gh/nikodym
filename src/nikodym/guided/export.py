@@ -117,13 +117,34 @@ def write_stage_workbooks(
     except BaseException:
         shutil.rmtree(temporal, ignore_errors=True)
         raise
+    _publicar_carpeta(temporal, directory, token)
+    return tuple(directory / nombre for nombre in nombres)
+
+
+#: Indirección para que un test pueda hacer fallar la publicación sin tocar ``os.rename`` global.
+_renombrar = os.rename
+
+
+def _publicar_carpeta(temporal: Path, directory: Path, token: str) -> None:
+    """Sustituye ``directory`` por ``temporal`` y, si el segundo paso falla, restaura la anterior.
+
+    Dos movimientos: la carpeta vigente se aparta a un respaldo lateral y el temporal ocupa su
+    sitio. Si el segundo falla —permisos, OneDrive, antivirus— la anterior vuelve a su ruta
+    canónica y el temporal se retira, con el error original (pasada 3 de Codex sobre la capa B);
+    sólo con las dos hechas se borra el respaldo, que es un derivado de esta misma función.
+    """
     anterior = directory.with_name(f".{directory.name}.old.{token}") if directory.exists() else None
     if anterior is not None:
-        os.rename(directory, anterior)
-    os.rename(temporal, directory)
+        _renombrar(directory, anterior)
+    try:
+        _renombrar(temporal, directory)
+    except BaseException:
+        if anterior is not None and not directory.exists():
+            _renombrar(anterior, directory)
+        shutil.rmtree(temporal, ignore_errors=True)
+        raise
     if anterior is not None:
         shutil.rmtree(anterior, ignore_errors=True)
-    return tuple(directory / nombre for nombre in nombres)
 
 
 def pack_project(project_dir: Path, destination: Path) -> Path:
@@ -143,9 +164,12 @@ def pack_project(project_dir: Path, destination: Path) -> Path:
         destino = destino.with_suffix(".zip")
     destino.parent.mkdir(parents=True, exist_ok=True)
     temporal = destino.with_name(f".{destino.name}.tmp")
+    excluidos = {destino.resolve(), temporal.resolve()}
     raiz = project_dir.name
     with zipfile.ZipFile(temporal, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for ruta in sorted(_archivos_del_proyecto(project_dir)):
+            if ruta.resolve() in excluidos:
+                continue  # el paquete que se está escribiendo, o uno anterior en la carpeta
             zf.write(ruta, arcname=f"{raiz}/{ruta.relative_to(project_dir).as_posix()}")
     temporal.replace(destino)
     return destino
@@ -284,14 +308,29 @@ def _celda(valor: Any) -> Any:
     return json.dumps(valor, ensure_ascii=False, sort_keys=True)
 
 
+#: Lo que entra al paquete, y nada más: un archivo que el usuario deje en la carpeta del
+#: proyecto (un `credentials.json`, unas notas) no viaja en un ZIP que se comparte (pasada 3 de
+#: Codex sobre la capa B). Los enlaces simbólicos tampoco: un paquete no sigue rutas ajenas.
+_ARCHIVOS_DEL_PAQUETE: Final[tuple[str, ...]] = ("config.yaml",)
+_CARPETAS_DEL_PAQUETE: Final[tuple[str, ...]] = ("input", "run", "reports", EXCEL_SUBDIR)
+
+
 def _archivos_del_proyecto(project_dir: Path) -> Iterable[Path]:
-    for entrada in project_dir.iterdir():
-        if entrada.name.startswith("."):
-            continue  # candado y respaldos laterales: no son la corrida vigente
-        if entrada.is_file():
-            yield entrada
-        else:
-            yield from (p for p in entrada.rglob("*") if p.is_file())
+    for nombre in _ARCHIVOS_DEL_PAQUETE:
+        archivo = project_dir / nombre
+        if archivo.is_file() and not archivo.is_symlink():
+            yield archivo
+    for nombre in _CARPETAS_DEL_PAQUETE:
+        carpeta = project_dir / nombre
+        if not carpeta.is_dir() or carpeta.is_symlink():
+            continue
+        for ruta in carpeta.rglob("*"):
+            if (
+                ruta.is_file()
+                and not ruta.is_symlink()
+                and not any(parte.startswith(".") for parte in ruta.relative_to(project_dir).parts)
+            ):
+                yield ruta
 
 
 def _openpyxl_disponible() -> bool:

@@ -1377,17 +1377,24 @@ class Scorecard:
         puerta y del motor). Opcional: nunca es la vía para ver un resultado. Exige el extra
         ``excel`` (``openpyxl``); sin él se detiene con el comando de instalación.
         """
-        if self._study is None:
-            raise ScorecardInputError("export_excel() necesita una corrida: llama a run() primero.")
         from nikodym.guided.export import EXCEL_SUBDIR, write_stage_workbooks
 
-        escritos = write_stage_workbooks(
-            self._study,
-            self._stage_summaries,
-            directory=self._project_dir / EXCEL_SUBDIR,
-            report_config=self._config.report,
-            trail_path=self._context().trail_path,
-        )
+        # Bajo el candado y sobre la evidencia PROPIA: otro Scorecard con el mismo `run_dir/name`
+        # puede haber consolidado su corrida en `run/` —el trail que este libro leería—, y este
+        # objeto escribiría sus tablas en memoria junto a decisiones ajenas (pasada 3 de Codex
+        # sobre la capa B).
+        candado = self._tomar_candado("exportar")
+        try:
+            self._exigir_evidencia_propia("export_excel")
+            escritos = write_stage_workbooks(
+                self._study,
+                self._stage_summaries,
+                directory=self._project_dir / EXCEL_SUBDIR,
+                report_config=self._config.report,
+                trail_path=self._context().trail_path,
+            )
+        finally:
+            _liberar_carpeta(candado)
         self._echo(
             f"Excel por etapa: {len(escritos)} "
             f"{_plural(len(escritos), 'libro', 'libros')} en {self._project_dir / EXCEL_SUBDIR}"
@@ -1403,25 +1410,12 @@ class Scorecard:
         """
         from nikodym.guided.export import pack_project
 
-        # Una corrida PROPIA: la carpeta existe desde que un DataFrame publica su snapshot, y un
-        # `name` repetido puede encontrar la corrida de otro objeto (pasada 2 de Codex sobre B).
-        if self._study is None or self._study.run_context.run_id is None:
-            raise ScorecardInputError(
-                "export() empaqueta la corrida de este Scorecard: llama a run() primero."
-            )
-        if _run_id_en_disco(self._run_dir) != self._study.run_context.run_id:
-            raise ScorecardInputError(
-                f"La evidencia en {self._run_dir} no es la de la corrida de este Scorecard "
-                "(otra corrida ocupó la carpeta): vuelve a correr antes de empaquetar."
-            )
+        # Una corrida PROPIA, bajo el candado: la carpeta existe desde que un DataFrame publica
+        # su snapshot, y un `name` repetido puede encontrar la corrida de otro objeto (pasadas 2
+        # y 3 de Codex sobre B).
+        candado = self._tomar_candado("empaquetar")
         try:
-            candado = _bloquear_carpeta(self._project_dir / _LOCK_NAME)
-        except OSError as exc:
-            raise ScorecardRunError(
-                f"Otra corrida está en curso en la carpeta '{self._project_dir}': espera a que "
-                "termine antes de empaquetar."
-            ) from exc
-        try:
+            self._exigir_evidencia_propia("export")
             ruta = pack_project(self._project_dir, Path(destination))
         except FileNotFoundError as exc:
             raise ScorecardInputError(str(exc)) from exc
@@ -1429,6 +1423,29 @@ class Scorecard:
             _liberar_carpeta(candado)
         self._echo(f"Paquete de la corrida: {ruta}")
         return ruta
+
+    def _tomar_candado(self, accion: str) -> IO[bytes]:
+        """El candado de la carpeta del proyecto, o :class:`ScorecardRunError` si otro lo tiene."""
+        self._project_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            return _bloquear_carpeta(self._project_dir / _LOCK_NAME)
+        except OSError as exc:
+            raise ScorecardRunError(
+                f"Otra corrida está en curso en la carpeta '{self._project_dir}': espera a que "
+                f"termine antes de {accion}."
+            ) from exc
+
+    def _exigir_evidencia_propia(self, accion: str) -> None:
+        """La evidencia consolidada en ``run/`` es la de la corrida de ESTE objeto, o no se toca."""
+        if self._study is None or self._study.run_context.run_id is None:
+            raise ScorecardInputError(
+                f"{accion}() trabaja sobre la corrida de este Scorecard: llama a run() primero."
+            )
+        if _run_id_en_disco(self._run_dir) != self._study.run_context.run_id:
+            raise ScorecardInputError(
+                f"La evidencia en {self._run_dir} no es la de la corrida de este Scorecard "
+                "(otra corrida ocupó la carpeta): vuelve a correr antes de exportar."
+            )
 
     # ── comparar (D-FLU-6) ──────────────────────────────────────────────────────────────
 

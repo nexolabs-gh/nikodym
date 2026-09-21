@@ -77,12 +77,16 @@ class FakeBinnedVariable:
         dtype: str,
         status: str,
         table: pd.DataFrame,
-        splits: tuple[float, ...] = (),
+        splits: tuple[float, ...] | None = None,
     ) -> None:
         self.dtype = dtype
         self.status = status
         self.binning_table = FakeBinningTable(table)
-        self.splits = list(splits)
+        # Sólo una numérica expone `splits` (los cortes); una categórica NO lo expone: en
+        # OptBinning serían grupos de categorías, y una lista vacía haría que el bundle del
+        # scorecard derivara reglas de cero grupos en vez de leer la tabla.
+        if splits is not None:
+            self.splits = list(splits)
 
 
 class FakeBinningProcess:
@@ -126,11 +130,13 @@ class FakeBinningProcess:
             if dtype == "numerical" and not pd.api.types.is_numeric_dtype(x[name]):
                 dtype = "categorical"
             cortes = self.fit_params.get(name, {}).get("user_splits")
-            splits = (
-                tuple(float(c) for c in cortes)  # type: ignore[union-attr]
-                if dtype == "numerical" and cortes is not None
-                else _fake_splits(name, dtype)
-            )
+            splits: tuple[float, ...] | None
+            if dtype != "numerical":
+                splits = None
+            elif cortes is not None:
+                splits = tuple(float(c) for c in cortes)  # type: ignore[union-attr]
+            else:
+                splits = _fake_splits(name)
             table, woe_map = _fake_table_for_series(
                 name,
                 x[name],
@@ -266,10 +272,8 @@ def _fake_table_for_series(
     return table, woe_map
 
 
-def _fake_splits(name: str, dtype: str) -> tuple[float, ...]:
-    """Los cortes de fábrica del doble (espejo de ``_numeric_bins``); ninguno en categóricas."""
-    if dtype == "categorical":
-        return ()
+def _fake_splits(name: str) -> tuple[float, ...]:
+    """Los cortes de fábrica del doble para una numérica (espejo de ``_numeric_bins``)."""
     return (0.5, 1.5) if name == "risk" else (1.5,)
 
 

@@ -1302,7 +1302,7 @@ describe("el resumen de la corrida (D-FLU-8): la misma fuente que la puerta guia
       figures: [["AUC en Fuera de tiempo (OOT)", "0,656"]],
       review: ["Tramos y WoE: mora_max_12m: la tasa de malos invierte la tendencia en Holdout"],
       decisions: [],
-      files: [["Evidencia de la corrida", "C:\corridas\runs\abc"]],
+      files: [["Evidencia de la corrida", "C:/corridas/runs/abc"]],
     },
     error: null,
   }

@@ -20,7 +20,7 @@ import pytest
 from _ui_f1 import write_stacked_behavior_parquet
 
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.guided import Scorecard, ScorecardInputError
+from nikodym.guided import Scorecard, ScorecardInputError, ScorecardRunError
 from nikodym.guided import export as export_module
 from nikodym.guided.export import DECISIONS_BOOK, EXCEL_SUBDIR, STAGE_BOOKS
 from nikodym.guided.summaries import STAGE_LABELS, StageSummary, partition_label
@@ -370,3 +370,72 @@ def test_export_exige_una_corrida_propia_y_empaqueta_esa_evidencia(
     ajeno = _puerta(frame, tmp_path, name="paquete")
     with pytest.raises(ScorecardInputError, match=r"llama a run\(\) primero"):
         ajeno.export(tmp_path / "ajeno.zip")
+
+
+# ──────────── pasada 3 de Codex sobre la capa B: allowlist, identidad y rollback ────────────
+
+
+def test_el_paquete_solo_lleva_lo_que_es_de_la_corrida(fuente: Path, tmp_path: Path) -> None:
+    """Un archivo ajeno en la carpeta del proyecto no viaja en el ZIP, y un destino dentro del
+    proyecto no se empaqueta a sí mismo (Codex, pasada 3 de B)."""
+    sc = _puerta(fuente, tmp_path).run(until="data")
+    (sc.project_dir / "credentials.json").write_text("{}", encoding="utf-8")
+    (sc.project_dir / "notas").mkdir()
+    (sc.project_dir / "notas" / "ajeno.txt").write_text("x", encoding="utf-8")
+    (sc.project_dir / "reports" / "borrador.txt").write_text("x", encoding="utf-8")
+    primero = sc.export(sc.project_dir / "reports" / "corrida.zip")
+    segundo = sc.export(sc.project_dir / "reports" / "corrida.zip")
+    with zipfile.ZipFile(segundo) as zf:
+        nombres = zf.namelist()
+    assert "prueba/config.yaml" in nombres
+    assert "prueba/reports/borrador.txt" in nombres  # dentro de una carpeta de la corrida
+    assert not any("credentials.json" in n or "/notas/" in n for n in nombres)
+    assert not any(n.endswith(".zip") or ".zip.tmp" in n for n in nombres), nombres
+    assert primero == segundo
+
+
+def test_export_excel_exige_la_evidencia_propia_y_el_candado(fuente: Path, tmp_path: Path) -> None:
+    """Otro Scorecard con el mismo `run_dir/name` consolidó su corrida: el anterior ya no puede
+    escribir su Excel sobre esa evidencia; y con el candado tomado, tampoco (Codex, pasada 3 de B).
+    """
+    primero = _puerta(fuente, tmp_path).run(until="data")
+    segundo = _puerta(fuente, tmp_path).run(until="data")
+    assert primero.study.run_context.run_id != segundo.study.run_context.run_id
+    with pytest.raises(ScorecardInputError, match="otra corrida ocupó la carpeta"):
+        primero.export_excel()
+    with pytest.raises(ScorecardInputError, match="otra corrida ocupó la carpeta"):
+        primero.export(tmp_path / "primero.zip")
+    assert segundo.export_excel()  # el dueño de la evidencia sí exporta
+    from nikodym.guided.scorecard import _LOCK_NAME, _bloquear_carpeta, _liberar_carpeta
+
+    candado = _bloquear_carpeta(segundo.project_dir / _LOCK_NAME)
+    try:
+        with pytest.raises(ScorecardRunError, match="Otra corrida está en curso"):
+            segundo.export_excel()
+        with pytest.raises(ScorecardRunError, match="Otra corrida está en curso"):
+            segundo.export(tmp_path / "bloqueado.zip")
+    finally:
+        _liberar_carpeta(candado)
+
+
+def test_un_fallo_al_publicar_el_excel_restaura_la_exportacion_anterior(
+    fuente: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sc = _puerta(fuente, tmp_path).run(until="data")
+    carpeta = sc.project_dir / EXCEL_SUBDIR
+    sc.export_excel()
+    antes = {p.name: p.read_bytes() for p in carpeta.iterdir()}
+    original = export_module._renombrar
+    llamadas = {"n": 0}
+
+    def falla_en_la_segunda(src: Any, dst: Any) -> None:
+        llamadas["n"] += 1
+        if llamadas["n"] == 2:
+            raise PermissionError(13, "bloqueo transitorio")
+        original(src, dst)
+
+    monkeypatch.setattr(export_module, "_renombrar", falla_en_la_segunda)
+    with pytest.raises(PermissionError):
+        sc.export_excel()
+    assert {p.name: p.read_bytes() for p in carpeta.iterdir()} == antes
+    assert not [p for p in sc.project_dir.iterdir() if p.name.startswith(f".{EXCEL_SUBDIR}.")]

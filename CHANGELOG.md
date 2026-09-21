@@ -82,8 +82,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   nombre de carpeta simple (sin separadores ni «..»); `export()` exige una corrida propia
   (verifica el `run_id` de la evidencia y toma el candado mientras empaqueta); el Excel opcional
   se construye aparte y sustituye entero al anterior (una corrida parcial no conserva libros de
-  una completa previa, y un fallo a mitad deja el anterior intacto). Hallazgos de las dos
-  pasadas de Codex sobre la capa B.
+  una completa previa, y un fallo a mitad deja el anterior intacto). Además, el paquete lleva
+  **sólo** lo que es de la corrida (`config.yaml`, `input/`, `run/`, `reports/`, `excel/`; sin
+  enlaces simbólicos, sin un archivo ajeno que el usuario deje en la carpeta y sin el propio
+  ZIP si el destino está dentro del proyecto); `export_excel()` exige también la evidencia
+  propia bajo el candado (otro Scorecard con el mismo `run_dir/name` no puede escribir su Excel
+  junto a decisiones ajenas); y si al publicar el Excel falla el segundo movimiento, la
+  exportación anterior vuelve a su ruta. Hallazgos de las tres pasadas de Codex sobre la capa B.
 - **El resumen final ya no afirma «la corrida usa los valores de fábrica» cuando no hay
   decisiones humanas registradas**: dice «Ninguna decisión humana registrada; lo que se decidió
   vive en el config de la corrida», que es cierto también con argumentos distintos de los de
