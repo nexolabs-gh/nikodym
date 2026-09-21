@@ -67,6 +67,28 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   (`HOJAS_DEL_FORMULARIO` 572 → 576 y perillas del scorecard 409 → 413: dos campos y sus dos
   filas de lista).
 
+### Cambiado
+
+- **La puerta guiada `nikodym.Scorecard` deja de ser experimental y entra a la garantía SemVer
+  1.x**: salió en la 1.17.0 como adelanto declarado hasta que cerrara la capa B, y con esta
+  versión cierran sus tres puertas (código, config completo y pantalla). Su firma, sus resúmenes
+  y sus decisiones sólo crecen de forma aditiva.
+- **La puerta guiada copia también un archivo por ruta al proyecto** (`<run_dir>/<name>/input/`,
+  con la huella del contenido en el nombre) y el config referencia esa copia, como ya hacía con
+  un `DataFrame`: la inferencia y cada corrida leen exactamente los mismos bytes —un archivo que
+  otro proceso reemplaza entre la lectura y la corrida ya no puede entrenar otro modelo con
+  inferencias viejas— y `config.yaml` + `input/` reproducen la corrida por sí solos. Si la copia
+  se edita en disco, `run()` se detiene y pide reconstruir el Scorecard; `name` tiene que ser un
+  nombre de carpeta simple (sin separadores ni «..»); `export()` exige una corrida propia
+  (verifica el `run_id` de la evidencia y toma el candado mientras empaqueta); el Excel opcional
+  se construye aparte y sustituye entero al anterior (una corrida parcial no conserva libros de
+  una completa previa, y un fallo a mitad deja el anterior intacto). Hallazgos de las dos
+  pasadas de Codex sobre la capa B.
+- **El resumen final ya no afirma «la corrida usa los valores de fábrica» cuando no hay
+  decisiones humanas registradas**: dice «Ninguna decisión humana registrada; lo que se decidió
+  vive en el config de la corrida», que es cierto también con argumentos distintos de los de
+  fábrica y con un config editado en el formulario.
+
 ## [1.17.0] — 2026-09-20
 
 ### Añadido

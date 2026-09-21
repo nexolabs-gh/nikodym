@@ -62,6 +62,7 @@ if TYPE_CHECKING:
     from nikodym.core.study import Study
 
 __all__ = [
+    "SIN_DECISIONES",
     "STAGE_LABELS",
     "STAGE_ORDER",
     "FinalSummary",
@@ -92,6 +93,14 @@ STAGE_ORDER: Final[tuple[str, ...]] = tuple(STAGE_LABELS)
 #: Filas de una tabla de decisión que el texto de consola muestra antes de resumir el resto; el
 #: HTML del notebook y ``sc.results[<etapa>]`` llevan la tabla entera.
 _FILAS_EN_CONSOLA: Final = 40
+
+#: Lo que dice el resumen final sin decisiones humanas registradas. No afirma «valores de
+#: fábrica»: una corrida sin ``exclude``/``keep``/``merge_bins``/``set_bins`` puede llevar
+#: argumentos distintos de los de fábrica, y en la pantalla el config se editó a mano (pasada 2
+#: de Codex sobre la capa B). Lo que se decidió vive en el config de la corrida, que es la verdad.
+SIN_DECISIONES: Final = (
+    "Ninguna decisión humana registrada; lo que se decidió vive en el config de la corrida."
+)
 
 _Kind = Literal["text", "int", "num", "num2", "num3", "pct", "bool"]
 
@@ -230,7 +239,7 @@ class FinalSummary:
         if self.decisions:
             partes.extend(f"  • {linea}" for linea in self.decisions)
         else:
-            partes.append("  Ninguna: la corrida usa los valores de fábrica.")
+            partes.append(f"  {SIN_DECISIONES}")
         partes.append("Dónde quedó cada archivo:")
         partes.extend(f"  {rotulo}: {ruta}" for rotulo, ruta in self.files)
         return "\n".join(partes)
@@ -260,7 +269,7 @@ class FinalSummary:
         if self.decisions:
             partes.extend(f"<li>{html.escape(linea)}</li>" for linea in self.decisions)
         else:
-            partes.append("<li>Ninguna: la corrida usa los valores de fábrica.</li>")
+            partes.append(f"<li>{html.escape(SIN_DECISIONES)}</li>")
         partes.append("</ul><h4>Dónde quedó cada archivo</h4><ul>")
         partes.extend(
             f"<li>{html.escape(rotulo)}: <code>{html.escape(ruta)}</code></li>"

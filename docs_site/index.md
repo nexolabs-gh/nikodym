@@ -67,8 +67,8 @@ pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 ## Dos caminos: código o interfaz
 
 El mismo motor y el mismo config, por donde prefieras trabajar. Por código, la puerta guiada
-`nikodym.Scorecard` —tu primer scorecard en 15 líneas, en [Empezar](getting-started.md#tu-primer-scorecard-en-15-lineas);
-experimental hasta que cierre su capa de pantalla— o el config completo del quickstart de abajo.
+`nikodym.Scorecard` —tu primer scorecard en 15 líneas, en [Empezar](getting-started.md#tu-primer-scorecard-en-15-lineas)—
+o el config completo del quickstart de abajo.
 Por interfaz, dos comandos:
 
 ```bash

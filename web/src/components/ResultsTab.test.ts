@@ -1321,7 +1321,7 @@ describe("el resumen de la corrida (D-FLU-8): la misma fuente que la puerta guia
     // Las celdas viajan formateadas por el motor: la pantalla no reescribe «23,3 %» ni «3.961».
     expect(html).toContain("23,3 %")
     expect(html).toContain("3.961")
-    expect(html).toContain("Ninguna: la corrida usa los valores de fábrica.")
+    expect(html).toContain("Ninguna decisión humana registrada; lo que se decidió vive en el config de la")
   })
 
   it("sin resúmenes no hay bloque, ni vacío ni fabricado (los fixtures de la demo entre ellos)", () => {

@@ -7,9 +7,10 @@ completo con :func:`nikodym.run` y cuenta cada etapa con un resumen en español.
 de ``nikodym.run``/``Study``: construye el ``NikodymConfig``, lo ejecuta y lee sus artefactos. El
 config sigue siendo la verdad y el ``config_hash``, la identidad de la corrida (D-SIM-1).
 
-**Experimental (fuera de la garantía SemVer 1.x).** Hasta que cierre la capa B de la enmienda
-(D-SIM-1, adelanto declarado): la firma de :class:`Scorecard` y el contenido de los resúmenes
-pueden crecer de forma aditiva.
+**Estable (SemVer 1.x).** Salió en la 1.17.0 como adelanto declarado (D-SIM-1) y sus tres
+puertas —código, config completo y pantalla— cerraron con la capa B de la enmienda (S18,
+2026-09-21): la firma de :class:`Scorecard`, el contenido de los resúmenes y sus decisiones sólo
+crecen de forma aditiva.
 """
 
 from nikodym.guided.scorecard import Scorecard, ScorecardInputError, ScorecardRunError

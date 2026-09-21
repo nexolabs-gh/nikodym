@@ -234,7 +234,7 @@ def test_export_empaqueta_la_corrida_vigente_sin_candado_ni_respaldos(
     assert any(n.startswith("prueba/run/") for n in nombres)
     assert any(n.startswith("prueba/reports/") for n in nombres)
     assert any(n.startswith(f"prueba/{EXCEL_SUBDIR}/") for n in nombres)
-    assert any(n.startswith("prueba/input/") for n in nombres) is (fuente.suffix != ".parquet")
+    assert any(n.startswith("prueba/input/") for n in nombres)  # la copia de los datos
     assert not any("/.lock" in n or "/.run.old." in n or "/.reports." in n for n in nombres)
     assert any(p.name.startswith(".run.old.") for p in sc.project_dir.iterdir())
 
@@ -304,3 +304,69 @@ def test_partition_label_es_la_misma_fuente_para_las_dos_puertas(
     estrategia: dict[str, Any], esperado: str
 ) -> None:
     assert partition_label(estrategia) == esperado
+
+
+# ──────────── pasada 2 de Codex sobre la capa B: integridad del Excel y del paquete ────────────
+
+
+def test_export_excel_reemplaza_la_carpeta_entera_y_un_fallo_no_deja_una_mezcla(
+    fuente: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tras una corrida completa exportada, una parcial exportada no conserva los libros viejos.
+
+    Y un fallo a mitad de la escritura deja la exportación anterior intacta: la carpeta se
+    construye aparte y se sustituye entera (Codex, pasada 2 de B).
+    """
+    sc = _puerta(fuente, tmp_path).run()
+    completa = {p.name: p.read_bytes() for p in sc.export_excel()}
+    assert len(completa) == 11
+    sc.run(until="selection")
+    parcial = {p.name for p in sc.export_excel()}
+    carpeta = sc.project_dir / EXCEL_SUBDIR
+    assert {p.name for p in carpeta.iterdir()} == parcial
+    assert parcial == {
+        "01 Datos y muestras.xlsx",
+        "02 Análisis exploratorio.xlsx",
+        "03 Tramos y WoE.xlsx",
+        "04 Selección de variables.xlsx",
+        "11 Decisiones.xlsx",
+    }
+    antes = {p.name: p.read_bytes() for p in carpeta.iterdir()}
+
+    from nikodym.report import exports as exports_module
+
+    original = exports_module.write_workbook  # el export lo importa al llamar, desde aquí
+    llamadas = {"n": 0}
+
+    def revienta(*args: Any, **kwargs: Any) -> Any:
+        llamadas["n"] += 1
+        if llamadas["n"] == 3:
+            raise OSError("disco lleno")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(exports_module, "write_workbook", revienta)
+    with pytest.raises(OSError, match="disco lleno"):
+        sc.export_excel()
+    assert {p.name: p.read_bytes() for p in carpeta.iterdir()} == antes
+    assert not [p for p in sc.project_dir.iterdir() if p.name.startswith(f".{EXCEL_SUBDIR}.")]
+
+
+def test_export_exige_una_corrida_propia_y_empaqueta_esa_evidencia(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """Un DataFrame ya crea la carpeta al publicar su snapshot y un `name` repetido puede
+    encontrar una corrida ajena: sin corrida propia no hay paquete (Codex, pasada 2 de B)."""
+    frame = pd.read_parquet(fuente).reset_index()
+    sin_correr = _puerta(frame, tmp_path, name="paquete")
+    assert sin_correr.project_dir.is_dir()  # el snapshot ya vive ahí
+    with pytest.raises(ScorecardInputError, match=r"llama a run\(\) primero"):
+        sin_correr.export(tmp_path / "antes.zip")
+    sin_correr.run(until="data")
+    destino = sin_correr.export(tmp_path / "propia.zip")
+    with zipfile.ZipFile(destino) as zf:
+        metadatos = json.loads(zf.read("paquete/run/study/run_metadata.json"))
+    assert metadatos["run_id"] == sin_correr.study.run_context.run_id
+    # Otro objeto con el mismo `name`, sin correr, no empaqueta la corrida del primero.
+    ajeno = _puerta(frame, tmp_path, name="paquete")
+    with pytest.raises(ScorecardInputError, match=r"llama a run\(\) primero"):
+        ajeno.export(tmp_path / "ajeno.zip")

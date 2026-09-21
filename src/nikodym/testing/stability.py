@@ -47,6 +47,11 @@ STABLE_DOMAINS: Final[tuple[str, ...]] = (
     # trail JSONL, el hashing y el replay ya son superficie de integración de terceros, y romperlos
     # en un minor costaría más que el compromiso de sostenerlos.
     "audit",
+    # La puerta guiada del scorecard (SDD-31 D-SIM-1, enmienda FLUJO-GUIADO-SCORECARD §3.12):
+    # salió en la 1.17.0 como adelanto declarado —experimental hasta que cerrara la capa B— y las
+    # tres puertas cerraron el 2026-09-21 (S18: pantalla, Excel opcional y cortes por variable).
+    # Su firma y sus resúmenes sólo crecen de forma aditiva en 1.x.
+    "guided",
 )
 """Dominios bajo garantía SemVer 1.x: su API pública no rompe hasta un 2.0."""
 
@@ -54,10 +59,6 @@ EXPERIMENTAL_DOMAINS: Final[tuple[str, ...]] = (
     "explain",
     "forward",
     "governance",
-    # La puerta guiada del scorecard (SDD-31, enmienda FLUJO-GUIADO-SCORECARD): adelanto
-    # declarado (D-SIM-1) hasta que cierre la capa B; su firma y sus resúmenes crecen de forma
-    # aditiva en 1.x.
-    "guided",
     "markov",
     "ml",
     "provisioning",

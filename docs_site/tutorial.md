@@ -25,8 +25,7 @@ pip install 'nikodym[scoring]'
 ## Antes de los seis pasos: el mismo scorecard en 15 líneas
 
 Si sólo quieres ver el resultado, la **puerta guiada** corre el pipeline entero y lo cuenta etapa
-por etapa (es la misma corrida que recorre el resto del tutorial; experimental hasta que cierre la
-capa de pantalla):
+por etapa (es la misma corrida que recorre el resto del tutorial):
 
 <!-- primer-scorecard:start -->
 ```python

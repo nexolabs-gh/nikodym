@@ -8,7 +8,8 @@ publicado (`1.17.0`).
     El pipeline de validación de scorecard (F1) —el trío `run` → `Study` → `NikodymConfig` y los
     dominios `data`, `eda`, `binning`, `selection`, `model`, `scorecard`, `calibration`,
     `performance` y `stability`— es **API estable**: no rompe hasta un 2.0. También lo son el
-    informe (`report`) y el trail de auditoría (`audit`), porque ya son superficie de integración.
+    informe (`report`), el trail de auditoría (`audit`), porque ya son superficie de integración,
+    y la puerta guiada (`guided`, `nikodym.Scorecard`), desde que cerraron sus tres puertas.
     Las superficies que aún crecen (modelado ML, provisiones, survival, forward-looking, stress,
     validación, gobernanza y tracking) están marcadas como **experimentales** en su *docstring*,
     fuera de la garantía SemVer 1.x.
@@ -22,11 +23,13 @@ publicado (`1.17.0`).
     optbinning, XGBoost, …) se cargan solo al ejecutar el paso correspondiente, tras sus *extras*
     opcionales.
 
-## Puerta guiada (experimental)
+## Puerta guiada
 
 `nikodym.Scorecard` construye, corre y cuenta un scorecard de comportamiento con la entrada
 mínima; es un cliente de `run` que arma el `NikodymConfig`, lo ejecuta y lee sus artefactos.
-Experimental hasta que cierre la capa de pantalla de la misma enmienda.
+Estable bajo SemVer 1.x desde que cerraron sus tres puertas (código, config completo y
+pantalla): su firma, sus resúmenes y sus decisiones (`exclude`, `keep`, `merge_bins`,
+`set_bins`) sólo crecen de forma aditiva.
 
 ::: nikodym.guided.scorecard.Scorecard
 

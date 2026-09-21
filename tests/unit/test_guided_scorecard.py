@@ -625,8 +625,9 @@ def test_si_el_archivo_cambia_tras_construir_la_puerta_no_corre(
     """
     sc = _puerta(fuente, tmp_path)
     sc._echo = lambda _texto: None
-    frame = pd.read_parquet(fuente)
-    frame.iloc[: len(frame) // 2].to_parquet(fuente)  # el mismo archivo, otro contenido
+    copia = Path(sc.config.data.load.source)  # la copia del proyecto, la que el motor lee
+    frame = pd.read_parquet(copia)
+    frame.iloc[: len(frame) // 2].to_parquet(copia)  # el mismo archivo, otro contenido
     with pytest.raises(ScorecardInputError, match="cambió desde que se construyó"):
         sc.run(until="data")
     assert sc.study is None
@@ -635,3 +636,28 @@ def test_si_el_archivo_cambia_tras_construir_la_puerta_no_corre(
     de_nuevo._echo = lambda _texto: None
     de_nuevo.run(until="data")
     assert de_nuevo.study.run_context.status == "done"
+
+
+def test_un_archivo_por_ruta_se_copia_al_proyecto_y_la_corrida_lee_esa_copia(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """La inferencia y la corrida consumen los MISMOS bytes: la puerta copia el archivo a
+    `input/` con su huella en el nombre y el config referencia la copia. Reemplazar el original
+    después no cambia nada; editar la copia sí detiene la corrida (Codex, pasada 2 de B)."""
+    sc = _puerta(fuente, tmp_path)
+    sc._echo = lambda _texto: None
+    copia = Path(sc.config.data.load.source)
+    assert copia.parent == sc.project_dir / "input" and copia.suffix == fuente.suffix
+    assert copia.is_file() and copia != fuente.resolve()
+    assert not [p for p in copia.parent.iterdir() if p.name.endswith(".tmp")]
+    frame = pd.read_parquet(fuente)
+    frame.iloc[: len(frame) // 2].to_parquet(fuente)  # el original cambia: no importa
+    sc.run(until="data")
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    assert sc.study.artifacts.get("data", "data_card").n_rows == len(frame)
+    # Un Scorecard que no valida no deja su copia a medias en `input/`.
+    with pytest.raises(ScorecardInputError):
+        _puerta(fuente, tmp_path, name="invalido", target="no_existe")
+    assert not (tmp_path / "corridas" / "invalido").exists() or not [
+        p for p in (tmp_path / "corridas" / "invalido").rglob("*.tmp")
+    ]

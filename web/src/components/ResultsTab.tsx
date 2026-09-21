@@ -1831,7 +1831,8 @@ function RunSummarySection({ summaries }: { summaries: RunSummaries }) {
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Ninguna: la corrida usa los valores de fábrica.
+                Ninguna decisión humana registrada; lo que se decidió vive en el config de la
+                corrida.
               </p>
             )}
           </Subchart>

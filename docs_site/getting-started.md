@@ -110,10 +110,12 @@ valores de fábrica que funcionan. Cada etapa cuenta lo que hizo en español, co
 decisión (`sc.results["selection"]`, `sc.summary("binning")`), y el resumen final separa si la
 corrida **terminó** de si el modelo **pasa** la validación técnica.
 
-!!! note "Experimental hasta que cierre la capa de pantalla"
-    La puerta guiada por código es la primera de las tres puertas (guiada, completa y de
-    pantalla) y sale declarada experimental: su firma puede crecer de forma aditiva hasta que la
-    interfaz muestre los mismos campos esenciales. Necesita el extra `scoring`.
+!!! note "Tres puertas, un motor"
+    La puerta guiada por código, el config completo y la pantalla producen el mismo config, la
+    misma identidad (`config_hash`) y los mismos resultados; la pantalla muestra abiertos los
+    mismos campos esenciales que esta firma y pliega el resto en «Avanzado». La puerta guiada es
+    API estable bajo SemVer 1.x: su firma y sus resúmenes sólo crecen de forma aditiva. Necesita
+    el extra `scoring`.
 
 <!-- primer-scorecard:start -->
 ```python
@@ -151,7 +153,7 @@ y `sc.compare(otra)` pone dos corridas lado a lado. Sobre los tramos de una vari
 `sc.merge_bins("antiguedad_meses", [2, 3], reason=...)` junta dos tramos **adyacentes** y
 `sc.set_bins("antiguedad_meses", [24, 60], reason=...)` fija los cortes que decide la
 institución: las dos escriben `binning.variable_overrides` (`user_splits`, todos fijados) y en la
-corrida siguiente el motor tramifica exactamente así y calcula el WoE de los tramos que resultan. La evidencia queda en `nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el
+corrida siguiente el motor tramifica exactamente así y calcula el WoE de los tramos que resultan. La evidencia queda en `nikodym-runs/consumo_v01/`: una copia de los datos en `input/` (la que la corrida lee, con su huella en el nombre), el config completo en `config.yaml`, el
 registro de auditoría y el estudio en `run/`, y el informe en `reports/`. Ese `config.yaml` es un
 `NikodymConfig` entero: la puerta completa de abajo lo corre tal cual y produce los mismos
 resultados.

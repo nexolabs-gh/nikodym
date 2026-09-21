@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import shutil
 import sys
@@ -116,9 +117,11 @@ class Scorecard:
     Parameters
     ----------
     data
-        Ruta a un CSV, Parquet o Excel, o un ``pandas.DataFrame``. Un DataFrame se persiste como
-        snapshot Parquet bajo ``<run_dir>/<name>/input/`` y el config lo referencia, así que
-        ``sc.to_yaml()`` reproduce la corrida por sí solo.
+        Ruta a un CSV, Parquet o Excel, o un ``pandas.DataFrame``. Los datos se copian al
+        proyecto —un archivo, tal cual; un DataFrame, como Parquet— bajo
+        ``<run_dir>/<name>/input/`` con su huella en el nombre, y el config referencia esa copia:
+        la inferencia y cada corrida leen exactamente los mismos bytes, y ``config.yaml`` +
+        ``input/`` reproducen la corrida por sí solos.
     target
         La columna 0/1 (o verdadero/falso) que dice quién es «malo», o una regla
         ``{"col": "dias_mora", "op": ">", "value": 90}`` con los operadores del motor.
@@ -212,12 +215,100 @@ class Scorecard:
         self._decisions: list[dict[str, Any]] = []
         self._pending_decisions = False
         self._echo: Callable[[str], None] = print
-        self._snapshot_pendiente: tuple[Path, bytes] | None = None
+        # El snapshot de los datos, escrito en un temporal al cargar y publicado con su nombre
+        # definitivo sólo después de validar todo (pasada 1 de Codex sobre A: nada se pisa ni se
+        # deja escrito si el Scorecard no valida).
+        self._snapshot_pendiente: tuple[Path, Path] | None = None
         # Huella de los bytes sobre los que se infirió: `run()` la vuelve a medir antes de correr
-        # (pasada 1 de Codex sobre la capa B: la ruta es mutable y el motor la recarga).
+        # (pasadas 1 y 2 de Codex sobre la capa B: el motor relee el archivo en cada corrida).
         self._source_digest: tuple[Path, str] | None = None
+        try:
+            frame, source, source_label = self._cargar(data)
+            self._construir(
+                frame,
+                source,
+                source_label,
+                target=target,
+                id=id,
+                date=date,
+                cohort=cohort,
+                partition=partition,
+                oot_from=oot_from,
+                oot_cohorts=oot_cohorts,
+                holdout=holdout,
+                purpose=purpose,
+                owner=owner,
+                review_every=review_every,
+                track=track,
+                features=features,
+                categorical=categorical,
+                max_bins=max_bins,
+                min_bin_size=min_bin_size,
+                monotonic=monotonic,
+                min_iv=min_iv,
+                max_correlation=max_correlation,
+                max_vif=max_vif,
+                stepwise=stepwise,
+                p_enter=p_enter,
+                p_exit=p_exit,
+                sign_policy=sign_policy,
+                pdo=pdo,
+                target_score=target_score,
+                target_odds=target_odds,
+                anchor=anchor,
+                target_pd=target_pd,
+                deciles=deciles,
+                psi_thresholds=psi_thresholds,
+                validation=validation,
+                document=document,
+                formats=formats,
+            )
+        except BaseException:
+            self._descartar_snapshot()
+            raise
 
-        frame, source, source_label = self._cargar(data)
+    def _construir(
+        self,
+        frame: pd.DataFrame,
+        source: str,
+        source_label: str,
+        *,
+        target: str | _TargetRule,
+        id: str | None,
+        date: str | None,
+        cohort: str | None,
+        partition: str | None,
+        oot_from: str | None,
+        oot_cohorts: Sequence[str] | None,
+        holdout: float,
+        purpose: str | None,
+        owner: str | None,
+        review_every: int,
+        track: str | Path | None,
+        features: Sequence[str] | None,
+        categorical: Sequence[str] | None,
+        max_bins: int,
+        min_bin_size: float,
+        monotonic: str | None,
+        min_iv: float,
+        max_correlation: float,
+        max_vif: float,
+        stepwise: bool,
+        p_enter: float,
+        p_exit: float,
+        sign_policy: str,
+        pdo: float,
+        target_score: float,
+        target_odds: float,
+        anchor: str,
+        target_pd: float | None,
+        deciles: int,
+        psi_thresholds: tuple[float, float],
+        validation: Sequence[str] | None,
+        document: Mapping[str, str] | None,
+        formats: Sequence[str] | None,
+    ) -> None:
+        """Infiere, arma el config y lo comprueba; el snapshot se publica al final."""
         inferencias: list[Inferencia] = []
 
         # ── identificador ────────────────────────────────────────────────────────────────
@@ -467,17 +558,46 @@ class Scorecard:
     # ── construcción ────────────────────────────────────────────────────────────────────
 
     def _publicar_snapshot(self) -> None:
-        """Escribe el snapshot del DataFrame, ya validado todo, sin pisar uno existente."""
+        """Da su nombre definitivo al snapshot ya validado todo, sin pisar uno existente."""
         if self._snapshot_pendiente is None:
             return
-        snapshot, contenido = self._snapshot_pendiente
+        snapshot, temporal = self._snapshot_pendiente
         self._snapshot_pendiente = None
         if snapshot.exists():
-            return  # mismo contenido por construcción (el nombre es su hash)
-        snapshot.parent.mkdir(parents=True, exist_ok=True)
-        temporal = snapshot.with_name(f".{snapshot.name}.{os.getpid()}.tmp")
-        temporal.write_bytes(contenido)
+            temporal.unlink(
+                missing_ok=True
+            )  # mismo contenido por construcción: el nombre es su hash
+            return
         os.replace(temporal, snapshot)
+
+    def _descartar_snapshot(self) -> None:
+        """Un Scorecard que no validó no deja su copia a medias en ``input/``."""
+        if self._snapshot_pendiente is None:
+            return
+        _snapshot, temporal = self._snapshot_pendiente
+        self._snapshot_pendiente = None
+        temporal.unlink(missing_ok=True)
+        for carpeta in (temporal.parent, self._project_dir):
+            try:
+                carpeta.rmdir()  # sólo si quedó vacía: nunca se borra evidencia ajena
+            except OSError:
+                break
+
+    def _reservar_snapshot(self, contenido: bytes, sufijo: str) -> tuple[Path, Path, str]:
+        """Escribe ``contenido`` en un temporal de ``input/``: (definitivo, temporal, huella).
+
+        El nombre definitivo lleva la huella del contenido: otro archivo con el mismo ``name``
+        deja un snapshot nuevo y no pisa el que referencia la evidencia de una corrida anterior.
+        El temporal conserva la extensión para que el cargador infiera el formato.
+        """
+        digest = hashlib.sha256(contenido).hexdigest()
+        snapshot = self._project_dir / _INPUT_SUBDIR / f"data-{digest[:16]}{sufijo}"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        temporal = snapshot.with_name(f".data-{digest[:16]}.{os.getpid()}.tmp{sufijo}")
+        temporal.write_bytes(contenido)
+        self._snapshot_pendiente = (snapshot, temporal)
+        self._source_digest = (snapshot, digest)
+        return snapshot, temporal, digest
 
     def _cargar(self, data: str | Path | pd.DataFrame) -> tuple[pd.DataFrame, str, str]:
         """Carga el archivo con el cargador del motor, o persiste el DataFrame como snapshot."""
@@ -491,11 +611,7 @@ class Scorecard:
             buffer = io.BytesIO()
             data.to_parquet(buffer)
             contenido = buffer.getvalue()
-            digest = hashlib.sha256(contenido).hexdigest()
-            huella = digest[:16]
-            snapshot = self._project_dir / _INPUT_SUBDIR / f"data-{huella}.parquet"
-            self._snapshot_pendiente = (snapshot, contenido)
-            self._source_digest = (snapshot, digest)
+            snapshot, _temporal, _digest = self._reservar_snapshot(contenido, ".parquet")
             return (
                 pd.read_parquet(io.BytesIO(contenido)),
                 str(snapshot),
@@ -507,14 +623,19 @@ class Scorecard:
         from nikodym.data.config import LoadingConfig
         from nikodym.data.loading import DataLoader
 
+        # Un archivo por ruta también se copia al proyecto: la inferencia y cada corrida leen
+        # exactamente los MISMOS bytes (un archivo que un proceso externo reemplaza entre la
+        # lectura y la corrida ya no puede entrenar otro modelo con inferencias viejas; pasada 2
+        # de Codex sobre la capa B), y `config.yaml` + `input/` reproducen la corrida solos.
+        contenido = ruta.read_bytes()
+        snapshot, temporal, _digest = self._reservar_snapshot(contenido, ruta.suffix.lower())
         try:
-            frame = DataLoader.from_config(LoadingConfig(source=str(ruta))).load()
+            frame = DataLoader.from_config(LoadingConfig(source=str(temporal))).load()
         except NikodymError as exc:
             raise ScorecardInputError(f"No se pudo leer {ruta}: {exc}") from exc
         if frame.empty:
             raise ScorecardInputError(f"El archivo no trae filas: {ruta}")
-        self._source_digest = (ruta, _huella_del_archivo(ruta))
-        return frame, str(ruta), str(ruta)
+        return frame, str(snapshot), f"{ruta} (copia en {snapshot})"
 
     def _verificar_fuente(self) -> None:
         """La corrida lee los mismos bytes sobre los que la puerta infirió, o no corre.
@@ -1282,10 +1403,30 @@ class Scorecard:
         """
         from nikodym.guided.export import pack_project
 
+        # Una corrida PROPIA: la carpeta existe desde que un DataFrame publica su snapshot, y un
+        # `name` repetido puede encontrar la corrida de otro objeto (pasada 2 de Codex sobre B).
+        if self._study is None or self._study.run_context.run_id is None:
+            raise ScorecardInputError(
+                "export() empaqueta la corrida de este Scorecard: llama a run() primero."
+            )
+        if _run_id_en_disco(self._run_dir) != self._study.run_context.run_id:
+            raise ScorecardInputError(
+                f"La evidencia en {self._run_dir} no es la de la corrida de este Scorecard "
+                "(otra corrida ocupó la carpeta): vuelve a correr antes de empaquetar."
+            )
+        try:
+            candado = _bloquear_carpeta(self._project_dir / _LOCK_NAME)
+        except OSError as exc:
+            raise ScorecardRunError(
+                f"Otra corrida está en curso en la carpeta '{self._project_dir}': espera a que "
+                "termine antes de empaquetar."
+            ) from exc
         try:
             ruta = pack_project(self._project_dir, Path(destination))
         except FileNotFoundError as exc:
             raise ScorecardInputError(str(exc)) from exc
+        finally:
+            _liberar_carpeta(candado)
         self._echo(f"Paquete de la corrida: {ruta}")
         return ruta
 
@@ -1521,6 +1662,18 @@ def _variables_finales(study: Any) -> tuple[str, ...]:
     if study is None or not study.artifacts.has("model", "final_features"):
         return ()
     return tuple(str(v) for v in study.artifacts.get("model", "final_features"))
+
+
+def _run_id_en_disco(run_dir: Path) -> str | None:
+    """El ``run_id`` que la evidencia consolidada en ``run/`` declara, o ``None`` si no hay."""
+    metadatos = run_dir / "study" / "run_metadata.json"
+    if not metadatos.is_file():
+        return None
+    try:
+        valor = json.loads(metadatos.read_text(encoding="utf-8")).get("run_id")
+    except (OSError, ValueError):
+        return None
+    return str(valor) if valor else None
 
 
 def _nombre_de_proyecto(name: object) -> str:

@@ -19,6 +19,9 @@ constantes con su razón en el código.
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import uuid
 import zipfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -82,30 +85,45 @@ def write_stage_workbooks(
 ) -> tuple[Path, ...]:
     """Escribe los libros de las etapas que corrieron y el de decisiones; devuelve sus rutas.
 
-    Los libros de una exportación anterior con el mismo nombre se reemplazan (son derivados de la
-    corrida vigente, regenerables); ningún otro archivo de ``directory`` se toca.
+    La carpeta se construye **entera y aparte** y sustituye a la anterior en un solo movimiento:
+    una exportación de una corrida parcial no conserva los libros de la corrida completa previa
+    (serían de otra corrida, y ``export()`` los empaquetaría como vigentes), y un fallo a mitad de
+    escritura deja la exportación anterior intacta (pasada 2 de Codex sobre la capa B). La
+    carpeta es un derivado regenerable de la corrida vigente: nada de lo que hubiera dentro
+    sobrevive a una exportación nueva.
     """
     from nikodym.report.exports import write_workbook
 
     if not _openpyxl_disponible():
         raise MissingDependencyError(_XLSX_MISSING)
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.parent.mkdir(parents=True, exist_ok=True)
     tablas = _tablas_del_informe(study, report_config)
-    escritos: list[Path] = []
-    for stage in _STAGES_WITH_BOOK:
-        resumen = summaries.get(stage)
-        if resumen is None:
-            continue
-        hojas, con_indice = _hojas_de_la_etapa(stage, resumen, tablas)
-        destino = directory / STAGE_BOOKS[stage]
-        write_workbook(hojas, destino, index=con_indice)
-        escritos.append(destino)
-    decisiones = _hojas_de_decisiones(trail_path)
-    if decisiones:
-        destino = directory / DECISIONS_BOOK
-        write_workbook(decisiones, destino, index=False)
-        escritos.append(destino)
-    return tuple(escritos)
+    token = uuid.uuid4().hex[:8]
+    temporal = directory.with_name(f".{directory.name}.{token}.tmp")
+    temporal.mkdir()
+    nombres: list[str] = []
+    try:
+        for stage in _STAGES_WITH_BOOK:
+            resumen = summaries.get(stage)
+            if resumen is None:
+                continue
+            hojas, con_indice = _hojas_de_la_etapa(stage, resumen, tablas)
+            write_workbook(hojas, temporal / STAGE_BOOKS[stage], index=con_indice)
+            nombres.append(STAGE_BOOKS[stage])
+        decisiones = _hojas_de_decisiones(trail_path)
+        if decisiones:
+            write_workbook(decisiones, temporal / DECISIONS_BOOK, index=False)
+            nombres.append(DECISIONS_BOOK)
+    except BaseException:
+        shutil.rmtree(temporal, ignore_errors=True)
+        raise
+    anterior = directory.with_name(f".{directory.name}.old.{token}") if directory.exists() else None
+    if anterior is not None:
+        os.rename(directory, anterior)
+    os.rename(temporal, directory)
+    if anterior is not None:
+        shutil.rmtree(anterior, ignore_errors=True)
+    return tuple(directory / nombre for nombre in nombres)
 
 
 def pack_project(project_dir: Path, destination: Path) -> Path:
