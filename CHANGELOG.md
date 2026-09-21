@@ -20,7 +20,11 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   registrada; lo que se decidió vive en el config de la corrida»); sólo aparece en corridas con
   etapas del scorecard (una corrida IFRS 9 sin scorecard no recibe su molde); un informe armado
   a mano, sin corrida, no lo trae y su HTML es byte a byte el de siempre; y un resumen que no se
-  pueda armar no tumba el informe: el capítulo dice por qué no hay resumen. Los archivos se
+  pueda armar no tumba el informe: el capítulo dice por qué no hay resumen. El informe se escribe
+  con la corrida en curso: la página dice qué corrió sin fallos antes de él y, si `run.steps`
+  puso pasos después del informe (la validación formal es un insumo opcional y puede ir detrás),
+  cuáles quedan por correr y que este documento no los refleja, en vez de afirmar que cierra la
+  corrida o que la validación «no está en el config». Los archivos se
   nombran sólo con lo que el config manda al renderizar —el informe se escribe antes de que la
   corrida consolide su evidencia, así que el registro de auditoría y la ficha se citan por su
   nombre en esa carpeta, no por una ruta inventada—. El evento `decision_del_usuario` del

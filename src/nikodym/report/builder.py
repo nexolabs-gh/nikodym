@@ -650,6 +650,7 @@ def _run_summary(study: Study, config: ReportConfig) -> dict[str, Any]:
             partition_label=partition_label_from_config(study.config),
             decision_lines=decision_lines_from_preamble(getattr(study, "preamble", ())),
             extra_files=_archivos_que_el_informe_conoce(study, config),
+            pending_stages=_etapas_despues_del_informe(study),
         )
         etapas = build_stage_summaries(study, contexto)
         final = build_final_summary(study, etapas, contexto)
@@ -659,6 +660,28 @@ def _run_summary(study: Study, config: ReportConfig) -> dict[str, Any]:
         return payload
     payload["final"] = final.to_dict()
     return payload
+
+
+def _etapas_despues_del_informe(study: Study) -> tuple[str, ...]:
+    """Los pasos que ``run.steps`` puso DESPUÉS de ``report`` y que no habrán corrido al renderizar.
+
+    El motor corre los pasos en orden de declaración y la validación formal es un insumo
+    opcional del informe, así que ``[…, "report", "validation"]`` es un pipeline válido en el que
+    el informe se escribe antes de la validación (pasada 1 de Codex sobre C1). La página
+    ejecutiva no puede reflejar lo que aún no corrió, y tiene que decirlo en vez de afirmar que
+    cierra la corrida. ``check_pipeline`` devuelve la misma lista que ``run`` (``run.steps`` o el
+    pipeline por defecto) sin correr nada; si no se puede resolver, no se afirma nada.
+    """
+    comprobar = getattr(study, "check_pipeline", None)
+    if not callable(comprobar):
+        return ()
+    try:
+        pasos = [str(paso) for paso in comprobar()]
+    except Exception:  # un pipeline que no resuelve no cambia lo que el informe puede afirmar
+        return ()
+    if "report" not in pasos:
+        return ()
+    return tuple(pasos[pasos.index("report") + 1 :])
 
 
 def _archivos_que_el_informe_conoce(

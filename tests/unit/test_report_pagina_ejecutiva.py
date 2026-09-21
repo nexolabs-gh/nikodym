@@ -214,6 +214,44 @@ def test_el_study_conserva_el_preambulo_que_declaro(corrida: Scorecard) -> None:
     assert decisiones[0]["variables"] == ["score"]
 
 
+def test_con_pasos_despues_del_informe_la_pagina_no_afirma_lo_que_no_corrio(
+    tmp_path: Path,
+) -> None:
+    """Pasada 1 de Codex sobre C1: `run.steps` conserva el orden del usuario y la validación es
+    un insumo opcional del informe, así que `[…, "report", "validation"]` es válido y el informe
+    se escribe ANTES de la validación. La página no puede afirmar entonces que cierra la corrida
+    ni que la validación «no está en el config»: dice qué queda por correr y que no lo refleja."""
+    import nikodym
+    from nikodym.core.config import RunConfig
+
+    fuente = tmp_path / "cartera.parquet"
+    write_stacked_behavior_parquet(fuente, repeats=50)
+    sc = Scorecard(
+        fuente,
+        target="bad_flag",
+        id="loan_id",
+        cohort="cohort",
+        oot_cohorts=["oot"],
+        name="reordenada",
+        run_dir=tmp_path / "corridas",
+        min_iv=0.0,
+    )
+    pasos = [paso for paso in sc.steps if paso != "validation"]
+    pasos.append("validation")  # la validación formal corre DESPUÉS del informe
+    config = sc.config.model_copy(update={"run": RunConfig(steps=pasos)})
+    study = nikodym.run(config, run_dir=tmp_path / "corrida")
+    assert study.run_context.status == "done", study.run_context.error
+    assert study.artifacts.has("validation", "card")  # al final SÍ corrió: el informe no lo vio
+    html = Path(study.artifacts.get("report", "result").html_path).read_text(encoding="utf-8")
+    seccion = _seccion(html, EXECUTIVE_SUMMARY_ID)
+    assert "última etapa" not in seccion
+    assert "quedan por correr" in seccion
+    assert STAGE_LABELS["validation"] in seccion
+    assert "no puede reflejarlas" in seccion
+    assert "no había corrido al emitir este informe" in seccion
+    assert "no está en el config" not in seccion
+
+
 # ─────────────────────────── los tres formatos ───────────────────────────
 
 

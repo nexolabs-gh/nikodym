@@ -168,6 +168,11 @@ class SummaryContext:
     config_path: Path | None = None
     until: str | None = None
     extra_files: tuple[tuple[str, str], ...] = ()
+    #: Etapas del pipeline que todavía NO habían corrido al armar el resumen: el informe se
+    #: renderiza en medio de la corrida y `run.steps` puede poner pasos después de él (pasada 1
+    #: de Codex sobre C1). Con ellas el resumen no afirma que el informe cierra la corrida ni que
+    #: una validación que viene después «no está en el config».
+    pending_stages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1448,9 +1453,16 @@ def _estado_de_ejecucion(
         return "sin correr todavía"
     estado = study.run_context.status
     if estado == "running":
-        # El informe se renderiza como último paso, con la corrida todavía en curso: no afirma
-        # «completada» —eso lo dice summary() al terminar— sino qué corrió sin fallos hasta aquí.
+        # El informe se renderiza con la corrida todavía en curso: no afirma «completada» —eso lo
+        # dice summary() al terminar— sino qué corrió sin fallos hasta aquí y, si `run.steps`
+        # puso pasos después del informe, cuáles quedan y que este documento no los refleja.
         corrieron = _enumerar([s.label for s in stages]) if stages else "ninguna etapa"
+        if context.pending_stages:
+            quedan = _enumerar([STAGE_LABELS.get(s, s) for s in context.pending_stages])
+            return (
+                f"corrieron sin fallos {corrieron} antes de este informe; después de él quedan "
+                f"por correr {quedan}, y este documento no puede reflejarlas"
+            )
         return f"corrieron sin fallos {corrieron}; este informe es la última etapa de la corrida"
     if estado == "done":
         if context.until is not None:
@@ -1473,6 +1485,8 @@ def _estado_de_validacion(study: Study | None, context: SummaryContext) -> str:
         return "sin correr todavía"
     card = _card(study, "validation", "card")
     if card is None:
+        if "validation" in context.pending_stages:
+            return "no había corrido al emitir este informe: viene después en el pipeline"
         if context.until is not None:
             return "no corrió: la corrida se detuvo antes de la validación formal"
         if study.run_context.status == "failed":
