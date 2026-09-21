@@ -18,6 +18,7 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import IO, Any, Final, Literal
 
@@ -1026,6 +1027,207 @@ class Scorecard:
             "corrida siguiente: resume()."
         )
         return self
+
+    # ── tramos: merge_bins / set_bins (§8-9 (a), Cami 2026-09-20) ──────────────────────
+
+    def bins(self, column: str) -> pd.DataFrame:
+        """Los tramos de una variable numérica en la última corrida, numerados desde 1.
+
+        Es la tabla con la que se decide ``merge_bins``/``set_bins``: número, rango, filas,
+        malos, tasa de malos y WoE, leídos de la tabla de binning que el motor publicó (sin los
+        tramos ``Special``/``Missing``, que no tienen corte).
+        """
+        tabla = self._tabla_de_tramos(column)
+        filas: list[dict[str, Any]] = []
+        for numero, (_indice, fila) in enumerate(tabla.iterrows(), start=1):
+            filas.append(
+                {
+                    "Tramo": numero,
+                    "Rango": str(fila.get("Bin")),
+                    "Filas": int(fila.get("Count", 0)),
+                    "Malos": int(fila.get("Event", 0)),
+                    "Tasa de malos": float(fila.get("Event rate", float("nan"))),
+                    "WoE": float(fila.get("WoE", float("nan"))),
+                }
+            )
+        return pd.DataFrame(filas)
+
+    def merge_bins(self, column: str, bins: Sequence[int], *, reason: str) -> Scorecard:
+        """Junta dos tramos **adyacentes** de una variable numérica, con motivo.
+
+        Los tramos se numeran como en :meth:`bins` (desde 1). Escribe la hoja
+        ``binning.variable_overrides[<column>].user_splits`` con los cortes vigentes menos el
+        que separaba esos dos tramos, todos fijados (``user_splits_fixed``): en la corrida
+        siguiente el motor tramifica exactamente así y calcula el WoE de los tramos que resultan.
+        """
+        motivo = self._motivo(reason, "merge_bins")
+        cortes = self._cortes_vigentes(column)
+        numeros = [int(b) for b in bins]
+        if len(numeros) != 2:
+            raise ScorecardInputError(
+                f"merge_bins() junta exactamente dos tramos adyacentes; recibió {numeros}. "
+                f"Los tramos de «{column}» son:\n{self._rangos_en_texto(column)}"
+            )
+        primero, segundo = sorted(numeros)
+        n_tramos = len(cortes) + 1
+        if primero < 1 or segundo > n_tramos:
+            raise ScorecardInputError(
+                f"merge_bins(): el tramo {segundo if segundo > n_tramos else primero} no existe "
+                f"en «{column}» ({n_tramos} tramos). Los tramos son:\n"
+                f"{self._rangos_en_texto(column)}"
+            )
+        if segundo != primero + 1:
+            raise ScorecardInputError(
+                f"merge_bins(): los tramos {primero} y {segundo} de «{column}» no son adyacentes; "
+                "el motor sólo junta tramos vecinos (el corte entre ellos es el que desaparece). "
+                f"Los tramos son:\n{self._rangos_en_texto(column)}"
+            )
+        if n_tramos == 2:
+            raise ScorecardInputError(
+                f"merge_bins(): «{column}» tiene dos tramos; juntarlos dejaría un solo tramo, sin "
+                "poder predictivo. Descarta la variable con exclude() o fija otros cortes con "
+                "set_bins()."
+            )
+        nuevos = tuple(c for i, c in enumerate(cortes, start=1) if i != primero)
+        return self._fijar_cortes(column, nuevos, accion="merge_bins", motivo=motivo)
+
+    def set_bins(self, column: str, cuts: Sequence[float], *, reason: str) -> Scorecard:
+        """Fija los cortes de una variable numérica (los límites entre tramos), con motivo.
+
+        Escribe ``binning.variable_overrides[<column>].user_splits`` con esos cortes, todos
+        fijados: en la corrida siguiente el motor tramifica exactamente así. Un tramo fijado que
+        viole el tamaño mínimo o la monotonía declarada hace que el motor no tramifique la
+        variable, y el resumen de «Tramos y WoE» lo dice.
+        """
+        motivo = self._motivo(reason, "set_bins")
+        self._exigir_corrida("set_bins")
+        self._exigir_numerica(column)
+        try:
+            nuevos = tuple(float(c) for c in cuts)
+        except (TypeError, ValueError) as exc:
+            raise ScorecardInputError(
+                f"set_bins(): los cortes tienen que ser números; recibió {list(cuts)!r}."
+            ) from exc
+        if not nuevos:
+            raise ScorecardInputError("set_bins() necesita al menos un corte.")
+        if any(b <= a for a, b in pairwise(nuevos)):
+            raise ScorecardInputError(
+                f"set_bins(): los cortes tienen que ser estrictamente crecientes; recibió "
+                f"{list(nuevos)}."
+            )
+        return self._fijar_cortes(column, nuevos, accion="set_bins", motivo=motivo)
+
+    def _fijar_cortes(
+        self, column: str, cortes: tuple[float, ...], *, accion: str, motivo: str
+    ) -> Scorecard:
+        """Escribe la hoja de cortes de ``column`` y registra la decisión para el trail."""
+        binning = self._config.binning
+        if binning is None:  # inalcanzable: `_exigir_numerica` ya lo comprobó
+            raise ScorecardInputError("La corrida no tiene sección binning.")
+        overrides = [o.model_dump(mode="python") for o in binning.variable_overrides]
+        propio = next((o for o in overrides if o.get("name") == column), None)
+        if propio is None:
+            propio = {"name": column}
+            overrides.append(propio)
+        propio["user_splits"] = list(cortes)
+        propio["user_splits_fixed"] = [True] * len(cortes)
+        # Con más tramos fijados que el máximo vigente el solver no tendría solución: el tope
+        # propio de la variable sube justo a los tramos que resultan, y queda declarado en la
+        # misma hoja.
+        tope = propio.get("max_n_bins") or binning.max_n_bins
+        if tope is not None and len(cortes) + 1 > tope:
+            propio["max_n_bins"] = len(cortes) + 1
+        self._actualizar_seccion("binning", {"variable_overrides": overrides})
+        vigente = self._config.binning
+        assert vigente is not None  # recién validada
+        hoja = next(
+            o.model_dump(mode="python") for o in vigente.variable_overrides if o.name == column
+        )
+        self._decisions.append(
+            {
+                "regla": "decision_del_usuario",
+                "umbral": None,
+                "valor": {"binning.variable_overrides": [hoja]},
+                "accion": accion,
+                "autor": "usuario",
+                "motivo": motivo,
+                "variables": [column],
+            }
+        )
+        self._pending_decisions = True
+        self._config, self._steps = self._resolver_pipeline(self._config)
+        self._final = None
+        self._echo(
+            f"Decisión registrada: {accion} {column} → cortes {list(cortes)} — «{motivo}». Se "
+            "aplica en la corrida siguiente: resume()."
+        )
+        return self
+
+    def _motivo(self, reason: str, accion: str) -> str:
+        motivo = str(reason).strip() if reason is not None else ""
+        if not motivo:
+            raise ScorecardInputError(
+                f"{accion}() exige reason=: la decisión queda en el registro de auditoría con su "
+                "motivo, y un motivo en blanco no le sirve a quien valide."
+            )
+        return motivo
+
+    def _exigir_corrida(self, accion: str) -> None:
+        if self._study is None or not self._study.artifacts.has("binning", "tables"):
+            raise ScorecardInputError(
+                f"{accion}() decide sobre los tramos de la última corrida: llama a run() primero "
+                "(al menos hasta «Tramos y WoE»)."
+            )
+
+    def _exigir_numerica(self, column: str) -> None:
+        binning = self._config.binning
+        predictoras = tuple(binning.feature_columns) if binning is not None else ()
+        if column not in predictoras:
+            raise ScorecardInputError(
+                f"«{column}» no está entre las predictoras de esta corrida "
+                f"({', '.join(predictoras)})."
+            )
+        if binning is not None and column in tuple(binning.categorical_columns):
+            raise ScorecardInputError(
+                f"«{column}» es categórica: los cortes fijados sólo aplican a variables "
+                "numéricas. Para una categórica, agrupa sus niveles antes de cargar los datos."
+            )
+
+    def _tabla_de_tramos(self, column: str) -> pd.DataFrame:
+        """La tabla de binning de ``column`` sin ``Special``/``Missing``/``Totals``."""
+        self._exigir_corrida("bins")
+        self._exigir_numerica(column)
+        tablas = self._study.artifacts.get("binning", "tables")
+        tabla = tablas.get(column) if isinstance(tablas, Mapping) else None
+        if not isinstance(tabla, pd.DataFrame):
+            raise ScorecardInputError(
+                f"«{column}» no quedó tramificada en la última corrida (el resumen de «Tramos y "
+                "WoE» dice por qué): no hay tramos que decidir."
+            )
+        etiquetas = tabla["Bin"].astype(str) if "Bin" in tabla.columns else pd.Series(dtype=str)
+        fuera = etiquetas.isin(["Special", "Missing"]) | (tabla.index.astype(str) == "Totals")
+        return tabla.loc[~fuera]
+
+    def _cortes_vigentes(self, column: str) -> tuple[float, ...]:
+        """Los cortes con que el motor tramificó ``column`` en la última corrida."""
+        self._exigir_corrida("merge_bins")
+        self._exigir_numerica(column)
+        binner = self._study.artifacts.get("binning", "process")
+        proceso = getattr(binner, "process_", None)
+        try:
+            if proceso is None:
+                raise AttributeError("el binner no publicó su proceso ajustado")
+            variable = proceso.get_binned_variable(column)
+        except Exception as exc:
+            raise ScorecardInputError(
+                f"«{column}» no quedó tramificada en la última corrida (el resumen de «Tramos y "
+                "WoE» dice por qué): no hay tramos que juntar."
+            ) from exc
+        return tuple(float(c) for c in getattr(variable, "splits", ()))
+
+    def _rangos_en_texto(self, column: str) -> str:
+        tabla = self.bins(column)
+        return "\n".join(f"  {int(f['Tramo'])}: {f['Rango']}" for _, f in tabla.iterrows())
 
     def _actualizar_seccion(self, seccion: str, campos: Mapping[str, Any]) -> None:
         """Reconstruye una sección del config con ``campos`` y la vuelve a validar entera."""

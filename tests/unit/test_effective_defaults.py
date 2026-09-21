@@ -103,7 +103,14 @@ from nikodym.ui.routes import schema_payload
 #: ``validation.stability.consume_stability`` deja de ser ``hidden`` —el recálculo del PSI quedó
 #: cableado y los dos valores corren desde el formulario— y entra al barrido como ``checkbox``.
 #: Los cinco ocultos por D-SUB restantes siguen fuera. Descriptores y ``$defs`` no se mueven.
-HOJAS_DEL_FORMULARIO = 572
+#:
+#: 572 → 576 el 2026-09-21 con §8-9 (a) de FLUJO-GUIADO-SCORECARD (Cami, 2026-09-20; capa B):
+#: ``binning.variable_overrides[].user_splits`` y ``[].user_splits_fixed``, los cortes que decide
+#: la institución, la única excepción al presupuesto cero de perillas de esa enmienda. Cuatro
+#: nodos y no dos: cada campo de lista cuenta su fila (``user_splits[]``, ``user_splits_fixed[]``),
+#: como ``validation.families[]``. Descriptores 1076 → 1078 (los dos campos, una vez en ``$defs``)
+#: y hojas resueltas 455 → 459.
+HOJAS_DEL_FORMULARIO = 576
 
 #: Hojas que el barrido de PARIDAD contra el catálogo de defaults efectivos resuelve.
 #:
@@ -132,10 +139,11 @@ HOJAS_DEL_FORMULARIO = 572
 #: discriminadas ni decisiones obligatorias —el eje de la tasa se **infiere** (D-SC-3) en vez de
 #: preguntarse—, así que las dos cifras suben lo mismo y ``_DECISIONES_POR_SECCION`` sigue igual.
 #:
+#: 455 → 459 el 2026-09-21 con §8-9 (a) de FLUJO-GUIADO (los dos campos de cortes y sus filas).
 #: 454 → 455 el 2026-09-15 con D-VAL-16, por el mismo nodo ``validation.stability.
 #: consume_stability`` del golden de arriba: un ``bool`` con default ``True``, sin unión
 #: discriminada, resuelve con default efectivo.
-HOJAS_CON_DEFAULT_EFECTIVO = 455
+HOJAS_CON_DEFAULT_EFECTIVO = 459
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -219,7 +227,7 @@ HOJAS_CON_DEFAULT_EFECTIVO = 455
 #: alterados** en los 1063 restantes. Nada en ``$defs``: ``GovernanceConfig`` no tiene submodelos,
 #: así que el schema compuesto no gana claves ``governance__*`` (104 antes y después). El golden del
 #: formulario (394 hojas) no se mueve: la sección no entra a ``CONFIG_SECTIONS`` hasta D-GOB-11.
-DESCRIPTORES_TOTALES = 1076
+DESCRIPTORES_TOTALES = 1078
 
 
 #: Las 16 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

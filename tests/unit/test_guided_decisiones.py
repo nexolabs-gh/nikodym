@@ -442,3 +442,86 @@ def _parquet(tmp_path: Path) -> Path:
     if not ruta.exists():
         write_stacked_behavior_parquet(ruta, repeats=50)
     return ruta
+
+
+# ─────────────────────────── §8-9 (a): merge_bins / set_bins ───────────────────────────
+
+
+def _cortes(sc: Scorecard, columna: str) -> tuple[float, ...] | None:
+    override = next((o for o in sc.config.binning.variable_overrides if o.name == columna), None)
+    return None if override is None else override.user_splits
+
+
+def test_set_bins_escribe_la_hoja_user_splits_y_la_corrida_siguiente_la_aplica(
+    fuente: Path, tmp_path: Path
+) -> None:
+    sc = _puerta(fuente, tmp_path)
+    with pytest.raises(ScorecardInputError, match=r"llama a run\(\) primero"):
+        sc.set_bins("score", [0.5, 2.5], reason="antes de correr")
+    sc.run(until="binning")
+    tramos = sc.bins("score")
+    assert list(tramos["Tramo"]) == [1, 2]  # el doble de OptBinning parte en 1,5
+    sc.set_bins("score", [0.5, 2.5], reason="los cortes del manual")
+    assert _cortes(sc, "score") == (0.5, 2.5)
+    override = next(o for o in sc.config.binning.variable_overrides if o.name == "score")
+    assert override.user_splits_fixed == (True, True)
+    assert config_hash(sc.config) == sc.config_hash
+    sc.resume()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    assert list(sc.bins("score")["Tramo"]) == [1, 2, 3]
+    tabla = sc.study.artifacts.get("binning", "tables")["score"]
+    assert "[0.50, 2.50)" in set(tabla["Bin"].astype(str))
+    trail = tmp_path / "corridas" / "prueba" / "run" / "audit_trail.jsonl"
+    decisiones = [
+        e["payload"]
+        for e in _eventos(trail)
+        if e["step"] == GUIDED_STEP and e["payload"]["regla"] == "decision_del_usuario"
+    ]
+    assert len(decisiones) == 1
+    assert decisiones[0]["accion"] == "set_bins"
+    assert decisiones[0]["motivo"] == "los cortes del manual"
+    assert decisiones[0]["valor"]["binning.variable_overrides"][0]["user_splits"] == [0.5, 2.5]
+    assert sc.summary().decisions == ("set_bins score — «los cortes del manual»",)
+
+
+def test_merge_bins_junta_dos_tramos_adyacentes_y_rechaza_los_demas(
+    fuente: Path, tmp_path: Path
+) -> None:
+    sc = _puerta(fuente, tmp_path)
+    sc.run(until="binning")
+    # Con dos tramos, juntarlos dejaría uno solo: no hay tramificación posible.
+    with pytest.raises(ScorecardInputError, match="un solo tramo"):
+        sc.merge_bins("score", [1, 2], reason="prueba")
+    sc.set_bins("score", [0.5, 1.5, 2.5], reason="cuatro tramos")
+    sc.resume()
+    assert list(sc.bins("score")["Tramo"]) == [1, 2, 3, 4]
+    with pytest.raises(ScorecardInputError, match="no son adyacentes"):
+        sc.merge_bins("score", [1, 3], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="exactamente dos"):
+        sc.merge_bins("score", [1, 2, 3], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="no existe"):
+        sc.merge_bins("score", [4, 5], reason="prueba")
+    sc.merge_bins("score", [2, 3], reason="misma tasa de malos")
+    assert _cortes(sc, "score") == (0.5, 2.5)
+    sc.resume()
+    assert list(sc.bins("score")["Tramo"]) == [1, 2, 3]
+    assert sc.summary().decisions[-1] == "merge_bins score — «misma tasa de malos»"
+
+
+def test_los_cortes_solo_aplican_a_variables_numericas_y_exigen_motivo(
+    fuente: Path, tmp_path: Path
+) -> None:
+    sc = _puerta(fuente, tmp_path)
+    sc.run(until="binning")
+    with pytest.raises(ScorecardInputError, match="categórica"):
+        sc.set_bins("segment", [0.5], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="categórica"):
+        sc.merge_bins("segment", [1, 2], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="exige reason="):
+        sc.set_bins("score", [0.5], reason="")
+    with pytest.raises(ScorecardInputError, match="estrictamente crecientes"):
+        sc.set_bins("score", [2.5, 0.5], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="no está entre las predictoras"):
+        sc.set_bins("no_existe", [0.5], reason="prueba")
+    with pytest.raises(ScorecardInputError, match="no está entre las predictoras"):
+        sc.bins("no_existe")

@@ -13,6 +13,8 @@ cuando está activa.
 
 from __future__ import annotations
 
+import math
+from itertools import pairwise
 from typing import Literal, Self
 
 from pydantic import ConfigDict, Field, model_validator
@@ -138,6 +140,80 @@ class VariableBinningConfig(NikodymBaseConfig):
             "cardinalidad o distribución de niveles difiere del resto de las variables.",
         },
     )
+    user_splits: tuple[float, ...] | None = Field(
+        default=None,
+        title="Cortes fijados a mano",
+        description=(
+            "Cortes entre tramos que se imponen a esta variable numérica, en sus unidades y en "
+            "orden creciente; en blanco el motor los busca."
+        ),
+        json_schema_extra={
+            "ui_widget": "number_list",
+            "ui_group": "Overrides por variable",
+            "ui_order": 7,
+            "ui_help": "Los límites entre tramos que decide la institución (por ejemplo 24 y 60 "
+            "meses de antigüedad). Cada valor cierra un tramo y abre el siguiente; el motor "
+            "calcula el WoE de los tramos que resultan. Sólo para variables numéricas.",
+        },
+    )
+    user_splits_fixed: tuple[bool, ...] | None = Field(
+        default=None,
+        title="Cortes que no se juntan",
+        description=(
+            "Para cada corte fijado, verdadero si el motor debe respetarlo tal cual y falso si "
+            "puede juntarlo con su vecino; en blanco puede juntar cualquiera."
+        ),
+        json_schema_extra={
+            "ui_widget": "json",
+            "ui_group": "Overrides por variable",
+            "ui_order": 8,
+            "ui_help": "Una marca por corte fijado: verdadero deja ese corte intocable; falso "
+            "permite que el motor lo junte con el tramo vecino si así mejora el ajuste.",
+        },
+    )
+
+    @model_validator(mode="after")
+    def _check_user_splits(self) -> Self:
+        """Los cortes fijados: crecientes, finitos, al menos uno, y sólo para numéricas.
+
+        Es la hoja de §8-9 (a) de FLUJO-GUIADO-SCORECARD, la única excepción al presupuesto cero
+        de perillas: una decisión humana («junta estos dos tramos», «fija estos cortes») que no
+        existía en ninguna puerta. ``user_splits_fixed`` acompaña a ``user_splits`` uno a uno.
+        """
+        if self.user_splits is None:
+            if self.user_splits_fixed is not None:
+                raise ConfigError(
+                    f"variable_overrides[{self.name!r}]: user_splits_fixed sin user_splits no "
+                    "dice nada; declara los cortes."
+                )
+            return self
+        if len(self.user_splits) == 0:
+            raise ConfigError(
+                f"variable_overrides[{self.name!r}]: user_splits necesita al menos un corte; "
+                "en blanco el motor los busca."
+            )
+        if any(not math.isfinite(corte) for corte in self.user_splits):
+            raise ConfigError(
+                f"variable_overrides[{self.name!r}]: los cortes tienen que ser números finitos."
+            )
+        if any(b <= a for a, b in pairwise(self.user_splits)):
+            raise ConfigError(
+                f"variable_overrides[{self.name!r}]: los cortes tienen que ser estrictamente "
+                f"crecientes; recibidos {list(self.user_splits)}."
+            )
+        if self.dtype == "categorical":
+            raise ConfigError(
+                f"variable_overrides[{self.name!r}]: los cortes fijados sólo aplican a variables "
+                "numéricas."
+            )
+        if self.user_splits_fixed is not None and len(self.user_splits_fixed) != len(
+            self.user_splits
+        ):
+            raise ConfigError(
+                f"variable_overrides[{self.name!r}]: user_splits_fixed tiene que tener la misma "
+                f"longitud que user_splits ({len(self.user_splits)})."
+            )
+        return self
 
 
 class BinningConfig(NikodymBaseConfig):

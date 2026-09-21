@@ -86,6 +86,14 @@
         },
         "name": {
           "has_default": false
+        },
+        "user_splits": {
+          "has_default": true,
+          "value": null
+        },
+        "user_splits_fixed": {
+          "has_default": true,
+          "value": null
         }
       },
       "data__CohortSplitConfig": {
@@ -5135,6 +5143,46 @@
             "ui_help": "Nombre exacto de la columna cruda a la que aplican los ajustes de esta fila; debe coincidir con el nombre en los datos.",
             "ui_order": 1,
             "ui_widget": "text_input"
+          },
+          "user_splits": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cortes entre tramos que se imponen a esta variable numérica, en sus unidades y en orden creciente; en blanco el motor los busca.",
+            "title": "Cortes fijados a mano",
+            "ui_group": "Overrides por variable",
+            "ui_help": "Los límites entre tramos que decide la institución (por ejemplo 24 y 60 meses de antigüedad). Cada valor cierra un tramo y abre el siguiente; el motor calcula el WoE de los tramos que resultan. Sólo para variables numéricas.",
+            "ui_order": 7,
+            "ui_widget": "number_list"
+          },
+          "user_splits_fixed": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "boolean"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Para cada corte fijado, verdadero si el motor debe respetarlo tal cual y falso si puede juntarlo con su vecino; en blanco puede juntar cualquiera.",
+            "title": "Cortes que no se juntan",
+            "ui_group": "Overrides por variable",
+            "ui_help": "Una marca por corte fijado: verdadero deja ese corte intocable; falso permite que el motor lo junte con el tramo vecino si así mejora el ajuste.",
+            "ui_order": 8,
+            "ui_widget": "json"
           }
         },
         "required": [

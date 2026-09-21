@@ -555,6 +555,20 @@ respuestas, la §13 obligatoria de la plantilla cierra el documento.
 |---|---|---|---|
 | 8-9 | **Cortes por variable para `merge_bins`/`set_bins`** (abierto por el writer en S17, 2026-09-19, al medir que `binning.variable_overrides` no lleva cortes y que `user_splits` no existe en el motor) | (a) **una hoja nueva `user_splits: tuple[float, ...] \| None` (y `user_splits_fixed`) en `VariableBinningConfig`, cableada a `binning_fit_params[col]["user_splits"]` de OptBinning**, como excepción justificada al presupuesto cero: es una decisión humana del flujo del banco (`categorizacion_manual`), no un default que falle; (b) `merge_bins` sólo, implementado bajando `max_n_bins` de la variable (OptBinning reoptimiza y puede juntar otros tramos: no hace lo que el usuario pidió); (c) dejar las dos fuera de la puerta guiada hasta la escala maestra (H5) | **(a)**: sin cortes fijos la decisión humana «junta estos dos tramos» no existe en ninguna puerta, y (b) mentiría. Entra en la capa B con su golden de `HOJAS_DEL_FORMULARIO` (+2) y su test de paridad |
 
+**Respuesta de Cami (2026-09-20, interactiva): (a), en la capa B. Implementado en S18
+(2026-09-21):** `VariableBinningConfig.user_splits`/`user_splits_fixed` (crecientes, finitos, al
+menos uno, sólo numéricas; `user_splits_fixed` uno a uno con los cortes), cableados por variable
+a OptBinning; `sc.bins(col)` numera los tramos de la última corrida desde 1; `merge_bins(col, [i,
+j], reason=)` exige exactamente dos tramos adyacentes que existan y rechaza dejar un solo tramo;
+`set_bins(col, cuts, reason=)` fija los cortes; las dos escriben la hoja con todos los cortes
+fijados y suben el tope de tramos de la variable sólo si los cortes lo exigen; el evento
+`decision` del trail lleva `valor={"binning.variable_overrides": [<la hoja>]}`. Medido con
+OptBinning real sobre el dataset del paquete: `set_bins(24, 60)` deja exactamente esos cortes y
+`merge_bins([2, 3])` los reduce a `24`. `HOJAS_DEL_FORMULARIO` 572 → 576 y la cifra 3 del
+scorecard 409 → 413 (dos campos y sus dos filas de lista, no «+2»), ambas con su razón en el
+golden. Límite declarado: agrupar niveles de una
+categórica queda fuera (la hoja expresa cortes numéricos).
+
 **8-2, superada el mismo día tras la pasada 1 de Codex:** inferir el corte OOT contradecía D-OBL-5
 («no se siembra una `partition.strategy` por defecto»). Cami eligió **respetar D-OBL**: la
 estrategia sigue a lo declarado (`date` → temporal, `cohort` → cohorte, sin eje `partition="random"`

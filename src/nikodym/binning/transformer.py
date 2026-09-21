@@ -796,6 +796,21 @@ def _build_binning_fit_params(
                 column_params["min_bin_size"] = _none_if_zero(override.min_bin_size)
             if override.cat_cutoff is not None:
                 column_params["cat_cutoff"] = _none_if_zero(override.cat_cutoff)
+            if override.user_splits is not None:
+                # La hoja de §8-9 (a) de FLUJO-GUIADO-SCORECARD: los cortes que decide la
+                # institución llegan a OptBinning como ``user_splits`` (y ``user_splits_fixed``
+                # dice cuáles no puede juntar). Sólo para numéricas: en una categórica OptBinning
+                # espera grupos de categorías, que esta hoja no expresa.
+                if column_params["dtype"] == "categorical":
+                    raise BinningFitError(
+                        f"variable_overrides[{column!r}]: los cortes fijados sólo aplican a "
+                        f"variables numéricas y «{column}» se tramifica como categórica."
+                    )
+                column_params["user_splits"] = [float(corte) for corte in override.user_splits]
+                if override.user_splits_fixed is not None:
+                    column_params["user_splits_fixed"] = [
+                        bool(fijo) for fijo in override.user_splits_fixed
+                    ]
         params[column] = {key: value for key, value in column_params.items() if value is not None}
     return params
 

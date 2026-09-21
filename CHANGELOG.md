@@ -48,6 +48,24 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   panel dice por qué no hay resumen. Las corridas guardadas antes de esta versión no lo traen y el
   panel no lo fabrica. `partition_label` (cómo se separa la muestra, en palabras) pasa a ser una
   sola función para la puerta guiada y la pantalla.
+- **Cortes por variable: `binning.variable_overrides[].user_splits` y `user_splits_fixed`, y
+  `merge_bins`/`set_bins` en la puerta guiada** (§8-9 (a) de FLUJO-GUIADO-SCORECARD, decidido por
+  Cami el 2026-09-20: la única excepción al presupuesto cero de perillas de esa enmienda, porque
+  «junta estos dos tramos» y «fija estos cortes» son decisiones humanas del flujo del banco que no
+  existían en ninguna puerta). La hoja lleva los cortes entre tramos de una variable **numérica**
+  (crecientes, finitos, al menos uno) y, opcionalmente, cuáles no puede juntar el motor; se cablea
+  a `user_splits`/`user_splits_fixed` de OptBinning por variable y una categórica la rechaza con
+  su motivo. En la puerta guiada, `sc.bins(col)` numera los tramos de la última corrida con su
+  rango, filas, malos, tasa y WoE; `sc.merge_bins(col, [i, j], reason=)` junta dos tramos
+  **adyacentes** —dos no adyacentes, un tramo que no existe o juntar los dos únicos tramos se
+  rechazan con el mensaje y la lista de tramos— y `sc.set_bins(col, cuts, reason=)` fija los
+  cortes; las dos escriben la hoja con todos los cortes fijados (y suben el tope de tramos de la
+  variable si hiciera falta), llegan al registro de auditoría como un evento `decision` con autor
+  `usuario` y motivo, y en la corrida siguiente el motor tramifica exactamente así. **Sabido:** los
+  cortes son para variables numéricas; agrupar niveles de una categórica sigue siendo trabajo
+  previo a la carga. Sin la hoja nada cambia: ningún resultado ni `config_hash` de preset se mueve
+  (`HOJAS_DEL_FORMULARIO` 572 → 576 y perillas del scorecard 409 → 413: dos campos y sus dos
+  filas de lista).
 
 ## [1.17.0] — 2026-09-20
 

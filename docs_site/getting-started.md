@@ -142,11 +142,16 @@ sc.resume()                         # corrida nueva y completa con la decisión;
 `run()` imprime el resumen de cada etapa mientras corre y, en un notebook, la última línea pinta
 el resumen final (también con `sc.summary()`; el de una etapa, con `sc.summary("binning")`, y su
 tabla de decisión en `sc.results["binning"]`). `sc.run(until="selection")` se detiene tras esa
-etapa para mirar antes de seguir. Las **decisiones humanas** —`sc.exclude(...)` y `sc.keep(...)`,
-siempre con `reason=`— escriben el config y quedan en el registro de auditoría con autor y motivo
-en la corrida siguiente; `sc.resume()` es una corrida nueva y completa sobre el config vigente (la
-anterior queda como respaldo lateral con su informe), y `sc.compare(otra)` pone dos corridas lado a
-lado. La evidencia queda en `nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el
+etapa para mirar antes de seguir. Las **decisiones humanas** —`sc.exclude(...)`, `sc.keep(...)`,
+`sc.merge_bins(...)` y `sc.set_bins(...)`, siempre con `reason=`— escriben el config y quedan en
+el registro de auditoría con autor y motivo en la corrida siguiente; `sc.resume()` es una corrida
+nueva y completa sobre el config vigente (la anterior queda como respaldo lateral con su informe),
+y `sc.compare(otra)` pone dos corridas lado a lado. Sobre los tramos de una variable numérica,
+`sc.bins("antiguedad_meses")` los numera con su rango, filas, malos y WoE;
+`sc.merge_bins("antiguedad_meses", [2, 3], reason=...)` junta dos tramos **adyacentes** y
+`sc.set_bins("antiguedad_meses", [24, 60], reason=...)` fija los cortes que decide la
+institución: las dos escriben `binning.variable_overrides` (`user_splits`, todos fijados) y en la
+corrida siguiente el motor tramifica exactamente así y calcula el WoE de los tramos que resultan. La evidencia queda en `nikodym-runs/consumo_v01/`: el config completo en `config.yaml`, el
 registro de auditoría y el estudio en `run/`, y el informe en `reports/`. Ese `config.yaml` es un
 `NikodymConfig` entero: la puerta completa de abajo lo corre tal cual y produce los mismos
 resultados.

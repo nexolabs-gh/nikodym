@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import math
 import os
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -63,12 +64,25 @@ class FakeBinningTable:
 
 
 class FakeBinnedVariable:
-    """Variable binneada mínima para ``get_binned_variable``."""
+    """Variable binneada mínima para ``get_binned_variable``.
 
-    def __init__(self, *, dtype: str, status: str, table: pd.DataFrame) -> None:
+    ``splits`` imita el atributo de ``OptimalBinning``: los cortes de una variable numérica (los
+    fijados por ``user_splits`` cuando la hoja llega, o los manuales del doble), y una tupla
+    vacía en una categórica.
+    """
+
+    def __init__(
+        self,
+        *,
+        dtype: str,
+        status: str,
+        table: pd.DataFrame,
+        splits: tuple[float, ...] = (),
+    ) -> None:
         self.dtype = dtype
         self.status = status
         self.binning_table = FakeBinningTable(table)
+        self.splits = list(splits)
 
 
 class FakeBinningProcess:
@@ -82,7 +96,13 @@ class FakeBinningProcess:
         special_codes: dict[str, list[object]] | None = None,
         **kwargs: object,
     ) -> None:
-        del kwargs
+        # Los ``user_splits`` por variable (hoja de §8-9 (a) de FLUJO-GUIADO) sí se honran: el
+        # doble parte exactamente por los cortes fijados, que es lo que OptBinning hace con
+        # ``user_splits_fixed``; el resto de los fit params se ignora.
+        fit_params = kwargs.get("binning_fit_params")
+        self.fit_params: dict[str, dict[str, object]] = (
+            dict(fit_params) if isinstance(fit_params, dict) else {}
+        )
         self.variable_names = variable_names
         self.categorical_variables = set(categorical_variables or [])
         self.special_codes = special_codes or {}
@@ -105,17 +125,25 @@ class FakeBinningProcess:
             dtype = "categorical" if name in self.categorical_variables else "numerical"
             if dtype == "numerical" and not pd.api.types.is_numeric_dtype(x[name]):
                 dtype = "categorical"
+            cortes = self.fit_params.get(name, {}).get("user_splits")
+            splits = (
+                tuple(float(c) for c in cortes)  # type: ignore[union-attr]
+                if dtype == "numerical" and cortes is not None
+                else _fake_splits(name, dtype)
+            )
             table, woe_map = _fake_table_for_series(
                 name,
                 x[name],
                 y,
                 dtype=dtype,
                 special_codes=self.special_codes.get(name, []),
+                splits=splits if cortes is not None else None,
             )
             self._binned_variables[name] = FakeBinnedVariable(
                 dtype=dtype,
                 status="OPTIMAL",
                 table=table,
+                splits=splits,
             )
             self._woe_maps[name] = woe_map
             rows.append(
@@ -190,10 +218,20 @@ def _fake_table_for_series(
     *,
     dtype: str,
     special_codes: list[object],
+    splits: tuple[float, ...] | None = None,
 ) -> tuple[pd.DataFrame, list[tuple[object, float]]]:
-    """Construye una tabla WoE manual para el doble de OptBinning."""
+    """Construye una tabla WoE manual para el doble de OptBinning.
+
+    Con ``splits`` (los ``user_splits`` de la hoja de §8-9 (a)) los tramos son exactamente los
+    cortes dados, con las etiquetas de OptBinning; sin ellos, los manuales del doble.
+    """
     pd = _pd()
-    bins = _categorical_bins(series) if dtype == "categorical" else _numeric_bins(name)
+    if dtype == "categorical":
+        bins = _categorical_bins(series)
+    elif splits is not None:
+        bins = _numeric_bins_from_splits(splits)
+    else:
+        bins = _numeric_bins(name)
     rows: list[dict[str, object]] = []
     woe_map: list[tuple[object, float]] = []
     total_good = int(y.eq(0).sum())
@@ -226,6 +264,32 @@ def _fake_table_for_series(
     table = pd.DataFrame(rows)
     table.index = [*list(range(len(rows) - 1)), "Totals"]
     return table, woe_map
+
+
+def _fake_splits(name: str, dtype: str) -> tuple[float, ...]:
+    """Los cortes de fábrica del doble (espejo de ``_numeric_bins``); ninguno en categóricas."""
+    if dtype == "categorical":
+        return ()
+    return (0.5, 1.5) if name == "risk" else (1.5,)
+
+
+def _numeric_bins_from_splits(splits: tuple[float, ...]) -> list[tuple[object, Any]]:
+    """Tramos numéricos por los cortes dados, con las etiquetas que OptBinning imprime."""
+    bordes = [float("-inf"), *splits, float("inf")]
+    bins: list[tuple[object, Any]] = []
+    for izquierda, derecha in pairwise(bordes):
+        etiqueta = (
+            f"{'(' if izquierda == float('-inf') else '['}"
+            f"{'-inf' if izquierda == float('-inf') else f'{izquierda:.2f}'}, "
+            f"{'inf' if derecha == float('inf') else f'{derecha:.2f}'})"
+        )
+        bins.append(
+            (
+                etiqueta,
+                lambda value, a=izquierda, b=derecha: a <= float(value) < b,
+            )
+        )
+    return bins
 
 
 def _numeric_bins(name: str) -> list[tuple[object, Any]]:

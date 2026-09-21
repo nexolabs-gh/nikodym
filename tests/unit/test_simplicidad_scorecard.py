@@ -8,7 +8,7 @@ moverla sin actualizar el número y decir por qué, no. Línea base medida sobre
 |---|---|---|---|
 | Líneas de usuario | 17 (y 83 + ~60 en la Clase 6) | 15 | ≤ 25 |
 | Esenciales visibles a la vez, por sección | todos (409 en 12) | 35 (máx. 6) | ≤ 6 por sección |
-| Perillas de las doce secciones | 409 | 409 | sin crecer |
+| Perillas de las doce secciones | 409 | 409 (A) · 413 (B, §8-9 (a)) | sin crecer salvo excepción |
 | Segundos hasta el primer resumen | sin resumen (9,9 s a ``done``) | ≈ 1 s (datos) | ≤ 30 s |
 | Conceptos antes del primer resultado | 11 | 5 | ≤ 5 |
 """
@@ -43,7 +43,11 @@ TOPE_CONCEPTOS: Final = 5
 
 #: Cifra 3: perillas de las doce secciones que tocan los dos trabajos del scorecard, con el
 #: barrido de `test_copy_del_formulario._campos_visibles`. 409 el 2026-09-15 y el 2026-09-19:
-#: la capa A no añade ni retira hojas (D-FLU-12).
+#: la capa A no añade ni retira hojas (D-FLU-12). 413 el 2026-09-21: la capa B añade
+#: `binning.variable_overrides[].user_splits` y `[].user_splits_fixed` (§8-9 (a), Cami 2026-09-20;
+#: cuatro nodos, porque cada lista cuenta su fila),
+#: la única excepción al presupuesto cero —una decisión humana del flujo del banco, `merge_bins`/
+#: `set_bins`, que no existía en ninguna puerta—; ambas plegadas en «Avanzado».
 SECCIONES_DEL_SCORECARD: Final[tuple[str, ...]] = (
     "data",
     "eda",
@@ -58,7 +62,7 @@ SECCIONES_DEL_SCORECARD: Final[tuple[str, ...]] = (
     "report",
     "governance",
 )
-PERILLAS_DE_LAS_DOCE_SECCIONES: Final = 409
+PERILLAS_DE_LAS_DOCE_SECCIONES: Final = 413
 
 #: Cifra 4: segundos hasta el primer resumen (el de «Datos y muestras») con el dataset del
 #: paquete. Medido el 2026-09-19 en el entorno de referencia: 1,0 s; la corrida completa, 10,2 s.
