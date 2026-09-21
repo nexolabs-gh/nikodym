@@ -43,8 +43,9 @@ from nikodym.guided.summaries import (
     SummaryContext,
     build_final_summary,
     build_stage_summary,
+    partition_label,
 )
-from nikodym.report.prose import _miles, _pct, _plural
+from nikodym.report.prose import _miles, _plural
 
 __all__ = ["Scorecard", "ScorecardInputError", "ScorecardRunError"]
 
@@ -191,10 +192,15 @@ class Scorecard:
         document: Mapping[str, str] | None = None,
         formats: Sequence[str] | None = None,
     ) -> None:
-        if not name or not str(name).strip():
-            raise ScorecardInputError("name= no puede estar vacío: es el nombre de la versión.")
-        self._name = str(name).strip()
-        self._project_dir = (Path(run_dir) / self._name).resolve()
+        self._name = _nombre_de_proyecto(name)
+        raiz = Path(run_dir).resolve()
+        self._project_dir = (raiz / self._name).resolve()
+        if self._project_dir.parent != raiz:
+            # Defensa en profundidad tras `_nombre_de_proyecto`: la carpeta del proyecto vive
+            # SIEMPRE un nivel bajo `run_dir` (pasada 1 de Codex sobre la capa B).
+            raise ScorecardInputError(
+                f"name={name!r} sacaría la carpeta del proyecto de run_dir={str(run_dir)!r}."
+            )
         self._run_dir = self._project_dir / _RUN_SUBDIR
         self._reports_dir = self._project_dir / _REPORTS_SUBDIR
         self._config_path = self._project_dir / _CONFIG_NAME
@@ -206,6 +212,9 @@ class Scorecard:
         self._pending_decisions = False
         self._echo: Callable[[str], None] = print
         self._snapshot_pendiente: tuple[Path, bytes] | None = None
+        # Huella de los bytes sobre los que se infirió: `run()` la vuelve a medir antes de correr
+        # (pasada 1 de Codex sobre la capa B: la ruta es mutable y el motor la recarga).
+        self._source_digest: tuple[Path, str] | None = None
 
         frame, source, source_label = self._cargar(data)
         inferencias: list[Inferencia] = []
@@ -481,9 +490,11 @@ class Scorecard:
             buffer = io.BytesIO()
             data.to_parquet(buffer)
             contenido = buffer.getvalue()
-            huella = hashlib.sha256(contenido).hexdigest()[:16]
+            digest = hashlib.sha256(contenido).hexdigest()
+            huella = digest[:16]
             snapshot = self._project_dir / _INPUT_SUBDIR / f"data-{huella}.parquet"
             self._snapshot_pendiente = (snapshot, contenido)
+            self._source_digest = (snapshot, digest)
             return (
                 pd.read_parquet(io.BytesIO(contenido)),
                 str(snapshot),
@@ -501,7 +512,31 @@ class Scorecard:
             raise ScorecardInputError(f"No se pudo leer {ruta}: {exc}") from exc
         if frame.empty:
             raise ScorecardInputError(f"El archivo no trae filas: {ruta}")
+        self._source_digest = (ruta, _huella_del_archivo(ruta))
         return frame, str(ruta), str(ruta)
+
+    def _verificar_fuente(self) -> None:
+        """La corrida lee los mismos bytes sobre los que la puerta infirió, o no corre.
+
+        El config referencia una ruta mutable y el motor la recarga en cada ``run()``; si el
+        archivo cambió entre medio, las inferencias (esquema, predictoras, categóricas, muestras)
+        describirían otros datos y la corrida entrenaría en silencio otro modelo con el mismo
+        config. Aplica también al snapshot de un ``DataFrame``: su nombre lleva la huella, pero un
+        archivo editado en disco ya no es el que la puerta escribió.
+        """
+        if self._source_digest is None:
+            return
+        ruta, esperado = self._source_digest
+        if not ruta.is_file():
+            raise ScorecardInputError(
+                f"El archivo de datos ya no existe: {ruta}. Construye un Scorecard nuevo."
+            )
+        if _huella_del_archivo(ruta) != esperado:
+            raise ScorecardInputError(
+                f"El archivo {ruta} cambió desde que se construyó el Scorecard: las inferencias "
+                "se hicieron sobre otro contenido. Construye un Scorecard nuevo sobre el archivo "
+                "actual para volver a inferir y correr."
+            )
 
     @staticmethod
     def _resolver_id(
@@ -612,21 +647,18 @@ class Scorecard:
                     f"oot_from={oot_from!r} no es una fecha legible; escríbela en ISO 8601 "
                     "(por ejemplo 2024-01-01)."
                 )
-            fecha_oot = pd.to_datetime(oot_from)
             partitions = ("desarrollo",) + (("holdout",) if holdout > 0 else ()) + ("oot",)
+            strategy: dict[str, Any] = {
+                "type": "temporal",
+                "date_col": date,
+                "oot_from": str(oot_from),
+                "holdout_fraction": float(holdout),
+            }
             return _Muestras(
-                strategy={
-                    "type": "temporal",
-                    "date_col": date,
-                    "oot_from": str(oot_from),
-                    "holdout_fraction": float(holdout),
-                },
+                strategy=strategy,
                 partitions=partitions,
                 comparisons=_comparaciones(partitions),
-                label=(
-                    f"fuera de tiempo desde {fecha_oot.date().isoformat()} por «{date}»; "
-                    f"holdout {_pct(holdout, decimals=0)} del resto"
-                ),
+                label=partition_label(strategy),
                 time_column=date,
                 time_axis="period",
             )
@@ -653,19 +685,17 @@ class Scorecard:
                     f"Cohortes disponibles: {', '.join(distintas)}."
                 )
             partitions = ("desarrollo",) + (("holdout",) if holdout > 0 else ()) + ("oot",)
+            strategy = {
+                "type": "cohort",
+                "cohort_col": cohort,
+                "oot_cohorts": reservadas,
+                "holdout_fraction": float(holdout),
+            }
             return _Muestras(
-                strategy={
-                    "type": "cohort",
-                    "cohort_col": cohort,
-                    "oot_cohorts": reservadas,
-                    "holdout_fraction": float(holdout),
-                },
+                strategy=strategy,
                 partitions=partitions,
                 comparisons=_comparaciones(partitions),
-                label=(
-                    f"cohortes fuera de tiempo: {', '.join(reservadas)} (columna «{cohort}»); "
-                    f"holdout {_pct(holdout, decimals=0)} del resto"
-                ),
+                label=partition_label(strategy),
                 time_column=cohort,
                 time_axis="cohort",
             )
@@ -681,20 +711,18 @@ class Scorecard:
                     "Holdout es la única muestra con que comparar el modelo."
                 )
             dev = round(1.0 - float(holdout), 10)
+            strategy = {
+                "type": "random",
+                "dev_fraction": dev,
+                "holdout_fraction": float(holdout),
+                "oot_fraction": 0.0,
+                "stratify_by": None,
+            }
             return _Muestras(
-                strategy={
-                    "type": "random",
-                    "dev_fraction": dev,
-                    "holdout_fraction": float(holdout),
-                    "oot_fraction": 0.0,
-                    "stratify_by": None,
-                },
+                strategy=strategy,
                 partitions=("desarrollo", "holdout"),
                 comparisons=("dev_vs_holdout",),
-                label=(
-                    f"partición aleatoria: {_pct(dev, decimals=0)} desarrollo y "
-                    f"{_pct(holdout, decimals=0)} holdout, sin muestra fuera de tiempo"
-                ),
+                label=partition_label(strategy),
                 time_column=None,
                 time_axis="none",
             )
@@ -833,6 +861,7 @@ class Scorecard:
             )
         pasos = list(self._steps[: self._steps.index(until) + 1]) if until is not None else None
         config = self._config.model_copy(update={"run": RunConfig(steps=pasos)})
+        self._verificar_fuente()
         # Un solo escritor por carpeta de proyecto: dos corridas a la vez sobre el mismo
         # `run_dir/name` —los defaults, en dos notebooks— mezclarían informe y evidencia (pasada
         # de cierre de Codex sobre la capa A). El candado lo suelta el sistema operativo si el
@@ -1012,6 +1041,51 @@ class Scorecard:
                 f"La decisión deja la sección «{seccion}» inválida: {_mensaje_de_validacion(exc)}"
             ) from exc
         self._config = self._config.model_copy(update={seccion: nueva})
+
+    # ── exportar (D-FLU-5) ──────────────────────────────────────────────────────────────
+
+    def export_excel(self) -> tuple[Path, ...]:
+        """Un libro Excel por etapa, numerado, en ``<run_dir>/<name>/excel/`` (D-FLU-5, D-SIM-7).
+
+        ``01 Datos y muestras.xlsx`` … ``10 Validación formal.xlsx`` para las etapas que corrieron
+        —cada uno con el resumen, la tabla de decisión y las tablas completas que el informe
+        publica para ese dominio, con la misma protección de celdas que los exports del informe—
+        más ``11 Decisiones.xlsx`` con las decisiones del registro de auditoría (humanas, de la
+        puerta y del motor). Opcional: nunca es la vía para ver un resultado. Exige el extra
+        ``excel`` (``openpyxl``); sin él se detiene con el comando de instalación.
+        """
+        if self._study is None:
+            raise ScorecardInputError("export_excel() necesita una corrida: llama a run() primero.")
+        from nikodym.guided.export import EXCEL_SUBDIR, write_stage_workbooks
+
+        escritos = write_stage_workbooks(
+            self._study,
+            self._stage_summaries,
+            directory=self._project_dir / EXCEL_SUBDIR,
+            report_config=self._config.report,
+            trail_path=self._context().trail_path,
+        )
+        self._echo(
+            f"Excel por etapa: {len(escritos)} "
+            f"{_plural(len(escritos), 'libro', 'libros')} en {self._project_dir / EXCEL_SUBDIR}"
+        )
+        return escritos
+
+    def export(self, destination: str | Path) -> Path:
+        """Empaqueta la carpeta del proyecto en un ``.zip`` (hallazgo #8 de INTEGRACION-EXTERNA).
+
+        Entran el config vigente, el snapshot de datos, la evidencia de la corrida (``run/``), el
+        informe y el Excel si se exportó; quedan fuera el candado y los respaldos de corridas
+        anteriores. Devuelve la ruta del archivo escrito.
+        """
+        from nikodym.guided.export import pack_project
+
+        try:
+            ruta = pack_project(self._project_dir, Path(destination))
+        except FileNotFoundError as exc:
+            raise ScorecardInputError(str(exc)) from exc
+        self._echo(f"Paquete de la corrida: {ruta}")
+        return ruta
 
     # ── comparar (D-FLU-6) ──────────────────────────────────────────────────────────────
 
@@ -1245,6 +1319,40 @@ def _variables_finales(study: Any) -> tuple[str, ...]:
     if study is None or not study.artifacts.has("model", "final_features"):
         return ()
     return tuple(str(v) for v in study.artifacts.get("model", "final_features"))
+
+
+def _nombre_de_proyecto(name: object) -> str:
+    """``name`` como un único componente de carpeta, o :class:`ScorecardInputError`.
+
+    Compone ``<run_dir>/<name>``: con ``..``, un separador o una ruta absoluta la carpeta del
+    proyecto salía de ``run_dir`` y las corridas escribían, movían y apartaban directorios ajenos
+    (pasada 1 de Codex sobre la capa B). Un nombre reservado del sistema (``CON``, ``NUL``) lo
+    rechaza el propio sistema operativo al crear la carpeta.
+    """
+    nombre = str(name).strip() if name is not None else ""
+    if not nombre:
+        raise ScorecardInputError("name= no puede estar vacío: es el nombre de la versión.")
+    if (
+        nombre in {".", ".."}
+        or "/" in nombre
+        or "\\" in nombre
+        or Path(nombre).is_absolute()
+        or Path(nombre).name != nombre
+    ):
+        raise ScorecardInputError(
+            f"name={name!r} tiene que ser un nombre de carpeta simple, sin separadores, «..» ni "
+            "unidad: compone <run_dir>/<name>. Para correr en otro sitio usa run_dir=."
+        )
+    return nombre
+
+
+def _huella_del_archivo(ruta: Path) -> str:
+    """SHA-256 de los bytes del archivo, por bloques (los archivos de cartera son grandes)."""
+    resumen = hashlib.sha256()
+    with ruta.open("rb") as archivo:
+        for bloque in iter(lambda: archivo.read(1 << 20), b""):
+            resumen.update(bloque)
+    return resumen.hexdigest()
 
 
 def _regla_de_vacios(columna: str) -> dict[str, Any]:

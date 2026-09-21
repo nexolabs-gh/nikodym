@@ -133,7 +133,7 @@ import {
   modelCardDomains,
   modelCardTieneAvisosDeclarados,
 } from "@/lib/model-card"
-import type { Coefficient, ModelCard, ResultsResponse } from "@/lib/results-types"
+import type { Coefficient, ModelCard, ResultsResponse, RunSummaries } from "@/lib/results-types"
 import type {
   Ifrs9MethodologyCard,
   MethodologyFact,
@@ -415,6 +415,12 @@ export function ResultsPanel({
           quedó demasiado parcial para una ficha válida; entonces no hay bloque, ni vacío ni
           fabricado, porque un bloque vacío aparentaría un control que no corrió. */}
       {results.model_card ? <ModelCardSection card={results.model_card} /> : null}
+
+      {/* RESUMEN DE LA CORRIDA (D-FLU-8): lo mismo que cuenta la puerta guiada —cada etapa en
+          palabras con su tabla de decisión y el resumen final con sus dos estados—, leído de
+          `summaries`, la misma fuente que `Scorecard.summary()`. Guard por presencia: los
+          payloads anteriores a la capa B no lo traen y el panel no fabrica un resumen. */}
+      {results.summaries ? <RunSummarySection summaries={results.summaries} /> : null}
 
       {/* COMPARACIÓN DE PROVISIONES (SDD-28): sólo cuando corrió el orquestador del máximo. */}
       {headline ? (
@@ -1756,6 +1762,155 @@ function DefItem({
  * declarado ahí con su razón (`MODEL_CARD_NO_PINTADO`). Sólo se monta con card: el guard vive en
  * el llamador, y este componente no sabe decir «sin ficha».
  */
+/**
+ * El resumen de la corrida (D-FLU-8, D-SC-12): el resumen final y, plegada por etapa, la misma
+ * narración que la puerta guiada imprime en consola y pinta en el notebook.
+ *
+ * CERO lógica de dominio y CERO formato propio: las líneas, las alertas y las celdas llegan ya
+ * escritas por `nikodym.guided.summaries` (la misma función que `StageSummary.text()` y
+ * `_repr_html_`), así que la pantalla no puede decir una cifra distinta de la del notebook. Con
+ * `error` se dice por qué no hay resumen, en vez de esconder el hueco.
+ */
+function RunSummarySection({ summaries }: { summaries: RunSummaries }) {
+  const { final, stages, error } = summaries
+  return (
+    <ResultsSection
+      title="Resumen de la corrida"
+      description="Lo que cuenta cada etapa, en palabras y con su tabla de decisión: la misma fuente que el resumen de la puerta guiada."
+    >
+      {error ? (
+        <p role="status" className="text-xs text-amber-200/90">
+          {error}
+        </p>
+      ) : null}
+      {final ? (
+        <div className="space-y-3">
+          <dl className="grid gap-1.5 text-sm">
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="font-medium text-foreground">Ejecución:</dt>
+              <dd className="text-foreground/90">{final.execution}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="font-medium text-foreground">Validación técnica:</dt>
+              <dd className="text-foreground/90">{final.validation}</dd>
+            </div>
+          </dl>
+          {final.figures.length > 0 ? (
+            <Subchart title="Cifras clave">
+              <table className="w-full text-sm">
+                <tbody>
+                  {final.figures.map(([rotulo, valor]) => (
+                    <tr key={rotulo} className="border-b border-border/60 last:border-0">
+                      <th scope="row" className="py-1 pr-3 text-left font-medium text-foreground/90">
+                        {rotulo}
+                      </th>
+                      <td className="py-1 text-foreground/90">{valor}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Subchart>
+          ) : null}
+          <Subchart title="Qué revisar">
+            {final.review.length > 0 ? (
+              <ul className="space-y-1 text-sm text-amber-200/90">
+                {final.review.map((alerta) => (
+                  <li key={alerta}>⚠ {alerta}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin alertas en ninguna etapa.</p>
+            )}
+          </Subchart>
+          <Subchart title="Decisiones humanas registradas">
+            {final.decisions.length > 0 ? (
+              <ul className="space-y-1 text-sm text-foreground/90">
+                {final.decisions.map((linea) => (
+                  <li key={linea}>• {linea}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ninguna: la corrida usa los valores de fábrica.
+              </p>
+            )}
+          </Subchart>
+          <Subchart title="Dónde quedó cada archivo">
+            <dl className="grid gap-1 font-mono text-xs text-muted-foreground">
+              {final.files.map(([rotulo, ruta]) => (
+                <LineageRow key={rotulo} label={rotulo} value={ruta} />
+              ))}
+            </dl>
+          </Subchart>
+        </div>
+      ) : null}
+      {stages.length > 0 ? (
+        <Subchart title="Resumen por etapa">
+          <div className="space-y-2">
+            {stages.map((stage) => (
+              <details
+                key={stage.stage}
+                className="rounded-lg border border-border/70 bg-background/30 px-3 py-2"
+              >
+                <summary className="cursor-pointer text-sm font-medium text-foreground">
+                  {stage.label}
+                  {stage.alerts.length > 0 ? (
+                    <span className="ml-2 text-xs font-normal text-amber-200/90">
+                      {stage.alerts.length === 1 ? "1 alerta" : `${stage.alerts.length} alertas`}
+                    </span>
+                  ) : null}
+                </summary>
+                <ul className="mt-2 space-y-1 text-sm text-foreground/90">
+                  {stage.lines.map((linea) => (
+                    <li key={linea}>{linea}</li>
+                  ))}
+                </ul>
+                {stage.alerts.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-sm text-amber-200/90">
+                    {stage.alerts.map((alerta) => (
+                      <li key={alerta}>⚠ {alerta}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {stage.table ? (
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          {stage.table.columns.map((columna) => (
+                            <th
+                              key={columna}
+                              scope="col"
+                              className="border-b border-border/60 py-1 pr-3 text-left font-medium text-foreground/90"
+                            >
+                              {columna}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stage.table.rows.map((fila, indice) => (
+                          <tr key={indice} className="border-b border-border/40 last:border-0">
+                            {fila.map((celda, j) => (
+                              <td key={j} className="py-1 pr-3 text-foreground/90">
+                                {celda}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </details>
+            ))}
+          </div>
+        </Subchart>
+      ) : null}
+    </ResultsSection>
+  )
+}
+
 function ModelCardSection({ card }: { card: ModelCard }) {
   const domains = modelCardDomains(card)
   const decisions = modelCardDecisionRows(card)

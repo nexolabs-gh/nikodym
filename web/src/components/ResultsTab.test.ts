@@ -25,6 +25,7 @@ import type {
   EdaResult,
   ModelCard,
   ResultsResponse,
+  RunSummaries,
   ValidationCalibrationRow,
   ValidationNotEvaluableGrade,
   ValidationNotEvaluablePartition,
@@ -1271,5 +1272,79 @@ describe("la procedencia del PSI (D-VAL-16): el panel dice de dónde salió la s
     expect(html).not.toContain("Recalculado en esta etapa")
     expect(html).not.toContain("recálculo")
     expect(html).not.toContain("Recálculo")
+  })
+})
+
+describe("el resumen de la corrida (D-FLU-8): la misma fuente que la puerta guiada", () => {
+  const resumenes: RunSummaries = {
+    stages: [
+      {
+        stage: "data",
+        label: "Datos y muestras",
+        lines: ["Archivo: consumo_comportamiento", "6.000 filas · 1.401 malos (23,4 %) · 8 columnas"],
+        alerts: [],
+        table: {
+          columns: ["Muestra", "Filas", "Malos", "Tasa de malos"],
+          rows: [["Desarrollo", "3.961", "924", "23,3 %"]],
+        },
+      },
+      {
+        stage: "binning",
+        label: "Tramos y WoE",
+        lines: ["6 de 6 variables tramificadas"],
+        alerts: ["mora_max_12m: la tasa de malos invierte la tendencia en Holdout"],
+        table: null,
+      },
+    ],
+    final: {
+      execution: "completada",
+      validation: "Falla — lo decide Hosmer-Lemeshow en Fuera de tiempo (OOT) (p-valor 0,013)",
+      figures: [["AUC en Fuera de tiempo (OOT)", "0,656"]],
+      review: ["Tramos y WoE: mora_max_12m: la tasa de malos invierte la tendencia en Holdout"],
+      decisions: [],
+      files: [["Evidencia de la corrida", "C:\corridas\runs\abc"]],
+    },
+    error: null,
+  }
+
+  it("pinta los dos estados, las cifras, las alertas y cada etapa con su tabla, tal cual llegan", () => {
+    const html = render({ ...minima(null), summaries: resumenes })
+    expect(ocurrencias(html, "Resumen de la corrida")).toBe(1)
+    expect(html).toContain("completada")
+    expect(html).toContain("Hosmer-Lemeshow en Fuera de tiempo (OOT)")
+    expect(html).toContain("AUC en Fuera de tiempo (OOT)")
+    expect(html).toContain("0,656")
+    expect(html).toContain("Datos y muestras")
+    expect(html).toContain("Tramos y WoE")
+    expect(html).toContain("1 alerta")
+    expect(html).toContain("invierte la tendencia en Holdout")
+    // Las celdas viajan formateadas por el motor: la pantalla no reescribe «23,3 %» ni «3.961».
+    expect(html).toContain("23,3 %")
+    expect(html).toContain("3.961")
+    expect(html).toContain("Ninguna: la corrida usa los valores de fábrica.")
+  })
+
+  it("sin resúmenes no hay bloque, ni vacío ni fabricado (los fixtures de la demo entre ellos)", () => {
+    expect(ocurrencias(render(minima(null)), "Resumen de la corrida")).toBe(0)
+    for (const fixture of [demoF1, demoF4]) {
+      const html = render(fixture as unknown as ResultsResponse)
+      expect(ocurrencias(html, "Resumen de la corrida")).toBe(0)
+    }
+  })
+
+  it("con `error` dice por qué no hay resumen en vez de esconder el hueco", () => {
+    const html = render({
+      ...minima(null),
+      summaries: { stages: [], final: null, error: "El resumen por etapa no se pudo armar: x" },
+    })
+    expect(html).toContain("El resumen por etapa no se pudo armar: x")
+    expect(ocurrencias(html, "Resumen de la corrida")).toBe(1)
+  })
+
+  it("guardrail estático: el bloque lee `summaries` y no calcula ni formatea nada", () => {
+    const cuerpo = resultsTabSource.match(/function RunSummarySection\(([\s\S]*?)\n\}\n/)?.[0] ?? ""
+    expect(cuerpo).not.toBe("")
+    expect(cuerpo).not.toMatch(/toFixed|toLocaleString|Number\(|parseFloat|fmt[A-Z]\w*\(/)
+    expect(resultsTabSource).toMatch(/results\.summaries \? <RunSummarySection/)
   })
 })

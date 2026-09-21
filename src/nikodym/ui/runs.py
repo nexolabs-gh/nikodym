@@ -171,10 +171,14 @@ def save(
     workdir: Path,
     governance: GovernanceConfig | None,
     trail: Path | None = None,
+    source_label: str | None = None,
 ) -> str:
     """Guarda una corrida bajo ``workdir/runs/<run_id>/`` y devuelve el ``run_id`` (SDD-23 §7).
 
-    Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida los produjo, el
+    Escribe ``results.json`` (payload de :func:`serialize_study` más ``summaries``, los resúmenes
+    por etapa y el final de :mod:`nikodym.ui.summaries`, la misma fuente que la puerta guiada;
+    ``source_label`` es cómo el resumen de datos nombra el archivo: el ``dataset_id`` de la
+    interfaz, o la ruta del config si no se da) y, si la corrida los produjo, el
     reporte HTML (``report.html``), su PDF (``report.pdf``) y las **fuentes editables**: el ``.qmd``
     de Quarto (``report.qmd``, con su directorio de figuras al lado, para que compile tal cual) y el
     ``.docx`` de Word (``report.docx``). Si el payload recortó la tasa por período o cohorte, la
@@ -211,6 +215,17 @@ def save(
     try:
         trail_final = _archivar_trail(trail, staging, copiar=trail_copiado)
         payload = serialize_study(study, governance=governance, trail_path=trail_final)
+        # Los resúmenes citan rutas FINALES (`runs/<run_id>/…`), no el temporal en que se arman:
+        # son lo que la persona abre después, y el temporal desaparece con el `replace`. Import
+        # perezoso: los resúmenes arrastran los dominios y esta capa no los importa al cargarse.
+        from nikodym.ui.summaries import serialize_summaries
+
+        payload["summaries"] = serialize_summaries(
+            study,
+            source_label=source_label or _fuente_del_config(study),
+            run_dir=run_dir,
+            trail_path=(run_dir / trail_final.name) if trail_final is not None else None,
+        )
         _save_eda_default_rate(study, payload, staging)
         (staging / _RESULTS_FILENAME).write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
@@ -230,6 +245,13 @@ def save(
         _apartar_corrida_fallida(staging, run_dir, exc, trail_copiado=trail_copiado)
         raise
     return run_id
+
+
+def _fuente_del_config(study: Study) -> str:
+    """Cómo nombrar los datos sin ``source_label``: la fuente que el config declara."""
+    load = getattr(getattr(study.config, "data", None), "load", None)
+    source = getattr(load, "source", None)
+    return str(source) if source else "datos de la corrida"
 
 
 def _esta_dentro(ruta: Path, directorio: Path) -> bool:

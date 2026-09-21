@@ -10,6 +10,7 @@ import io
 import types
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 from _ui_f1 import (
@@ -38,6 +39,12 @@ def f1_study(fake_binning_process: object, tmp_path: Path) -> Study:
 # ─────────────────────────────── save / load_results ───────────────────────────────
 
 
+def _sin_resumenes(payload: dict[str, Any]) -> dict[str, Any]:
+    """El payload persistido sin `summaries`: `save` lo añade sobre el de `serialize_study`
+    (D-FLU-8) y estas comparaciones miden la persistencia del serializador, no el resumen."""
+    return {clave: valor for clave, valor in payload.items() if clave != "summaries"}
+
+
 def test_save_load_results_round_trip(f1_study: Study, tmp_path: Path) -> None:
     """``save`` persiste el payload serializado y ``load_results`` lo devuelve idéntico."""
     workdir = tmp_path / "wd"
@@ -45,7 +52,9 @@ def test_save_load_results_round_trip(f1_study: Study, tmp_path: Path) -> None:
 
     assert run_id == f1_study.run_context.run_id
     assert (workdir / "runs" / run_id / "results.json").is_file()
-    assert runs.load_results(run_id, workdir=workdir) == serialize_study(f1_study, governance=None)
+    assert _sin_resumenes(runs.load_results(run_id, workdir=workdir)) == serialize_study(
+        f1_study, governance=None
+    )
 
 
 def test_save_sin_reporte_no_escribe_html(f1_study: Study, tmp_path: Path) -> None:
@@ -363,7 +372,9 @@ def test_si_falla_la_publicacion_la_corrida_previa_vuelve_a_su_sitio(
     # La corrida previa vuelve a su sitio, byte a byte, y sigue sirviéndose.
     assert (run_dir / "results.json").read_bytes() == centinela
     assert (run_dir / "report.html").read_text(encoding="utf-8") == "<h1>previo</h1>"
-    assert runs.load_results(run_id, workdir=workdir) == serialize_study(f1_study, governance=None)
+    assert _sin_resumenes(runs.load_results(run_id, workdir=workdir)) == serialize_study(
+        f1_study, governance=None
+    )
     runs_root = workdir / "runs"
     assert not list(runs_root.glob(f".{run_id}.old.*")), "el respaldo se consumió al restaurar"
     assert not list(runs_root.glob(f".{run_id}.*.tmp")), "el temporal no queda a medias"
@@ -425,7 +436,9 @@ def test_una_corrida_apartada_por_un_corte_a_mitad_del_swap_se_recupera_al_arran
 
     assert run_dir.is_dir() and not apartada.exists()
     assert {p.name: p.read_bytes() for p in run_dir.iterdir() if p.is_file()} == contenido
-    assert runs.load_results(run_id, workdir=workdir) == serialize_study(f1_study, governance=None)
+    assert _sin_resumenes(runs.load_results(run_id, workdir=workdir)) == serialize_study(
+        f1_study, governance=None
+    )
     # El temporal a medias no se toca: no es una corrida y puede llevar evidencia de un corte.
     assert temporal.is_dir()
 

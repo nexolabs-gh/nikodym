@@ -940,7 +940,11 @@ def run_pipeline(
     )
     study = nikodym.run(resolved, artifacts=externos or None)  # (c) síncrono; D-UI-2
     run_id = runs.save(  # (d)
-        study, workdir=workdir, governance=resolved.governance, trail=trail
+        study,
+        workdir=workdir,
+        governance=resolved.governance,
+        trail=trail,
+        source_label=str(dataset_id),
     )
     return {"run_id": run_id, "status": study.run_context.status}
 

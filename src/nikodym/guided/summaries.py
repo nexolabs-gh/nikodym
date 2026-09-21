@@ -69,6 +69,7 @@ __all__ = [
     "SummaryContext",
     "build_final_summary",
     "build_stage_summary",
+    "partition_label",
 ]
 
 #: Rótulo en español de cada etapa, en el orden del pipeline (D-FLU-2 §3.2). Los nombres son los
@@ -174,6 +175,29 @@ class StageSummary:
             partes.append(_formatear(self.table, self.formats).to_html(index=False, border=0))
         return f'<div class="nikodym-summary">{"".join(partes)}</div>'
 
+    def to_dict(self) -> dict[str, Any]:
+        """El resumen como JSON transportable, con la tabla ya escrita como la lee una persona.
+
+        Es lo que consume la pantalla (D-FLU-8: Resultados lee la misma fuente que
+        ``summary()``): las celdas viajan formateadas por :func:`_formatear` —coma decimal,
+        miles, «—» en las ausencias— para que el panel pinte exactamente lo que el notebook y la
+        consola muestran, sin una segunda regla de formato en el front.
+        """
+        table: dict[str, Any] | None = None
+        if self.table is not None and not self.table.empty:
+            mostrada = _formatear(self.table, self.formats)
+            table = {
+                "columns": [str(c) for c in mostrada.columns],
+                "rows": [[str(v) for v in fila] for fila in mostrada.itertuples(index=False)],
+            }
+        return {
+            "stage": self.stage,
+            "label": self.label,
+            "lines": list(self.lines),
+            "alerts": list(self.alerts),
+            "table": table,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class FinalSummary:
@@ -244,6 +268,58 @@ class FinalSummary:
         )
         partes.append("</ul>")
         return f'<div class="nikodym-summary">{"".join(partes)}</div>'
+
+    def to_dict(self) -> dict[str, Any]:
+        """El resumen final como JSON transportable (los dos estados, cifras, alertas, archivos).
+
+        Las etapas no viajan aquí: cada una se serializa con su propio :meth:`StageSummary.to_dict`.
+        """
+        return {
+            "execution": self.execution,
+            "validation": self.validation,
+            "figures": [[rotulo, valor] for rotulo, valor in self.figures],
+            "review": list(self.review),
+            "decisions": list(self.decisions),
+            "files": [[rotulo, ruta] for rotulo, ruta in self.files],
+        }
+
+
+def partition_label(strategy: Mapping[str, Any]) -> str:
+    """Cómo se separa la muestra, en palabras, desde la estrategia de partición del config.
+
+    Una sola fuente para la puerta guiada (que la construye con sus argumentos) y para la pantalla
+    (que la lee del config de la corrida): el resumen de «Datos y muestras» dice lo mismo por las
+    dos puertas.
+    """
+    tipo = str(strategy.get("type", ""))
+    holdout = _float(strategy.get("holdout_fraction"))
+    resto = f"; holdout {_pct(holdout, decimals=0)} del resto" if holdout is not None else ""
+    if tipo == "temporal":
+        crudo = strategy.get("oot_from")
+        frontera = pd.to_datetime(str(crudo), errors="coerce") if crudo is not None else None
+        desde = frontera.date().isoformat() if isinstance(frontera, pd.Timestamp) else str(crudo)
+        return f"fuera de tiempo desde {desde} por «{strategy.get('date_col')}»{resto}"
+    if tipo == "cohort":
+        reservadas = ", ".join(str(c) for c in _sequence(strategy.get("oot_cohorts")))
+        return (
+            f"cohortes fuera de tiempo: {reservadas} (columna «{strategy.get('cohort_col')}»)"
+            f"{resto}"
+        )
+    if tipo == "random":
+        dev = _float(strategy.get("dev_fraction"))
+        oot = _float(strategy.get("oot_fraction")) or 0.0
+        fuera = (
+            f"y {_pct(oot, decimals=0)} fuera de tiempo (pseudo-OOT)"
+            if oot > 0
+            else "sin muestra fuera de tiempo"
+        )
+        return (
+            f"partición aleatoria: {_pct(dev, decimals=0)} desarrollo y "
+            f"{_pct(holdout, decimals=0)} holdout, {fuera}"
+        )
+    if tipo == "columna":
+        return f"división ya marcada en la columna «{strategy.get('partition_col')}»"
+    return f"estrategia de partición «{tipo}»" if tipo else "estrategia de partición no declarada"
 
 
 # ────────────────────────────── resúmenes por etapa ──────────────────────────────

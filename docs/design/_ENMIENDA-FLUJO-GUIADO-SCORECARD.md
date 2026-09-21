@@ -319,6 +319,20 @@ de §3.2 (`01 Datos y muestras.xlsx` … `09 Validación.xlsx`, más `10 Decisio
 tablas de decisión y las tablas completas del anexo, por `report/exports.py` (misma protección de
 celdas). `sc.export("corrida.zip")` empaqueta el `run_dir` (#8). Ninguno corre solo.
 
+**Implementado en la capa B (S18, 2026-09-21), con una corrección medida a los ejemplos de
+arriba:** la tabla de §3.2 tiene **diez** etapas con tabla (`eda` incluida) y una sin ella
+(`report`), así que los libros son `01 Datos y muestras.xlsx` … `10 Validación formal.xlsx` —el
+rótulo es exactamente el de §3.2, sin abreviar— y el de decisiones es el `11`; los ejemplos «09
+Validación» y «10 Decisiones» contaban sin `eda`. El número es la posición de la etapa en el
+pipeline y no se mueve en una corrida parcial (`run(until=)` deja los primeros libros). Cada libro
+trae el resumen de la etapa, su tabla de decisión, **todas** las tablas que el `ReportBuilder`
+recolecta para ese dominio —las agregadas del anexo y las que el informe entrega por observación
+como exports— y un índice; el de decisiones lee el trail en tres hojas (humanas, de la puerta y
+del motor). El gate §6-9 compara celda a celda —no byte a byte: el `.xlsx` es un ZIP con marcas de
+tiempo— cada tabla por observación con la del libro `__por_observacion.xlsx` del informe, escritas
+las dos por `report.exports.write_workbook`. `export()` deja fuera el candado y los respaldos
+laterales: es la corrida vigente, no la historia de la carpeta.
+
 ### 3.6 D-FLU-6 — Lo que se adopta del banco en la capa A (dos artefactos aditivos, separados)
 
 Las tablas estables de F1 (`selection_table`, las tablas de binning) **no cambian de esquema**: los

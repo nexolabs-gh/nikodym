@@ -1194,11 +1194,53 @@ export interface RunLineage {
  * `governance` —los tres fixtures de la demo entre ellos— y, con ella, la ficha tipada
  * (`ModelCard`, D-GOB-16) que el panel pinta con guard por presencia (D-GOB-15).
  */
+// --- resúmenes por etapa (D-FLU-8) -----------------------------------------------
+
+/**
+ * El resumen de UNA etapa, tal como lo cuenta la puerta guiada (`StageSummary.to_dict`): de tres
+ * a ocho líneas, sus alertas y la tabla de decisión con las celdas YA escritas como las lee una
+ * persona (coma decimal, miles, «—»). El panel las pinta tal cual: una sola fuente para consola,
+ * notebook y pantalla (D-SIM-5).
+ */
+export interface StageSummaryView {
+  stage: string
+  label: string
+  lines: string[]
+  alerts: string[]
+  table: { columns: string[]; rows: string[][] } | null
+}
+
+/** El resumen final (`FinalSummary.to_dict`): los dos estados, cifras, alertas, decisiones y archivos. */
+export interface FinalSummaryView {
+  execution: string
+  validation: string
+  figures: [string, string][]
+  review: string[]
+  decisions: string[]
+  files: [string, string][]
+}
+
+/**
+ * Lo que `results.json` publica bajo `summaries`. `error` poblado significa que el resumen no se
+ * pudo armar y por qué; la corrida sigue entera (cards, informe, evidencia).
+ */
+export interface RunSummaries {
+  stages: StageSummaryView[]
+  final: FinalSummaryView | null
+  error?: string | null
+}
+
 export interface ResultsResponse {
   status: ResultsStatus
   run_id: string
   error: string | null
   model_card: ModelCard | null
+  /**
+   * Resúmenes por etapa y resumen final (D-FLU-8): la misma fuente que `Scorecard.summary()`.
+   * Ausente en los payloads anteriores a la capa B —la demo publicada entre ellos—, así que el
+   * panel se guarda por presencia.
+   */
+  summaries?: RunSummaries | null
   /** Procedencia de ESTA corrida. Ausente en payloads viejos; `null` si no llegó a congelarse. */
   lineage?: RunLineage | null
   /**

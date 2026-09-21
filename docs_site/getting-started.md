@@ -157,6 +157,15 @@ decisión de la selección) y la **tasa de malos por tramo y muestra** con la ma
 (`("binning", "event_rate_by_partition")`; el resumen de binning avisa «invierte la tendencia en
 Holdout / Fuera de tiempo»). Sólo alertan; el descarte sigue siendo decisión tuya.
 
+Dos entregables opcionales, a pedido y nunca la vía para ver un resultado: `sc.export_excel()`
+escribe en `nikodym-runs/consumo_v01/excel/` un libro por etapa —`01 Datos y muestras.xlsx` …
+`10 Validación formal.xlsx`, más `11 Decisiones.xlsx` con las decisiones del registro de
+auditoría—, cada uno con el resumen de la etapa, su tabla de decisión y las tablas completas que
+el informe publica para ese dominio (exige el extra `excel`); y `sc.export("corrida.zip")`
+empaqueta la carpeta del proyecto entera —config, datos, evidencia, informe y Excel— para
+compartirla o archivarla. En la interfaz, la pestaña Resultados muestra este mismo resumen por
+etapa y el resumen final de cada corrida.
+
 ## La puerta completa: correr el preset F1
 
 El experimento en Nikodym *es* un `NikodymConfig` declarativo; `nikodym.run(config, run_dir=...)`

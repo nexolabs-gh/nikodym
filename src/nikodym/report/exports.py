@@ -54,8 +54,10 @@ __all__ = [
     "DATA_EXPORT_FORMATS",
     "DataExportRef",
     "data_export_refs",
+    "exportable_table",
     "per_observation_tables",
     "write_data_exports",
+    "write_workbook",
 ]
 
 # Formatos de ``report.formats`` que producen exports de datos (no documentos).
@@ -268,13 +270,32 @@ def _write_csv(table: DataFrameLike, path: Path) -> Path:
 
 def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
     """Escribe un libro ``.xlsx`` con una hoja por tabla (``openpyxl``, import perezoso)."""
+    return write_workbook(sheets, path)
+
+
+def write_workbook(
+    sheets: Mapping[str, DataFrameLike],
+    path: Path,
+    *,
+    index: bool | Mapping[str, bool] = True,
+) -> Path:
+    """Escribe un libro ``.xlsx`` con una hoja por tabla, con la protección de celdas del informe.
+
+    Es la misma escritura que usan los exports por observación del informe —``tmp`` +
+    ``replace``, ``openpyxl`` con import perezoso, :func:`exportable_table` sobre cada hoja— y la
+    reutiliza el Excel opcional de la puerta guiada (D-FLU-5), para que una tabla escrita por las
+    dos vías sea la misma celda a celda. ``index`` dice si el índice del frame sale como primera
+    columna: ``True`` para todas (las tablas por observación lo necesitan: es el identificador de
+    la operación), ``False`` para ninguna, o un mapa hoja → decisión.
+    """
     import pandas as pd
 
     temp_path = path.with_name(f".{path.name}.tmp")
     try:
         with pd.ExcelWriter(temp_path, engine="openpyxl") as writer:
             for sheet, table in sheets.items():
-                _exportable(table).to_excel(writer, sheet_name=sheet, index=True)
+                con_indice = index if isinstance(index, bool) else index.get(sheet, True)
+                exportable_table(table).to_excel(writer, sheet_name=sheet, index=con_indice)
         temp_path.replace(path)
     except ImportError as exc:
         temp_path.unlink(missing_ok=True)
@@ -289,9 +310,17 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
     return path
 
 
-def _exportable(table: DataFrameLike) -> DataFrameLike:
-    """La tabla como sale al archivo: índice con nombre y celdas activas de planilla protegidas."""
+def exportable_table(table: DataFrameLike) -> DataFrameLike:
+    """La tabla como sale al archivo: índice con nombre y celdas activas de planilla protegidas.
+
+    Pública porque el Excel opcional de la puerta guiada escribe sus tablas por aquí y el gate
+    §6-9 de FLUJO-GUIADO compara las dos escrituras celda a celda.
+    """
     return neutralize_formula_prefixes(_with_named_index(table))
+
+
+def _exportable(table: DataFrameLike) -> DataFrameLike:
+    return exportable_table(table)
 
 
 def _with_named_index(table: DataFrameLike) -> DataFrameLike:

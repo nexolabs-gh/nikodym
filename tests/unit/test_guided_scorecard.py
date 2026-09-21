@@ -595,3 +595,43 @@ def test_los_resultados_son_bit_a_bit_los_mismos_por_la_puerta_completa(
     assert diferencias(proyeccion_canonica(sc.study), proyeccion_canonica(completa)) == []
     assert completa.run_context.run_id != sc.study.run_context.run_id
     assert config_hash(completa.config) == sc.config_hash
+
+
+# ──────────── pasada 1 de Codex sobre la capa B (dos hallazgos de la capa A) ────────────
+
+
+@pytest.mark.parametrize(
+    "nombre", ["..", "../otra", "sub/carpeta", r"C:\fuera", "/fuera", ".", " "]
+)
+def test_name_es_un_solo_componente_de_ruta_y_no_escapa_de_run_dir(
+    fuente: Path, tmp_path: Path, nombre: str
+) -> None:
+    """`name` compone `<run_dir>/<name>`: con `..` o una ruta, la carpeta del proyecto salía de
+    `run_dir` y las corridas escribían y apartaban directorios ajenos (Codex, pasada 1 de B).
+    """
+    with pytest.raises(ScorecardInputError, match="name="):
+        _puerta(fuente, tmp_path, name=nombre)
+    assert not (tmp_path / "corridas").exists() or not any((tmp_path / "corridas").iterdir())
+
+
+def test_si_el_archivo_cambia_tras_construir_la_puerta_no_corre(
+    fuente: Path, tmp_path: Path
+) -> None:
+    """La puerta infiere sobre los bytes que leyó; `run()` y `resume()` vuelven a cargar la ruta.
+
+    Si el archivo se reemplazó entre medio, la corrida aplicaría inferencias viejas a datos nuevos
+    con el mismo config: se detiene antes de correr y pide reconstruir el Scorecard (Codex,
+    pasada 1 de B).
+    """
+    sc = _puerta(fuente, tmp_path)
+    sc._echo = lambda _texto: None
+    frame = pd.read_parquet(fuente)
+    frame.iloc[: len(frame) // 2].to_parquet(fuente)  # el mismo archivo, otro contenido
+    with pytest.raises(ScorecardInputError, match="cambió desde que se construyó"):
+        sc.run(until="data")
+    assert sc.study is None
+    # Reconstruir la puerta sobre el archivo nuevo vuelve a inferir y corre.
+    de_nuevo = _puerta(fuente, tmp_path, name="de-nuevo")
+    de_nuevo._echo = lambda _texto: None
+    de_nuevo.run(until="data")
+    assert de_nuevo.study.run_context.status == "done"

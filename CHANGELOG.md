@@ -25,6 +25,29 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   módulo que todavía no pasó por su enmienda de simplicidad (IFRS 9, supervivencia, provisiones)
   se pinta entera, como siempre. El golden del front (`ESSENTIALS_BY_SECTION`) es el espejo del de
   Python, atado en los dos sentidos. Ningún `config_hash` se mueve: la marca es metadato.
+- **Excel opcional por etapa y paquete de la corrida en la puerta guiada** (capa B, D-FLU-5;
+  SDD-31 D-SIM-7; hallazgo #8 de integración externa). `sc.export_excel()` escribe en
+  `<run_dir>/<name>/excel/` un libro por etapa que corrió, numerado en el orden del pipeline y
+  rotulado como el resumen —`01 Datos y muestras.xlsx` … `10 Validación formal.xlsx`— más
+  `11 Decisiones.xlsx` con las decisiones del registro de auditoría en tres hojas (humanas, de la
+  puerta guiada y del motor). Cada libro trae el resumen de la etapa, su tabla de decisión (la de
+  `sc.results[<etapa>]`, con rótulos en español), las tablas completas que el informe publica
+  para ese dominio —las del anexo y las que entrega por observación— y un índice; se escriben por
+  la misma vía que los exports del informe, con la misma protección de celdas de planilla, y una
+  tabla escrita por las dos vías es la misma celda a celda (gate). Exige el extra `excel`; sin él
+  se detiene con el comando de instalación. `sc.export("corrida.zip")` empaqueta la carpeta del
+  proyecto —config vigente, snapshot de datos, evidencia, informe y Excel— sin el candado ni los
+  respaldos de corridas anteriores. Ninguno corre solo.
+- **La pestaña Resultados muestra el resumen de la corrida** (D-FLU-8, D-SC-12): el resumen final
+  con sus dos estados —Ejecución y Validación técnica—, las cifras clave, qué revisar, las
+  decisiones humanas y dónde quedó cada archivo, y plegado por etapa lo que cuenta cada una con su
+  tabla de decisión. Es **la misma fuente** que `Scorecard.summary()`: `results.json` gana
+  `summaries`, serializado por los mismos constructores con las celdas ya escritas como las lee
+  una persona, y la pantalla no formatea ni calcula nada. Una corrida fallida conserva los
+  resúmenes de lo que corrió; si un resumen no se puede armar, la corrida se persiste igual y el
+  panel dice por qué no hay resumen. Las corridas guardadas antes de esta versión no lo traen y el
+  panel no lo fabrica. `partition_label` (cómo se separa la muestra, en palabras) pasa a ser una
+  sola función para la puerta guiada y la pantalla.
 
 ## [1.17.0] — 2026-09-20
 
