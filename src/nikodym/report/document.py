@@ -22,7 +22,10 @@ from typing import Any, Final, Literal, Protocol, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
-SectionKind: TypeAlias = Literal["prose", "data", "toc", "appendix"]
+SectionKind: TypeAlias = Literal["prose", "data", "toc", "appendix", "summary"]
+"""Tipo de bloque de una sección. ``summary`` es la página ejecutiva (capa C de
+FLUJO-GUIADO-SCORECARD): el resumen final de la corrida, estructurado, que cada renderer pinta
+con su propia parcial antes del resumen ejecutivo."""
 
 
 class _Identified(Protocol):
@@ -49,6 +52,7 @@ __all__ = [
     "CONTEXT_DOMAINS",
     "DOMAIN_TITLES",
     "EDA_DEFAULT_RATE_TABLE",
+    "EXECUTIVE_SUMMARY_ID",
     "IFRS9_DOMAINS",
     "KEY_TABLES",
     "METHODOLOGY_STEPS",
@@ -191,6 +195,8 @@ APPENDIX_PARAMETER_DOMAINS: Final[tuple[str, ...]] = (
 APPENDIX_LINEAGE_ID: Final = "appendix_lineage"
 APPENDIX_TABLES_ID: Final = "appendix_tables"
 APPENDIX_PARAMETERS_ID: Final = "appendix_parameters"
+EXECUTIVE_SUMMARY_ID: Final = "executive_summary"
+"""La página ejecutiva: el resumen final de la corrida (D-FLU-4), tras la portada."""
 
 # Etapas que describe el capítulo de Metodología, en el orden en que ocurrieron. ``data`` aporta
 # config y una card de población opcional; su tratamiento debe quedar escrito aun sin esa card.
@@ -356,6 +362,20 @@ class ChapterSpec(BaseModel):
 # El documento. Portada y resumen ejecutivo los emite la plantilla (no son secciones lógicas: la
 # portada son metadatos y el resumen es la vista de las métricas clave). Todo lo demás es sección.
 CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
+    # La página ejecutiva (capa C de FLUJO-GUIADO-SCORECARD, D-FLU-4): el resumen final de la
+    # corrida —los dos estados, las cifras clave, qué revisar, las decisiones humanas con motivo
+    # y dónde queda cada archivo— desde los mismos constructores que `Scorecard.summary()` y que
+    # la pestaña Resultados. Va tras la portada y antes del resumen ejecutivo: es materia
+    # preliminar, sin número. CONDICIONAL any-of a los dominios del scorecard, como «Resultados»:
+    # una corrida IFRS 9 sin scorecard no recibe el molde del scorecard (insumo de H2). El builder
+    # además lo omite cuando el bundle no trae `summary` (un bundle armado a mano, sin corrida).
+    ChapterSpec(
+        id=EXECUTIVE_SUMMARY_ID,
+        title="Resumen de la corrida",
+        kind="summary",
+        numbered=False,
+        requires_any_domain=RESULT_DOMAINS,
+    ),
     ChapterSpec(id="toc", title="Índice", kind="toc", numbered=False),
     ChapterSpec(
         id="introduction",

@@ -112,7 +112,11 @@ def test_la_decision_llega_una_vez_al_trail_con_autor_y_motivo_y_resume_la_aplic
     assert payload["motivo"] == "dato no disponible en originación"
     assert payload["umbral"] is None
     assert payload["valor"] == {"selection.force_exclude": ["score"]}
-    assert "variables" not in payload
+    # Desde la capa C el evento lleva también el SUJETO de la decisión (`variables`), además de
+    # la hoja acumulada en `valor`: es lo que la línea «exclude score — «motivo»» necesita para
+    # decirse igual desde el trail (la página ejecutiva del informe) que desde la memoria (el
+    # resumen final). Clave aditiva del payload; `DecisionRecord` la ignora como a `autor`.
+    assert payload["variables"] == ["score"]
     final = sc.summary()
     assert final.decisions == ("exclude score — «dato no disponible en originación»",)
     # La ejecución del motor queda aparte de la intención (§3.3, «propietarios distintos, sin

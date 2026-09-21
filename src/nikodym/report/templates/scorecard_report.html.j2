@@ -1,17 +1,26 @@
 {# Informe de Validación de Scorecard — documento editorial determinista (SDD-26; mejora 1.1).
-   La estructura (portada · resumen ejecutivo · índice · capítulos · anexos) la declara
-   `nikodym.report.document`, fuente ÚNICA del orden. Cada sección se renderiza con la parcial que
-   corresponde a su `kind`.
+   La estructura (portada · página ejecutiva · resumen ejecutivo · índice · capítulos · anexos) la
+   declara `nikodym.report.document`, fuente ÚNICA del orden. Cada sección se renderiza con la
+   parcial que corresponde a su `kind`. La página ejecutiva (`kind == "summary"`, capa C de
+   FLUJO-GUIADO-SCORECARD) va tras la portada, ANTES del resumen ejecutivo: por eso se emite en su
+   propio bucle y el bucle general la salta.
    Invariantes que verifica el golden: literales config_hash=/data_hash=/git_sha=/root_seed=,
    data-section-id en orden canónico, tablas con id/thead/tbody, sin -0.0. #}
 {% extends "_base.html.j2" %}
 
 {% block document %}
 {% include "_cover.html.j2" %}
+{% for section in sections %}
+{% if section.kind == "summary" %}
+{% include "_run_summary.html.j2" %}
+{% endif %}
+{% endfor %}
 {% include "_exec_summary.html.j2" %}
 
 {% for section in sections %}
-{% if section.kind == "toc" %}
+{% if section.kind == "summary" %}
+{# ya emitida tras la portada #}
+{% elif section.kind == "toc" %}
 {% include "_toc.html.j2" %}
 {% elif section.kind == "prose" %}
 {% include "_prose_section.html.j2" %}

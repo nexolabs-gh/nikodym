@@ -42,10 +42,10 @@ def serialize_summaries(
     # responde lo mismo en un proceso frío), y los constructores de resúmenes arrastran los mapas
     # de rótulos de cada dominio.
     from nikodym.guided.summaries import (
-        STAGE_ORDER,
         SummaryContext,
         build_final_summary,
-        build_stage_summary,
+        build_stage_summaries,
+        partition_label_from_config,
     )
 
     try:
@@ -53,16 +53,11 @@ def serialize_summaries(
             project_dir=run_dir,
             run_dir=run_dir,
             source_label=source_label,
-            partition_label=_partition_label(study),
+            partition_label=partition_label_from_config(study.config),
             report_dir=run_dir,
             trail_path=trail_path,
         )
-        dominios = {dominio for dominio, _clave in study.artifacts.keys()}  # noqa: SIM118
-        etapas: list[StageSummary] = [
-            build_stage_summary(stage, study, contexto)
-            for stage in STAGE_ORDER
-            if stage in dominios
-        ]
+        etapas: tuple[StageSummary, ...] = build_stage_summaries(study, contexto)
         final = build_final_summary(study, etapas, contexto)
     except Exception as exc:  # se publica el motivo; la corrida no se pierde
         return {"stages": [], "final": None, "error": _mensaje(exc)}
@@ -71,19 +66,6 @@ def serialize_summaries(
         "final": final.to_dict(),
         "error": None,
     }
-
-
-def _partition_label(study: Study) -> str:
-    from nikodym.guided.summaries import partition_label
-
-    data = getattr(study.config, "data", None)
-    partition = getattr(data, "partition", None)
-    strategy = getattr(partition, "strategy", None)
-    if strategy is None:
-        return ""
-    dump = getattr(strategy, "model_dump", None)
-    volcado = dump(mode="python") if callable(dump) else strategy
-    return partition_label(volcado) if isinstance(volcado, dict) else ""
 
 
 def _mensaje(exc: Exception) -> str:

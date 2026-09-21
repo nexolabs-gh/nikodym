@@ -82,6 +82,10 @@ def render_docx(document: Mapping[str, Any], *, config: ReportConfig) -> bytes:
 
     word.add_heading(str(document["document_title"]), level=0)
     _cover(word, document, config)
+    # La página ejecutiva va tras la portada, antes del índice y del resumen ejecutivo.
+    for section in document["sections"]:
+        if section["kind"] == "summary":
+            _summary(word, section, points=Pt)
     _toc_field(word)
     _executive(word, document["executive"])
     for section in document["sections"]:
@@ -243,6 +247,54 @@ def _toc_field(word: Any) -> None:
     word.add_page_break()
 
 
+def _summary(word: Any, section: Mapping[str, Any], *, points: Any) -> None:
+    """La página ejecutiva: el resumen final de la corrida, desde la vista canónica.
+
+    Los dos estados y los archivos en tablas de dos columnas, las cifras clave en una tabla
+    nativa, las alertas y las decisiones como listas: lo que el comité lee y edita.
+    """
+    word.add_heading(_heading(section), level=1)
+    for paragraph in section["body"]:
+        word.add_paragraph(paragraph)
+    summary = section["summary"] or {}
+    if summary.get("error"):
+        _shaded_paragraph(word, str(summary["error"]), fill=_MISSING_FILL)
+        word.add_page_break()
+        return
+    final = summary.get("final")
+    if not final:
+        word.add_page_break()
+        return
+    labels = summary["labels"]
+    _key_value_table(
+        word,
+        [
+            (labels["execution"], str(final["execution"])),
+            (labels["validation"], str(final["validation"])),
+        ],
+    )
+    _caption(word, labels["figures"], points=points, bold=True)
+    if final["figures"]:
+        _table(word, ("Cifra", "Valor"), [tuple(fila) for fila in final["figures"]])
+    else:
+        word.add_paragraph("Las cifras clave no están disponibles en esta corrida.")
+    _caption(word, labels["review"], points=points, bold=True)
+    if final["review"]:
+        for alerta in final["review"]:
+            word.add_paragraph(f"⚠ {alerta}", style="List Bullet")
+    else:
+        word.add_paragraph(str(summary["sin_alertas"])).runs[0].italic = True
+    _caption(word, labels["decisions"], points=points, bold=True)
+    if final["decisions"]:
+        for linea in final["decisions"]:
+            word.add_paragraph(str(linea), style="List Bullet")
+    else:
+        word.add_paragraph(str(summary["sin_decisiones"])).runs[0].italic = True
+    _caption(word, labels["files"], points=points, bold=True)
+    _key_value_table(word, [(str(rotulo), str(ruta)) for rotulo, ruta in final["files"]])
+    word.add_page_break()
+
+
 def _executive(word: Any, executive: Mapping[str, Any]) -> None:
     """Resumen ejecutivo: el veredicto (que firma un humano) y las métricas clave."""
     word.add_heading("Resumen ejecutivo", level=1)
@@ -279,8 +331,10 @@ def _section(
 ) -> None:
     """Escribe una sección: encabezado con estilo nativo, prosa, figuras, tablas y anexos."""
     del config
-    if section["kind"] == "toc":
-        return  # el índice de Word es el campo TOC nativo, no una lista escrita a mano.
+    if section["kind"] in {"toc", "summary"}:
+        # El índice de Word es el campo TOC nativo, no una lista escrita a mano; la página
+        # ejecutiva ya se escribió tras la portada.
+        return
 
     word.add_heading(_heading(section), level=1 if section["level"] == 1 else 2)
 

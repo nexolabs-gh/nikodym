@@ -128,7 +128,12 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
         # invariante de auditoría que exige que todo config recolectado tenga sección en el Anexo C,
         # y habría metido presentación en el anexo de parámetros del pipeline.
         "currency",
+        # Capa C de FLUJO-GUIADO-SCORECARD: el resumen final de la corrida para la página
+        # ejecutiva, aditivo con default `None`; un bundle armado a mano no lo trae y el
+        # capítulo no se emite, así que sin corrida el documento es byte a byte el de siempre.
+        "summary",
     )
+    assert bundle.summary is None, "sin corrida el bundle no afirma ningún resumen"
     assert bundle.governance is None, "sin gobernanza declarada el bundle no afirma ninguna"
     assert bundle.pipeline_params == {}
     assert bundle.currency == "", "sin moneda declarada el bundle no afirma ninguna"

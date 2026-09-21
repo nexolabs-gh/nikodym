@@ -171,7 +171,10 @@ auditoría—, cada uno con el resumen de la etapa, su tabla de decisión y las 
 el informe publica para ese dominio (exige el extra `excel`); y `sc.export("corrida.zip")`
 empaqueta la carpeta del proyecto entera —config, datos, evidencia, informe y Excel— para
 compartirla o archivarla. En la interfaz, la pestaña Resultados muestra este mismo resumen por
-etapa y el resumen final de cada corrida.
+etapa y el resumen final de cada corrida; y el informe (HTML, PDF, Word y fuente editable) abre,
+tras la portada, con la página «Resumen de la corrida»: el mismo resumen final —qué corrió, el
+estado técnico de la validación, las cifras clave, qué revisar, las decisiones humanas con su
+motivo y dónde queda cada archivo—, desde la misma fuente, para el comité que lo lee.
 
 ## La puerta completa: correr el preset F1
 

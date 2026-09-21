@@ -62,6 +62,8 @@ if TYPE_CHECKING:
     from nikodym.core.study import Study
 
 __all__ = [
+    "RESUMEN_FINAL_ROTULOS",
+    "SIN_ALERTAS",
     "SIN_DECISIONES",
     "STAGE_LABELS",
     "STAGE_ORDER",
@@ -69,8 +71,13 @@ __all__ = [
     "StageSummary",
     "SummaryContext",
     "build_final_summary",
+    "build_stage_summaries",
     "build_stage_summary",
+    "decision_line",
+    "decision_lines_from_preamble",
     "partition_label",
+    "partition_label_from_config",
+    "source_label_from_config",
 ]
 
 #: Rótulo en español de cada etapa, en el orden del pipeline (D-FLU-2 §3.2). Los nombres son los
@@ -101,6 +108,20 @@ _FILAS_EN_CONSOLA: Final = 40
 SIN_DECISIONES: Final = (
     "Ninguna decisión humana registrada; lo que se decidió vive en el config de la corrida."
 )
+#: Lo que dice el resumen final cuando ninguna etapa levantó una alerta.
+SIN_ALERTAS: Final = "Sin alertas en ninguna etapa."
+#: Los rótulos de los bloques del resumen final: una sola fuente para la consola, el notebook y
+#: la página ejecutiva del informe (D-FLU-4; capa C de FLUJO-GUIADO-SCORECARD).
+RESUMEN_FINAL_ROTULOS: Final[dict[str, str]] = {
+    "execution": "Ejecución",
+    "validation": "Validación técnica",
+    "figures": "Cifras clave",
+    "review": "Qué revisar",
+    "decisions": "Decisiones humanas registradas",
+    "files": "Dónde quedó cada archivo",
+}
+#: La regla con que la puerta guiada firma una decisión humana en el trail (D-FLU-3).
+_REGLA_DECISION_HUMANA: Final = "decision_del_usuario"
 
 _Kind = Literal["text", "int", "num", "num2", "num3", "pct", "bool"]
 
@@ -126,10 +147,17 @@ _STEPWISE_CRITERION_LABELS: Final[dict[str, str]] = {
 
 @dataclass(frozen=True, slots=True)
 class SummaryContext:
-    """Lo que la puerta sabe y el ``Study`` no: rutas, inferencias y decisiones humanas."""
+    """Lo que la puerta sabe y el ``Study`` no: rutas, inferencias y decisiones humanas.
 
-    project_dir: Path
-    run_dir: Path
+    ``project_dir`` y ``run_dir`` admiten ``None`` desde la capa C: el informe se renderiza como
+    último paso de la corrida, antes de que ``nikodym.run`` consolide su destino, así que no
+    conoce la carpeta final de la evidencia y no la inventa. ``extra_files`` es lo que quien
+    arma el contexto sabe de sus propios archivos y el ``Study`` todavía no publica (el informe,
+    de sí mismo).
+    """
+
+    project_dir: Path | None
+    run_dir: Path | None
     source_label: str
     partition_label: str
     inference_lines: tuple[str, ...] = ()
@@ -139,6 +167,7 @@ class SummaryContext:
     card_path: Path | None = None
     config_path: Path | None = None
     until: str | None = None
+    extra_files: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,22 +254,23 @@ class FinalSummary:
 
     def text(self) -> str:
         """El resumen final como texto para la consola."""
-        partes = ["══ Resumen del scorecard ══", f"Ejecución: {self.execution}"]
-        partes.append(f"Validación técnica: {self.validation}")
+        r = RESUMEN_FINAL_ROTULOS
+        partes = ["══ Resumen del scorecard ══", f"{r['execution']}: {self.execution}"]
+        partes.append(f"{r['validation']}: {self.validation}")
         if self.figures:
-            partes.append("Cifras clave:")
+            partes.append(f"{r['figures']}:")
             partes.extend(f"  {rotulo}: {valor}" for rotulo, valor in self.figures)
-        partes.append("Qué revisar:")
+        partes.append(f"{r['review']}:")
         if self.review:
             partes.extend(f"  ⚠ {alerta}" for alerta in self.review)
         else:
-            partes.append("  Sin alertas en ninguna etapa.")
-        partes.append("Decisiones humanas registradas:")
+            partes.append(f"  {SIN_ALERTAS}")
+        partes.append(f"{r['decisions']}:")
         if self.decisions:
             partes.extend(f"  • {linea}" for linea in self.decisions)
         else:
             partes.append(f"  {SIN_DECISIONES}")
-        partes.append("Dónde quedó cada archivo:")
+        partes.append(f"{r['files']}:")
         partes.extend(f"  {rotulo}: {ruta}" for rotulo, ruta in self.files)
         return "\n".join(partes)
 
@@ -250,9 +280,10 @@ class FinalSummary:
 
     def _repr_html_(self) -> str:
         """El mismo resumen final para el notebook."""
+        r = RESUMEN_FINAL_ROTULOS
         partes = ["<h2>Resumen del scorecard</h2>"]
-        partes.append(f"<p><b>Ejecución:</b> {html.escape(self.execution)}</p>")
-        partes.append(f"<p><b>Validación técnica:</b> {html.escape(self.validation)}</p>")
+        partes.append(f"<p><b>{r['execution']}:</b> {html.escape(self.execution)}</p>")
+        partes.append(f"<p><b>{r['validation']}:</b> {html.escape(self.validation)}</p>")
         if self.figures:
             partes.append("<table><tbody>")
             partes.extend(
@@ -260,17 +291,17 @@ class FinalSummary:
                 for rotulo, valor in self.figures
             )
             partes.append("</tbody></table>")
-        partes.append("<h4>Qué revisar</h4><ul>")
+        partes.append(f"<h4>{r['review']}</h4><ul>")
         if self.review:
             partes.extend(f"<li>⚠ {html.escape(alerta)}</li>" for alerta in self.review)
         else:
-            partes.append("<li>Sin alertas en ninguna etapa.</li>")
-        partes.append("</ul><h4>Decisiones humanas registradas</h4><ul>")
+            partes.append(f"<li>{SIN_ALERTAS}</li>")
+        partes.append(f"</ul><h4>{r['decisions']}</h4><ul>")
         if self.decisions:
             partes.extend(f"<li>{html.escape(linea)}</li>" for linea in self.decisions)
         else:
             partes.append(f"<li>{html.escape(SIN_DECISIONES)}</li>")
-        partes.append("</ul><h4>Dónde quedó cada archivo</h4><ul>")
+        partes.append(f"</ul><h4>{r['files']}</h4><ul>")
         partes.extend(
             f"<li>{html.escape(rotulo)}: <code>{html.escape(ruta)}</code></li>"
             for rotulo, ruta in self.files
@@ -331,7 +362,79 @@ def partition_label(strategy: Mapping[str, Any]) -> str:
     return f"estrategia de partición «{tipo}»" if tipo else "estrategia de partición no declarada"
 
 
+def partition_label_from_config(config: Any) -> str:
+    """:func:`partition_label` leído del config de una corrida (``data.partition.strategy``).
+
+    Es lo que arman la pantalla y el informe, que no conocen los argumentos de la puerta guiada:
+    con ellos el resumen de «Datos y muestras» dice lo mismo por las tres puertas. Sin sección
+    ``data`` o sin estrategia devuelve vacío: no afirma una partición que el config no declara.
+    """
+    data = getattr(config, "data", None)
+    partition = getattr(data, "partition", None)
+    strategy = getattr(partition, "strategy", None)
+    if strategy is None:
+        return ""
+    dump = getattr(strategy, "model_dump", None)
+    volcado = dump(mode="python") if callable(dump) else strategy
+    return partition_label(volcado) if isinstance(volcado, Mapping) else ""
+
+
+def source_label_from_config(config: Any) -> str:
+    """Cómo nombrar los datos sin la puerta guiada: la fuente que el config declara.
+
+    Misma fuente para la pantalla (sin ``dataset_id``) y para el informe; sin ``data.load.source``
+    dice «datos de la corrida», no una ruta inventada.
+    """
+    load = getattr(getattr(config, "data", None), "load", None)
+    source = getattr(load, "source", None)
+    return str(source) if source else "datos de la corrida"
+
+
+def decision_line(payload: Mapping[str, Any]) -> str:
+    """Una decisión humana en una línea: ``<acción> <variables> — «<motivo>»``.
+
+    Única fuente para el resumen final de la puerta guiada (que la arma con sus decisiones en
+    memoria) y para la página ejecutiva del informe (que la lee del preámbulo que ``Study``
+    conserva): las dos escriben la misma línea desde el mismo payload, el del evento
+    ``decision`` del trail (D-FLU-3).
+    """
+    variables = ", ".join(str(v) for v in _sequence(payload.get("variables")))
+    accion = str(payload.get("accion", ""))
+    motivo = str(payload.get("motivo", ""))
+    sujeto = f"{accion} {variables}" if variables else accion
+    return f"{sujeto} — «{motivo}»"
+
+
+def decision_lines_from_preamble(
+    preamble: Iterable[tuple[str | None, Mapping[str, Any]]],
+) -> tuple[str, ...]:
+    """Las decisiones humanas declaradas en el preámbulo de una corrida, en líneas.
+
+    Sólo las que la puerta guiada firma como del usuario (``decision_del_usuario``); las
+    inferencias de la puerta y las reglas del motor no son decisiones humanas.
+    """
+    return tuple(
+        decision_line(payload)
+        for _paso, payload in preamble
+        if str(payload.get("regla", "")) == _REGLA_DECISION_HUMANA
+    )
+
+
 # ────────────────────────────── resúmenes por etapa ──────────────────────────────
+
+
+def build_stage_summaries(study: Study, context: SummaryContext) -> tuple[StageSummary, ...]:
+    """Los resúmenes de las etapas que dejaron artefactos, en el orden del pipeline.
+
+    Una corrida parcial o fallida conserva los de lo que sí corrió; el informe, que se renderiza
+    como último paso, no encuentra todavía el suyo. Una etapa que no se pueda armar levanta: quien
+    llama decide si es un fallo de la corrida (la puerta guiada) o un hueco que se declara (la
+    pantalla y el informe).
+    """
+    dominios = {dominio for dominio, _clave in study.artifacts.keys()}  # noqa: SIM118
+    return tuple(
+        build_stage_summary(stage, study, context) for stage in STAGE_ORDER if stage in dominios
+    )
 
 
 def build_stage_summary(stage: str, study: Study, context: SummaryContext) -> StageSummary:
@@ -376,7 +479,8 @@ def _resumen_data(study: Study, context: SummaryContext) -> StageSummary:
             )
         table = _tabla_muestras(study)
     lines.extend(context.inference_lines)
-    lines.append(f"Evidencia de la corrida: {context.run_dir}")
+    if context.run_dir is not None:
+        lines.append(f"Evidencia de la corrida: {context.run_dir}")
     return StageSummary(
         stage="data",
         label=STAGE_LABELS["data"],
@@ -1321,7 +1425,7 @@ def build_final_summary(
     context: SummaryContext,
 ) -> FinalSummary:
     """Ejecución y validación técnica por separado, cinco cifras, alertas, decisiones y archivos."""
-    execution = _estado_de_ejecucion(study, context)
+    execution = _estado_de_ejecucion(study, stages, context)
     validation = _estado_de_validacion(study, context)
     figures = _cinco_cifras(study) if study is not None else ()
     review = tuple(f"{s.label}: {a}" for s in stages for a in s.alerts)
@@ -1337,10 +1441,17 @@ def build_final_summary(
     )
 
 
-def _estado_de_ejecucion(study: Study | None, context: SummaryContext) -> str:
+def _estado_de_ejecucion(
+    study: Study | None, stages: Sequence[StageSummary], context: SummaryContext
+) -> str:
     if study is None:
         return "sin correr todavía"
     estado = study.run_context.status
+    if estado == "running":
+        # El informe se renderiza como último paso, con la corrida todavía en curso: no afirma
+        # «completada» —eso lo dice summary() al terminar— sino qué corrió sin fallos hasta aquí.
+        corrieron = _enumerar([s.label for s in stages]) if stages else "ninguna etapa"
+        return f"corrieron sin fallos {corrieron}; este informe es la última etapa de la corrida"
     if estado == "done":
         if context.until is not None:
             hasta = STAGE_LABELS.get(context.until, context.until)
@@ -1419,10 +1530,13 @@ def _cinco_cifras(study: Study) -> tuple[tuple[str, str], ...]:
 
 
 def _archivos(study: Study | None, context: SummaryContext) -> tuple[tuple[str, str], ...]:
-    archivos: list[tuple[str, str]] = [("Carpeta del proyecto", str(context.project_dir))]
+    archivos: list[tuple[str, str]] = []
+    if context.project_dir is not None:
+        archivos.append(("Carpeta del proyecto", str(context.project_dir)))
     if context.config_path is not None:
         archivos.append(("Config vigente", str(context.config_path)))
-    archivos.append(("Evidencia de la corrida", str(context.run_dir)))
+    if context.run_dir is not None:
+        archivos.append(("Evidencia de la corrida", str(context.run_dir)))
     if context.trail_path is not None:
         archivos.append(("Registro de auditoría", str(context.trail_path)))
     if context.card_path is not None:
@@ -1437,6 +1551,7 @@ def _archivos(study: Study | None, context: SummaryContext) -> tuple[tuple[str, 
         ruta = getattr(resultado, atributo, None) if resultado is not None else None
         if ruta:
             archivos.append((rotulo, _ruta_absoluta(ruta, context)))
+    archivos.extend(context.extra_files)
     return tuple(archivos)
 
 

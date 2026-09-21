@@ -426,9 +426,29 @@ def _section_views(
                 "charts": _charts_for_section(bundle, section, config, chart_format),
                 "data_exports": _data_exports_view(bundle, section, config),
                 "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
+                "summary": _summary_view(section),
             }
         )
     return views
+
+
+def _summary_view(section: ReportSection) -> dict[str, Any] | None:
+    """La página ejecutiva (``kind="summary"``): el resumen final tal como el builder lo dejó.
+
+    ``final`` es ``FinalSummary.to_dict()`` —celdas ya escritas como las lee una persona— o
+    ``None`` con ``error`` poblado; ``labels`` son los rótulos de sus bloques, la misma fuente
+    que la consola y el notebook. Los tres renderers pintan este dict, ninguno lo recalcula.
+    """
+    if section.kind != "summary":
+        return None
+    payload = section.payload
+    return {
+        "final": payload.get("final"),
+        "labels": dict(payload.get("labels") or {}),
+        "sin_alertas": str(payload.get("sin_alertas") or ""),
+        "sin_decisiones": str(payload.get("sin_decisiones") or ""),
+        "error": payload.get("error"),
+    }
 
 
 def _placeholder_view(section: ReportSection) -> dict[str, Any] | None:
@@ -442,12 +462,26 @@ def _placeholder_view(section: ReportSection) -> dict[str, Any] | None:
 
 
 def _toc_entries(views: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Genera el índice desde las secciones ya proyectadas: el documento se indexa a sí mismo."""
+    """Genera el índice desde las secciones ya proyectadas: el documento se indexa a sí mismo.
+
+    La página ejecutiva (``kind="summary"``) va tras la portada y antes del resumen ejecutivo, y
+    el índice la enumera en ese orden: el índice dice lo que el documento hace.
+    """
     entries: list[dict[str, Any]] = [
-        {"href": "#exec-summary", "number": "", "title": "Resumen ejecutivo", "level": 1}
+        {
+            "href": f"#{view['html_id']}",
+            "number": "",
+            "title": str(view["title"]),
+            "level": int(view["level"]),
+        }
+        for view in views
+        if view["kind"] == "summary"
     ]
+    entries.append(
+        {"href": "#exec-summary", "number": "", "title": "Resumen ejecutivo", "level": 1}
+    )
     for view in views:
-        if view["kind"] == "toc":
+        if view["kind"] in {"toc", "summary"}:
             continue
         entries.append(
             {

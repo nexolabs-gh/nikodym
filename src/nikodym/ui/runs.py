@@ -248,10 +248,14 @@ def save(
 
 
 def _fuente_del_config(study: Study) -> str:
-    """Cómo nombrar los datos sin ``source_label``: la fuente que el config declara."""
-    load = getattr(getattr(study.config, "data", None), "load", None)
-    source = getattr(load, "source", None)
-    return str(source) if source else "datos de la corrida"
+    """Cómo nombrar los datos sin ``source_label``: la fuente que el config declara.
+
+    Import perezoso: es la misma función que usa el informe (capa C), y esta capa no importa los
+    dominios al cargarse.
+    """
+    from nikodym.guided.summaries import source_label_from_config
+
+    return source_label_from_config(study.config)
 
 
 def _esta_dentro(ruta: Path, directorio: Path) -> bool:

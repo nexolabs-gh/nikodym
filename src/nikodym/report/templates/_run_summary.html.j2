@@ -1,0 +1,66 @@
+{# Página ejecutiva: el resumen final de la corrida (D-FLU-4; capa C de FLUJO-GUIADO-SCORECARD).
+   Reproduce, desde la MISMA fuente que `Scorecard.summary()` y que la pestaña Resultados
+   (`nikodym.guided.summaries`), los dos estados, las cifras clave, qué revisar, las decisiones
+   humanas con su motivo y dónde queda cada archivo. Nada se calcula ni se formatea aquí: las
+   celdas llegan escritas como las lee una persona. Con `summary.error` el capítulo dice por qué
+   no hay resumen, en vez de esconder el hueco. #}
+<section id="{{ section.html_id }}" data-section-id="{{ section.id }}" data-kind="summary" data-level="{{ section.level }}" class="report-section chapter run-summary">
+  <h2>{{ section.title }}</h2>
+
+  {% for paragraph in section.body %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+
+  {% if section.summary.error %}
+  <div class="missing">{{ section.summary.error }}</div>
+  {% elif section.summary.final %}
+  {% set final = section.summary.final %}
+  {% set labels = section.summary.labels %}
+  <dl class="summary-states">
+    <dt>{{ labels.execution }}</dt><dd>{{ final.execution }}</dd>
+    <dt>{{ labels.validation }}</dt><dd>{{ final.validation }}</dd>
+  </dl>
+
+  <h4>{{ labels.figures }}</h4>
+  {% if final.figures %}
+  <table class="summary-figures">
+    <tbody>
+      {% for rotulo, valor in final.figures %}
+      <tr><th scope="row">{{ rotulo }}</th><td class="num">{{ valor }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Las cifras clave no están disponibles: esta corrida no evaluó desempeño ni estabilidad.</p>
+  {% endif %}
+
+  <h4>{{ labels.review }}</h4>
+  {% if final.review %}
+  <ul class="summary-review">
+    {% for alerta in final.review %}
+    <li>⚠ {{ alerta }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{{ section.summary.sin_alertas }}</p>
+  {% endif %}
+
+  <h4>{{ labels.decisions }}</h4>
+  {% if final.decisions %}
+  <ul class="summary-decisions">
+    {% for linea in final.decisions %}
+    <li>{{ linea }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{{ section.summary.sin_decisiones }}</p>
+  {% endif %}
+
+  <h4>{{ labels.files }}</h4>
+  <dl class="summary-files">
+    {% for rotulo, ruta in final.files %}
+    <dt>{{ rotulo }}</dt><dd>{{ ruta }}</dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
+</section>

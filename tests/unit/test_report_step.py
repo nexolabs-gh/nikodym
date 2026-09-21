@@ -85,7 +85,14 @@ ROOT_SEED = 20_240_629
 # lee las palabras de su fuente única en `nikodym.eda` y «cardinalidad excesiva» pasa a «alta
 # cardinalidad», la misma que pinta el panel. Medido con `diff` del HTML entre el árbol anterior
 # (`e56eec8`, por `git archive`) y éste: cambia **exactamente una línea**, ese párrafo.
-GOLDEN_STEP_HTML_SHA256 = "947ddd7bf0fbbc4fac9d5a61316def4a6f8fc26aae297675fee4fceed21a537e"
+# Recalculado el 2026-09-21 (capa C de FLUJO-GUIADO-SCORECARD, C1): el documento gana la página
+# ejecutiva «Resumen de la corrida» tras la portada (`kind="summary"`, que el step arma desde el
+# Study con los constructores de `nikodym.guided.summaries`). Medido con `diff` entre el render
+# con y sin la página sobre este mismo Study: 20 líneas, SÓLO la sección nueva (aquí, con el
+# motivo de que el resumen no se arma sobre cards sintéticas) y sus tres entradas de índice
+# (sidebar, índice y «En esta página»); el render sin la página da exactamente el golden anterior
+# `947ddd7b…`. El CSS no se tocó: el golden del renderer sobre bundles sin corrida no se mueve.
+GOLDEN_STEP_HTML_SHA256 = "a21554115c731013459fb905a7246cec96e0ef12423c3c3fa49d54f88a8dbcc5"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -211,6 +218,7 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
         # 🔴 Enumerado, no derivado de `CHAPTER_SPECS`: derivarlo obliga a reimplementar aquí las
         # condiciones que el builder evalúa, y ya se rompió una vez por ignorar el tercer gate
         # (`requires_any_domain`) al pasar `provisions` a *any-of* en D-CAP-1.
+        "executive_summary",  # capa C: la página ejecutiva, que el step arma desde el Study
         "toc",
         "introduction",
         "context",
@@ -351,6 +359,7 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
         # 🔴 Enumerado, no derivado de `CHAPTER_SPECS`: derivarlo obliga a reimplementar aquí las
         # condiciones que el builder evalúa, y ya se rompió una vez por ignorar el tercer gate
         # (`requires_any_domain`) al pasar `provisions` a *any-of* en D-CAP-1.
+        "executive_summary",  # capa C: la página ejecutiva, que el step arma desde el Study
         "toc",
         "introduction",
         "context",

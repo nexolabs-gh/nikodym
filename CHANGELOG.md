@@ -5,6 +5,31 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Añadido
+
+- **El informe abre con la página ejecutiva «Resumen de la corrida»** (capa C de
+  FLUJO-GUIADO-SCORECARD, C1; D-FLU-4). Tras la portada y antes del resumen ejecutivo, en HTML,
+  PDF, Word y fuente editable, un capítulo sin número reproduce el resumen final de la corrida
+  —qué corrió sin fallos hasta el informe, el estado técnico de la validación formal en palabras,
+  las cinco cifras clave, qué revisar, las decisiones humanas con su motivo y dónde queda cada
+  archivo— desde **los mismos constructores** que `Scorecard.summary()` y que la pestaña
+  Resultados (`nikodym.guided.summaries`): ningún renderer calcula ni formatea nada. Sin
+  decisiones humanas el capítulo dice lo mismo que la pantalla («Ninguna decisión humana
+  registrada; lo que se decidió vive en el config de la corrida»); sólo aparece en corridas con
+  etapas del scorecard (una corrida IFRS 9 sin scorecard no recibe su molde); un informe armado
+  a mano, sin corrida, no lo trae y su HTML es byte a byte el de siempre; y un resumen que no se
+  pueda armar no tumba el informe: el capítulo dice por qué no hay resumen. Los archivos se
+  nombran sólo con lo que el config manda al renderizar —el informe se escribe antes de que la
+  corrida consolide su evidencia, así que el registro de auditoría y la ficha se citan por su
+  nombre en esa carpeta, no por una ruta inventada—. El evento `decision_del_usuario` del
+  registro de auditoría gana la clave aditiva `variables` (las variables que la decisión nombró;
+  `valor` sigue siendo la hoja escrita), y `Study` expone `preamble`, lo que la corrida declaró
+  antes del primer paso. El gate de códigos internos cubre la página; el golden del informe del
+  step se re-ancló midiendo que el HTML cambia sólo por el capítulo nuevo y sus entradas de
+  índice.
+
 ## [1.18.0] — 2026-09-21
 
 ### Añadido

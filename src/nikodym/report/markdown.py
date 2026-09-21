@@ -80,6 +80,10 @@ class MarkdownReportRenderer:
         }
 
         blocks: list[str] = [_front_matter(document, self.config), _cover(document)]
+        # La página ejecutiva va tras la portada y antes del resumen ejecutivo, como en el HTML.
+        blocks.extend(
+            _summary(section) for section in document["sections"] if section["kind"] == "summary"
+        )
         blocks.append(_executive(document["executive"]))
         for section in document["sections"]:
             block = _section(section, self.config)
@@ -249,6 +253,56 @@ def _cover(document: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _texto_inline_literal(texto: str) -> str:
+    """Una línea de texto ajeno al motor como texto literal de pandoc, dentro de un bloque.
+
+    Mismo escape que :func:`_texto_literal_pandoc` —toda la puntuación ASCII con barra— pero en
+    una sola línea, para lo que va en una lista o en una celda y no en un *line block*: el motivo
+    de una decisión humana lo escribió una persona, y ``[x](url)`` o ``<script>`` no pueden
+    volverse marcado activo en la fuente editable.
+    """
+    return _PUNTUACION_ASCII.sub(r"\\\1", " ".join(texto.split()))
+
+
+def _summary(section: Mapping[str, Any]) -> str:
+    """La página ejecutiva: el resumen final de la corrida, desde la vista canónica.
+
+    Los rótulos de los bloques son los de ``nikodym.guided.summaries`` (viajan en la vista):
+    la fuente editable dice lo mismo que la consola, el notebook, la pantalla y el HTML.
+    """
+    lines = [_heading(section), ""]
+    for paragraph in section["body"]:
+        lines.extend([paragraph, ""])
+    summary = section["summary"] or {}
+    if summary.get("error"):
+        lines.extend(["::: {.callout-warning}", str(summary["error"]), ":::"])
+        return "\n".join(lines).rstrip()
+    final = summary.get("final")
+    if not final:
+        return "\n".join(lines).rstrip()
+    labels = summary["labels"]
+    lines.append(f"**{labels['execution']}:** {_escape_cell(final['execution'])}  ")
+    lines.extend([f"**{labels['validation']}:** {_escape_cell(final['validation'])}", ""])
+    lines.extend([f"**{labels['figures']}**", ""])
+    if final["figures"]:
+        lines.append(_pipe_table(("Cifra", "Valor"), [tuple(fila) for fila in final["figures"]]))
+    else:
+        lines.append("Las cifras clave no están disponibles en esta corrida.")
+    lines.extend(["", f"**{labels['review']}**", ""])
+    if final["review"]:
+        lines.extend(f"- ⚠ {_texto_inline_literal(alerta)}" for alerta in final["review"])
+    else:
+        lines.append(f"_{summary['sin_alertas']}_")
+    lines.extend(["", f"**{labels['decisions']}**", ""])
+    if final["decisions"]:
+        lines.extend(f"- {_texto_inline_literal(linea)}" for linea in final["decisions"])
+    else:
+        lines.append(f"_{summary['sin_decisiones']}_")
+    lines.extend(["", f"**{labels['files']}**", ""])
+    lines.append(_pipe_table(("Archivo", "Dónde"), [tuple(fila) for fila in final["files"]]))
+    return "\n".join(lines).rstrip()
+
+
 def _executive(executive: Mapping[str, Any]) -> str:
     """Resumen ejecutivo: métricas clave y el veredicto, que firma un humano."""
     lines = ["## Resumen ejecutivo", "", _verdict(), ""]
@@ -285,8 +339,8 @@ def _verdict() -> str:
 
 def _section(section: Mapping[str, Any], config: ReportConfig) -> str:
     """Escribe una sección del documento; el índice lo genera Quarto desde los encabezados."""
-    if section["kind"] == "toc":
-        return ""
+    if section["kind"] in {"toc", "summary"}:
+        return ""  # el índice lo arma Quarto; la página ejecutiva ya se escribió tras la portada
     lines = [_heading(section), ""]
     if section["status"] == "missing":
         lines.extend(

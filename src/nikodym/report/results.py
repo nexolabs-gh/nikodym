@@ -135,7 +135,7 @@ class ReportInputBundle(_ReportBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     _COPY_ON_ACCESS_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"cards", "results", "tables", "figures", "pipeline_params"}
+        {"cards", "results", "tables", "figures", "pipeline_params", "summary"}
     )
 
     lineage: LineageBundleLike
@@ -175,8 +175,18 @@ class ReportInputBundle(_ReportBaseModel):
     que ``INFRA_SECTIONS`` mantiene (el informe no entra al ``config_hash`` porque no es cálculo).
     Un campo propio dice lo que es y no toca el anexo.
     """
+    summary: dict[str, Any] | None = Field(default=None)
+    """El resumen final de la corrida para la página ejecutiva (capa C de FLUJO-GUIADO-SCORECARD).
 
-    @field_validator("cards", "results", "tables", "figures", "pipeline_params", mode="before")
+    Aditivo (default ``None``): lo llena ``ReportBuilder.collect`` desde el ``Study`` con los
+    mismos constructores que ``Scorecard.summary()`` —``{"final": FinalSummary.to_dict(),
+    "labels": …, "error": None}``, o ``{"error": <motivo>}`` si el resumen no se pudo armar—; un
+    bundle armado a mano no lo trae y el capítulo no se emite.
+    """
+
+    @field_validator(
+        "cards", "results", "tables", "figures", "pipeline_params", "summary", mode="before"
+    )
     @classmethod
     def _copia_contenedores_mutables(cls, value: Any) -> Any:
         """Copia cards, tablas y figuras para aislar el bundle de mutaciones externas."""

@@ -123,6 +123,8 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     # builder correctamente omite. Una lista escrita a mano falla ruidosamente cuando el documento
     # cambie, que es exactamente lo que se quiere de un golden.
     assert emitidos == (
+        # Capa C: la página ejecutiva, tras la portada; `collect` la arma desde el Study.
+        "executive_summary",
         "toc",
         "introduction",
         "context",

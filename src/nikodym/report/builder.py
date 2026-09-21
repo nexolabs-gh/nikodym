@@ -38,6 +38,7 @@ from nikodym.report.document import (
     CANONICAL_SECTION_ORDER,
     CHAPTER_SPECS,
     CONTEXT_DOMAINS,
+    EXECUTIVE_SUMMARY_ID,
     IFRS9_DOMAINS,
     METHODOLOGY_STEPS,
     PIPELINE_DOMAINS,
@@ -209,6 +210,9 @@ class ReportBuilder:
             currency=(self.config.currency or ""),
             # D-SC-14: lo declarado en `governance`, que existe cuando corre `report`.
             governance=_governance_declaration(getattr(study.config, "governance", None)),
+            # Capa C de FLUJO-GUIADO-SCORECARD: el resumen final de la corrida, desde los mismos
+            # constructores que `Scorecard.summary()` y la pantalla, para la página ejecutiva.
+            summary=_run_summary(study, self.config),
         )
         return bundle.model_copy(update={"sections": self.build_sections(bundle)})
 
@@ -237,6 +241,8 @@ class ReportBuilder:
                 domain in bundle.cards for domain in spec.requires_any_domain
             ):
                 continue  # condicional any-of: ninguno de sus dominios corrió ⇒ sin capítulo
+            if spec.kind == "summary" and bundle.summary is None:
+                continue  # página ejecutiva: sin corrida (bundle armado a mano) no hay resumen
             if spec.numbered:
                 chapter_number += 1
                 number = str(chapter_number)
@@ -272,6 +278,8 @@ class ReportBuilder:
                 "table_keys": tuple(bundle.tables),
                 "figure_keys": tuple(bundle.figures),
             }
+        elif spec.kind == "summary":
+            payload = dict(bundle.summary or {})
         return ReportSection(
             id=spec.id,
             title=spec.title,
@@ -559,6 +567,13 @@ class ReportBuilder:
 
 def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]:
     """Prosa determinista del capítulo; los capítulos sin prosa propia devuelven vacío."""
+    if chapter_id == EXECUTIVE_SUMMARY_ID:
+        return (
+            "Lo que cuenta la corrida al terminar, con la misma fuente que la puerta guiada y la "
+            "pestaña Resultados: el estado de la ejecución y de la validación técnica, las cifras "
+            "clave, qué revisar, las decisiones humanas con su motivo y dónde queda cada archivo. "
+            "El veredicto lo firma el validador en el resumen ejecutivo.",
+        )
     if chapter_id == "model_card":
         return prose.model_card_body(bundle)
     if chapter_id == "context":
@@ -594,6 +609,109 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
             "del código y la semilla raíz. Con estos cuatro valores el resultado es reproducible.",
         )
     return ()
+
+
+def _run_summary(study: Study, config: ReportConfig) -> dict[str, Any]:
+    """El resumen final de la corrida para la página ejecutiva, o el motivo de que no lo haya.
+
+    Los mismos constructores que ``Scorecard.summary()`` y que la pestaña Resultados
+    (:mod:`nikodym.guided.summaries`, import perezoso: arrastra los mapas de rótulos de los
+    dominios y ``import nikodym.report`` tiene que seguir liviano). El informe se renderiza como
+    último paso, antes de que ``nikodym.run`` consolide la evidencia, así que el contexto no
+    conoce la carpeta de la corrida y no la inventa: de sus archivos dice lo que el config manda
+    (:func:`_archivos_que_el_informe_conoce`). Un resumen que no se pueda armar no tumba el
+    informe —el documento es lo que la persona pidió—: se publica el motivo y el capítulo lo
+    dice, la misma política que la pantalla.
+    """
+    from nikodym.guided.summaries import (
+        RESUMEN_FINAL_ROTULOS,
+        SIN_ALERTAS,
+        SIN_DECISIONES,
+        SummaryContext,
+        build_final_summary,
+        build_stage_summaries,
+        decision_lines_from_preamble,
+        partition_label_from_config,
+        source_label_from_config,
+    )
+
+    payload: dict[str, Any] = {
+        "final": None,
+        "labels": dict(RESUMEN_FINAL_ROTULOS),
+        "sin_alertas": SIN_ALERTAS,
+        "sin_decisiones": SIN_DECISIONES,
+        "error": None,
+    }
+    try:
+        contexto = SummaryContext(
+            project_dir=None,
+            run_dir=None,
+            source_label=source_label_from_config(study.config),
+            partition_label=partition_label_from_config(study.config),
+            decision_lines=decision_lines_from_preamble(getattr(study, "preamble", ())),
+            extra_files=_archivos_que_el_informe_conoce(study, config),
+        )
+        etapas = build_stage_summaries(study, contexto)
+        final = build_final_summary(study, etapas, contexto)
+    except Exception as exc:  # se publica el motivo; el informe no se pierde por una frase
+        texto = str(exc).strip() or type(exc).__name__
+        payload["error"] = f"El resumen de la corrida no se pudo armar: {texto}"
+        return payload
+    payload["final"] = final.to_dict()
+    return payload
+
+
+def _archivos_que_el_informe_conoce(
+    study: Study, config: ReportConfig
+) -> tuple[tuple[str, str], ...]:
+    """Dónde queda cada archivo, dicho sólo con lo que el config manda al renderizar.
+
+    El HTML se nombra por su ruta (``output_dir`` + ``basename``, la misma que publica
+    ``ReportResult.html_path``); los formatos pedidos, por la suya, con la salvedad de que un
+    extra ausente los degrada; el registro de auditoría y la ficha, por su nombre en la carpeta
+    de evidencia, que el informe no conoce porque se escribe antes de consolidarla.
+    """
+    archivos: list[tuple[str, str]] = []
+    output_dir = config.output_dir.strip()
+    if output_dir:
+        base = Path(output_dir)
+        archivos.append(("Informe HTML", str(base / f"{config.basename}.html")))
+        derivados = (
+            ("pdf", "Informe PDF", ".pdf", " (se escribe si el extra pdf está instalado)"),
+            ("docx", "Informe Word", ".docx", " (se escribe si el extra docx está instalado)"),
+            ("md", "Fuente editable (Quarto)", ".qmd", ""),
+        )
+        for formato, rotulo, sufijo, salvedad in derivados:
+            if formato in config.formats:
+                archivos.append((rotulo, f"{base / f'{config.basename}{sufijo}'}{salvedad}"))
+    else:
+        archivos.append(("Informe HTML", "no se escribió en disco: el informe se pidió en memoria"))
+    audit = getattr(study.config, "audit", None)
+    if audit is not None and _campo(audit, "enabled", True):
+        trail = Path(str(_campo(audit, "trail_filename", "audit_trail.jsonl")))
+        archivos.append(
+            (
+                "Registro de auditoría",
+                str(trail)
+                if trail.is_absolute()
+                else f"{trail.name}, en la carpeta de evidencia de la corrida",
+            )
+        )
+    if getattr(study.config, "governance", None) is not None:
+        archivos.append(
+            (
+                "Ficha del modelo",
+                "model_card.json y model_card.md, en la carpeta de evidencia de la corrida",
+            )
+        )
+    return tuple(archivos)
+
+
+def _campo(seccion: Any, nombre: str, default: Any) -> Any:
+    """Un campo de una sección del config que puede llegar validada o como el dict crudo."""
+    if isinstance(seccion, Mapping):
+        return seccion.get(nombre, default)
+    return getattr(seccion, nombre, default)
 
 
 def _governance_declaration(value: Any) -> GovernanceDeclaration | None:

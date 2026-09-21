@@ -45,6 +45,7 @@ from nikodym.guided.summaries import (
     SummaryContext,
     build_final_summary,
     build_stage_summary,
+    decision_line,
     partition_label,
 )
 from nikodym.report.prose import _miles, _plural
@@ -1618,10 +1619,12 @@ class Scorecard:
         }
         eventos: list[tuple[str, dict[str, Any]]] = [(GUIDED_STEP, entrada)]
         eventos.extend((GUIDED_STEP, inferencia.payload()) for inferencia in self._inferences)
-        eventos.extend(
-            (GUIDED_STEP, {k: v for k, v in decision.items() if k != "variables"})
-            for decision in self._decisions
-        )
+        # El evento lleva también `variables` —el sujeto de la decisión— además de `valor` (la
+        # hoja que quedó escrita, acumulada): es lo que la línea «exclude score — «motivo»» del
+        # resumen final y de la página ejecutiva del informe necesitan para decirse igual desde
+        # el trail que desde la memoria (capa C). Clave aditiva del payload; `DecisionRecord` la
+        # ignora como ya ignora `autor` y `motivo`.
+        eventos.extend((GUIDED_STEP, dict(decision)) for decision in self._decisions)
         return tuple(eventos)
 
     def _contar_etapa(self, stage: str, study: Any) -> None:
@@ -1664,10 +1667,7 @@ class Scorecard:
         )
 
     def _lineas_de_decision(self) -> list[str]:
-        lineas: list[str] = []
-        for decision in self._decisions:
-            variables = ", ".join(decision.get("variables", ()))
-            lineas.append(f"{decision.get('accion')} {variables} — «{decision.get('motivo')}»")
+        lineas: list[str] = [decision_line(decision) for decision in self._decisions]
         if lineas and self._pending_decisions:
             lineas.append(
                 "Hay decisiones posteriores a la última corrida: llama a resume() para aplicarlas."

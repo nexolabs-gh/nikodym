@@ -280,6 +280,12 @@ class Study:
         # `(dominio, clave)`: esto es el resumen firmable, no un duplicado del store.
         self.results: dict[str, Any] = {}
         self.run_context = RunContext()
+        # Lo que la corrida declaró al trail antes del primer paso (`run(preamble=…)`): la puerta
+        # por la que entró, sus inferencias y las decisiones humanas con motivo. Se conserva para
+        # que un paso que corre DENTRO de la corrida —el informe, que se renderiza el último y no
+        # puede leer el trail consolidado— lo reproduzca desde la misma fuente (capa C de
+        # FLUJO-GUIADO-SCORECARD). No se serializa: el trail es su registro durable.
+        self._preamble: tuple[tuple[str | None, dict[str, Any]], ...] = ()
         self._injected_artifacts: set[ArtifactKey] = set()
         self._inert_injected_artifacts: tuple[ArtifactKey, ...] = ()
         self._resolved_step_names: frozenset[str] = frozenset()
@@ -317,6 +323,15 @@ class Study:
     def inert_injected_artifacts(self) -> tuple[ArtifactKey, ...]:
         """Expone a la API las claves externas que ningún paso activo consume."""
         return self._inert_injected_artifacts
+
+    @property
+    def preamble(self) -> tuple[tuple[str | None, dict[str, Any]], ...]:
+        """Las declaraciones ``(paso, payload)`` que :meth:`run` emitió antes del primer paso.
+
+        Copia de lo que se pasó en ``run(preamble=…)``, en el mismo orden; vacía si la corrida
+        no declaró nada o todavía no corrió. Es de sólo lectura: el registro durable es el trail.
+        """
+        return tuple((paso, dict(payload)) for paso, payload in self._preamble)
 
     # --- Orquestación (motor v1: orden de declaración + validación de prerequisitos, CT-1) -----
 
@@ -411,7 +426,8 @@ class Study:
             # del motor. Van DENTRO del manejo de fallos: un sink que no pueda escribirlas deja la
             # corrida fallida con su diagnóstico, no «running» para siempre (pasada 1 de Codex
             # sobre la capa A).
-            for paso_declarante, payload in preamble:
+            self._preamble = tuple((paso, dict(payload)) for paso, payload in preamble)
+            for paso_declarante, payload in self._preamble:
                 self._emit("decision", paso_declarante, dict(payload))
             for paso in pasos:
                 paso_actual = paso
