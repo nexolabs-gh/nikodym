@@ -1,25 +1,25 @@
 {
  "status": "done",
- "run_id": "2defa63dd2934d44a7117d58c9c5d909",
+ "run_id": "87bf47cf702642d4b9330b55f60e9eaa",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "104226e0c1bb2c4a46356ca4a52be047e738b6d7",
+  "git_sha": "664872ae9a9165656bea7fa0c133b0024f203108",
   "git_dirty": false,
   "data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
   "config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "55e3e6faca67ce0ada608c8aa3f9bedba5e7d1348837dda23ed676d8f3b58270",
+  "runtime_environment_hash": "557cef544f1141f89ae5f86b17eff20ee4ed7e084bbf81c2eccaa5f8efe4cfa1",
   "library_versions": {
-   "nikodym": "1.16.0",
+   "nikodym": "1.18.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-15T13:26:30.596779Z",
+  "created_at": "2026-09-21T19:58:14.973580Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -999,5 +999,99 @@
     "provisioning_ifrs9.card"
    ]
   }
+ },
+ "summaries": {
+  "stages": [
+   {
+    "stage": "data",
+    "label": "Datos y muestras",
+    "lines": [
+     "Archivo: ifrs9_retail_latam",
+     "6.000 filas · 578 malos (9,63 %) · 17 columnas",
+     "Muestras: Desarrollo 4.024 (9,64 %) · Holdout 1.030 (10,00 %) · Fuera de tiempo (OOT) 946 (9,20 %) — cohortes fuera de tiempo: 2024Q2 (columna «cohorte»); holdout 20 % del resto",
+     "Evidencia de la corrida: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+    ],
+    "alerts": [],
+    "table": {
+     "columns": [
+      "Muestra",
+      "Filas",
+      "Malos",
+      "Tasa de malos"
+     ],
+     "rows": [
+      [
+       "Desarrollo",
+       "4.024",
+       "388",
+       "9,64 %"
+      ],
+      [
+       "Holdout",
+       "1.030",
+       "103",
+       "10,00 %"
+      ],
+      [
+       "Fuera de tiempo (OOT)",
+       "946",
+       "87",
+       "9,20 %"
+      ]
+     ]
+    }
+   },
+   {
+    "stage": "report",
+    "label": "Informe y ficha",
+    "lines": [
+     "Informe HTML: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.html",
+     "Informe Word: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.docx",
+     "Informe PDF: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.pdf",
+     "Fuente editable (Quarto): /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.qmd",
+     "Registro de auditoría: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa/audit_trail.jsonl"
+    ],
+    "alerts": [],
+    "table": null
+   }
+  ],
+  "final": {
+   "execution": "completada",
+   "validation": "no corrió: la validación formal no está en el config",
+   "figures": [],
+   "review": [],
+   "decisions": [],
+   "files": [
+    [
+     "Carpeta del proyecto",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+    ],
+    [
+     "Evidencia de la corrida",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+    ],
+    [
+     "Registro de auditoría",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa/audit_trail.jsonl"
+    ],
+    [
+     "Informe HTML",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.html"
+    ],
+    [
+     "Informe Word",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.docx"
+    ],
+    [
+     "Informe PDF",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.pdf"
+    ],
+    [
+     "Fuente editable (Quarto)",
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.qmd"
+    ]
+   ]
+  },
+  "error": null
  }
 }

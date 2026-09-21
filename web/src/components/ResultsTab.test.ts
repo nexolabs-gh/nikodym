@@ -288,8 +288,10 @@ describe("«Selección de variables» (D-SC-10) sobre la corrida real de la demo
   // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
   // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
   // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
-  // se retira del render; la ficha real se mide en su propio bloque.
-  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
+  // se retira del render; la ficha real se mide en su propio bloque. El resumen de la corrida
+  // (la demo lo trae desde la recaptura de 1.18.0) rotula cada etapa con el título de su panel
+  // y se retira por la misma razón; se mide en su propio bloque (D-FLU-8).
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null, summaries: null }
   const html = render(demo)
 
   it("pinta la sección una vez, con candidatas, seleccionadas y excluidas", () => {
@@ -347,8 +349,10 @@ describe("«Selección de variables»: guard por presencia y avisos declarados",
   // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
   // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
   // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
-  // se retira del render; la ficha real se mide en su propio bloque.
-  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
+  // se retira del render; la ficha real se mide en su propio bloque. El resumen de la corrida
+  // (la demo lo trae desde la recaptura de 1.18.0) rotula cada etapa con el título de su panel
+  // y se retira por la misma razón; se mide en su propio bloque (D-FLU-8).
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null, summaries: null }
 
   it("sin `selection` la sección entera desaparece, y el resto del panel sigue", () => {
     const html = render({ ...demo, selection: undefined })
@@ -389,8 +393,10 @@ describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
   // El fixture real trae la ficha del modelo desde la recaptura de 1.14.0, y sus filas de
   // evidencia publican los valores del motor tal cual (auditables: `low_iv`, `not_evaluable`…)
   // y rotulan cada dominio con el título de su panel. Aquí se mide OTRO panel, así que la ficha
-  // se retira del render; la ficha real se mide en su propio bloque.
-  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null }
+  // se retira del render; la ficha real se mide en su propio bloque. El resumen de la corrida
+  // (la demo lo trae desde la recaptura de 1.18.0) rotula cada etapa con el título de su panel
+  // y se retira por la misma razón; se mide en su propio bloque (D-FLU-8).
+  const demo = { ...(demoF1 as unknown as ResultsResponse), model_card: null, summaries: null }
 
   it("una fila por comparación, con el rótulo que el informe usa", () => {
     const html = render(demo)
@@ -504,9 +510,11 @@ describe("resumen del peor PSI en «Estabilidad del score» (D-SC-12)", () => {
 })
 
 describe("«Validación formal» (D-SC-9) sobre una corrida real", () => {
+  // Sin el resumen de la corrida: su etapa «Validación formal» rotula igual que el panel medido.
   const conValidacion = (validation: ValidationResult | null): ResultsResponse => ({
     ...(demoF1 as unknown as ResultsResponse),
     validation,
+    summaries: null,
   })
 
   it("publica el estado técnico del motor tal cual, aunque sea «Falla»", () => {
@@ -1166,8 +1174,13 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     expect(render(demoF4 as unknown as ResultsResponse)).not.toContain(TITULO_EDA)
     const f1 = render(demoF1 as unknown as ResultsResponse)
     expect(f1).toContain('data-eda-chart="bar"')
-    // El título se cuenta sin la ficha, que rotula el dominio con el mismo nombre en su evidencia.
-    const f1SinFicha = render({ ...(demoF1 as unknown as ResultsResponse), model_card: null })
+    // El título se cuenta sin la ficha ni el resumen de la corrida, que rotulan el dominio con el
+    // mismo nombre (la ficha en su evidencia; el resumen, en su etapa plegada).
+    const f1SinFicha = render({
+      ...(demoF1 as unknown as ResultsResponse),
+      model_card: null,
+      summaries: null,
+    })
     expect(ocurrencias(f1SinFicha, TITULO_EDA)).toBe(1)
   })
 })
@@ -1324,12 +1337,26 @@ describe("el resumen de la corrida (D-FLU-8): la misma fuente que la puerta guia
     expect(html).toContain("Ninguna decisión humana registrada; lo que se decidió vive en el config de la")
   })
 
-  it("sin resúmenes no hay bloque, ni vacío ni fabricado (los fixtures de la demo entre ellos)", () => {
+  it("sin resúmenes no hay bloque, ni vacío ni fabricado", () => {
     expect(ocurrencias(render(minima(null)), "Resumen de la corrida")).toBe(0)
     for (const fixture of [demoF1, demoF4]) {
-      const html = render(fixture as unknown as ResultsResponse)
+      const html = render({ ...(fixture as unknown as ResultsResponse), summaries: null })
       expect(ocurrencias(html, "Resumen de la corrida")).toBe(0)
     }
+  })
+
+  it("los fixtures de la demo traen el resumen desde la recaptura de 1.18.0 y el bloque se pinta una vez", () => {
+    // Una etapa plegada por cada etapa que corrió: once en el scorecard F1, dos en el IFRS 9.
+    const plegadas = (html: string): number =>
+      ocurrencias(html, '<summary class="cursor-pointer text-sm font-medium text-foreground">')
+    const f1 = render(demoF1 as unknown as ResultsResponse)
+    expect(ocurrencias(f1, "Resumen de la corrida")).toBe(1)
+    expect(ocurrencias(f1, "Resumen por etapa")).toBe(1)
+    expect(plegadas(f1)).toBe(11)
+    expect(f1).toContain("completada")
+    const f4 = render(demoF4 as unknown as ResultsResponse)
+    expect(ocurrencias(f4, "Resumen de la corrida")).toBe(1)
+    expect(plegadas(f4)).toBe(2)
   })
 
   it("con `error` dice por qué no hay resumen en vez de esconder el hueco", () => {
