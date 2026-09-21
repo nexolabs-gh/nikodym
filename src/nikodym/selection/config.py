@@ -17,9 +17,9 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.exceptions import ConfigError
 
 SelectionPriority = Literal["iv", "auc", "ks", "gini", "name"]
@@ -259,6 +259,8 @@ class StabilitySelectionConfig(NikodymBaseConfig):
 
 class SelectionConfig(NikodymBaseConfig):
     """Filtra las variables WoE candidatas por IV, correlación, VIF y estabilidad PSI/CSI."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

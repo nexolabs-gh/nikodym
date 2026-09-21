@@ -17,9 +17,9 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Final, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 
 AiProvider = Literal["anthropic", "none"]
 BasicReportFormat = Literal["html", "csv", "xlsx", "pdf", "md", "docx"]
@@ -365,6 +365,8 @@ class SectionPolicyConfig(NikodymBaseConfig):
 
 class ReportConfig(NikodymBaseConfig):
     """Genera el informe auditable de la corrida y elige sus formatos de salida en `formats`."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     schema_version: str = Field(
         default="1.0.0",

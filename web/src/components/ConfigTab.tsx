@@ -62,6 +62,17 @@ import {
 } from "@/lib/effective-defaults"
 import { DEMO_MODE } from "@/lib/demo-runtime"
 import {
+  AVANZADO,
+  advancedLeaves,
+  advancedSchema,
+  advancedSummary,
+  countChangedAdvanced,
+  declaresEssentials,
+  errorsInsideAdvanced,
+  essentialFields,
+  insideAdvanced,
+} from "@/lib/essentials"
+import {
   type Defs,
   type JsonSchema,
   defaultForSchema,
@@ -662,11 +673,90 @@ function SectionToggle(props: {
 }
 
 /**
- * Formulario de UNA sección (`section`), agrupando sus campos por `ui_group` (contrato SDD-05
- * §5.5): si la sección declara grupos, los pinta como sub-accordions (abiertos por defecto) con el
- * título del grupo; si no (caso `data`, sub-modelos sin `ui_group`), los pinta planos en una
- * tarjeta. Los `path` de cada campo (`[section, name]`) no cambian, así que la validación en vivo,
- * el `config_hash` y el round-trip YAML siguen operando igual (B30).
+ * Los campos de UN objeto agrupados por `ui_group` (contrato SDD-05 §5.5): si declara grupos, un
+ * sub-accordion por grupo (todos abiertos) con el título del grupo; si no (caso `data`: sub-modelos
+ * sin `ui_group`), la lista plana. Con `inner` se pinta sin su propia tarjeta, porque ya vive
+ * dentro de otra (el bloque «Avanzado»). Los `path` de cada campo no cambian: la validación en
+ * vivo, el `config_hash` y el round-trip YAML siguen operando igual (B30).
+ */
+function GroupedFields(props: {
+  schema: JsonSchema
+  inner: boolean
+  renderField: (field: [string, JsonSchema], titledByParent?: boolean) => React.ReactNode
+}) {
+  const { schema, inner, renderField } = props
+  const groups = groupedFields(schema)
+
+  // Sección sin grupos declarados (p.ej. `data`: sub-modelos sin ui_group) → lista plana.
+  if (groups.length <= 1) {
+    const fields = groups[0]?.fields ?? []
+    return (
+      <div
+        className={
+          inner
+            ? "space-y-5 pt-1 pb-2"
+            : "space-y-5 rounded-xl border border-border bg-card p-5 shadow-card"
+        }
+      >
+        {fields.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Esta sección no tiene campos configurables.
+          </p>
+        ) : (
+          // `(f) => renderField(f)` y no `renderField` a secas: `map` pasaría el índice como
+          // segundo argumento y acabaría en `titledByParent`.
+          fields.map((field) => renderField(field))
+        )}
+      </div>
+    )
+  }
+
+  // Varios grupos → un accordion por grupo, todos abiertos por defecto. La `value` es el índice
+  // (no el título) para no depender de que los títulos sean únicos.
+  return (
+    <Accordion
+      defaultValue={groups.map((_, index) => String(index))}
+      className={inner ? "" : "rounded-xl border border-border bg-card px-4 shadow-card"}
+    >
+      {groups.map((grp, index) => (
+        <AccordionItem key={index} value={String(index)}>
+          <AccordionTrigger className="font-display text-base">
+            {grp.group ?? "General"}
+          </AccordionTrigger>
+          <AccordionContent>
+            {/* Si el accordion ya se llama igual que su único campo, ese campo va sin su propio
+                título: si no, se lee «Documento / Documento». */}
+            <div className="space-y-5 pt-1 pb-2">
+              {grp.fields.map((field) =>
+                renderField(field, grupoTitulaASuUnicoCampo(grp)),
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  )
+}
+
+/** Valor del único ítem del bloque plegado; el accordion es controlado. */
+const AVANZADO_ITEM = "avanzado"
+
+/**
+ * Formulario de UNA sección (`section`).
+ *
+ * En una sección que ya declaró sus esenciales (`ui_essentials_declared`, D-FLU-8) se pintan
+ * abiertos y planos los campos con `ui_essential` y UN bloque «Avanzado» cerrado con el resto, que
+ * dice cuántos de sus campos difieren del valor de fábrica; dentro, los grupos (`ui_group`), la
+ * ayuda, la validación en vivo y las decisiones institucionales siguen como estaban. Las dos vistas
+ * editan el mismo config por los mismos `path` (`lib/essentials.ts`). Una sección sin la marca se
+ * pinta entera, agrupada por `ui_group`, como siempre (`GroupedFields`).
+ *
+ * El bloque se abre solo en dos casos, y los dos son de honestidad: si el backend reporta un error
+ * en un campo plegado (D-VIS-1: un error siempre tiene superficie; mientras dure, no se puede
+ * cerrar) y si un aviso pide el foco de un campo plegado («Ir al campo» del abanico, del preflight o
+ * de un error de otra sección). Lo segundo se decide DURANTE el render —esta pestaña no puede tener
+ * efectos, gate de `bootstrap.test.ts`— con el patrón de React de derivar estado del render
+ * anterior: el panel monta en el mismo commit y el efecto de foco de `App` encuentra el control.
  */
 function ConfigSectionForm(props: {
   sectionKey: string
@@ -682,6 +772,8 @@ function ConfigSectionForm(props: {
   datasetColumnValues?: Record<string, string[]>
   effectiveDefaults?: EffectiveDefaults
   disabledEnumValues?: Record<string, string[]>
+  /** El `path` cuyo foco está pedido (store), para abrir «Avanzado» si el campo vive ahí. */
+  focusPath?: string | null
 }) {
   const {
     sectionKey,
@@ -696,11 +788,13 @@ function ConfigSectionForm(props: {
     datasetColumnValues,
     effectiveDefaults,
     disabledEnumValues,
+    focusPath,
   } = props
+  // Si el usuario abrió o cerró «Avanzado» con el clic; `false` de fábrica: el bloque nace cerrado.
+  const [avanzadoAbierto, setAvanzadoAbierto] = useState(false)
   // El mapa de defaults de ESTA sección. Baja con el formulario campo a campo; los dos sitios que
   // `sections` no alcanza —filas de lista y variantes— lo resuelven por `$defs` (FieldRenderer).
   const sectionDefaults = childMap(nodeAtPath(effectiveDefaults, [sectionKey]))
-  const groups = groupedFields(schema)
   const required = new Set(schema.required ?? [])
   const renderField = (
     [name, fieldSchema]: [string, JsonSchema],
@@ -727,48 +821,58 @@ function ConfigSectionForm(props: {
     />
   )
 
-  // Sección sin grupos declarados (p.ej. `data`: sub-modelos sin ui_group) → lista plana.
-  if (groups.length <= 1) {
-    const fields = groups[0]?.fields ?? []
-    return (
-      <div className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-card">
-        {fields.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Esta sección no tiene campos configurables.
-          </p>
-        ) : (
-          // `(f) => renderField(f)` y no `renderField` a secas: `map` pasaría el índice como
-          // segundo argumento y acabaría en `titledByParent`.
-          fields.map((field) => renderField(field))
-        )}
-      </div>
-    )
+  if (!declaresEssentials(schema)) {
+    return <GroupedFields schema={schema} inner={false} renderField={renderField} />
   }
 
-  // Varios grupos → un accordion por grupo, todos abiertos por defecto. La `value` es el índice
-  // (no el título) para no depender de que los títulos sean únicos.
+  const esenciales = essentialFields(schema, defs)
+  const avanzado = advancedSchema(schema, defs)
+  const hojas = advancedLeaves(avanzado, defs, [sectionKey])
+  const cambiados = countChangedAdvanced(hojas, config, effectiveDefaults)
+  const erroresDentro = errorsInsideAdvanced(hojas, errors)
+  const focoDentro = focusPath != null && insideAdvanced(hojas, focusPath)
+  if (focoDentro && !avanzadoAbierto) setAvanzadoAbierto(true)
+  const abierto = avanzadoAbierto || erroresDentro > 0
+
   return (
-    <Accordion
-      defaultValue={groups.map((_, index) => String(index))}
-      className="rounded-xl border border-border bg-card px-4 shadow-card"
-    >
-      {groups.map((grp, index) => (
-        <AccordionItem key={index} value={String(index)}>
-          <AccordionTrigger className="font-display text-base">
-            {grp.group ?? "General"}
-          </AccordionTrigger>
-          <AccordionContent>
-            {/* Si el accordion ya se llama igual que su único campo, ese campo va sin su propio
-                título: si no, se lee «Documento / Documento». */}
-            <div className="space-y-5 pt-1 pb-2">
-              {grp.fields.map((field) =>
-                renderField(field, grupoTitulaASuUnicoCampo(grp)),
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
+    <div className="space-y-4">
+      <div
+        className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-card"
+        data-essentials={sectionKey}
+      >
+        {esenciales.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Esta sección corre con sus valores de fábrica y no pide ninguna decisión tuya. Lo que
+            quieras ajustar está en «{AVANZADO}».
+          </p>
+        ) : (
+          esenciales.map((field) => renderField(field))
+        )}
+      </div>
+      {avanzado ? (
+        <Accordion
+          value={abierto ? [AVANZADO_ITEM] : []}
+          onValueChange={(value) =>
+            setAvanzadoAbierto(Array.isArray(value) && value.includes(AVANZADO_ITEM))
+          }
+          className="rounded-xl border border-border bg-card px-4 shadow-card"
+        >
+          <AccordionItem value={AVANZADO_ITEM}>
+            <AccordionTrigger className="font-display text-base" data-advanced={sectionKey}>
+              <span>
+                {AVANZADO}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {advancedSummary(cambiados, erroresDentro)}
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <GroupedFields schema={avanzado} inner renderField={renderField} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : null}
+    </div>
   )
 }
 
@@ -818,6 +922,7 @@ export function ConfigTab({
     selectedDataset,
     datasetId,
     externalInputs,
+    focusField,
   } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
@@ -1265,6 +1370,9 @@ export function ConfigTab({
             ) : null}
             {sectionActive ? (
               <ConfigSectionForm
+                // `key`: el estado del bloque «Avanzado» es de CADA sección; sin él, abrirlo en
+                // una dejaría abierto el de la siguiente.
+                key={section}
                 sectionKey={section}
                 schema={resolvedSection}
                 defs={defs}
@@ -1277,6 +1385,7 @@ export function ConfigTab({
                 datasetColumnValues={datasetColumnValues}
                 effectiveDefaults={catalogo}
                 disabledEnumValues={payload.disabled_methodology_values}
+                focusPath={focusField}
               />
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-sm text-muted-foreground">

@@ -17,9 +17,9 @@ import math
 from collections.abc import Mapping
 from typing import Any, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.core.exceptions import ConfigError
 
@@ -53,6 +53,8 @@ _OPTIONAL_THRESHOLD_KEYS: frozenset[str] = frozenset(
 
 class PerformanceConfig(NikodymBaseConfig):
     """Mide el desempeño del modelo ya ajustado: AUC, Gini, KS y tablas de gains por partición."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     schema_version: str = Field(
         default="1.0.0",

@@ -127,6 +127,20 @@ class NikodymBaseConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+def declara_esenciales(schema: dict[str, Any]) -> None:
+    """``json_schema_extra`` de una sección que ya declaró sus campos esenciales (SDD-31, D-SIM-4).
+
+    Deja en el JSON Schema de la sección la marca ``ui_essentials_declared: true``. La pantalla
+    pinta abiertos sólo los campos con ``ui_essential`` y pliega el resto en «Avanzado»
+    **únicamente** en las secciones que llevan esta marca; una sección sin ella —un módulo que
+    todavía no pasó por su enmienda de simplicidad— se pinta entera, como siempre. La marca no se
+    deduce contando campos marcados porque una sección puede declarar **cero** esenciales
+    (``eda``: todo default, el resumen lo muestra). ``tests/unit/test_esenciales_por_seccion.py``
+    la ata en los dos sentidos: las doce secciones del scorecard la llevan y ninguna otra.
+    """
+    schema["ui_essentials_declared"] = True
+
+
 class ReproConfig(NikodymBaseConfig):
     """Parámetros de reproducibilidad del experimento."""
 

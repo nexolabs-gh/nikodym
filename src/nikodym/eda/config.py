@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import Requisito
 
 __all__ = [
@@ -328,6 +328,8 @@ class SamplingConfig(NikodymBaseConfig):
 
 class EdaConfig(NikodymBaseConfig):
     """Describe la cartera antes de modelar: tasa de incumplimiento, perfiles y calidad de datos."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

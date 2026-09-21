@@ -45,6 +45,18 @@ export interface JsonSchema {
   /** Texto de ayuda HUMANO por campo (tooltip ⓘ); si falta, el front cae en `description`. */
   ui_help?: string
   /**
+   * Campo esencial de su sección (SDD-31 D-SIM-4; enmienda FLUJO-GUIADO §3.8): la pantalla lo
+   * pinta abierto; lo que no lleva la marca se pliega en «Avanzado». Es metadato, no una hoja del
+   * config: el `config_hash` no lo mira. Se copia en `unwrapNullable` como los demás `ui_*`.
+   */
+  ui_essential?: boolean
+  /**
+   * Marca de SECCIÓN (`json_schema_extra` del modelo, `declara_esenciales` en el core): la sección
+   * ya declaró sus esenciales, aunque sean cero (`eda`). Sólo con ella el formulario divide
+   * esenciales/«Avanzado»; sin ella —un módulo que aún no pasó por su enmienda— se pinta entera.
+   */
+  ui_essentials_declared?: boolean
+  /**
    * Qué ES el valor de un campo que nombra columnas (D-PRE-3, vocabulario en :type:`ColumnRole`).
    *
    * Va declarado —y no sólo alcanzable por la firma de índice— porque es metadato que **viaja con
@@ -277,6 +289,7 @@ export function unwrapNullable(schema: JsonSchema): {
         ui_group: schema.ui_group ?? base.ui_group,
         ui_order: schema.ui_order ?? base.ui_order,
         ui_help: schema.ui_help ?? base.ui_help,
+        ui_essential: schema.ui_essential ?? base.ui_essential,
         column_role: schema.column_role ?? base.column_role,
         column_values_from: schema.column_values_from ?? base.column_values_from,
       },

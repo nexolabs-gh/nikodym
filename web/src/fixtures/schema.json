@@ -12371,7 +12371,8 @@
               }
             },
             "title": "BinningConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -12603,7 +12604,8 @@
               }
             },
             "title": "CalibrationConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -12663,7 +12665,8 @@
               "partition"
             ],
             "title": "DataConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -12746,7 +12749,8 @@
               }
             },
             "title": "EdaConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -13190,7 +13194,8 @@
               "purpose"
             ],
             "title": "GovernanceConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -13611,7 +13616,8 @@
               }
             },
             "title": "ModelConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -13798,7 +13804,8 @@
               }
             },
             "title": "PerformanceConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -14755,7 +14762,8 @@
               }
             },
             "title": "ReportConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -14951,7 +14959,8 @@
               }
             },
             "title": "ScorecardConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -15224,7 +15233,8 @@
               }
             },
             "title": "SelectionConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -15445,7 +15455,8 @@
               }
             },
             "title": "StabilityConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"
@@ -15837,7 +15848,8 @@
               }
             },
             "title": "ValidationConfig",
-            "type": "object"
+            "type": "object",
+            "ui_essentials_declared": true
           },
           {
             "type": "null"

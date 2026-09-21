@@ -16,9 +16,9 @@ from __future__ import annotations
 import math
 from typing import Any, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.exceptions import ConfigError
 
 ScoreDirection = Literal["higher_is_lower_risk", "higher_is_higher_risk"]
@@ -123,6 +123,8 @@ class PointOverrideConfig(NikodymBaseConfig):
 
 class ScorecardConfig(NikodymBaseConfig):
     """Traduce el log-odds del modelo a puntos de scorecard."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

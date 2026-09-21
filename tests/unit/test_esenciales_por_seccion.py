@@ -10,6 +10,8 @@ la rama con más esenciales, no la suma de todas, porque el formulario pinta una
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any, Final
 
 from nikodym.ui.routes import schema_payload
@@ -192,3 +194,74 @@ def test_la_marca_no_es_una_hoja_del_config() -> None:
     assert "ui_essential" not in NikodymConfig.model_fields
     schema, _ = _schema()
     assert "ui_essential" not in schema.get("properties", {})
+
+
+# ──────────── capa B (D-FLU-8): la marca de sección y el espejo del front ────────────
+
+_ESSENTIALS_TS: Final = (
+    Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "essentials.ts"
+)
+
+
+def _rama_de_seccion(nodo: Any, defs: dict[str, Any]) -> dict[str, Any]:
+    """La rama con campos de una sección de primer nivel, como la resuelve el formulario."""
+    for rama in _ramas(_resolver(nodo, defs), defs):
+        return rama
+    return _resolver(nodo, defs)
+
+
+def test_las_doce_secciones_declaran_sus_esenciales_y_ninguna_otra() -> None:
+    """``ui_essentials_declared`` (``declara_esenciales``) va en las doce y en ninguna más.
+
+    Es la marca que hace que la pantalla divida la sección (D-FLU-8): sin ella se pinta entera.
+    No se deduce contando marcas porque ``eda`` declara cero esenciales y también se divide.
+    """
+    schema, defs = _schema()
+    declaradas = {
+        nombre
+        for nombre, nodo in schema.get("properties", {}).items()
+        if _rama_de_seccion(nodo, defs).get("ui_essentials_declared") is True
+    }
+    assert declaradas == set(ESENCIALES_POR_SECCION), (
+        f"sin golden: {sorted(declaradas - set(ESENCIALES_POR_SECCION))}; "
+        f"sin marca: {sorted(set(ESENCIALES_POR_SECCION) - declaradas)}"
+    )
+
+
+def _golden_del_front() -> dict[str, tuple[str, ...]]:
+    """Lee ``ESSENTIALS_BY_SECTION`` de ``web/src/lib/essentials.ts`` sin ejecutar el bundle."""
+    texto = _ESSENTIALS_TS.read_text(encoding="utf-8")
+    cuerpo = re.search(
+        r"^export const ESSENTIALS_BY_SECTION: Record<string, readonly string\[\]> = \{\n(.*?)^\}",
+        texto,
+        re.S | re.M,
+    )
+    assert cuerpo is not None, "essentials.ts no declara `ESSENTIALS_BY_SECTION`"
+    golden: dict[str, tuple[str, ...]] = {}
+    for seccion, lista in re.findall(r"^  (\w+): \[(.*?)\],?$", cuerpo.group(1), re.S | re.M):
+        golden[seccion] = tuple(re.findall(r'"([^"]+)"', lista))
+    assert golden, "ESSENTIALS_BY_SECTION quedó sin entradas legibles"
+    return golden
+
+
+def test_el_front_espeja_el_golden_de_esenciales_en_los_dos_sentidos() -> None:
+    """El golden del front (`essentials.ts`) es el mismo que éste, sección a sección.
+
+    Una marca que se añada o se quite mueve los dos goldens en el mismo commit, o este gate lo
+    dice (molde ``MODEL_CARD_NO_PINTADO``: dos fuentes con un solo gate).
+    """
+    front = _golden_del_front()
+    assert set(front) == set(ESENCIALES_POR_SECCION), sorted(
+        set(front) ^ set(ESENCIALES_POR_SECCION)
+    )
+    for seccion, caminos in ESENCIALES_POR_SECCION.items():
+        assert sorted(front[seccion]) == sorted(caminos), seccion
+
+
+def test_el_gate_del_espejo_caza_lo_que_promete() -> None:
+    """Control negativo permanente del lector del golden TS: un camino de más o de menos se ve."""
+    front = _golden_del_front()
+    alterado = {**front, "eda": ("eda.univariate.columns",)}
+    assert alterado != dict(ESENCIALES_POR_SECCION)
+    sin_uno = {**front, "report": tuple(front["report"][:-1])}
+    assert sorted(sin_uno["report"]) != sorted(ESENCIALES_POR_SECCION["report"])

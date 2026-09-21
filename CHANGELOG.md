@@ -5,6 +5,27 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## No publicado
+
+### Añadido
+
+- **La pantalla pinta abiertos los campos esenciales de cada sección y pliega el resto en un
+  bloque «Avanzado» cerrado** (capa B de FLUJO-GUIADO-SCORECARD, D-FLU-8; SDD-31 D-SIM-4). En las
+  doce secciones del scorecard —las que ya declaran sus esenciales en el schema, con la marca de
+  sección `ui_essentials_declared` que emite `declara_esenciales`— el formulario muestra sólo los
+  campos con `ui_essential` (35 a la vez, ninguna sección sobre 6) y un único bloque «Avanzado»
+  que dice cuántos de sus campos difieren del valor de fábrica («3 campos cambiados», «sin
+  cambios») y, si los hay, cuántos errores tiene dentro. Un sub-modelo con esenciales dentro
+  (`data.load.source`, `report.document.author`) se divide campo a campo; la estrategia de
+  partición, como toda unión discriminada, va entera a esenciales. Los grupos, la ayuda, la
+  validación en vivo y las decisiones institucionales no cambian, y las dos vistas editan el
+  mismo config por los mismos `path`. El bloque se abre solo cuando el motor reporta un error en un
+  campo plegado (y no se puede cerrar mientras dure) y cuando un aviso pide el foco de un campo
+  plegado («Ir al campo»). `eda` declara cero esenciales y lo dice en pantalla; una sección de un
+  módulo que todavía no pasó por su enmienda de simplicidad (IFRS 9, supervivencia, provisiones)
+  se pinta entera, como siempre. El golden del front (`ESSENTIALS_BY_SECTION`) es el espejo del de
+  Python, atado en los dos sentidos. Ningún `config_hash` se mueve: la marca es metadato.
+
 ## [1.17.0] — 2026-09-20
 
 ### Añadido

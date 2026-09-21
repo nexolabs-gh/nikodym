@@ -25,9 +25,9 @@ from __future__ import annotations
 
 from typing import Literal, Self, get_args
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import Requisito
 from nikodym.validation.exceptions import ValidationConfigError
 
@@ -529,6 +529,8 @@ class BacktestingValidationConfig(NikodymBaseConfig):
 
 class ValidationConfig(NikodymBaseConfig):
     """Valida el modelo con calibración y backtesting, y lo resume en un semáforo."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     schema_version: str = Field(
         default="1.0.0",

@@ -416,6 +416,21 @@ cuántos campos avanzados difieren del default; el resto de la mecánica (grupos
 en vivo, decisiones institucionales) no cambia. El panel de Resultados, que ya pinta por etapa,
 consume la misma fuente que `summary()`.
 
+**Implementado en la capa B (S18, 2026-09-21), con tres precisiones medidas:** (1) la división la
+enciende una **marca de sección** en el schema (`ui_essentials_declared`, `declara_esenciales` en el
+core) y no el conteo de campos marcados, porque `eda` declara cero esenciales y también se divide,
+mientras que una sección de un módulo que aún no pasó por su enmienda (supervivencia, IFRS 9,
+provisiones) se pinta entera; (2) una marca puede vivir dentro de un sub-modelo, así que la división
+lo **poda** —la vista de esenciales recibe sólo sus hojas marcadas y «Avanzado» el resto, con el
+mismo `path`—, y una **unión discriminada o una lista son atómicas** (la estrategia de partición va
+entera a esenciales: el selector de variante no se pinta dos veces), de modo que en `data` la
+pantalla abre cuatro campos —la fuente, la llave de unicidad, la regla de «malo» y la estrategia de
+partición con su frontera y su holdout dentro—; (3) la cifra cuenta las **hojas** plegadas cuya clave está
+presente en el config con un valor distinto del catálogo de defaults efectivos (una obligatoria sin
+default cuenta cuando el usuario la escribió; sin catálogo no se afirma nada), y el bloque se abre
+solo ante un error del motor en un campo plegado —no se puede cerrar mientras dure— o ante un foco
+pedido hacia uno de ellos.
+
 ### 3.10 D-FLU-9 — MLflow
 
 `Scorecard(..., track="./mlruns")` (o una URI) enciende `tracking` con sus defaults; sin el

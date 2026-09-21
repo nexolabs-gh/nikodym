@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import COMODIN, PerfilDataset, Requisito
 from nikodym.core.exceptions import ConfigError
 
@@ -142,6 +142,8 @@ class VariableBinningConfig(NikodymBaseConfig):
 
 class BinningConfig(NikodymBaseConfig):
     """Agrupa cada variable en tramos WoE y mide su poder predictivo con el IV."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

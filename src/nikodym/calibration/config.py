@@ -16,9 +16,9 @@ from __future__ import annotations
 import math
 from typing import Any, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.exceptions import ConfigError
 
 CalibrationMethod = Literal["intercept_offset", "platt_scaling", "isotonic"]
@@ -57,6 +57,8 @@ _COLUMN_FIELDS: tuple[str, ...] = (
 
 class CalibrationConfig(NikodymBaseConfig):
     """Ajusta la PD cruda del modelo a una tasa central de anclaje aprobada."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

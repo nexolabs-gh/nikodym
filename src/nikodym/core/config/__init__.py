@@ -13,6 +13,7 @@ from nikodym.core.config.schema import (
     NikodymConfig,
     ReproConfig,
     RunConfig,
+    declara_esenciales,
 )
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "ReproConfig",
     "RunConfig",
     "config_hash",
+    "declara_esenciales",
     "dump_config",
     "load_config",
     "loads_config",

@@ -21,7 +21,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import Requisito
 
 __all__ = [
@@ -941,7 +941,7 @@ class DataConfig(NikodymBaseConfig):
     # ``populate_by_name=True`` (no lo trae la base) permite construir por nombre Python
     # (``DataConfig(schema_=...)``) además de por alias YAML (``schema:``); la serialización
     # canónica usa ``by_alias=True`` (clave ``schema`` en el ``config_hash``).
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

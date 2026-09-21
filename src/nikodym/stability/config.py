@@ -16,9 +16,9 @@ from __future__ import annotations
 import math
 from typing import Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.core.exceptions import ConfigError
 from nikodym.core.steps import ArtifactKey
@@ -62,6 +62,8 @@ _COLUMN_FIELDS: tuple[str, ...] = (
 
 class StabilityConfig(NikodymBaseConfig):
     """Mide la estabilidad del score y de la PD calibrada con PSI y CSI."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     schema_version: str = Field(
         default="1.0.0",

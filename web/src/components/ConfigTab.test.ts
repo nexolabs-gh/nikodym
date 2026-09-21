@@ -190,3 +190,42 @@ describe("guardrail: el handler de «Cargar YAML» enruta por applyYamlConfig", 
     expect(configTabSource).not.toMatch(/useEffect/)
   })
 })
+
+describe("guardrail estático: esenciales abiertos y «Avanzado» plegado (D-FLU-8)", () => {
+  // vitest corre sin DOM: la división viva se prueba en `essentials.test.ts` (lógica pura) y en la
+  // UI con el navegador. Aquí se ancla el CABLEADO de `ConfigSectionForm`, que es lo que una
+  // refactorización puede perder en silencio con los tests de lógica en verde.
+  const cuerpo =
+    configTabSource.match(/function ConfigSectionForm\(([\s\S]*?)\n\}\n/)?.[0] ?? ""
+
+  it("divide sólo las secciones que declaran esenciales y pinta el resto entero", () => {
+    expect(cuerpo).toMatch(/if \(!declaresEssentials\(schema\)\) \{/)
+    expect(cuerpo).toMatch(/<GroupedFields schema=\{schema\} inner=\{false\}/)
+    expect(cuerpo).toMatch(/essentialFields\(schema, defs\)/)
+    expect(cuerpo).toMatch(/advancedSchema\(schema, defs\)/)
+  })
+
+  it("el bloque nace CERRADO, es controlado y dice cuántos campos difieren de fábrica", () => {
+    expect(cuerpo).toMatch(/useState\(false\)/)
+    expect(cuerpo).toMatch(/value=\{abierto \? \[AVANZADO_ITEM\] : \[\]\}/)
+    expect(cuerpo).toMatch(/advancedSummary\(cambiados, erroresDentro\)/)
+    expect(cuerpo).toMatch(/countChangedAdvanced\(hojas, config, effectiveDefaults\)/)
+  })
+
+  it("un error del backend o un foco pedido dentro del bloque lo abren", () => {
+    expect(cuerpo).toMatch(/const abierto = avanzadoAbierto \|\| erroresDentro > 0/)
+    expect(cuerpo).toMatch(/if \(focoDentro && !avanzadoAbierto\) setAvanzadoAbierto\(true\)/)
+    // El foco llega desde el store y el formulario se remonta por sección (estado propio).
+    const tab = configTabSource.slice(configTabSource.indexOf("export function ConfigTab"))
+    expect(tab).toMatch(/focusPath=\{focusField\}/)
+    expect(tab).toMatch(/key=\{section\}\s*\n\s*sectionKey=\{section\}/)
+  })
+
+  it("el gate caza lo que promete", () => {
+    expect(cuerpo).not.toBe("")
+    expect(/useState\(false\)/.test("useState(true)")).toBe(false)
+    expect(/value=\{abierto \? \[AVANZADO_ITEM\] : \[\]\}/.test("defaultValue={[AVANZADO_ITEM]}")).toBe(
+      false,
+    )
+  })
+})

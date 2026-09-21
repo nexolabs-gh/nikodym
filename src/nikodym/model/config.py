@@ -16,9 +16,9 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 from nikodym.core.exceptions import ConfigError
 
 ModelEngine = Literal["logit", "glm_binomial"]
@@ -268,6 +268,8 @@ class IvContributionConfig(NikodymBaseConfig):
 
 class ModelConfig(NikodymBaseConfig):
     """Ajusta la regresión logística de PD sobre las variables WoE seleccionadas."""
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     type: Literal["standard"] = Field(
         default="standard",

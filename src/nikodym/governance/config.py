@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
-from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.config import NikodymBaseConfig, declara_esenciales
 
 __all__ = ["GovernanceConfig"]
 
@@ -31,6 +31,8 @@ class GovernanceConfig(NikodymBaseConfig):
     resultados de la corrida ni su ``config_hash``; el cambio queda registrado en el model card
     y en el audit-trail.
     """
+
+    model_config = ConfigDict(json_schema_extra=declara_esenciales)
 
     # Identidad en el inventario: es la clave del MLflow Registry cuando se publica.
     model_name: str = Field(

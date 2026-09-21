@@ -94,6 +94,39 @@ test.describe("interfaz servida por el wheel instalado", () => {
     ).toEqual([])
   })
 
+  test("configuración: los esenciales abiertos y «Avanzado» plegado, servidos por el wheel", async ({
+    page,
+  }) => {
+    // D-FLU-8 (capa B de FLUJO-GUIADO-SCORECARD). vitest prueba la división sin DOM; aquí se
+    // comprueba que el bundle empaquetado la PINTA: el bloque nace cerrado con su cifra y se abre
+    // con el clic, montando los campos plegados con sus `id` de siempre.
+    await page.goto("/")
+    const scorecard = page.getByRole("button", { name: /^Scorecard de comportamiento/ })
+    await expect(scorecard).toHaveCount(2)
+    await scorecard.last().click()
+    await page
+      .locator('nav[aria-label="Secciones"]')
+      .getByRole("button", { name: "Selección de variables" })
+      .click()
+
+    const esenciales = page.locator('[data-essentials="selection"]')
+    await expect(esenciales).toBeVisible()
+    await expect(esenciales.locator("label")).toHaveCount(3)
+
+    const avanzado = page.locator('[data-advanced="selection"]')
+    await expect(avanzado).toHaveAttribute("aria-expanded", "false")
+    await expect(avanzado).toContainText("Avanzado")
+    await expect(avanzado).toContainText(/campo(s)? cambiado(s)?|sin cambios/)
+    await expect(page.locator("#selection\\.stability\\.review_threshold")).toHaveCount(0)
+
+    await avanzado.click()
+    await expect(avanzado).toHaveAttribute("aria-expanded", "true")
+    await expect(page.locator("#selection\\.stability\\.review_threshold")).toBeVisible()
+
+    expect(erroresDeConsola, "la consola del navegador no debe traer errores").toEqual([])
+    expect(respuestasFallidas, "ninguna llamada puede fallar").toEqual([])
+  })
+
   test("recorrido completo: ejemplo → ejecutar → resultados → informe", async ({ page }) => {
     await page.goto("/")
 
