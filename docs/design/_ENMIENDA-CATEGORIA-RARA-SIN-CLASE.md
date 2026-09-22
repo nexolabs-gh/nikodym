@@ -162,8 +162,14 @@ existir nunca.
 
 Por eso, en la ruta de fallo:
 
-- **El intento se emite al trail antes de propagar el error.** El sumidero de auditoría está
-  disponible dentro del paso; la decisión no depende de que `execute` termine.
+- **El intento y el éxito son DOS eventos distintos**, y esto importa más de lo que parece: la
+  ficha del modelo materializa las decisiones del trail tal cual, así que un único evento
+  `categoria_rara_reagrupada` emitido **antes** del segundo ajuste dejaría, en una corrida
+  fallida, una ficha que afirma una reagrupación que nunca se completó. Por eso el paso emite
+  `categoria_rara_intento_reagrupar` **antes** de reintentar —acción `intentar`, con el nivel, sus
+  conteos y el corte que va a probar— y `categoria_rara_reagrupada` **sólo después de un ajuste
+  exitoso**. El sumidero está disponible dentro del paso, así que el intento queda registrado
+  aunque `execute` no termine.
 - **El diagnóstico que lee la persona es el mensaje del propio error**, que es la superficie que sí
   existe en esa ruta: la puerta guiada ya lo publica tal cual («Ejecución: fallida en “Tramos y
   WoE”: …»), y lo mismo hacen la pantalla y el YAML. El mensaje pasa a nombrar la variable, el
@@ -191,9 +197,21 @@ dejar al modelador con el nombre de un bin y ningún camino.
   > A48: 5 operaciones, ninguna incumplida).
 
 - **Cuando el motor se detiene igual**, el que habla es el **mensaje del error** (§2.2), porque el
-  resumen de la etapa no llega a construirse. El mensaje nombra la variable, el nivel y sus
-  conteos, dice con qué cortes se intentó reagruparlo y ofrece las dos salidas —excluir la variable
-  o fijar sus tramos—. Hoy nombra el bin y no ofrece ninguna.
+  resumen de la etapa no llega a construirse:
+
+  > WoE no defendible por bin con una clase en cero: variable «proposito», nivel «A48» con 5
+  > operaciones y ninguna incumplida. Se reagrupó con las categorías más raras (umbral 0,01 →
+  > 0,02) y el bin sigue sin incumplimientos. Puedes excluir la variable, o subir el umbral de
+  > categorías raras de esa variable en el config completo (`binning.variable_overrides`).
+
+  Hoy nombra el bin y no ofrece ninguna salida.
+
+  ⚠️ **Las dos salidas tienen que ser ejecutables para una categórica, y eso hubo que medirlo**:
+  `set_bins` escribe `user_splits`, y `WoEBinner` **rechaza expresamente `user_splits` en columnas
+  categóricas** (`transformer.py:799-808`: «los cortes fijados sólo aplican a variables
+  numéricas»), así que ofrecer «fija sus tramos» —como decía la redacción anterior— habría mandado
+  al modelador contra otro `BinningFitError`. Una vía de agrupación **manual** de categorías no
+  existe hoy y no se inventa aquí: si hace falta, es su propia enmienda (§6.5).
 - **Ficha e informe: nada nuevo.** El corte efectivo viaja en la **card de `binning`** y el Anexo
   de parámetros lo publica junto al declarado (§2.1). No se inventa una sección.
 
@@ -210,8 +228,8 @@ Todos nacen rojos salvo los marcados como guardrail.
 | 5 | Los conteos de la decisión son los de la tabla de binning del paso, **no** los del archivo: un nivel sano en el archivo y degenerado en la muestra ajustada dispara la regla | La regla no existe |
 | 6 | **Un solo reintento**: con un fixture donde ni el segundo ajuste resuelve, el motor levanta `BinningFitError`, **el trail ya registró el intento** —se emite antes de propagar— y el mensaje nombra variable, nivel, conteos, cortes y las dos salidas | La regla no existe, y hoy el trail no vería nada |
 | 6b | **El corte efectivo es resultado, no config**: la card de `binning` lo publica por variable, el `config_hash` no se mueve, y guardar → recargar → reejecutar el mismo config da el mismo corte y el mismo binning | La card no lo publica |
-| 7 | La decisión `categoria_rara_reagrupada` está en el trail con sus conteos, una vez por columna | No se emite |
-| 8 | El resumen publica su línea —y su alerta en el caso 6—, en español y sin identificadores del motor | La rama no existe |
+| 7 | **Intento y éxito son dos eventos**: tras un reintento exitoso el trail lleva `categoria_rara_intento_reagrupar` **y** `categoria_rara_reagrupada`; tras uno fallido lleva **sólo el intento**, y la ficha de esa corrida no afirma ninguna reagrupación | No se emiten |
+| 8 | El resumen publica su línea **en el camino exitoso**, en español y sin identificadores del motor. El camino fallido NO se mide aquí: su diagnóstico lo dan el mensaje del error y el trail, y eso lo miden el 6 y el 7 | La rama no existe |
 | 9 | **Bit a bit**: la proyección canónica de una corrida F1 del preset antes y después, **cero diferencias**, `config_hash` `1063d6cf…` intacto | — (guardrail) |
 
 **Controles negativos (§6):** (a) desactivar la regla y ver rojo el test 1; (b) tomar los conteos
@@ -240,6 +258,7 @@ vez de en la card y ver rojo el 6b por el `config_hash`.
 |---|---|---|---|
 | 6.1 | Dónde vive el arreglo | (a) **el motor reagrupa y lo declara** (esta enmienda); (b) la puerta guiada escribe un override al construir el config; (c) exponer `cat_cutoff` como campo esencial; (d) subir el default del motor | **(a)**: es el único sitio que tiene la población real —§0.3 mide que la puerta **no** la conoce hasta que `DataStep` corre—, y además sirve a las tres puertas. (b) exigiría duplicar el pipeline de `data`; (c) pone al modelador a decidir sobre un umbral que no debería tener que conocer; (d) rompe la garantía 1.x y obliga a recapturar |
 | 6.2 | Cuántos reintentos | (a) **uno**; (b) subir el corte hasta que funcione | **(a)**: una búsqueda podría acabar metiendo media variable en un bin, que es una decisión de modelación tomada por la máquina |
+| 6.5 | Qué salidas ofrece el error para una categórica | (a) **excluir la variable, o subir su umbral de categorías raras en el config completo**; (b) además, diseñar una vía de agrupación manual de categorías | **(a)**: es lo ejecutable hoy —`set_bins` escribe `user_splits`, que el motor rechaza en categóricas—. (b) es una capacidad nueva con su propia enmienda, y ofrecerla en un mensaje antes de tenerla manda al modelador contra otro error |
 | 6.4 | Dónde vive el corte efectivo | (a) **en la card de `binning`**, publicado junto al declarado, con el `config_hash` intacto; (b) reescribir `binning.cat_cutoff` en el config guardado | **(a)**: (b) rompe la correspondencia con el `config_hash`, que se congela antes de ejecutar el paso. El corte es evidencia de la corrida, como el IV; la reproducibilidad la da que la regla sea determinista, no guardar el número |
 | 6.3 | Si el default `cat_cutoff = 0.01` se revisa para 2.0 | (a) **sí, se anota como candidato con esta medición**; (b) se deja como está | **(a)**: §0.1 muestra que un corte fijo puede aislar un nivel en cualquier archivo; es material para la poda de D-SIM-12, no para 1.x |
 
@@ -252,9 +271,12 @@ vez de en la card y ver rojo el 6b por el `config_hash`.
 | 1 | La puerta guiada **no conoce** la muestra de desarrollo al construir el config: la resuelve `DataStep` con `Partitioner.split` y la semilla, tras el esquema, los especiales y el target | La regla se muda al **motor**, que sí recibe esas filas (§0.3, §6.1) |
 | 2 | (a) El corte efectivo no puede ir al config sin contradecir el `config_hash`, que se congela antes de ejecutar; (b) la alerta del reintento fallido **no puede existir**: `on_step` sólo corre si `execute` termina, y ahí el paso ya levantó | (a) §2.1: el corte es **resultado** —card y anexo—, y la reproducibilidad viene de que la regla es determinista; (b) §2.2: el trail se emite **antes** de propagar y quien habla es el **mensaje del error** |
 
-Las dos pasadas tumbaron una premisa de arquitectura cada una, así que la tercera va sobre esta
-redacción; si vuelve a tumbar una premisa en vez de refinar un detalle, el documento no está listo
-y se dice.
+| 3 | (a) Emitir `categoria_rara_reagrupada` **antes** del reintento dejaría, en una corrida fallida, una ficha que afirma una reagrupación que no ocurrió; (b) el mensaje ofrecía «fijar sus tramos» y `set_bins` escribe `user_splits`, que el motor **rechaza en categóricas**; (c) el test 8 seguía exigiendo un resumen que §2.2 declara imposible | (a) dos eventos, `…_intento_reagrupar` y `…_reagrupada`, con su test; (b) el mensaje ofrece sólo salidas ejecutables y §6.5 lo eleva; (c) el test 8 se limita al camino exitoso |
+
+Las dos primeras pasadas tumbaron una premisa de arquitectura cada una; la tercera ya no tumbó
+ninguna —corrigió una contradicción interna y dos promesas que el motor no puede cumplir—, que es
+el criterio de parada declarado. **Tope alcanzado**: estas correcciones no llevan pasada propia, y
+la implementación abrirá con una sobre su propio rango de código.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
@@ -265,8 +287,9 @@ y se dice.
 - **Campos esenciales:** sin cambios; `binning` no gana ninguno.
 - **Presupuesto de perillas: CERO.** `cat_cutoff` global y por variable ya existen y siguen
   contando igual; las perillas de las doce secciones del scorecard siguen en **413**.
-- **Resumen por etapa:** el de tramos gana **una** línea condicional y **una** alerta condicional.
-  Ninguna aparece cuando la regla no entra.
+- **Resumen por etapa:** el de tramos gana **una** línea condicional, sólo en el camino exitoso.
+  En el camino fallido el resumen no llega a construirse y quien habla es el mensaje del error
+  (§2.2). Ninguna de las dos aparece cuando la regla no entra.
 - **Notebook mínimo:** sin cambios (15 líneas, 5 conceptos).
 - **Las cinco cifras:** idénticas. Lo que cambia no es una cifra: es que un archivo externo real
   llega hasta el final.
