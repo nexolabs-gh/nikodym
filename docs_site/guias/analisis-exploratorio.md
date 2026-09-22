@@ -37,8 +37,10 @@ eje: usa el que ya declaraste para particionar—.
 
 **Sin fecha y sin cohorte** —por ejemplo, un archivo plano que particionas al azar— no hay eje con
 que agrupar, y eso **no detiene la corrida**: la tasa en el tiempo se publica como **«No
-evaluable»**, con su causa en palabras, y el resto del análisis exploratorio —la tasa global de la
-población, el perfil por tramo de cada variable y la calidad de datos por columna— se hace igual.
+evaluable»**, con su causa en palabras, y el resto del análisis exploratorio —la tasa global, el
+perfil por tramo de cada variable y la calidad de datos por columna— se hace igual sobre la
+población que describe la sección (la que fija «Población a describir»: de fábrica, la de
+desarrollo).
 La decisión queda en el trail, el resumen de la etapa la dice, el panel de Resultados la pinta bajo
 las cifras y el informe la redacta. Lo que sí sigue siendo un error es **contradecir lo que
 declaraste**: nombrar una columna de fecha que el archivo no trae, una que no es fecha, tener más

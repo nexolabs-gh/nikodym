@@ -384,6 +384,18 @@ def test_el_informe_publica_la_causa_una_vez_y_ninguna_frase_falsa(tmp_path: Pat
     assert parrafos, "el capítulo tiene que decir algo"
     for parrafo in parrafos:
         assert "sin_eje_temporal" not in parrafo, parrafo
+    # 🔴 Y NO exagera el alcance: `eda` describe la partición de `analysis_partition` —de fábrica,
+    # desarrollo— y puede muestrearla, así que el informe no puede atribuir los perfiles ni la
+    # calidad al archivo entero. Hallazgo de la revisión adversarial del rango, verificado: la
+    # corrida de este test usa el default, así que describe 8 de las 30 filas del archivo.
+    from nikodym.data.partition import PARTITION_COL
+
+    frame = study.artifacts.get("data", "frame")
+    assert study.config.eda.analysis_partition == "desarrollo"
+    descritas = int(frame[PARTITION_COL].astype("string").eq("desarrollo").sum())
+    assert 0 < descritas < len(frame), (descritas, len(frame))
+    for frase in ("población completa", "cartera completa", "todo el archivo"):
+        assert frase not in html, frase
 
 
 @pytest.mark.parametrize(
