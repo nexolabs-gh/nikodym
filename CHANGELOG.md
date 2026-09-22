@@ -74,6 +74,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   su carpeta `.run.failed.*`, no como entregable. Regenerar el informe al terminar la corrida
   sería un segundo render del mismo documento y queda como decisión de producto, no como cambio
   de esta capa (pasada 2 de Codex sobre C1).
+- El **registro durable de las decisiones es el audit-trail**; el preámbulo que `run_metadata.json`
+  persiste es un espejo para que un informe regenerado no quede mudo. Cada declaración entra en el
+  espejo sólo después de que su emisión terminó sin error, así que trae un **prefijo** de lo
+  emitido, nunca más; con un sink compuesto (trail + MLflow) que falle en uno de sus subordinados,
+  el trail puede conservar una declaración que el espejo no tiene, y el informe la omite en vez de
+  inventarla. Cerrar esa ventana exige que el núcleo sepa cuál sink es el durable, y hoy recibe el
+  sink ya compuesto (CT-4) (pasada 6 de Codex sobre la capa C).
 
 ## [1.18.0] — 2026-09-21
 

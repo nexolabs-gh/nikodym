@@ -331,6 +331,24 @@ def _pagina_de(html: str) -> str:
     return _seccion(html, EXECUTIVE_SUMMARY_ID)
 
 
+def test_regenerar_un_informe_no_mezcla_las_rutas_del_anterior(corrida: Scorecard) -> None:
+    """Pasada 6 de Codex: un `Study` recargado conserva el artefacto `report.result` del informe
+    ANTERIOR. Al regenerar con otro `output_dir`, «Dónde quedó cada archivo» tiene que decir las
+    rutas de ESTE informe, una vez por rótulo, no dos destinos incompatibles."""
+    from nikodym.core.study import Study
+
+    recargado = Study.load(corrida.project_dir / "run" / "study", trust=True)
+    otro = corrida.config.report.model_copy(update={"output_dir": "otro-destino"})
+    bundle = ReportBuilder(otro).collect(recargado)
+    archivos = bundle.summary["final"]["files"]
+    rotulos = [rotulo for rotulo, _ruta in archivos]
+    assert len(rotulos) == len(set(rotulos)), rotulos
+    por_rotulo = dict(archivos)
+    assert por_rotulo["Informe HTML"].startswith("otro-destino")
+    previo = corrida.study.artifacts.get("report", "result").html_path
+    assert previo not in dict(archivos).values()
+
+
 def test_la_pagina_advierte_que_las_rutas_son_las_de_escritura(corrida: Scorecard) -> None:
     """Pasada 2 de Codex sobre C1: la interfaz copia el informe a `runs/<run_id>/` y una corrida
     posterior reescribe la ruta compartida; la página dice que sus rutas son las de escritura."""

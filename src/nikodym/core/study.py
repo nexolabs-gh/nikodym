@@ -328,6 +328,14 @@ class Study:
         ``save`` y vuelve con ``load``, para que un informe regenerado desde un ``Study``
         recargado diga las mismas decisiones que el trail (capa C de FLUJO-GUIADO-SCORECARD)—
         y es de sólo lectura: mutar lo devuelto no toca el snapshot.
+
+        ⚠️ **El registro durable es el trail; ante una discrepancia, manda el trail.** Cada
+        declaración se añade aquí sólo después de que su ``emit`` terminó sin error, así que ante
+        un sink que falla esto trae un **prefijo** de lo emitido, nunca más. Con un sink compuesto
+        (``FanOutSink`` con trail y tracking) que falle en uno de sus subordinados, el trail puede
+        conservar una declaración que aquí no está: se omite, no se inventa. ``core`` no sabe cuál
+        de los sinks compuestos es el durable (CT-4: recibe el sink ya resuelto), así que cerrar
+        esa ventana es cosa de quien compone el sink.
         """
         return tuple((paso, copy.deepcopy(payload)) for paso, payload in self.run_context.preamble)
 

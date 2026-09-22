@@ -1566,7 +1566,15 @@ def _archivos(study: Study | None, context: SummaryContext) -> tuple[tuple[str, 
         if ruta:
             archivos.append((rotulo, _ruta_absoluta(ruta, context)))
     archivos.extend(context.extra_files)
-    return tuple(archivos)
+    # Un rótulo, una ruta, y gana la ÚLTIMA: `extra_files` es lo que sabe quien arma el contexto
+    # —el informe que se está generando ahora— y el artefacto `report.result` que un `Study`
+    # recargado conserva es el del informe ANTERIOR. Sin esto, regenerar un informe con otro
+    # `output_dir` o `basename` publicaba dos «Informe HTML» con destinos incompatibles, y con el
+    # mismo config, la misma ruta dos veces (pasada 6 de Codex sobre la capa C).
+    ultimas: dict[str, str] = {}
+    for rotulo, ruta in archivos:
+        ultimas[rotulo] = ruta
+    return tuple(ultimas.items())
 
 
 # ────────────────────────────── utilidades ──────────────────────────────
