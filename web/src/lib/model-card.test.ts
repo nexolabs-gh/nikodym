@@ -294,6 +294,8 @@ describe("modelCardDecisionRows: una fila por evento del trail, sin agrupar", ()
       umbral: "cohort",
       valor: "cohort",
       avisoDeclarado: false,
+      autor: null,
+      motivo: null,
     })
     expect(por("bins_colapsados")?.umbral).toBe("6")
     expect(por("bins_colapsados")?.valor).toBe("n_bins: 5 · variable: utilizacion_linea")
@@ -315,6 +317,26 @@ describe("modelCardDecisionRows: una fila por evento del trail, sin agrupar", ()
       decisions: [{ ...MODEL_CARD_F1.decisions[0], step: "selection" }],
     }
     expect(modelCardDecisionRows(card)[0].step).toBe("selection")
+  })
+
+  it("autor y motivo llegan a la fila (D-GOB-17); una ficha escrita antes los deja en null", () => {
+    const humana: ModelCardDecision = {
+      step: "scorecard_guided",
+      regla: "decision_del_usuario",
+      umbral: null,
+      valor: { "selection.force_exclude": ["score"] },
+      accion: "exclude",
+      ts: "2026-09-21T12:00:00.000000Z",
+      autor: "usuario",
+      motivo: "dato no disponible en originación",
+    }
+    const filas = modelCardDecisionRows({ ...MODEL_CARD_F1, decisions: [humana] })
+    expect(filas[0].autor).toBe("usuario")
+    expect(filas[0].motivo).toBe("dato no disponible en originación")
+    // Las fichas anteriores a D-GOB-17 —la demo entre ellas— no traen las claves: null, no un
+    // texto inventado.
+    expect(modelCardDecisionRows(MODEL_CARD_F1)[0].autor).toBeNull()
+    expect(modelCardDecisionRows(MODEL_CARD_F1)[0].motivo).toBeNull()
   })
 })
 

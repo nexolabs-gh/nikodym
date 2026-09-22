@@ -640,6 +640,22 @@ del propio ejemplo sin `run_dir`, comparada de forma literal (nació rojo en esa
 **Consecuencia para S6**: la release 1.13.0 retira las ocho notas y deja el quickstart sin
 salvedad; mientras no se corte, el sitio va por delante de PyPI y lo dice.
 
+**D-GOB-17 · `DecisionRecord` gana `autor` y `motivo` (aprobada por Cami el 2026-09-21, S19,
+de forma interactiva; capa C de FLUJO-GUIADO-SCORECARD).** Dos campos aditivos y opcionales
+(`str | None`, `None` de fábrica) que el builder lee del payload del evento `decision` —las claves
+que la puerta guiada emite desde S17 (D-FLU-3) y que la ficha ignoraba—; las reglas del motor los
+dejan en `None`. Los muestran `model_card.json` y `model_card.md` (la línea de la decisión suma
+«— “motivo” (autor)» cuando existen), la tabla de decisiones de «Ficha del modelo» en Resultados
+(columnas «Autor» y «Motivo», vacías en las del motor) y el capítulo «Ficha del modelo» del
+informe, que pasa a listar las decisiones humanas registradas con su motivo desde la misma fuente
+que la página ejecutiva (las del motor, las métricas y las fechas siguen en la ficha que el motor
+emite, como fijó D-SC-13…15). El espejo TS `ModelCardDecision` gana las dos claves como
+opcionales: las fichas escritas antes —la demo entre ellas— no las traen y no se recapturan por
+esto. Alternativas descartadas por Cami: leer el motivo del trail aparte en pantalla e informe
+(una segunda fuente para la ficha) y diferir la capa. Gates: `test_governance_model_card` (golden
+JSON y Markdown re-anclados con la razón), `test_gobernanza_en_pantalla` (espejo del tipo),
+`test_guided_decisiones` y `test_report_ficha_motivo`.
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un

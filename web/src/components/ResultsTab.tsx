@@ -2021,6 +2021,10 @@ function ModelCardSection({ card }: { card: ModelCard }) {
                   <th className="py-2 pr-3 font-medium">Acción</th>
                   <th className="py-2 pr-3 font-medium">Umbral</th>
                   <th className="py-2 pr-3 font-medium">Valor</th>
+                  {/* D-GOB-17 (capa C): quién decidió y por qué. Vacíos en las reglas del motor y en
+                      las fichas escritas antes, que no traen las claves. */}
+                  <th className="py-2 pr-3 font-medium">Autor</th>
+                  <th className="py-2 pr-3 font-medium">Motivo</th>
                 </tr>
               </thead>
               <tbody>
@@ -2043,6 +2047,10 @@ function ModelCardSection({ card }: { card: ModelCard }) {
                     <td className="break-all py-2 pr-3 font-mono text-xs text-muted-foreground">
                       {d.valor}
                     </td>
+                    <td className="py-2 pr-3 font-mono text-xs text-muted-foreground">
+                      {d.autor ?? EMPTY}
+                    </td>
+                    <td className="py-2 pr-3 text-xs text-foreground/90">{d.motivo ?? EMPTY}</td>
                   </tr>
                 ))}
               </tbody>

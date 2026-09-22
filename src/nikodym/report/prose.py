@@ -2726,13 +2726,42 @@ def model_card_body(bundle: ReportInputBundle) -> tuple[str, ...]:
         f"{rotulo('review_period_months')}: la institución revisa este modelo cada "
         f"{meses} {'mes' if meses == 1 else 'meses'}."
     )
+    # D-GOB-17 (capa C): las decisiones humanas de la corrida, con su motivo, desde la misma
+    # fuente que la página ejecutiva (`bundle.summary`, los constructores del resumen final).
+    # Sólo cuando hay corrida: un bundle armado a mano no afirma nada sobre decisiones.
+    paragraphs.extend(_decisiones_humanas_de_la_ficha(bundle))
     paragraphs.append(
-        "Las métricas, las decisiones registradas y las fechas de emisión y de la siguiente "
+        "Las métricas, las decisiones del motor y las fechas de emisión y de la siguiente "
         "revisión no forman parte de este informe: quedan en la ficha del modelo, que el motor "
         "emite al cierre de la corrida cuando se le pide un directorio de corrida o la "
         "publicación al inventario."
     )
     return tuple(paragraphs)
+
+
+def _decisiones_humanas_de_la_ficha(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Las decisiones humanas con motivo para el capítulo «Ficha del modelo», o nada.
+
+    Lee el resumen final que el builder dejó en ``bundle.summary`` —las mismas líneas que la
+    página ejecutiva y que la pantalla— y, sin decisiones, dice lo que dice la pantalla con sus
+    palabras (``sin_decisiones``, que viaja en el mismo dict para no importar la puerta guiada
+    desde aquí). Sin resumen —bundle sin corrida, o resumen que no se pudo armar— calla.
+    """
+    resumen = bundle.summary
+    if not isinstance(resumen, Mapping) or resumen.get("error"):
+        return ()
+    final = resumen.get("final")
+    if not isinstance(final, Mapping):
+        return ()
+    decisiones = [str(linea) for linea in _sequence(final.get("decisions"))]
+    if decisiones:
+        return (
+            "Decisiones humanas registradas en esta corrida, con su motivo: "
+            + "; ".join(decisiones)
+            + ".",
+        )
+    sin_decisiones = _text(resumen.get("sin_decisiones"))
+    return (sin_decisiones,) if sin_decisiones else ()
 
 
 def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:

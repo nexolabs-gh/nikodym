@@ -203,6 +203,33 @@ describe("copy público de la ficha", () => {
   })
 })
 
+describe("el motivo de cada decisión humana en la ficha (D-GOB-17, capa C)", () => {
+  const humana: ModelCard["decisions"][number] = {
+    step: "scorecard_guided",
+    regla: "decision_del_usuario",
+    umbral: null,
+    valor: { "selection.force_exclude": ["score"] },
+    accion: "exclude",
+    ts: "2026-09-21T12:00:00.000000Z",
+    autor: "usuario",
+    motivo: "dato no disponible en originación",
+  }
+
+  it("la tabla de decisiones pinta Autor y Motivo, y una decisión del motor los deja vacíos", () => {
+    const html = render(minima({ ...MODEL_CARD_F1, decisions: [humana, MODEL_CARD_F1.decisions[0]] }))
+    expect(html).toContain(">Autor<")
+    expect(html).toContain(">Motivo<")
+    expect(html).toContain("dato no disponible en originación")
+    expect(html).toContain(">usuario<")
+  })
+
+  it("una ficha escrita antes de D-GOB-17 (sin las claves) se pinta igual, sin inventar nada", () => {
+    const html = render(minima(MODEL_CARD_F1))
+    expect(html).toContain(">Motivo<")
+    expect(html).not.toContain("undefined")
+  })
+})
+
 describe("avisos declarados en la ficha (revisión adversarial de S4)", () => {
   // La decisión REAL con la que el motor interno de provisiones deja escrita una imputación: con
   // `fail_on_falta_dato=false` un dato ausente se imputa a cero y `internal_falta_dato` lleva el

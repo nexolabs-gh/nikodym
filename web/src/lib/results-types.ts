@@ -1101,6 +1101,13 @@ export interface ModelCardDecision {
   valor: unknown
   accion: string
   ts: string
+  /**
+   * Quién tomó la decisión y por qué (D-GOB-17, capa C de FLUJO-GUIADO-SCORECARD): las claves
+   * con que la puerta guiada firma cada decisión humana; `null` en las reglas del motor.
+   * Opcionales porque una ficha escrita antes de D-GOB-17 —la demo entre ellas— no las trae.
+   */
+  autor?: string | null
+  motivo?: string | null
 }
 
 /** Snapshot del entorno que acompañó a la corrida (`EnvironmentSnapshot`). */

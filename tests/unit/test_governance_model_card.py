@@ -30,8 +30,11 @@ _GOLDEN_MODEL_CARD_JSON = (
     '"data_description":{"bad_rate":0.2,"class_counts":{"bueno":8,"malo":2},"data_hash":"data123",'
     '"exclusions_by_reason":{},"n_features":5,"n_rows":10,"partition_bad_rates":{"dev":0.25},'
     '"partition_sizes":{"dev":8,"oot":2},"performance_window_months":12,"source":"clientes.parquet",'
-    '"target_col":"target"},"data_hash":"data123","decisions":[{"accion":"descartar","regla":"iv_min",'
-    '"step":"binning","ts":"2026-06-25T09:00:00Z","umbral":0.02,"valor":0.01}],'
+    # D-GOB-17 (2026-09-21): la decisión gana `autor` y `motivo`, aditivos y `None` en las reglas
+    # del motor; el JSON canónico los emite explícitos, como todo campo del record.
+    '"target_col":"target"},"data_hash":"data123","decisions":[{"accion":"descartar","autor":null,'
+    '"motivo":null,"regla":"iv_min","step":"binning","ts":"2026-06-25T09:00:00Z","umbral":0.02,'
+    '"valor":0.01}],'
     '"determinism_caveats":["GBDT multihilo"],"environment":{"captured_at":"2026-06-25T07:00:00Z",'
     '"library_versions":{"nikodym":"0.1.0","pydantic":"2.13.0"},"platform":"macOS-15-arm64",'
     '"python_version":"3.12.9","uv_lock_hash":"uvhash"},"git_dirty":false,"git_sha":"abc123",'
@@ -218,6 +221,9 @@ def test_model_card_publica_la_decision_anti_fuga_del_trail(tmp_path: Path) -> N
         "umbral": "data.target.bad_rule",
         "valor": "dpd_12m",
         "accion": "excluir_de_candidatas",
+        # D-GOB-17: una regla del motor no trae autor ni motivo, y el record lo dice con `None`.
+        "autor": None,
+        "motivo": None,
     }
 
 
@@ -329,6 +335,43 @@ def test_model_card_builder_valida_payload_decision(
             _study(),
             trail_path=_trail(tmp_path / "audit.jsonl", payload=payload),
         )
+
+
+def test_decision_record_lleva_autor_y_motivo_del_trail(tmp_path: Path) -> None:
+    """D-GOB-17 (capa C de FLUJO-GUIADO-SCORECARD): las claves aditivas `autor` y `motivo` que la
+    puerta guiada emite con cada decisión humana llegan a la ficha y a su Markdown; una regla del
+    motor, que no las trae, las deja en ``None`` y su línea no cambia."""
+    payload = {
+        "regla": "decision_del_usuario",
+        "umbral": None,
+        "valor": {"selection.force_exclude": ["score"]},
+        "accion": "exclude",
+        "autor": "usuario",
+        "motivo": "dato no disponible en originación",
+        "variables": ["score"],
+    }
+    card = _builder().build(_study(), trail_path=_trail(tmp_path / "audit.jsonl", payload=payload))
+    decision = card.decisions[0]
+    assert decision.autor == "usuario"
+    assert decision.motivo == "dato no disponible en originación"
+    assert list(type(decision).model_fields) == [
+        "step",
+        "regla",
+        "umbral",
+        "valor",
+        "accion",
+        "ts",
+        "autor",
+        "motivo",
+    ]
+    markdown = card.to_markdown()
+    assert (
+        "- 2026-06-25T09:00:00+00:00 · binning: decision_del_usuario → exclude — "
+        "«dato no disponible en originación» (usuario)" in markdown
+    )
+    sin_motivo = _builder().build(_study(), trail_path=_trail(tmp_path / "motor.jsonl"))
+    assert sin_motivo.decisions[0].autor is None and sin_motivo.decisions[0].motivo is None
+    assert "- 2026-06-25T09:00:00+00:00 · binning: iv_min → descartar\n" in sin_motivo.to_markdown()
 
 
 def test_model_card_builder_normaliza_timestamps_aware_no_utc(tmp_path: Path) -> None:

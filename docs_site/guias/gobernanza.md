@@ -55,8 +55,10 @@ inmediatamente después de «Artefactos de la corrida»:
 - **«Emitida»** y **«Próxima revisión»**: la fecha en que se construyó la ficha y la fecha de
   revisión que resulta de sumarle la periodicidad.
 - **«Decisiones registradas»**: cuántas decisiones dejó el motor en el audit-trail, con
-  «Ver el detalle de las decisiones» para desplegar la tabla —cuándo, regla, acción, umbral y
-  valor, una fila por evento—.
+  «Ver el detalle de las decisiones» para desplegar la tabla —cuándo, regla, acción, umbral,
+  valor y, en las decisiones humanas de la puerta guiada (`sc.exclude(...)`, `sc.keep(...)`,
+  `sc.merge_bins(...)`, `sc.set_bins(...)`), quién decidió y por qué: autor y motivo, vacíos en
+  las decisiones del motor; una fila por evento—.
 - **«Métricas por dominio»**: las métricas planas que cada dominio publica, agrupadas con el rótulo
   de su sección del formulario y, debajo, su evidencia estructurada en filas etiqueta → valor.
 
@@ -68,10 +70,12 @@ puedas auditarlo; lo que significa cada uno está en [Avisos declarados](../avis
 Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada. Con gobernanza, el informe
 HTML/PDF/Word/Quarto gana el capítulo **«Ficha del modelo»**, entre la introducción y el contexto:
 lo que declaraste —propósito, supuestos, limitaciones, identidad de inventario y periodicidad de
-revisión— tal cual lo escribiste, con sus rótulos. Las métricas, las decisiones registradas y las
-fechas de emisión y de la siguiente revisión no van en el capítulo: quedan en la ficha, que el
-motor emite al cierre de la corrida cuando le das `run_dir` o publicas al inventario, y que
-Resultados muestra completa. Una sola ficha por corrida: el informe remite a ella, no la duplica.
+revisión— tal cual lo escribiste, con sus rótulos, y las decisiones humanas registradas en esa
+corrida con su motivo (sin ellas, el capítulo lo dice con las mismas palabras que la pantalla).
+Las métricas, las decisiones del motor y las fechas de emisión y de la siguiente revisión no van
+en el capítulo: quedan en la ficha, que el motor emite al cierre de la corrida cuando le das
+`run_dir` o publicas al inventario, y que Resultados muestra completa. Una sola ficha por corrida:
+el informe remite a ella, no la duplica.
 
 ## Por código
 

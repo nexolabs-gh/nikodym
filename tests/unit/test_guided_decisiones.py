@@ -137,7 +137,13 @@ def test_la_decision_del_usuario_llega_a_la_ficha_con_purpose(fuente: Path, tmp_
     usuario = [d for d in card["decisions"] if d["regla"] == "decision_del_usuario"]
     assert len(usuario) == 1
     assert usuario[0]["accion"] == "exclude"
-    assert "motivo" not in usuario[0]  # DecisionRecord intacto hasta la capa C (D-GOB)
+    # D-GOB-17 (capa C): la ficha materializa el autor y el motivo de la decisión humana.
+    assert usuario[0]["autor"] == "usuario"
+    assert usuario[0]["motivo"] == "dato que no estará en producción"
+    # Las reglas del motor no traen autor ni motivo; las declaraciones de la puerta (entrada e
+    # inferencias) firman como `puerta_guiada`.
+    del_motor = [d for d in card["decisions"] if d["step"] != GUIDED_STEP]
+    assert del_motor and all(d["autor"] is None and d["motivo"] is None for d in del_motor)
 
 
 # ─────────────────────────── §6-4: paridad computacional ───────────────────────────

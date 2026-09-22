@@ -33,6 +33,28 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   antes del primer paso. El gate de códigos internos cubre la página; el golden del informe del
   step se re-ancló midiendo que el HTML cambia sólo por el capítulo nuevo y sus entradas de
   índice.
+- **La ficha del modelo muestra quién tomó cada decisión humana y por qué** (capa C3;
+  D-GOB-17, aprobada por Cami el 2026-09-21). `DecisionRecord` gana `autor` y `motivo`, aditivos
+  y `None` en las reglas del motor: son las claves con que la puerta guiada firma en el registro
+  de auditoría cada `exclude`/`keep`/`merge_bins`/`set_bins` (y sus propias inferencias, como
+  `puerta_guiada`). Los muestran `model_card.json` y `model_card.md` (la línea de la decisión
+  suma «— “motivo” (autor)»), la tabla de decisiones de «Ficha del modelo» en Resultados
+  (columnas «Autor» y «Motivo», vacías en las del motor y en las fichas escritas antes, que no
+  traen las claves) y el capítulo «Ficha del modelo» del informe, que pasa a listar las
+  decisiones humanas de la corrida con su motivo desde la misma fuente que la página ejecutiva
+  —en la fuente editable, como texto literal—; las decisiones del motor, las métricas y las
+  fechas siguen en la ficha que el motor emite.
+
+### Sabido
+
+- La página ejecutiva del informe se escribe **durante** la corrida, como todo el informe
+  (`report` es un paso del pipeline): dice qué corrió sin fallos antes de él y qué queda por
+  correr, pero no puede reflejar cómo terminó la corrida ni un paso posterior. El estado
+  terminal —«completada» o «fallida en …»— lo dicen `Scorecard.summary()` y la pestaña
+  Resultados al terminar, y una corrida que falla después del informe deja ese informe dentro de
+  su carpeta `.run.failed.*`, no como entregable. Regenerar el informe al terminar la corrida
+  sería un segundo render del mismo documento y queda como decisión de producto, no como cambio
+  de esta capa (pasada 2 de Codex sobre C1).
 
 ## [1.18.0] — 2026-09-21
 

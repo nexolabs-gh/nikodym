@@ -29,7 +29,12 @@ __all__ = ["DecisionRecord", "ModelCard", "ModelCardBuilder"]
 
 
 class DecisionRecord(BaseModel):
-    """Decisión materializada desde un ``AuditEvent(kind='decision')``."""
+    """Decisión materializada desde un ``AuditEvent(kind='decision')``.
+
+    ``autor`` y ``motivo`` son aditivos (D-GOB-17, 2026-09-21): las claves con que la puerta
+    guiada firma cada decisión humana en el trail (D-FLU-3). Una regla del motor no las trae y
+    quedan en ``None``; una ficha escrita antes de D-GOB-17 se recarga igual.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -39,6 +44,8 @@ class DecisionRecord(BaseModel):
     valor: Any
     accion: str
     ts: datetime
+    autor: str | None = None
+    motivo: str | None = None
 
 
 class ModelCard(BaseModel):
@@ -115,11 +122,16 @@ class ModelCard(BaseModel):
         lines.extend(["", "## Decisiones"])
         if self.decisions:
             for decision in self.decisions:
-                lines.append(
+                linea = (
                     "- "
                     f"{decision.ts.isoformat()} · {decision.step}: {decision.regla} "
                     f"→ {decision.accion}"
                 )
+                if decision.motivo:
+                    linea += f" — «{decision.motivo}»"
+                if decision.autor:
+                    linea += f" ({decision.autor})"
+                lines.append(linea)
         else:
             lines.append("- Sin decisiones registradas.")
         lines.extend(
@@ -225,6 +237,8 @@ def _decision_from_event(event: AuditEvent) -> DecisionRecord:
     accion = payload.get("accion", payload.get("acción"))
     if accion is None:
         raise GovernanceError("Evento decision sin campo obligatorio 'accion'.")
+    autor = payload.get("autor")
+    motivo = payload.get("motivo")
     return DecisionRecord(
         step=event.step,
         regla=regla,
@@ -232,6 +246,8 @@ def _decision_from_event(event: AuditEvent) -> DecisionRecord:
         valor=payload.get("valor"),
         accion=accion,
         ts=_as_utc(event.ts),
+        autor=str(autor) if autor is not None else None,
+        motivo=str(motivo) if motivo is not None else None,
     )
 
 

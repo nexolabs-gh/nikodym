@@ -221,6 +221,10 @@ export interface ModelCardDecisionRow {
    * recorta (es la evidencia).
    */
   avisoDeclarado: boolean
+  /** Quién decidió (`usuario`, `puerta_guiada`) y por qué; `null` en las reglas del motor y en
+   * las fichas escritas antes de D-GOB-17, que no traen las claves. */
+  autor: string | null
+  motivo: string | null
 }
 
 /**
@@ -240,6 +244,8 @@ export function modelCardDecisionRows(card: ModelCard): ModelCardDecisionRow[] {
       umbral,
       valor,
       avisoDeclarado: esAvisoDeclarado(umbral) || esAvisoDeclarado(valor),
+      autor: d.autor ?? null,
+      motivo: d.motivo ?? null,
     }
   })
 }
