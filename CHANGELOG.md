@@ -30,7 +30,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   nombre en esa carpeta, no por una ruta inventada—. El evento `decision_del_usuario` del
   registro de auditoría gana la clave aditiva `variables` (las variables que la decisión nombró;
   `valor` sigue siendo la hoja escrita), y `Study` expone `preamble`, lo que la corrida declaró
-  antes del primer paso. El gate de códigos internos cubre la página; el golden del informe del
+  antes del primer paso, persistido en `run_metadata.json` (clave aditiva `preamble`, vacía en
+  los archivos anteriores) para que un informe regenerado desde un `Study` recargado diga las
+  mismas decisiones que el trail y la ficha. El gate de códigos internos cubre la página; el golden del informe del
   step se re-ancló midiendo que el HTML cambia sólo por el capítulo nuevo y sus entradas de
   índice.
 - **La ficha del modelo muestra quién tomó cada decisión humana y por qué** (capa C3;
@@ -38,7 +40,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   y `None` en las reglas del motor: son las claves con que la puerta guiada firma en el registro
   de auditoría cada `exclude`/`keep`/`merge_bins`/`set_bins` (y sus propias inferencias, como
   `puerta_guiada`). Los muestran `model_card.json` y `model_card.md` (la línea de la decisión
-  suma «— “motivo” (autor)»), la tabla de decisiones de «Ficha del modelo» en Resultados
+  suma «— “motivo” (autor)», como texto literal en una línea: un motivo con saltos, encabezados o
+  enlaces no fabrica estructura en la ficha), la tabla de decisiones de «Ficha del modelo» en
+  Resultados
   (columnas «Autor» y «Motivo», vacías en las del motor y en las fichas escritas antes, que no
   traen las claves) y el capítulo «Ficha del modelo» del informe, que pasa a listar las
   decisiones humanas de la corrida con su motivo desde la misma fuente que la página ejecutiva

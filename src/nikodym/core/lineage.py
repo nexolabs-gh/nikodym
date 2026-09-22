@@ -16,7 +16,7 @@ importan desde ``core``. ``core`` nunca importa tracking.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -108,3 +108,9 @@ class RunContext(BaseModel):
     # Sólo poblado con status="failed" (D-ERR-1). El default None mantiene compatible la recarga de
     # un run_metadata.json escrito antes de la enmienda (D-ERR-7).
     error: RunError | None = None
+    # Lo que la corrida declaró al trail antes del primer paso (`Study.run(preamble=…)`): la
+    # puerta por la que entró, sus inferencias y las decisiones humanas con autor y motivo. Se
+    # persiste con la corrida para que un informe regenerado desde un `Study` recargado diga las
+    # mismas decisiones que el trail y la ficha (capa C de FLUJO-GUIADO-SCORECARD, pasada 4 de
+    # Codex); vacío en toda corrida sin preámbulo y en los run_metadata.json escritos antes.
+    preamble: tuple[tuple[str | None, dict[str, Any]], ...] = ()

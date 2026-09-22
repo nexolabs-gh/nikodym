@@ -715,11 +715,18 @@ def _archivos_que_el_informe_conoce(
         archivos.append(("Informe HTML", "no se escribió en disco: el informe se pidió en memoria"))
     audit = getattr(study.config, "audit", None)
     if audit is not None and _campo(audit, "enabled", True):
+        # Con un nombre RELATIVO (la puerta guiada y el default por código) el archivo vive en la
+        # carpeta de evidencia y se nombra. Con una ruta ABSOLUTA no se imprime ni la ruta ni el
+        # nombre: la interfaz reserva el trail en una ruta provisional con un token por corrida
+        # (`.trail-<token>.jsonl`) y lo renombra al persistir, así que imprimirla rompía el
+        # determinismo del HTML entre dos corridas del mismo config (la suite completa lo acusó)
+        # y apuntaba a un archivo que ya no existe. `audit` es INFRA: lo que varía con ella no
+        # puede entrar al documento.
         trail = Path(str(_campo(audit, "trail_filename", "audit_trail.jsonl")))
         archivos.append(
             (
                 "Registro de auditoría",
-                str(trail)
+                "en la ruta que fija la sección audit del config"
                 if trail.is_absolute()
                 else f"{trail.name}, en la carpeta de evidencia de la corrida",
             )

@@ -374,6 +374,32 @@ def test_decision_record_lleva_autor_y_motivo_del_trail(tmp_path: Path) -> None:
     assert "- 2026-06-25T09:00:00+00:00 · binning: iv_min → descartar\n" in sin_motivo.to_markdown()
 
 
+def test_un_motivo_hostil_no_fabrica_estructura_en_el_markdown_de_la_ficha(tmp_path: Path) -> None:
+    """Pasada 4 de Codex sobre la capa C: `reason=` lo escribe una persona; en `model_card.md`
+    va como texto literal en una línea —sin encabezados, enlaces ni HTML crudo—."""
+    motivo = (
+        "ok\n\n## Revisión\n- next_review_date: `2099-01-01`\n[x](http://mal) <script>1</script>"
+    )
+    payload = {
+        "regla": "decision_del_usuario",
+        "umbral": None,
+        "valor": {"selection.force_exclude": ["score"]},
+        "accion": "exclude",
+        "autor": "usuario\n# Identidad",
+        "motivo": motivo,
+    }
+    card = _builder().build(_study(), trail_path=_trail(tmp_path / "audit.jsonl", payload=payload))
+    markdown = card.to_markdown()
+    assert markdown.count("\n## Revisión") == 1
+    assert "\n# Identidad" not in markdown and "\n- next_review_date: `2099" not in markdown
+    assert "<script>" not in markdown and "[x](http://mal)" not in markdown
+    linea = next(fila for fila in markdown.splitlines() if "decision_del_usuario" in fila)
+    assert linea.startswith("- 2026-06-25T09:00:00+00:00 · binning: decision_del_usuario → exclude")
+    assert "Revisión" in linea and "next\\_review\\_date" in linea and "script" in linea
+    # El JSON conserva el motivo tal cual: ahí es dato, no marcado.
+    assert motivo in card.to_json().replace("\\n", "\n").replace('\\"', '"')
+
+
 def test_model_card_builder_normaliza_timestamps_aware_no_utc(tmp_path: Path) -> None:
     """Un reloj aware no-UTC se normaliza a UTC antes de serializar."""
     tz = timezone(timedelta(hours=-4))

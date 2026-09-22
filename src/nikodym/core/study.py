@@ -281,12 +281,6 @@ class Study:
         # `(dominio, clave)`: esto es el resumen firmable, no un duplicado del store.
         self.results: dict[str, Any] = {}
         self.run_context = RunContext()
-        # Lo que la corrida declaró al trail antes del primer paso (`run(preamble=…)`): la puerta
-        # por la que entró, sus inferencias y las decisiones humanas con motivo. Se conserva para
-        # que un paso que corre DENTRO de la corrida —el informe, que se renderiza el último y no
-        # puede leer el trail consolidado— lo reproduzca desde la misma fuente (capa C de
-        # FLUJO-GUIADO-SCORECARD). No se serializa: el trail es su registro durable.
-        self._preamble: tuple[tuple[str | None, dict[str, Any]], ...] = ()
         self._injected_artifacts: set[ArtifactKey] = set()
         self._inert_injected_artifacts: tuple[ArtifactKey, ...] = ()
         self._resolved_step_names: frozenset[str] = frozenset()
@@ -330,10 +324,12 @@ class Study:
         """Las declaraciones ``(paso, payload)`` que :meth:`run` emitió antes del primer paso.
 
         Copia profunda de lo que se pasó en ``run(preamble=…)``, en el mismo orden; vacía si la
-        corrida no declaró nada o todavía no corrió. Es de sólo lectura —mutar lo devuelto no
-        toca el snapshot—: el registro durable es el trail.
+        corrida no declaró nada o todavía no corrió. Vive en ``run_context`` —se persiste con
+        ``save`` y vuelve con ``load``, para que un informe regenerado desde un ``Study``
+        recargado diga las mismas decisiones que el trail (capa C de FLUJO-GUIADO-SCORECARD)—
+        y es de sólo lectura: mutar lo devuelto no toca el snapshot.
         """
-        return tuple((paso, copy.deepcopy(payload)) for paso, payload in self._preamble)
+        return tuple((paso, copy.deepcopy(payload)) for paso, payload in self.run_context.preamble)
 
     # --- Orquestación (motor v1: orden de declaración + validación de prerequisitos, CT-1) -----
 
@@ -432,10 +428,10 @@ class Study:
             # llamador conserva, y lo que se emite al trail y lo que el informe lee después
             # tienen que ser el mismo snapshot aunque alguien mute el original (pasada 2 de
             # Codex sobre C1).
-            self._preamble = tuple(
+            self.run_context.preamble = tuple(
                 (paso, copy.deepcopy(dict(payload))) for paso, payload in preamble
             )
-            for paso_declarante, payload in self._preamble:
+            for paso_declarante, payload in self.run_context.preamble:
                 self._emit("decision", paso_declarante, copy.deepcopy(payload))
             for paso in pasos:
                 paso_actual = paso

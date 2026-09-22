@@ -55,6 +55,8 @@ def test_run_context_serializa_sin_valores_ficticios() -> None:
         "status": "created",
         "lineage": None,
         "error": None,
+        # Capa C de FLUJO-GUIADO-SCORECARD: lo declarado antes del primer paso, vacío sin correr.
+        "preamble": [],
     }
 
 

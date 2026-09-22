@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import warnings
 from calendar import monthrange
 from collections.abc import Callable
@@ -127,10 +128,13 @@ class ModelCard(BaseModel):
                     f"{decision.ts.isoformat()} · {decision.step}: {decision.regla} "
                     f"→ {decision.accion}"
                 )
+                # Autor y motivo los escribió una persona: van como texto literal de Markdown,
+                # en una línea, para que un motivo hostil no pueda fabricar encabezados, enlaces
+                # ni HTML dentro de la ficha (pasada 4 de Codex sobre la capa C).
                 if decision.motivo:
-                    linea += f" — «{decision.motivo}»"
+                    linea += f" — «{_texto_markdown_literal(decision.motivo)}»"
                 if decision.autor:
-                    linea += f" ({decision.autor})"
+                    linea += f" ({_texto_markdown_literal(decision.autor)})"
                 lines.append(linea)
         else:
             lines.append("- Sin decisiones registradas.")
@@ -351,6 +355,20 @@ def _to_jsonable(value: Any) -> Any:
     if isinstance(value, tuple | list):
         return [_to_jsonable(item) for item in value]
     return value
+
+
+#: Puntuación ASCII con significado en Markdown/HTML, escapada con barra en el texto literal.
+_PUNTUACION_MARKDOWN = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~\"'&])")
+
+
+def _texto_markdown_literal(texto: str) -> str:
+    """Una línea de texto ajeno al motor como texto literal de Markdown.
+
+    Colapsa los saltos de línea y los espacios (un motivo no puede abrir un encabezado ni una
+    lista en la línea siguiente) y escapa con barra la puntuación que Markdown o el HTML crudo
+    interpretan, para que se lea tal cual se escribió y no como marcado.
+    """
+    return _PUNTUACION_MARKDOWN.sub(r"\\\1", " ".join(texto.split()))
 
 
 def _markdown_mapping(mapping: dict[str, Any]) -> list[str]:

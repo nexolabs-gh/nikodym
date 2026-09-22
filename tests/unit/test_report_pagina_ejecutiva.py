@@ -237,6 +237,62 @@ def test_el_preambulo_es_un_snapshot_que_nadie_muta(corrida: Scorecard) -> None:
         original["valor"]["selection.force_exclude"].remove("intruso")
 
 
+def test_un_informe_regenerado_desde_un_study_recargado_dice_las_mismas_decisiones(
+    corrida: Scorecard,
+) -> None:
+    """Pasada 4 de Codex: el preámbulo se persiste con la corrida (`run_metadata.json`) y vuelve
+    con `Study.load`, así que un informe regenerado desde el Study recargado dice las mismas
+    decisiones humanas que el trail, la ficha y el informe original."""
+    from nikodym.core.study import Study
+
+    recargado = Study.load(corrida.project_dir / "run" / "study", trust=True)
+    assert recargado.preamble == corrida.study.preamble
+    bundle = ReportBuilder(corrida.config.report).collect(recargado)
+    assert bundle.summary is not None and bundle.summary["error"] is None
+    assert bundle.summary["final"]["decisions"] == list(corrida.summary().decisions)
+    original = corrida.study.artifacts.get("report", "input_bundle")
+    assert bundle.summary["final"]["decisions"] == original.summary["final"]["decisions"]
+
+
+def test_el_registro_de_auditoria_se_nombra_sin_su_ruta_absoluta(tmp_path: Path) -> None:
+    """La suite completa acusó que dos corridas del mismo config por la interfaz daban HTML
+    distintos: la interfaz reserva el trail en una ruta provisional con un token por corrida
+    (`audit.trail_filename` absoluto, `.trail-<token>.jsonl`) y la página la imprimía. `audit`
+    es INFRA —no entra al `config_hash`— y lo que varía con ella no entra al documento: con una
+    ruta absoluta la página no imprime ni la ruta ni el nombre."""
+    import nikodym
+
+    fuente = tmp_path / "cartera.parquet"
+    write_stacked_behavior_parquet(fuente, repeats=50)
+    sc = Scorecard(
+        fuente,
+        target="bad_flag",
+        id="loan_id",
+        cohort="cohort",
+        oot_cohorts=["oot"],
+        name="trail_absoluto",
+        run_dir=tmp_path / "corridas",
+        min_iv=0.0,
+    )
+    from nikodym.audit.config import AuditConfig
+
+    provisional = tmp_path / ".trail-0123456789abcdef.jsonl"
+    config = sc.config.model_copy(
+        update={"audit": AuditConfig(enabled=True, trail_filename=str(provisional))}
+    )
+    study = nikodym.run(config, run_dir=tmp_path / "corrida")
+    assert study.run_context.status == "done", study.run_context.error
+    html = Path(study.artifacts.get("report", "result").html_path).read_text(encoding="utf-8")
+    seccion = _pagina_de(html)
+    assert str(provisional) not in seccion and "0123456789abcdef" not in seccion
+    assert "Registro de auditoría" in seccion
+    assert "en la ruta que fija la sección audit del config" in html_module.unescape(seccion)
+
+
+def _pagina_de(html: str) -> str:
+    return _seccion(html, EXECUTIVE_SUMMARY_ID)
+
+
 def test_la_pagina_advierte_que_las_rutas_son_las_de_escritura(corrida: Scorecard) -> None:
     """Pasada 2 de Codex sobre C1: la interfaz copia el informe a `runs/<run_id>/` y una corrida
     posterior reescribe la ruta compartida; la página dice que sus rutas son las de escritura."""
