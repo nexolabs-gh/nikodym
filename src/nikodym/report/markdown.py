@@ -274,32 +274,47 @@ def _summary(section: Mapping[str, Any]) -> str:
     for paragraph in section["body"]:
         lines.extend([paragraph, ""])
     summary = section["summary"] or {}
+    # TODO valor dinámico de la página —estados, cifras, alertas, decisiones, archivos y el motivo
+    # de un resumen que no se armó— va como texto literal de pandoc: los motivos los escribió una
+    # persona, las rutas salen del config y un mensaje de error puede traer lo que sea, y en QMD
+    # cualquiera de ellos sería marcado o HTML crudo (pasada 5 de Codex sobre la capa C).
+    literal = _texto_inline_literal
     if summary.get("error"):
-        lines.extend(["::: {.callout-warning}", str(summary["error"]), ":::"])
+        lines.extend(["::: {.callout-warning}", literal(str(summary["error"])), ":::"])
         return "\n".join(lines).rstrip()
     final = summary.get("final")
     if not final:
         return "\n".join(lines).rstrip()
     labels = summary["labels"]
-    lines.append(f"**{labels['execution']}:** {_escape_cell(final['execution'])}  ")
-    lines.extend([f"**{labels['validation']}:** {_escape_cell(final['validation'])}", ""])
+    lines.append(f"**{labels['execution']}:** {literal(str(final['execution']))}  ")
+    lines.extend([f"**{labels['validation']}:** {literal(str(final['validation']))}", ""])
     lines.extend([f"**{labels['figures']}**", ""])
     if final["figures"]:
-        lines.append(_pipe_table(("Cifra", "Valor"), [tuple(fila) for fila in final["figures"]]))
+        lines.append(
+            _pipe_table(
+                ("Cifra", "Valor"),
+                [tuple(literal(str(celda)) for celda in fila) for fila in final["figures"]],
+            )
+        )
     else:
         lines.append("Las cifras clave no están disponibles en esta corrida.")
     lines.extend(["", f"**{labels['review']}**", ""])
     if final["review"]:
-        lines.extend(f"- ⚠ {_texto_inline_literal(alerta)}" for alerta in final["review"])
+        lines.extend(f"- ⚠ {literal(str(alerta))}" for alerta in final["review"])
     else:
         lines.append(f"_{summary['sin_alertas']}_")
     lines.extend(["", f"**{labels['decisions']}**", ""])
     if final["decisions"]:
-        lines.extend(f"- {_texto_inline_literal(linea)}" for linea in final["decisions"])
+        lines.extend(f"- {literal(str(linea))}" for linea in final["decisions"])
     else:
         lines.append(f"_{summary['sin_decisiones']}_")
     lines.extend(["", f"**{labels['files']}**", ""])
-    lines.append(_pipe_table(("Archivo", "Dónde"), [tuple(fila) for fila in final["files"]]))
+    lines.append(
+        _pipe_table(
+            ("Archivo", "Dónde"),
+            [tuple(literal(str(celda)) for celda in fila) for fila in final["files"]],
+        )
+    )
     return "\n".join(lines).rstrip()
 
 

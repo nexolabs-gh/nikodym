@@ -254,6 +254,44 @@ def test_un_informe_regenerado_desde_un_study_recargado_dice_las_mismas_decision
     assert bundle.summary["final"]["decisions"] == original.summary["final"]["decisions"]
 
 
+def test_el_preambulo_persistido_es_el_prefijo_que_llego_al_trail() -> None:
+    """Pasada 5 de Codex: si el sink falla en el evento N, el trail trae un prefijo y
+    `run_context.preamble` trae exactamente el mismo prefijo, nunca el preámbulo entero; y una
+    corrida nueva sobre el mismo Study empieza sin el preámbulo de la anterior."""
+    from nikodym.audit.exceptions import AuditError
+    from nikodym.core.audit import AuditEvent
+    from nikodym.core.config import NikodymConfig
+    from nikodym.core.study import Study
+
+    class SinkQueSeLlena:
+        def __init__(self) -> None:
+            self.events: list[AuditEvent] = []
+
+        def emit(self, event: AuditEvent) -> None:
+            if event.kind == "decision" and any(e.kind == "decision" for e in self.events):
+                raise AuditError("disco lleno")
+            self.events.append(event)
+
+    study = Study(NikodymConfig(), apply_global_seed=False)
+    sink = SinkQueSeLlena()
+    study.set_audit_sink(sink)
+    declaraciones = [
+        (None, {"regla": "primera", "umbral": None, "valor": 1, "accion": "declarar"}),
+        (None, {"regla": "segunda", "umbral": None, "valor": 2, "accion": "declarar"}),
+    ]
+    with pytest.raises(AuditError):
+        study.run(preamble=declaraciones)
+    assert study.run_context.status == "failed"
+    en_el_trail = [e.payload["regla"] for e in sink.events if e.kind == "decision"]
+    assert en_el_trail == ["primera"]
+    assert [p["regla"] for _paso, p in study.preamble] == en_el_trail
+    # Una corrida nueva sobre el mismo Study arranca sin el preámbulo anterior.
+    limpio = Study(NikodymConfig(), apply_global_seed=False)
+    limpio.run_context.preamble = (("x", {"regla": "vieja", "accion": "a", "umbral": None}),)
+    limpio.run(preamble=[])
+    assert limpio.preamble == ()
+
+
 def test_el_registro_de_auditoria_se_nombra_sin_su_ruta_absoluta(tmp_path: Path) -> None:
     """La suite completa acusó que dos corridas del mismo config por la interfaz daban HTML
     distintos: la interfaz reserva el trail en una ruta provisional con un token por corrida
@@ -345,10 +383,44 @@ def test_el_qmd_lleva_la_pagina_antes_del_resumen_ejecutivo(corrida: Scorecard) 
     resultado = corrida.study.artifacts.get("report", "result")
     qmd = Path(resultado.md_path).read_text(encoding="utf-8")
     assert qmd.index("## Resumen de la corrida") < qmd.index("## Resumen ejecutivo")
+    # Todo valor dinámico va como texto literal de pandoc (puntuación ASCII con barra): se compara
+    # sin las barras.
+    literal = qmd.replace("\\", "")
     for linea in corrida.summary().decisions:
-        assert linea in qmd, linea
+        assert linea in literal, linea
     for rotulo, valor in corrida.summary().figures:
-        assert rotulo in qmd and valor in qmd, (rotulo, valor)
+        assert rotulo in literal and valor in literal, (rotulo, valor)
+
+
+def test_el_qmd_neutraliza_texto_hostil_en_la_pagina(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pasada 5 de Codex: los estados, las cifras, los archivos y el motivo de un resumen que no
+    se armó también pueden traer marcado (una ruta o un mensaje con etiquetas). En la fuente
+    editable van como texto literal de pandoc, nunca como HTML crudo ni enlaces."""
+    import test_report_step as step_tests
+
+    import nikodym.guided.summaries as fuente
+    from nikodym.report.step import ReportStep
+
+    hostil = '<img src=x onerror="alert(1)"> [x](http://mal) **negrita** # titulo'
+
+    def revienta(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError(hostil)
+
+    monkeypatch.setattr(fuente, "build_stage_summary", revienta)
+    cfg = ReportConfig(output_dir=str(tmp_path), formats=["md"])
+    study = step_tests._study_with_report_artifacts(config=cfg)
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(1))
+    qmd = Path(result.md_path).read_text(encoding="utf-8")
+    inicio = qmd.index("## Resumen de la corrida")
+    pagina = qmd[inicio : qmd.index("\n## ", inicio + 1)]
+    assert hostil not in pagina
+    # Toda la puntuación va con barra: ninguna etiqueta, enlace ni énfasis queda sin escapar.
+    for activo in ("<img", "[x](http", "**negrita**", "# titulo"):
+        assert not re.search(r"(?<!\\)" + re.escape(activo), pagina), activo
+    assert "\\<img src\\=x" in pagina
+    assert hostil in pagina.replace("\\", "")  # el texto sigue ahí, letra a letra
 
 
 @pytest.mark.skipif(not _HAS_DOCX, reason="requiere el extra docx (python-docx)")

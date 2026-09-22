@@ -376,6 +376,9 @@ class Study:
         self.run_context.run_id = run_id
         self.run_context.started_at = datetime.now(UTC)
         self.run_context.status = "running"
+        # El preámbulo es de ESTA corrida: se vacía al arrancar (un Study reutilizado no arrastra
+        # el de la anterior) y se rellena evento a evento, después de que cada uno llegó al trail.
+        self.run_context.preamble = ()
         # Secuencia del SDD-01 §7.3 paso 2: status="running" → emitir run_start → iniciar el
         # LineageBundle. En F0 ``data_hash`` queda None; en B2+ lo completa el paso de datos antes
         # de cerrar.
@@ -427,12 +430,16 @@ class Study:
             # Copia PROFUNDA una sola vez: el payload anida listas (`variables`, `valor`) que el
             # llamador conserva, y lo que se emite al trail y lo que el informe lee después
             # tienen que ser el mismo snapshot aunque alguien mute el original (pasada 2 de
-            # Codex sobre C1).
-            self.run_context.preamble = tuple(
-                (paso, copy.deepcopy(dict(payload))) for paso, payload in preamble
-            )
-            for paso_declarante, payload in self.run_context.preamble:
-                self._emit("decision", paso_declarante, copy.deepcopy(payload))
+            # Codex sobre C1). Y se PERSISTE evento a evento, sólo después de que `_emit`
+            # terminó: si el sink falla en el evento N, el trail y `run_context.preamble` traen
+            # el mismo prefijo, y el informe regenerado y la ficha no atribuyen decisiones
+            # distintas a la misma corrida (pasada 5 de Codex sobre la capa C).
+            declarados: list[tuple[str | None, dict[str, Any]]] = []
+            for paso_declarante, payload in preamble:
+                snapshot = copy.deepcopy(dict(payload))
+                self._emit("decision", paso_declarante, copy.deepcopy(snapshot))
+                declarados.append((paso_declarante, snapshot))
+                self.run_context.preamble = tuple(declarados)
             for paso in pasos:
                 paso_actual = paso
                 self._run_one(paso)

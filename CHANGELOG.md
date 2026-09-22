@@ -31,8 +31,11 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   registro de auditoría gana la clave aditiva `variables` (las variables que la decisión nombró;
   `valor` sigue siendo la hoja escrita), y `Study` expone `preamble`, lo que la corrida declaró
   antes del primer paso, persistido en `run_metadata.json` (clave aditiva `preamble`, vacía en
-  los archivos anteriores) para que un informe regenerado desde un `Study` recargado diga las
-  mismas decisiones que el trail y la ficha. El gate de códigos internos cubre la página; el golden del informe del
+  los archivos anteriores; se rellena evento a evento después de que cada uno llegó al trail, así
+  que ante un sink que falla a medias trail y preámbulo traen el mismo prefijo) para que un
+  informe regenerado desde un `Study` recargado diga las mismas decisiones que el trail y la
+  ficha. En la fuente editable todo valor dinámico de la página —estados, cifras, alertas,
+  decisiones, archivos y el motivo de un resumen que no se armó— va como texto literal de pandoc. El gate de códigos internos cubre la página; el golden del informe del
   step se re-ancló midiendo que el HTML cambia sólo por el capítulo nuevo y sus entradas de
   índice.
 - **La ficha del modelo muestra quién tomó cada decisión humana y por qué** (capa C3;
