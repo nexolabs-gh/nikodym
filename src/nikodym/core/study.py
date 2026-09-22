@@ -17,6 +17,7 @@ diferido) en las versiones 1.x. En F0
 
 from __future__ import annotations
 
+import copy
 import importlib
 import json
 import math
@@ -328,10 +329,11 @@ class Study:
     def preamble(self) -> tuple[tuple[str | None, dict[str, Any]], ...]:
         """Las declaraciones ``(paso, payload)`` que :meth:`run` emitió antes del primer paso.
 
-        Copia de lo que se pasó en ``run(preamble=…)``, en el mismo orden; vacía si la corrida
-        no declaró nada o todavía no corrió. Es de sólo lectura: el registro durable es el trail.
+        Copia profunda de lo que se pasó en ``run(preamble=…)``, en el mismo orden; vacía si la
+        corrida no declaró nada o todavía no corrió. Es de sólo lectura —mutar lo devuelto no
+        toca el snapshot—: el registro durable es el trail.
         """
-        return tuple((paso, dict(payload)) for paso, payload in self._preamble)
+        return tuple((paso, copy.deepcopy(payload)) for paso, payload in self._preamble)
 
     # --- Orquestación (motor v1: orden de declaración + validación de prerequisitos, CT-1) -----
 
@@ -426,9 +428,15 @@ class Study:
             # del motor. Van DENTRO del manejo de fallos: un sink que no pueda escribirlas deja la
             # corrida fallida con su diagnóstico, no «running» para siempre (pasada 1 de Codex
             # sobre la capa A).
-            self._preamble = tuple((paso, dict(payload)) for paso, payload in preamble)
+            # Copia PROFUNDA una sola vez: el payload anida listas (`variables`, `valor`) que el
+            # llamador conserva, y lo que se emite al trail y lo que el informe lee después
+            # tienen que ser el mismo snapshot aunque alguien mute el original (pasada 2 de
+            # Codex sobre C1).
+            self._preamble = tuple(
+                (paso, copy.deepcopy(dict(payload))) for paso, payload in preamble
+            )
             for paso_declarante, payload in self._preamble:
-                self._emit("decision", paso_declarante, dict(payload))
+                self._emit("decision", paso_declarante, copy.deepcopy(payload))
             for paso in pasos:
                 paso_actual = paso
                 self._run_one(paso)

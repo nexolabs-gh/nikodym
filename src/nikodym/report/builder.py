@@ -573,6 +573,10 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
             "pestaña Resultados: el estado de la ejecución y de la validación técnica, las cifras "
             "clave, qué revisar, las decisiones humanas con su motivo y dónde queda cada archivo. "
             "El veredicto lo firma el validador en el resumen ejecutivo.",
+            "Las rutas son las que el informe escribió al generarse: si la corrida se copia o se "
+            "archiva después —desde la interfaz, o al apartar una corrida anterior—, los archivos "
+            "se buscan en su carpeta de destino, y el registro de auditoría deja constancia de "
+            "cada uno que se escribió.",
         )
     if chapter_id == "model_card":
         return prose.model_card_body(bundle)
@@ -721,10 +725,13 @@ def _archivos_que_el_informe_conoce(
             )
         )
     if getattr(study.config, "governance", None) is not None:
+        # La ficha se escribe sólo cuando la corrida tiene carpeta de evidencia (`run_dir`,
+        # D-GOB-6); el informe no sabe si la hay, y no afirma un archivo que puede no existir.
         archivos.append(
             (
                 "Ficha del modelo",
-                "model_card.json y model_card.md, en la carpeta de evidencia de la corrida",
+                "model_card.json y model_card.md, en la carpeta de evidencia de la corrida si se "
+                "pidió una (run_dir)",
             )
         )
     return tuple(archivos)

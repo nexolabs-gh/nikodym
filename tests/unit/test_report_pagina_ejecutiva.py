@@ -214,6 +214,36 @@ def test_el_study_conserva_el_preambulo_que_declaro(corrida: Scorecard) -> None:
     assert decisiones[0]["variables"] == ["score"]
 
 
+def test_el_preambulo_es_un_snapshot_que_nadie_muta(corrida: Scorecard) -> None:
+    """Pasada 2 de Codex sobre C1: el payload anida listas que el llamador conserva. Ni mutar el
+    original después de correr ni mutar lo que devuelve `preamble` cambia el snapshot: lo que
+    se emitió al trail y lo que el informe lee son lo mismo."""
+    original = next(d for d in corrida._decisions if d["regla"] == "decision_del_usuario")
+    original["variables"].append("intruso")
+    original["valor"]["selection.force_exclude"].append("intruso")
+    try:
+        decision = next(
+            p for _paso, p in corrida.study.preamble if p.get("regla") == "decision_del_usuario"
+        )
+        assert decision["variables"] == ["score"]
+        assert decision["valor"] == {"selection.force_exclude": ["score"]}
+        decision["variables"].append("otro")
+        de_nuevo = next(
+            p for _paso, p in corrida.study.preamble if p.get("regla") == "decision_del_usuario"
+        )
+        assert de_nuevo["variables"] == ["score"]
+    finally:
+        original["variables"].remove("intruso")
+        original["valor"]["selection.force_exclude"].remove("intruso")
+
+
+def test_la_pagina_advierte_que_las_rutas_son_las_de_escritura(corrida: Scorecard) -> None:
+    """Pasada 2 de Codex sobre C1: la interfaz copia el informe a `runs/<run_id>/` y una corrida
+    posterior reescribe la ruta compartida; la página dice que sus rutas son las de escritura."""
+    seccion = _pagina(corrida)
+    assert "Las rutas son las que el informe escribió al generarse" in seccion
+
+
 def test_con_pasos_despues_del_informe_la_pagina_no_afirma_lo_que_no_corrio(
     tmp_path: Path,
 ) -> None:

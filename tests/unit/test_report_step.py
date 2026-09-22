@@ -92,7 +92,10 @@ ROOT_SEED = 20_240_629
 # motivo de que el resumen no se arma sobre cards sintéticas) y sus tres entradas de índice
 # (sidebar, índice y «En esta página»); el render sin la página da exactamente el golden anterior
 # `947ddd7b…`. El CSS no se tocó: el golden del renderer sobre bundles sin corrida no se mueve.
-GOLDEN_STEP_HTML_SHA256 = "a21554115c731013459fb905a7246cec96e0ef12423c3c3fa49d54f88a8dbcc5"
+# Recalculado el mismo día tras la pasada 2 de Codex sobre C1: la página gana un segundo párrafo
+# («Las rutas son las que el informe escribió al generarse…»). Remedido con el mismo `diff`: 21
+# líneas, sólo la sección y sus tres entradas de índice; sin la página, otra vez `947ddd7b…`.
+GOLDEN_STEP_HTML_SHA256 = "4ead6d611ee06934bd0f345d3a4e7c104c21bd5d50e75bed66b01f2fa2cba56d"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
