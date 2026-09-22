@@ -80,10 +80,24 @@ cumplen las cuatro condiciones a la vez:
 
 | # | Condición | Por qué |
 |---|---|---|
-| 1 | `eda.default_rate.axis == "period"` | Es el valor de fábrica: el usuario no eligió un eje, lo heredó |
-| 2 | `eda.default_rate.date_col is None` | Nadie declaró una fecha |
-| 3 | El frame de análisis no tiene **ninguna** columna datetime | No hay nada que inferir (D-SC-3 ya probó esto mismo) |
+| 1 | `eda.default_rate.axis == "period"` | El eje **efectivo** del config. No se afirma nada sobre la intención: da igual que el valor venga del default o esté escrito a mano (la puerta guiada, de hecho, lo escribe) |
+| 2 | `eda.default_rate.date_col is None` | `None` es el default **y significa «infiere»**. No es un hueco: es la regla de inferencia que el config declara |
+| 3 | El frame de análisis no tiene **ninguna** columna datetime | La inferencia que el config pidió no tiene material (D-SC-3 ya probó esto mismo) |
 | 4 | El usuario **no** particionó por cohorte | D-SC-3 ya cubre ese caso: el eje pasa a esa cohorte |
+
+**Por qué `axis="period"` sin fecha se degrada y `axis="cohort"` sin `cohort_col` no**, sin apelar
+a la intención de nadie y con una diferencia que el código puede leer: `date_col = None` es el
+default **y activa una regla de inferencia** —«la única columna datetime», D-SC-3—, así que el
+config está **completo** y lo que falta es el dato. `cohort_col = None` no activa ninguna
+inferencia: el config nombra un eje y deja sin resolver la columna que ese eje exige, así que está
+**incompleto**. Degradar el segundo escondería un config mal escrito; degradar el primero declara
+que el archivo no da para el análisis.
+
+⚠️ **La degradación no es silenciosa**, y esto importa cuando el `axis="period"` sí fue deliberado
+(por código o desde el formulario): queda una decisión en el trail (§3.3), la card la declara, y el
+resumen de la etapa, el informe y el panel la dicen en palabras (§4). Además, la opción del
+formulario conserva su marca «exige otro campo» (§4.6/§8.3), de modo que quien elija el análisis
+temporal ve **antes de correr** que le falta la columna.
 
 Todo lo demás **sigue siendo un error**, con su mensaje de hoy, y esta enmienda lo declara para que
 la implementación no lo ablande de paso:
@@ -125,12 +139,27 @@ Cuando la regla entra, el resultado es:
 |---|---|---|
 | `by_period` | **tabla vacía** con las seis columnas de `_RESULT_COLUMNS` y sus dtypes | No hay grupos. Una fila única con `period = <NA>` sería **inventar un eje** de un período: el informe y el panel la pintarían como una serie de un punto, que es otra cosa |
 | `axis` | `"period"` | El eje **efectivo** es el configurado; no se agrupó por nada, así que no hay un eje distinto que declarar |
-| `overall_rate` | la tasa global sobre la población elegible, **finita** | No necesita eje: `n_bad / n_eligible` sobre todo el frame. Es la cifra que el modelador sí quiere y que hoy pierde entera |
+| `overall_rate` | la tasa global sobre la población elegible: `n_bad / n_eligible` sobre todo el frame, **con la misma regla que hoy** — `NaN` si no hay ninguna operación elegible | No necesita eje. Es la cifra que el modelador sí quiere y que hoy pierde entera |
 | `not_evaluable_reason` | `"sin_eje_temporal"` | La causa, en el molde de D-SC-2 |
+
+**El cruce «sin eje temporal **y** cero elegibles» no es un caso nuevo ni una excepción.** El
+contrato vigente ya dice que sin operaciones elegibles la tasa global es `NaN` sin excepción
+(`test_n_eligible_cero_produce_nan_sin_excepcion`), y la ruta degradada lo **conserva**: no inventa
+una tasa ni convierte la ausencia en error. Las dos ausencias son independientes y se publican
+juntas sin contradecirse:
+
+| Superficie | Sin eje, con elegibles | Sin eje **y** sin elegibles |
+|---|---|---|
+| `EdaCardSection.overall_default_rate` | la tasa global | `NaN` |
+| Serializer (`_EDA_AUSENCIAS_DECLARADAS`) | el número | `null` — es una de las **dos** ausencias que el guard ya permite hoy, sin tocarlo |
+| `EdaStep.metrics` | la tasa | **omite** la clave; el canal D-GOB-2 no admite no finitos y la regla de hoy es omitir, no rellenar |
+| Panel | `6,33 %` | «Sin operaciones elegibles» (copy que **ya existe**) |
+| Resumen de la etapa | «Tasa de malos: 6,33 % sobre 4.000 operaciones elegibles» | «Tasa de malos: sin operaciones elegibles» |
 
 **Regla de invariante, probada en los dos sentidos (igual que D-SC-2):** hay causa **si y sólo si**
 `by_period` está vacía. Una tabla con filas y una causa, o una tabla vacía sin causa, son contrato
-roto.
+roto. La invariante se ancla en la tabla, **no** en `overall_rate`, precisamente porque `NaN` ahí
+tiene su propio significado desde antes de esta enmienda.
 
 **Bit a bit:** en la ruta normal `overall_rate` se sigue calculando con `_overall_rate(by_period)`,
 byte por byte como hoy. El cálculo global vive **sólo** en la ruta degradada, que hoy no existe
@@ -144,6 +173,16 @@ hermano. `_resolve_axis` devuelve hoy `(config, axis_inferred)` y pasa a devolve
 si el eje quedó **ausente**. Con eje ausente el paso **no llama** a `DefaultRateAnalyzer.compute` y
 construye el resultado degradado con un constructor público del módulo dueño del DTO
 (`nikodym.eda.default_rate`), para que la invariante de §3.1 tenga una sola fuente.
+
+🔴 **Las validaciones de entrada corren igual en las dos ramas.** Hoy `compute` es el **único**
+punto que valida la población antes de calcular —frame no vacío, índice único, columna de target
+presente (`_validate_non_empty_frame`, `_validate_unique_index`, `_validate_target_column`)—, así
+que una rama que lo saltara aceptaría un índice duplicado o moriría con un `KeyError` incidental en
+vez del `EdaError` del contrato. Los tres validadores se extraen a **un helper compartido**
+(`_validar_poblacion(frame, target_col=)`) que **`compute` y el constructor degradado llaman antes
+de bifurcar**. Las tres excepciones, sus mensajes y sus `loc` quedan **idénticos** en las dos
+rutas, y §5 las prueba una por una **sobre la ruta degradada**, no sólo sobre la normal. No es un
+detalle de implementación: es la razón por la que una corrida sin eje sigue siendo auditable.
 
 `DefaultRateAnalyzer.compute` —API estable 1.x, usable sin `Study`— **conserva su contrato de hoy**:
 llamado directamente con `axis="period"` sobre un frame sin fecha sigue levantando `EdaError`. No
@@ -229,17 +268,35 @@ resumen —columnas descritas, marcas de calidad— no cambian.
 > columna de fecha ni cohorte declarada.
 
 El `ReportBuilder` **omite la tabla** `eda.default_rate.by_period` cuando el resultado declara su
-causa: una tabla de sólo encabezados no es evidencia, y la prosa ya dice por qué no está. El gráfico
-de la tasa ya se omite solo (`_chart_eda_default_rate` devuelve `None` con menos de dos filas sobre
-eje temporal, y lo declara como omisión prescrita, no como degradación).
+causa: una tabla de sólo encabezados no es evidencia, y la prosa ya dice por qué no está. Medido
+sobre el renderer, la omisión es segura en tres de los cuatro consumidores y exige una línea en el
+cuarto:
+
+| Consumidor | Con la tabla omitida |
+|---|---|
+| Cuerpo del capítulo (`KEY_TABLES`) | Ya filtra por `key in bundle.tables`: no la pide |
+| Anexo de tablas | Itera `bundle.tables`: no la ve |
+| `max_visible_rows` / tope de 1.000 | No se invoca sin tabla |
+| `_chart_eda_default_rate` | 🔴 Hoy hace `bundle.tables["eda.default_rate.by_period"]` **por índice**: pasa a `.get(...)` y devuelve `None` si falta, que es el mismo `None` que ya devuelve con menos de dos filas sobre eje temporal —omisión prescrita por D-SC-5 (b), no degradación— |
 
 ### 4.4 El panel de Resultados
 
-La cifra «Agrupada por fecha de observación · 0 períodos» pasa a **«No evaluable»**, con su causa
-bajo el bloque, en el mismo molde con que el panel ya pinta la causa de la estabilidad. El resto
-del bloque —tasa global, columnas descritas, calidad, perfiles— se pinta igual. Los rótulos viven
-en `EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS`, espejo gateado del diccionario de Python en los
-dos sentidos, como los tres que ya existen.
+Tres cambios acotados, ninguno estructural:
+
+1. La cifra `Agrupada por fecha de observación · 0 períodos` pasa a rótulo **«Agrupada en el
+   tiempo»** y valor **«No evaluable»**.
+2. Una nota bajo las cifras, hermana de la que ya existe para el eje inferido (D-SC-3): «La tasa
+   no se pudo agrupar en el tiempo: el archivo no trae columna de fecha ni cohorte declarada. El
+   resto del análisis exploratorio corrió completo y la decisión queda registrada en el trail de
+   la corrida.»
+3. El bloque «Estabilidad temporal de la tasa» **no cambia de forma**: ya tiene su rama
+   `not_evaluable` («No evaluable: {causa}. El indicador configurado es {indicador}.») y sólo
+   necesita el rótulo de la causa nueva en `EDA_NOT_EVALUABLE_REASON_LABELS`.
+
+Las secciones que dependen de la tabla —gráfico, «Ver la tasa …», ventana de recorte— ya están
+guardadas por `edaPoints.length > 0` y `edaKind !== "none"`, y con cero filas no se pintan. Los
+rótulos de la causa nueva de la tasa viven en `EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS`,
+espejo gateado del diccionario de Python en los dos sentidos, como los tres que ya existen.
 
 ### 4.5 El serializer
 
@@ -272,10 +329,12 @@ que el revisor no los lea como un oráculo debilitado: son el contrato que esta 
 | 2 | `test_eda_step.py::test_sin_config_de_data_tampoco_se_infiere` **invierte** igual | Hoy levanta |
 | 3 | La tabla vacía y la causa van **juntas** (invariante, los dos sentidos) | El campo no existe |
 | 4 | `overall_rate` degradado == la tasa global calculada a mano sobre el frame | La ruta no existe |
+| 4b | **Cruce**: sin eje **y** sin operaciones elegibles → `overall_rate` `NaN`, causa presente, serializer `null`, `EdaStep.metrics` **sin** la clave, y el resumen dice «sin operaciones elegibles» | La ruta no existe |
 | 5 | La decisión `tasa_por_periodo`/`no_evaluable` está en el trail, **una sola vez** | No se emite |
 | 6 | `stability` publica `sin_eje_temporal`, **no** `pocos_periodos_evaluables` | La causa no existe |
 | 7 | `n_figures` no cuenta la figura de la tasa; sí cuenta los perfiles | Hoy la contaría vacía |
-| 8 | Los cinco errores de §2 **siguen levantando** `EdaError` (control positivo, uno por fila) | — (nace verde: es el guardrail de que la regla no se derramó; se acompaña de su control negativo) |
+| 8 | Los errores de §2 **siguen levantando** `EdaError`, **uno por fila y sin agrupar**: `date_col` ausente del archivo · `date_col` no datetime · dos columnas datetime sin `date_col` · `axis="cohort"` sin `cohort_col` · `axis="cohort"` con `cohort_col` inexistente | — (nacen verdes: son el guardrail de que la regla no se derramó, y llevan su control negativo (d)) |
+| 8b | **Sobre la ruta degradada**, tres tests independientes: frame vacío, índice duplicado y target ausente levantan el **mismo** `EdaError` que por la ruta normal, con el mismo mensaje | Hoy esos casos nunca llegan a la rama, que no existe |
 | 9 | El informe de una corrida degradada: sin tabla de la tasa, con la frase de la causa, sin códigos internos | La rama no existe |
 | 10 | El resumen de la etapa dice las dos líneas de §4.2 | La rama no existe |
 | 11 | Espejo bidireccional del diccionario de rótulos nuevo (Python ↔ TS) | El diccionario no existe |
@@ -287,7 +346,8 @@ que el revisor no los lea como un oráculo debilitado: son el contrato que esta 
 ver rojo el test 13; (b) devolver una tabla con una fila `<NA>` en vez de vacía y ver rojo el test 3;
 (c) quitar la rama de `stability` y ver rojo el test 6; (d) devolver la causa en un caso de §2
 —`date_col` declarada y ausente— y ver rojo el test 8; (e) borrar una entrada del diccionario de
-rótulos y ver rojo el test 11.
+rótulos y ver rojo el test 11; (f) **saltar `_validar_poblacion` en la rama degradada** y ver rojo
+el test 8b; (g) rellenar `overall_rate` con `0.0` en vez de `NaN` sin elegibles y ver rojo el 4b.
 
 ## 6. Qué cambia en los documentos vigentes
 
@@ -304,11 +364,21 @@ rótulos y ver rojo el test 11.
 ## 7. Riesgos
 
 1. **Que la degradación tape un error real del usuario.** Mitigado por §2: cuatro condiciones a la
-   vez, cinco controles positivos y un control negativo que inyecta la causa en un caso de error.
-2. **Que la tabla vacía se cuele a una superficie que no la espera.** Medido: el serializer publica
-   `[]` y `edaChartKind` devuelve `"none"` con cero filas; el gráfico del informe ya devuelve `None`
-   con menos de dos filas. Lo único que hay que añadir es la omisión de la tabla en el builder
-   (§4.3) y la rama de la prosa.
+   vez, cinco controles positivos y un control negativo (d) que inyecta la causa en un caso de
+   error. El caso incómodo —alguien elige «por la fecha de observación» **a conciencia** y su
+   archivo no trae fecha— se degrada igual, y por diseño: no hay dato con que hacer otra cosa. Lo
+   que lo hace aceptable es que nada queda callado (trail, card, resumen, informe y panel lo dicen)
+   y que el formulario ya lo advierte **antes** de correr con la marca «exige otro campo».
+1b. **Que la rama nueva se salte una validación de población.** Es el riesgo más caro y está
+   cerrado en §3.2: un solo helper, llamado por las dos ramas antes de bifurcar, con tres tests
+   sobre la rama degradada (8b) y su control negativo (f).
+2. **Que la tabla vacía se cuele a una superficie que no la espera.** Censado consumidor a
+   consumidor: el serializer publica `rows = []` y `default_rate_window = {total_periods: 0,
+   truncated: false}`; el CSV de la interfaz sólo se escribe **si hubo recorte**, y con cero filas
+   no lo hay; en el front `edaChartKind` da `"none"`, `edaRatePoints` da `[]` y las dos secciones
+   del panel que dependen de ellos ya están guardadas por `length > 0`. En el informe, la tabla
+   **se omite** y el único acceso por índice se hace tolerante (§4.3). Lo que sí hay que escribir
+   es la rama de la prosa, la del resumen de la etapa y la del panel.
 3. **Que la corrida siga y falle más adelante por la misma carencia.** Censado: de las nueve etapas
    que siguen a `eda` en el pipeline F1, la única que lee `("eda", "default_rate")` es `report`
    (`ReportBuilder._collect_tables`), y §4.3 la cubre. Fuera del pipeline lo leen el resumen de la
@@ -323,7 +393,7 @@ rótulos y ver rojo el test 11.
 | # | Decisión | Opciones | Recomendación |
 |---|---|---|---|
 | 8.1 | La forma del resultado degradado | (a) **tabla vacía + causa**, y `overall_rate` finito sobre toda la población; (b) una fila única `<NA>` con toda la población; (c) tabla vacía y `overall_rate` también `NaN` | **(a)**: (b) inventa un período que no existe y lo pinta como serie de un punto; (c) le quita al modelador la única cifra de la etapa que su archivo sí permite calcular |
-| 8.2 | Alcance de la degradación | (a) **sólo las cuatro condiciones de §2**; (b) además, `axis="cohort"` sin `cohort_col` degrada en vez de fallar | **(a)**: elegir «por cohorte» y no decir cuál es la columna es una contradicción del usuario, no una ausencia; degradarla escondería un config mal escrito |
+| 8.2 | Alcance de la degradación | (a) **sólo las cuatro condiciones de §2**, sin mirar si el `axis="period"` fue deliberado; (b) además, `axis="cohort"` sin `cohort_col` degrada en vez de fallar; (c) degradar sólo si el config **no** escribió `axis` a mano | **(a)**: con `date_col=None` el config está completo y pide inferir, así que lo que falta es el dato; con `cohort_col=None` el config está incompleto y degradarlo escondería un error de escritura. (c) no es implementable sin inventar procedencia —la puerta guiada **escribe** `axis: period`— y dejaría fuera justo el caso que hay que arreglar |
 | 8.3 | Qué hace la opción «Por la fecha de observación» en el formulario | (a) **sigue marcada «exige otro campo»**, con el motivo reescrito (§4.6); (b) deja de exigir nada, porque ya no detiene la corrida | **(a)**: la columna sigue haciendo falta **para el análisis**; retirar la marca le quitaría al modelador el aviso de que perderá el diagnóstico temporal |
 
 ## 9. Lo que NO entra en esta enmienda
