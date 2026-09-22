@@ -126,10 +126,49 @@ En `WoEBinner`, por cada columna **categórica** cuyo ajuste produce un bin con 
    que el grupo de raras deje de ser unitario, y **se reajusta esa columna una sola vez** con ese
    valor. Un solo reintento: si el segundo ajuste vuelve a dar un bin degenerado, el motor se
    detiene con el error de hoy.
-3. La decisión va al trail, y la columna queda ajustada con el corte efectivo, que el config final
-   y el Anexo de parámetros reproducen como cualquier otra hoja.
+3. La decisión va al trail **antes** de que el paso publique nada, y el **corte efectivo se
+   publica como resultado**, no como config (§2.1).
 4. Si ninguna columna produce un bin degenerado, **no pasa nada**: ni reintento, ni decisión, ni
    una línea de más.
+
+### 2.1 🔴 El corte efectivo es un RESULTADO, no una hoja del config
+
+La primera redacción decía que «el config final reproduce el corte efectivo como cualquier otra
+hoja». **No puede ser**, y la revisión adversarial lo midió: el `config_hash` se calcula sobre el
+config —`binning` incluido—, el `Study` congela el lineage **antes** de ejecutar el paso y `save()`
+escribe `study.config`. Escribir el corte ahí después del ajuste rompería la correspondencia con el
+hash; no escribirlo dejaría un config guardado que no reproduce lo que se hizo. La salida no es
+elegir entre las dos:
+
+- **El corte efectivo viaja en la card de `binning`**, por variable, junto al declarado, como
+  cualquier otra cifra que el motor calcula. El Anexo de parámetros lo publica **distinguiéndolo**
+  del declarado: «umbral de categorías raras declarado 0,01 · efectivo 0,02 (reagrupado por el
+  motor)».
+- **La reproducibilidad no depende de guardar el valor, sino de que la regla sea determinista**:
+  el mismo config sobre los mismos datos vuelve a producir el mismo bin degenerado, el mismo corte
+  y el mismo ajuste. El `config_hash` sigue identificando **lo que el usuario declaró**, que es lo
+  que identifica por contrato; el corte efectivo es evidencia de la corrida, como el IV o los
+  coeficientes.
+- **Gate:** guardar la corrida, recargarla y reejecutar el mismo config tiene que dar el mismo
+  corte efectivo y el mismo binning, con el `config_hash` intacto.
+
+### 2.2 🔴 Cuando el segundo ajuste falla, quien habla es el ERROR, no el resumen
+
+La primera redacción prometía una alerta en el resumen de «Tramos y WoE». **Tampoco puede ser**, y
+también está medido: `BinningStep.execute` llama a `binner.fit` **antes** de publicar artefactos, el
+`Study` invoca `on_step` sólo cuando `execute` **termina**, y ahí es donde la puerta guiada arma el
+resumen de la etapa. Si el segundo ajuste levanta `BinningFitError`, ese resumen no llega a
+existir nunca.
+
+Por eso, en la ruta de fallo:
+
+- **El intento se emite al trail antes de propagar el error.** El sumidero de auditoría está
+  disponible dentro del paso; la decisión no depende de que `execute` termine.
+- **El diagnóstico que lee la persona es el mensaje del propio error**, que es la superficie que sí
+  existe en esa ruta: la puerta guiada ya lo publica tal cual («Ejecución: fallida en “Tramos y
+  WoE”: …»), y lo mismo hacen la pantalla y el YAML. El mensaje pasa a nombrar la variable, el
+  nivel y sus conteos, decir que se intentó reagruparlo y con qué corte, y ofrecer las dos salidas.
+- El resumen de la etapa sólo habla en el camino **exitoso** (§3).
 
 **Por qué un solo reintento y no una búsqueda.** Subir el corte hasta que «funcione» podría acabar
 metiendo en un mismo bin media variable, que es un cambio de modelación tomado por la máquina. Un
@@ -151,11 +190,12 @@ dejar al modelador con el nombre de un bin y ningún camino.
   > Categorías con muy pocas operaciones agrupadas para poder calcular su WoE: «proposito» (nivel
   > A48: 5 operaciones, ninguna incumplida).
 
-- **Resumen de «Tramos y WoE» cuando el motor se detiene igual**: la alerta nombra la variable y el
-  nivel, dice que se intentó agruparlo y ofrece las dos salidas —excluir la variable con
-  `exclude(...)` o fijar sus tramos—. Hoy el mensaje es el del motor y no ofrece ninguna.
-- **Ficha e informe: nada nuevo.** El corte efectivo viaja en el config y en el Anexo de
-  parámetros, como cualquier hoja. No se inventa una sección.
+- **Cuando el motor se detiene igual**, el que habla es el **mensaje del error** (§2.2), porque el
+  resumen de la etapa no llega a construirse. El mensaje nombra la variable, el nivel y sus
+  conteos, dice con qué cortes se intentó reagruparlo y ofrece las dos salidas —excluir la variable
+  o fijar sus tramos—. Hoy nombra el bin y no ofrece ninguna.
+- **Ficha e informe: nada nuevo.** El corte efectivo viaja en la **card de `binning`** y el Anexo
+  de parámetros lo publica junto al declarado (§2.1). No se inventa una sección.
 
 ## 4. Estrategia de tests
 
@@ -168,7 +208,8 @@ Todos nacen rojos salvo los marcados como guardrail.
 | 3 | Con un archivo sin niveles degenerados, la corrida es **byte a byte** la de hoy y no hay decisión en el trail | — (guardrail de «sólo si hace falta») |
 | 4 | El corte efectivo deja **≥ 2** niveles bajo él (los dos sentidos: uno menos y el grupo vuelve a ser unitario) | La regla no existe |
 | 5 | Los conteos de la decisión son los de la tabla de binning del paso, **no** los del archivo: un nivel sano en el archivo y degenerado en la muestra ajustada dispara la regla | La regla no existe |
-| 6 | **Un solo reintento**: con un fixture donde ni el segundo ajuste resuelve, el motor levanta el `BinningFitError` de siempre y el trail registra el intento | La regla no existe |
+| 6 | **Un solo reintento**: con un fixture donde ni el segundo ajuste resuelve, el motor levanta `BinningFitError`, **el trail ya registró el intento** —se emite antes de propagar— y el mensaje nombra variable, nivel, conteos, cortes y las dos salidas | La regla no existe, y hoy el trail no vería nada |
+| 6b | **El corte efectivo es resultado, no config**: la card de `binning` lo publica por variable, el `config_hash` no se mueve, y guardar → recargar → reejecutar el mismo config da el mismo corte y el mismo binning | La card no lo publica |
 | 7 | La decisión `categoria_rara_reagrupada` está en el trail con sus conteos, una vez por columna | No se emite |
 | 8 | El resumen publica su línea —y su alerta en el caso 6—, en español y sin identificadores del motor | La rama no existe |
 | 9 | **Bit a bit**: la proyección canónica de una corrida F1 del preset antes y después, **cero diferencias**, `config_hash` `1063d6cf…` intacto | — (guardrail) |
@@ -176,7 +217,9 @@ Todos nacen rojos salvo los marcados como guardrail.
 **Controles negativos (§6):** (a) desactivar la regla y ver rojo el test 1; (b) tomar los conteos
 del archivo en vez de la tabla del paso y ver rojo el 5; (c) reintentar en bucle en vez de una vez
 y ver rojo el 6; (d) elegir un corte que deje un solo nivel debajo y ver rojo el 4; (e) emitir la
-decisión también cuando no hace falta y ver rojo el 3.
+decisión también cuando no hace falta y ver rojo el 3; (f) emitir la decisión del intento
+**después** de propagar el error y ver rojo el 6; (g) escribir el corte efectivo en el config en
+vez de en la card y ver rojo el 6b por el `config_hash`.
 
 ## 5. Riesgos
 
@@ -197,14 +240,21 @@ decisión también cuando no hace falta y ver rojo el 3.
 |---|---|---|---|
 | 6.1 | Dónde vive el arreglo | (a) **el motor reagrupa y lo declara** (esta enmienda); (b) la puerta guiada escribe un override al construir el config; (c) exponer `cat_cutoff` como campo esencial; (d) subir el default del motor | **(a)**: es el único sitio que tiene la población real —§0.3 mide que la puerta **no** la conoce hasta que `DataStep` corre—, y además sirve a las tres puertas. (b) exigiría duplicar el pipeline de `data`; (c) pone al modelador a decidir sobre un umbral que no debería tener que conocer; (d) rompe la garantía 1.x y obliga a recapturar |
 | 6.2 | Cuántos reintentos | (a) **uno**; (b) subir el corte hasta que funcione | **(a)**: una búsqueda podría acabar metiendo media variable en un bin, que es una decisión de modelación tomada por la máquina |
+| 6.4 | Dónde vive el corte efectivo | (a) **en la card de `binning`**, publicado junto al declarado, con el `config_hash` intacto; (b) reescribir `binning.cat_cutoff` en el config guardado | **(a)**: (b) rompe la correspondencia con el `config_hash`, que se congela antes de ejecutar el paso. El corte es evidencia de la corrida, como el IV; la reproducibilidad la da que la regla sea determinista, no guardar el número |
 | 6.3 | Si el default `cat_cutoff = 0.01` se revisa para 2.0 | (a) **sí, se anota como candidato con esta medición**; (b) se deja como está | **(a)**: §0.1 muestra que un corte fijo puede aislar un nivel en cualquier archivo; es material para la poda de D-SIM-12, no para 1.x |
 
 ## 7. La revisión adversarial de este documento
 
-**Tope declarado: tres pasadas.** La primera tumbó la premisa central de la primera redacción —que
-la puerta guiada puede contar sobre desarrollo antes de que `DataStep` particione— y con ella el
-sitio donde vivía la regla; §0.3 recoge la medición y §6.1 la convierte en la decisión de Cami. Las
-pasadas restantes van sobre esta redacción.
+**Tope declarado: tres pasadas**, con el criterio de parada de siempre.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | La puerta guiada **no conoce** la muestra de desarrollo al construir el config: la resuelve `DataStep` con `Partitioner.split` y la semilla, tras el esquema, los especiales y el target | La regla se muda al **motor**, que sí recibe esas filas (§0.3, §6.1) |
+| 2 | (a) El corte efectivo no puede ir al config sin contradecir el `config_hash`, que se congela antes de ejecutar; (b) la alerta del reintento fallido **no puede existir**: `on_step` sólo corre si `execute` termina, y ahí el paso ya levantó | (a) §2.1: el corte es **resultado** —card y anexo—, y la reproducibilidad viene de que la regla es determinista; (b) §2.2: el trail se emite **antes** de propagar y quien habla es el **mensaje del error** |
+
+Las dos pasadas tumbaron una premisa de arquitectura cada una, así que la tercera va sobre esta
+redacción; si vuelve a tumbar una premisa en vez de refinar un detalle, el documento no está listo
+y se dice.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
