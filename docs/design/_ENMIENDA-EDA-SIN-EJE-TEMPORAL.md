@@ -95,9 +95,9 @@ que el archivo no da para el análisis.
 
 ⚠️ **La degradación no es silenciosa**, y esto importa cuando el `axis="period"` sí fue deliberado
 (por código o desde el formulario): queda una decisión en el trail (§3.3), la card la declara, y el
-resumen de la etapa, el informe y el panel la dicen en palabras (§4). Además, la opción del
-formulario conserva su marca «exige otro campo» (§4.6/§8.3), de modo que quien elija el análisis
-temporal ve **antes de correr** que le falta la columna.
+resumen de la etapa, el informe y el panel la dicen en palabras (§4). En el formulario, el aviso de
+que hace falta una columna de fecha se lee **antes de correr**, en el `help` de la opción
+(§4.6/§8.3).
 
 Todo lo demás **sigue siendo un error**, con su mensaje de hoy, y esta enmienda lo declara para que
 la implementación no lo ablande de paso:
@@ -233,6 +233,37 @@ pierde el diagnóstico temporal —que su archivo no permite— y conserva todo 
 Copy en español, de las fuentes de rótulos que ya existen, sin identificadores del motor
 (gate `test_report_codigos_internos`).
 
+### 4.0 Censo completo de consumidores — la lista, no los ejemplos
+
+Las tres pasadas de revisión de este documento encontraron, cada una, **un consumidor que el
+diseño no había mirado**. La respuesta no es parchear el tercero: es censar los dieciocho y decir
+de cada uno qué pasa. Medido sobre el árbol, no recordado.
+
+| # | Consumidor | Qué le pasa con el resultado degradado |
+|---|---|---|
+| 1 | `eda/stability.py::assess` | **Cambia** (§3.4): causa propia `sin_eje_temporal` en vez de `pocos_periodos_evaluables` |
+| 2 | `eda/figures.py::_build_figure_specs` | **Cambia** (§3.5): no emite la figura de la tasa |
+| 3 | `eda/step.py::_build_eda_card` | **Cambia** (§4.1): publica el campo nuevo |
+| 4 | `eda/step.py::metrics` | Sin cambio: las tres métricas se siguen publicando; `NaN` se omite por la regla de hoy (§3.1) |
+| 5 | `guided/summaries.py::_resumen_eda` | **Cambia** (§4.2): dos líneas nuevas, sin tabla |
+| 6 | `report/builder.py::_collect_tables` | **Cambia** (§4.3): omite la tabla vacía |
+| 7 | `report/prose.py::_eda_context` (vía `context_body`) | 🔴 **Cambia** (§4.3): hoy diría «en 0 períodos» y «un solo período» |
+| 8 | `report/prose.py::_results_eda` | **Cambia** (§4.3): rama nueva con la causa |
+| 9 | `report/renderer.py::_chart_eda_default_rate` | **Cambia** (§4.3): lookup tolerante; ya devolvía `None` con menos de dos filas |
+| 10 | `report/renderer.py::_chart_eda_profiles` | Sin cambio: lee las tablas de perfiles, no el eje |
+| 11 | `report/document.py` (`KEY_TABLES`, `max_visible_rows`) | Sin cambio: ya filtra por presencia de la clave |
+| 12 | `ui/serializers.py::_dump_card` | Sin cambio (§4.5): el guard sigue cumpliéndose |
+| 13 | `ui/serializers.py::_eda_default_rate` | Sin cambio: `rows = []`, ventana con `total_periods = 0` |
+| 14 | `ui/runs.py::_save_eda_default_rate` | Sin cambio: sólo escribe el CSV si hubo recorte |
+| 15 | `ui/jobs.py` (opción del eje) | **Cambia** (§4.6): estado y `help` |
+| 16 | `web/src/lib/results-types.ts::EdaResult` | **Cambia** (§4.1): campo nuevo, golden bidireccional |
+| 17 | `web/src/lib/results-format.ts` (`edaChartKind`, `edaRatePoints`, `edaRateWindow`, `edaStabilitySummary`, rótulos) | **Cambia** sólo en rótulos (§4.4); las tres primeras ya devuelven vacío con cero filas |
+| 18 | `web/src/components/ResultsTab.tsx` | **Cambia** (§4.4): una cifra, una nota |
+
+Fuera de la lista, `nikodym.testing.metrics` exige del dominio `eda` tres nombres de métrica y los
+tres siguen existiendo. **Ningún paso del pipeline posterior a `eda` consume `("eda", …)`** salvo
+`report` (§7-3).
+
 ### 4.1 La card
 
 `EdaCardSection` gana **un campo aditivo con default**, hermano del que D-SC-5 ya le dio a la
@@ -277,6 +308,20 @@ modo que la cifra no coincidiría con las «1.000 filas» del resumen de datos. 
 tamaño lo tiene una etapa antes, dicho con su población correcta.
 
 ### 4.3 El informe
+
+🔴 **Son DOS las funciones de prosa que leen la card de `eda`, no una.** Además de `_results_eda`,
+`_eda_context` alimenta el `context_body()` del capítulo «Contexto del modelo y de la cartera», y
+con el resultado degradado publicaría hoy dos frases falsas dentro del **mismo documento** que ya
+trae la explicación correcta:
+
+| Hoy diría (con `n_periods = 0`, `axis = "period"`) | Por qué es falso |
+|---|---|
+| «…la tasa se agrupó **por fecha de observación en 0 períodos**…» (`prose.py:1439`) | No se agrupó por nada |
+| «Con **un solo período** con observaciones no hay serie temporal que graficar: la tasa **se reproduce en la tabla** y no como figura» (`prose.py:1456`, rama `periods < 2 and axis != "cohort"`) | No hay un período, hay cero; y no hay tabla en la que reproducirla |
+
+Con la causa presente, `_eda_context`: **omite** la frase de agrupación y **omite** la rama de «un
+solo período», y en su lugar publica la causa en palabras, una sola vez. La frase de la tasa
+observada y la de las columnas descritas se conservan tal cual.
 
 `_results_eda` gana su tercera rama. Hoy tiene dos —serie, y «un solo período: no hay serie»— y con
 `n_periods = 0` caería en la segunda, que mentiría. La frase pasa a nombrar la causa:
@@ -324,17 +369,29 @@ clave nueva de la card, `null` en toda corrida que hoy existe.
 
 ### 4.6 El copy de la opción y la guía
 
-`ui/jobs.py`, opción `eda.default_rate.axis = "period"`, cierre del `motivo`:
+🔴 **El estado de la opción deja de ser verdad y hay que moverlo.** `_EXIGE_OTRO_CAMPO` está
+definido en el catálogo como «el motor la tiene, pero **elegirla sola no basta**: exige que
+declares otro campo del config, y **hasta que lo declares el config no se construye** (D-EXI-2)».
+Después de D-SC-17 el config se construye **y la corrida termina**, así que dejar la marca sería
+publicar una falsedad con el gate en verde —exactamente lo que D-ABA-5 persigue—, y además D-ABA-3
+sólo prohíbe ofrecer como elegible «algo que el motor rechaza», cosa que el motor deja de hacer.
 
-> Necesita una columna de fecha en tu archivo. Si no la indicas, el motor usa la única columna de
-> fecha que haya; si no hay ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja
-> registrado. Sin fecha ni cohorte, la tasa en el tiempo queda **sin evaluar** y la corrida sigue.
+Por eso la opción `eda.default_rate.axis = "period"` pasa a **`_DISPONIBLE`** y, por el gate
+`test_una_opcion_disponible_no_lleva_motivo_ni_prueba`, **retira `motivo`, `prueba` y `exige`**. El
+aviso no se pierde: se mueve al `help`, que toda opción lleva y el formulario pinta:
 
-La opción **conserva** su estado `_EXIGE_OTRO_CAMPO` y su `exige: ("eda.default_rate.date_col",)`:
-sigue siendo verdad que el análisis temporal necesita esa columna. Lo que deja de ser verdad es que
-su ausencia detenga la corrida. `prueba` apunta al test nuevo, no a la línea vieja.
+> Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar
+> si la tasa se deteriora en el tiempo. Es la opción de fábrica. Si no indicas la columna, el motor
+> usa la única columna de fecha que haya; si tu archivo no trae ninguna y particionas por cohorte,
+> agrupa por esa cohorte y lo deja registrado. **Sin fecha ni cohorte, la tasa en el tiempo queda
+> sin evaluar —la corrida sigue y el resto del análisis se hace igual—.**
 
-`docs_site/guias/analisis-exploratorio.md` cambia la frase equivalente y gana el caso en su tabla.
+La opción **`"cohort"` no se toca**: sigue en `_EXIGE_OTRO_CAMPO` con su `exige`, porque §2 deja ese
+caso como error y la marca sigue siendo cierta.
+
+`docs_site/guias/analisis-exploratorio.md` cambia la frase equivalente («Sin fecha y sin cohorte, la
+corrida se detiene en…») y gana el caso en su tabla, con su gate
+(`tests/unit/test_docs_analisis_exploratorio.py`).
 
 ## 5. Estrategia de tests
 
@@ -353,12 +410,21 @@ que el revisor no los lea como un oráculo debilitado: son el contrato que esta 
 | 7 | `n_figures` no cuenta la figura de la tasa; sí cuenta los perfiles | Hoy la contaría vacía |
 | 8 | Los errores de §2 **siguen levantando** `EdaError`, **uno por fila y sin agrupar**: `date_col` ausente del archivo · `date_col` no datetime · dos columnas datetime sin `date_col` · `axis="cohort"` sin `cohort_col` · `axis="cohort"` con `cohort_col` inexistente | — (nacen verdes: son el guardrail de que la regla no se derramó, y llevan su control negativo (d)) |
 | 8b | **Sobre la ruta degradada**, tres tests independientes: frame vacío, índice duplicado y target ausente levantan el **mismo** `EdaError` que por la ruta normal, con el mismo mensaje | Hoy esos casos nunca llegan a la rama, que no existe |
-| 9 | El informe de una corrida degradada: sin tabla de la tasa, con la frase de la causa, sin códigos internos | La rama no existe |
+| 9 | El informe **completo** de una corrida degradada, medido sobre el HTML: aparece la causa **una sola vez**, no aparece la tabla de la tasa, y **no aparece ninguna** de las cadenas «0 períodos», «se agrupó» ni «un solo período»; sin códigos internos. Se repite sobre el cruce sin operaciones elegibles | Las dos ramas no existen, y hoy el documento diría dos frases falsas |
 | 10 | El resumen de la etapa dice las dos líneas de §4.2 | La rama no existe |
 | 11 | Espejo bidireccional del diccionario de rótulos nuevo (Python ↔ TS) | El diccionario no existe |
 | 12 | `ResultsTab` pinta «No evaluable» y su causa (vitest, render estático) | La rama no existe |
+| 12b | La opción `axis="period"` del catálogo es `_DISPONIBLE` **sin** `motivo`, `prueba` ni `exige`, y la opción `"cohort"` **conserva** `_EXIGE_OTRO_CAMPO` con su `exige` | Hoy las dos llevan la marca |
 | 13 | **Gate de aceptación end-to-end**: el pipeline F1 completo sobre un frame sin fecha con `partition="random"` termina `done` | Hoy termina `failed` en `eda` |
 | 14 | **Bit a bit**: la proyección canónica (`_proyeccion_canonica.py`) de una corrida F1 del preset, antes y después. Las **únicas** diferencias admitidas son las **dos claves nuevas, y sólo con valor `None`** (ver abajo); todo lo demás, idéntico, y `config_hash` `1063d6cf…` intacto | — (guardrail de aditividad) |
+
+**Censo de goldens que la capa mueve** (medido, no supuesto; es el punto donde una capa se pasa de
+hora): `EdaResult` en `results-types.ts` (espejo por orden de los campos de la card), el fixture
+`schema.json` y el bundle del front, `eda.fixture.ts`, y el `help`/estado de la opción en
+`tests/unit/test_jobs_abanico.py`. **`tests/fixtures/option_effect_oracles.txt` NO se mueve**: su
+fila `eda.default_rate.axis` cita tres tests por nombre y **ninguno de los dos que esta capa
+invierte** está entre ellos (medido sobre la fila 76). Si al implementar hiciera falta renombrar
+uno de los citados, la fila se actualiza en el mismo commit.
 
 **Qué significa exactamente «bit a bit» con dos campos aditivos (test 14).** `proyeccion_canonica`
 vuelca cada `BaseModel` con `model_dump()`, **campos con default incluidos**, así que dos campos
@@ -385,7 +451,9 @@ ver rojo el test 13; (b) devolver una tabla con una fila `<NA>` en vez de vacía
 (c) quitar la rama de `stability` y ver rojo el test 6; (d) devolver la causa en un caso de §2
 —`date_col` declarada y ausente— y ver rojo el test 8; (e) borrar una entrada del diccionario de
 rótulos y ver rojo el test 11; (f) **saltar `_validar_poblacion` en la rama degradada** y ver rojo
-el test 8b; (g) rellenar `overall_rate` con `0.0` en vez de `NaN` sin elegibles y ver rojo el 4b.
+el test 8b; (g) rellenar `overall_rate` con `0.0` en vez de `NaN` sin elegibles y ver rojo el 4b;
+(h) **dejar `_eda_context` sin su rama** —es decir, el código de hoy— y ver rojo el test 9 por las
+cadenas «0 períodos» y «un solo período».
 
 ## 6. Qué cambia en los documentos vigentes
 
@@ -406,7 +474,7 @@ el test 8b; (g) rellenar `overall_rate` con `0.0` en vez de `NaN` sin elegibles 
    error. El caso incómodo —alguien elige «por la fecha de observación» **a conciencia** y su
    archivo no trae fecha— se degrada igual, y por diseño: no hay dato con que hacer otra cosa. Lo
    que lo hace aceptable es que nada queda callado (trail, card, resumen, informe y panel lo dicen)
-   y que el formulario ya lo advierte **antes** de correr con la marca «exige otro campo».
+   y que el formulario lo advierte **antes** de correr, en el `help` de la opción (§4.6).
 1b. **Que la rama nueva se salte una validación de población.** Es el riesgo más caro y está
    cerrado en §3.2: un solo helper, llamado por las dos ramas antes de bifurcar, con tres tests
    sobre la rama degradada (8b) y su control negativo (f).
@@ -432,7 +500,27 @@ el test 8b; (g) rellenar `overall_rate` con `0.0` en vez de `NaN` sin elegibles 
 |---|---|---|---|
 | 8.1 | La forma del resultado degradado | (a) **tabla vacía + causa**, y `overall_rate` finito sobre toda la población; (b) una fila única `<NA>` con toda la población; (c) tabla vacía y `overall_rate` también `NaN` | **(a)**: (b) inventa un período que no existe y lo pinta como serie de un punto; (c) le quita al modelador la única cifra de la etapa que su archivo sí permite calcular |
 | 8.2 | Alcance de la degradación | (a) **sólo las cuatro condiciones de §2**, sin mirar si el `axis="period"` fue deliberado; (b) además, `axis="cohort"` sin `cohort_col` degrada en vez de fallar; (c) degradar sólo si el config **no** escribió `axis` a mano | **(a)**: con `date_col=None` el config está completo y pide inferir, así que lo que falta es el dato; con `cohort_col=None` el config está incompleto y degradarlo escondería un error de escritura. (c) no es implementable sin inventar procedencia —la puerta guiada **escribe** `axis: period`— y dejaría fuera justo el caso que hay que arreglar |
-| 8.3 | Qué hace la opción «Por la fecha de observación» en el formulario | (a) **sigue marcada «exige otro campo»**, con el motivo reescrito (§4.6); (b) deja de exigir nada, porque ya no detiene la corrida | **(a)**: la columna sigue haciendo falta **para el análisis**; retirar la marca le quitaría al modelador el aviso de que perderá el diagnóstico temporal |
+| 8.3 | Qué hace la opción «Por la fecha de observación» en el formulario | (a) **pasa a «disponible»** y el aviso se mueve al `help` (§4.6); (b) conserva la marca «exige otro campo», enmendando la definición del estado en el catálogo; (c) un estado nuevo, «degrada sin el otro campo» | **(a)**: la definición vigente del estado dice «hasta que lo declares **el config no se construye**», y eso deja de ser verdad; mantenerla sería publicar una falsedad con los gates en verde. El aviso no se pierde —`help` lo lleva y el formulario lo pinta—, y la opción `"cohort"` conserva su marca porque ahí sí sigue siendo cierta. (c) añade vocabulario a D-ABA/D-EXI por un solo caso |
+
+## 8bis. La revisión adversarial de este documento: tope, criterio y qué encontró
+
+**Tope declarado antes de lanzar: tres pasadas** de Codex sobre el HEAD commiteado, con base
+`015c1bd`. **Criterio de parada:** se detiene al alcanzar el tope o cuando una pasada deje de
+traer un consumidor o un contrato nuevo. Las tres trajeron algo real y distinto, todo verificado
+contra el árbol antes de absorberlo:
+
+| Pasada | Hallazgos | Qué cambió |
+|---|---|---|
+| 1 | `overall_rate` prometido finito contra un contrato que devuelve `NaN`; la rama degradada se saltaba los guards de población; `axis="period"` no demuestra intención | §3.1 (cruce sin elegibles), §3.2 (helper compartido), §2 (criterio medible) |
+| 2 | El resumen prometía un denominador que ningún artefacto conserva; el gate «cero diferencias» era imposible con campos aditivos | §4.2 (copy sin denominador, con su razón), §5 (criterio real del bit a bit) |
+| 3 | `_eda_context` publicaría «0 períodos» y «un solo período» en el mismo informe que trae la causa | §4.3 (dos funciones de prosa, no una), test 9 endurecido |
+
+**Las tres son el mismo defecto de método**: el diseño miraba consumidores de a uno. Por eso, en
+vez de parchear el tercero, se censaron **los dieciocho** (§4.0) y se dice de cada uno qué le pasa.
+Ese censo, y dos cambios que salieron de él —el estado de la opción del catálogo (§4.6) y el censo
+de goldens (§5)— entran **después** de la tercera pasada y **no llevan pasada propia**: el tope
+está alcanzado y se declara aquí, como en S12 y S18. La implementación abre con una pasada sobre
+su propio rango de código, que es donde el revisor rinde más.
 
 ## 9. Lo que NO entra en esta enmienda
 
