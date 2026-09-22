@@ -92,6 +92,9 @@ export const PIPELINE = [
  * la cadena de la demo, se recuenta contra el índice del informe nuevo.
  */
 export const CAPITULOS = [
+  // El informe abre con la página ejecutiva (capa C de FLUJO-GUIADO-SCORECARD): el resumen final
+  // de la corrida, que escribe el motor entero desde la misma fuente que `Scorecard.summary()`.
+  { n: "—", titulo: "Resumen de la corrida", tipo: "generado" },
   { n: "—", titulo: "Resumen ejecutivo", tipo: "editable" },
   { n: "1", titulo: "Introducción", tipo: "editable" },
   { n: "2", titulo: "Ficha del modelo", tipo: "generado" },

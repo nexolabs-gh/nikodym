@@ -1343,8 +1343,12 @@ def _font_faces() -> str:
     como incluye el resto del CSS.
     """
     reglas: list[str] = []
+    # `joinpath` encadenado, un segmento por llamada: el `Traversable` de Python 3.11 acepta UN
+    # solo argumento (varios segmentos son 3.12+), y el paquete soporta 3.11 — con la forma de dos
+    # argumentos el render moría con `ReportRenderError` sólo en esa versión (CI, los tres SO).
+    carpeta = resources.files(_TEMPLATE_PACKAGE).joinpath("fonts")
     for peso, nombre in _FONT_FILES:
-        payload = resources.files(_TEMPLATE_PACKAGE).joinpath("fonts", nombre).read_bytes()
+        payload = carpeta.joinpath(nombre).read_bytes()
         codificado = base64.b64encode(payload).decode("ascii")
         reglas.append(
             "@font-face {\n"

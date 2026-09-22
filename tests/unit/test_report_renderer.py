@@ -426,12 +426,18 @@ def test_plantilla_y_css_empaquetados_en_el_paquete() -> None:
         # Capa C2 de FLUJO-GUIADO-SCORECARD: la fuente del sitio, incrustada en el informe, con
         # su licencia (Apache-2.0) y su origen.
         "_run_summary.html.j2",
-        "fonts/roboto-regular-latin.woff2",
-        "fonts/roboto-bold-latin.woff2",
-        "fonts/LICENSE-Roboto.txt",
-        "fonts/ORIGEN.txt",
     ):
         assert root.joinpath(nombre).is_file(), nombre
+    # Un segmento por `joinpath`: el `Traversable` de Python 3.11 no acepta varios (3.12+), y ésa
+    # es exactamente la forma que el renderer tiene que usar para leerlas.
+    fuentes = root.joinpath("fonts")
+    for nombre in (
+        "roboto-regular-latin.woff2",
+        "roboto-bold-latin.woff2",
+        "LICENSE-Roboto.txt",
+        "ORIGEN.txt",
+    ):
+        assert fuentes.joinpath(nombre).is_file(), nombre
 
 
 def test_el_tema_nikodym_incrusta_roboto_y_el_tema_plain_no() -> None:
@@ -457,6 +463,41 @@ def test_el_tema_nikodym_incrusta_roboto_y_el_tema_plain_no() -> None:
     plain = HtmlReportRenderer(HtmlRenderConfig(theme="plain")).render(_bundle())
     assert "@font-face" not in plain and "Roboto" not in plain
     assert "font-family:Arial" in plain
+
+
+def test_las_fuentes_se_leen_con_un_segmento_por_joinpath(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El `Traversable` que devuelve `resources.files` para un directorio de datos es un
+    `MultiplexedPath`, y el de Python 3.11 —la versión mínima del paquete— acepta **un** segmento
+    por `joinpath`; el de 3.12 acepta varios.
+
+    🔴 Con la forma de dos argumentos el informe reventaba entero (`ReportRenderError`) en 3.11 y
+    sólo lo acusó el CI: en este Windows (3.12) la suite completa quedaba verde. El doble imita la
+    firma estricta para que el defecto se vea aquí.
+    """
+    from importlib import resources
+
+    real = resources.files("nikodym.report.templates")
+
+    class SoloUnSegmento:
+        def __init__(self, destino: Any) -> None:
+            self._destino = destino
+
+        def joinpath(self, segmento: str) -> SoloUnSegmento:
+            return SoloUnSegmento(self._destino.joinpath(segmento))
+
+        def read_bytes(self) -> bytes:
+            return bytes(self._destino.read_bytes())
+
+        def read_text(self, encoding: str = "utf-8") -> str:
+            return str(self._destino.read_text(encoding))
+
+    monkeypatch.setattr(renderer_module.resources, "files", lambda paquete: SoloUnSegmento(real))
+    renderer_module._font_faces.cache_clear()
+    try:
+        css = renderer_module._css_for_theme("nikodym")
+    finally:
+        renderer_module._font_faces.cache_clear()
+    assert css.count("@font-face {") == 2
 
 
 def test_truncado_bloques_ia_y_write_manifest(tmp_path: Path) -> None:

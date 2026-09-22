@@ -1,25 +1,25 @@
 {
  "status": "done",
- "run_id": "87bf47cf702642d4b9330b55f60e9eaa",
+ "run_id": "462e87da62b54d80a56ddd04c85ce882",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "664872ae9a9165656bea7fa0c133b0024f203108",
+  "git_sha": "e77cc6a5d3c91915cd790d92cf8cad2930a04c81",
   "git_dirty": false,
   "data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
   "config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "557cef544f1141f89ae5f86b17eff20ee4ed7e084bbf81c2eccaa5f8efe4cfa1",
+  "runtime_environment_hash": "5b9f004ccf409b18dfdb62d3948ea3d3322cd9caa2fc3d00f99ab894eed80740",
   "library_versions": {
-   "nikodym": "1.18.0",
+   "nikodym": "1.19.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-21T19:58:14.973580Z",
+  "created_at": "2026-09-22T15:39:44.439012Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -70,9 +70,9 @@
     "n_obs": 26645,
     "df_model": 8,
     "df_resid": 26636,
-    "llf": -5492.155174270126,
-    "aic": 11002.310348540252,
-    "deviance": 10984.310348540252,
+    "llf": -5492.155174270125,
+    "aic": 11002.31034854025,
+    "deviance": 10984.31034854025,
     "converged": "True",
     "n_iterations": 6
    },
@@ -88,8 +88,8 @@
    "term_structure_summary": {
     "n_rows": 30000,
     "n_periods": 5,
-    "max_pd_cumulative": 0.9950326472427826,
-    "min_survival": 0.004967352757217365
+    "max_pd_cumulative": 0.9950326472427825,
+    "min_survival": 0.0049673527572174515
    },
    "schoenfeld": {},
    "km_greenwood": {},
@@ -146,7 +146,7 @@
   "n_stage2": 477,
   "n_stage3": 288,
   "total_ead": 114325314.7,
-  "total_ecl_reported": 3423116.118598202,
+  "total_ecl_reported": 3423116.118598096,
   "scenarios": [
    "base"
   ],
@@ -168,7 +168,7 @@
     "stage_3": 288
    },
    "ecl_by_scenario": {
-    "base": 6911516.428053452
+    "base": 6911516.428053351
    },
    "ecl_by_scenario_basis": "Diagnóstico auditable de la term-structure, no un desglose de total_ecl_reported: suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas cifras no reconcilian entre sí: no deben sumarse ni compararse.",
    "term_structure_summary": {
@@ -185,22 +185,22 @@
     "stage": 1,
     "n_rows": 5235,
     "total_ead": 99504214.92,
-    "total_ecl_reported": 1571504.0592189669,
-    "coverage_ratio": 0.01579334162359287
+    "total_ecl_reported": 1571504.0592188942,
+    "coverage_ratio": 0.015793341623592142
    },
    {
     "stage": 2,
     "n_rows": 477,
     "total_ead": 9064928.97,
-    "total_ecl_reported": 980622.6379084819,
-    "coverage_ratio": 0.10817764167306892
+    "total_ecl_reported": 980622.6379084646,
+    "coverage_ratio": 0.10817764167306702
    },
    {
     "stage": 3,
     "n_rows": 288,
     "total_ead": 5756170.8100000005,
-    "total_ecl_reported": 870989.4214707513,
-    "coverage_ratio": 0.15131403327323276
+    "total_ecl_reported": 870989.4214707366,
+    "coverage_ratio": 0.15131403327323023
    }
   ],
   "summary": [
@@ -210,8 +210,8 @@
     "scenario": "all",
     "n_rows": 775,
     "total_ead": 31178795.530000027,
-    "total_ecl_reported": 581332.243580231,
-    "coverage_ratio": 0.01864511549270327,
+    "total_ecl_reported": 581332.2435802047,
+    "coverage_ratio": 0.018645115492702428,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -222,8 +222,8 @@
     "scenario": "all",
     "n_rows": 75,
     "total_ead": 3137275.520000001,
-    "total_ecl_reported": 390914.0100419436,
-    "coverage_ratio": 0.12460302180981014,
+    "total_ecl_reported": 390914.0100419369,
+    "coverage_ratio": 0.124603021809808,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -234,8 +234,8 @@
     "scenario": "all",
     "n_rows": 51,
     "total_ead": 2145243.75,
-    "total_ecl_reported": 375806.6826354578,
-    "coverage_ratio": 0.1751813436750289,
+    "total_ecl_reported": 375806.6826354511,
+    "coverage_ratio": 0.17518134367502577,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -246,8 +246,8 @@
     "scenario": "all",
     "n_rows": 2125,
     "total_ead": 18099269.130000006,
-    "total_ecl_reported": 393131.2311952271,
-    "coverage_ratio": 0.02172083460229905,
+    "total_ecl_reported": 393131.2311952089,
+    "coverage_ratio": 0.021720834602298043,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -258,8 +258,8 @@
     "scenario": "all",
     "n_rows": 177,
     "total_ead": 1561397.65,
-    "total_ecl_reported": 201559.52827267084,
-    "coverage_ratio": 0.12908917102102135,
+    "total_ecl_reported": 201559.5282726669,
+    "coverage_ratio": 0.12908917102101886,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -270,8 +270,8 @@
     "scenario": "all",
     "n_rows": 114,
     "total_ead": 990794.9300000002,
-    "total_ecl_reported": 178471.85443668196,
-    "coverage_ratio": 0.1801299633584943,
+    "total_ecl_reported": 178471.85443667855,
+    "coverage_ratio": 0.18012996335849085,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -282,8 +282,8 @@
     "scenario": "all",
     "n_rows": 809,
     "total_ead": 43611647.089999974,
-    "total_ecl_reported": 437771.2376343612,
-    "coverage_ratio": 0.010037943229498913,
+    "total_ecl_reported": 437771.2376343404,
+    "coverage_ratio": 0.010037943229498436,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -294,8 +294,8 @@
     "scenario": "all",
     "n_rows": 69,
     "total_ead": 3693801.389999999,
-    "total_ecl_reported": 303704.22621895984,
-    "coverage_ratio": 0.08221996641215187,
+    "total_ecl_reported": 303704.22621895507,
+    "coverage_ratio": 0.08221996641215058,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -306,8 +306,8 @@
     "scenario": "all",
     "n_rows": 38,
     "total_ead": 2244951.1,
-    "total_ecl_reported": 251942.9278042921,
-    "coverage_ratio": 0.11222646578105513,
+    "total_ecl_reported": 251942.92780428883,
+    "coverage_ratio": 0.11222646578105368,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -318,8 +318,8 @@
     "scenario": "all",
     "n_rows": 1526,
     "total_ead": 6614503.169999996,
-    "total_ecl_reported": 159269.3468091475,
-    "coverage_ratio": 0.02407880723854088,
+    "total_ecl_reported": 159269.34680914012,
+    "coverage_ratio": 0.02407880723853976,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -330,8 +330,8 @@
     "scenario": "all",
     "n_rows": 156,
     "total_ead": 672454.4100000001,
-    "total_ecl_reported": 84444.87337490765,
-    "coverage_ratio": 0.12557709804432338,
+    "total_ecl_reported": 84444.8733749058,
+    "coverage_ratio": 0.12557709804432063,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -342,8 +342,8 @@
     "scenario": "all",
     "n_rows": 85,
     "total_ead": 375181.03,
-    "total_ecl_reported": 64767.956594319476,
-    "coverage_ratio": 0.17263121377517268,
+    "total_ecl_reported": 64767.95659431814,
+    "coverage_ratio": 0.1726312137751691,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -354,9 +354,9 @@
     "period": 1,
     "time_value": 1.0,
     "time_value_years": 1.0,
-    "ecl_marginal": 2262676.424783308,
-    "ecl_cumulative": 2262676.424783308,
-    "pd_marginal_weighted": 0.06311502122800304,
+    "ecl_marginal": 2262676.4247831996,
+    "ecl_cumulative": 2262676.4247831996,
+    "pd_marginal_weighted": 0.06311502122800003,
     "discount_factor_mean": 0.7915717345168929,
     "n_rows": 6000
    },
@@ -364,9 +364,9 @@
     "period": 2,
     "time_value": 2.0,
     "time_value_years": 2.0,
-    "ecl_marginal": 1720279.9087077007,
-    "ecl_cumulative": 3982956.3334910087,
-    "pd_marginal_weighted": 0.05689603697309751,
+    "ecl_marginal": 1720279.9087077035,
+    "ecl_cumulative": 3982956.333490903,
+    "pd_marginal_weighted": 0.056896036973097606,
     "discount_factor_mean": 0.6321483890288415,
     "n_rows": 6000
    },
@@ -374,9 +374,9 @@
     "period": 3,
     "time_value": 3.0,
     "time_value_years": 3.0,
-    "ecl_marginal": 1219354.8518570417,
-    "ecl_cumulative": 5202311.185348051,
-    "pd_marginal_weighted": 0.04756635044643233,
+    "ecl_marginal": 1219354.8518570673,
+    "ecl_cumulative": 5202311.185347971,
+    "pd_marginal_weighted": 0.04756635044643333,
     "discount_factor_mean": 0.5093655940949352,
     "n_rows": 6000
    },
@@ -384,9 +384,9 @@
     "period": 4,
     "time_value": 4.0,
     "time_value_years": 4.0,
-    "ecl_marginal": 982123.2392642315,
-    "ecl_cumulative": 6184434.424612282,
-    "pd_marginal_weighted": 0.04493447005671348,
+    "ecl_marginal": 982123.2392642206,
+    "ecl_cumulative": 6184434.4246121915,
+    "pd_marginal_weighted": 0.044934470056712986,
     "discount_factor_mean": 0.4141187505217717,
     "n_rows": 6000
    },
@@ -394,9 +394,9 @@
     "period": 5,
     "time_value": 5.0,
     "time_value_years": 5.0,
-    "ecl_marginal": 727082.0034411702,
-    "ecl_cumulative": 6911516.428053452,
-    "pd_marginal_weighted": 0.03880127638933969,
+    "ecl_marginal": 727082.0034411601,
+    "ecl_cumulative": 6911516.428053351,
+    "pd_marginal_weighted": 0.038801276389339154,
     "discount_factor_mean": 0.3396774934551281,
     "n_rows": 6000
    }
@@ -414,11 +414,11 @@
     "ead": 66822.35,
     "lgd": 0.4969,
     "eir": 0.161,
-    "pd_12m": 0.27896887548018195,
-    "pd_life": 0.7903789553745844,
-    "ecl_12m": 7978.371847655981,
-    "ecl_lifetime": 18826.69723987558,
-    "ecl_reported": 18826.69723987558,
+    "pd_12m": 0.2789688754801653,
+    "pd_life": 0.7903789553745714,
+    "ecl_12m": 7978.371847655505,
+    "ecl_lifetime": 18826.697239875175,
+    "ecl_reported": 18826.697239875175,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -432,11 +432,11 @@
     "ead": 80000.0,
     "lgd": 0.4319,
     "eir": 0.0774,
-    "pd_12m": 0.19628748185387065,
-    "pd_life": 0.6470667423135279,
-    "ecl_12m": 6294.899826447874,
-    "ecl_lifetime": 18601.634040999514,
-    "ecl_reported": 18601.634040999514,
+    "pd_12m": 0.19628748185385916,
+    "pd_life": 0.6470667423135159,
+    "ecl_12m": 6294.899826447506,
+    "ecl_lifetime": 18601.634040999135,
+    "ecl_reported": 18601.634040999135,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -450,11 +450,11 @@
     "ead": 46887.08,
     "lgd": 0.6025,
     "eir": 0.1742,
-    "pd_12m": 0.31807600495068455,
-    "pd_life": 0.8397293644134297,
-    "ecl_12m": 7652.424792920622,
-    "ecl_lifetime": 16844.152473479713,
-    "ecl_reported": 16844.152473479713,
+    "pd_12m": 0.3180760049506665,
+    "pd_life": 0.8397293644134182,
+    "ecl_12m": 7652.424792920188,
+    "ecl_lifetime": 16844.15247347939,
+    "ecl_reported": 16844.15247347939,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -468,11 +468,11 @@
     "ead": 39790.33,
     "lgd": 0.6099,
     "eir": 0.1291,
-    "pd_12m": 0.31641381249990913,
-    "pd_life": 0.837838231822013,
-    "ecl_12m": 6800.787431330626,
-    "ecl_lifetime": 15632.133981500145,
-    "ecl_reported": 15632.133981500145,
+    "pd_12m": 0.31641381249989237,
+    "pd_life": 0.837838231822003,
+    "ecl_12m": 6800.7874313302655,
+    "ecl_lifetime": 15632.133981499896,
+    "ecl_reported": 15632.133981499896,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -486,11 +486,11 @@
     "ead": 76930.79,
     "lgd": 0.3241,
     "eir": 0.1511,
-    "pd_12m": 0.3145577292169788,
-    "pd_life": 0.8357058447080583,
-    "ecl_12m": 6813.441482811086,
-    "ecl_lifetime": 15387.107819667997,
-    "ecl_reported": 15387.107819667997,
+    "pd_12m": 0.31455772921697,
+    "pd_life": 0.8357058447080573,
+    "ecl_12m": 6813.4414828108975,
+    "ecl_lifetime": 15387.107819667948,
+    "ecl_reported": 15387.107819667948,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -504,11 +504,11 @@
     "ead": 80000.0,
     "lgd": 0.2446,
     "eir": 0.0949,
-    "pd_12m": 0.38667742586725745,
-    "pd_life": 0.9039335076222947,
-    "ecl_12m": 6910.680308129048,
-    "ecl_lifetime": 14712.156451985451,
-    "ecl_reported": 14712.156451985451,
+    "pd_12m": 0.3866774258672401,
+    "pd_life": 0.9039335076222881,
+    "ecl_12m": 6910.680308128737,
+    "ecl_lifetime": 14712.1564519853,
+    "ecl_reported": 14712.1564519853,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -522,11 +522,11 @@
     "ead": 69853.77,
     "lgd": 0.4139,
     "eir": 0.1831,
-    "pd_12m": 0.2404808339050717,
-    "pd_life": 0.7308850690880051,
-    "ecl_12m": 5876.8457401515625,
-    "ecl_lifetime": 14373.890468026773,
-    "ecl_reported": 14373.890468026773,
+    "pd_12m": 0.2404808339050604,
+    "pd_life": 0.7308850690879972,
+    "ecl_12m": 5876.845740151286,
+    "ecl_lifetime": 14373.89046802656,
+    "ecl_reported": 14373.89046802656,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -540,11 +540,11 @@
     "ead": 78198.35,
     "lgd": 0.2351,
     "eir": 0.08,
-    "pd_12m": 0.38023768649142686,
-    "pd_life": 0.8989574980600933,
-    "ecl_12m": 6472.642521721444,
-    "ecl_lifetime": 14108.121778250907,
-    "ecl_reported": 14108.121778250907,
+    "pd_12m": 0.3802376864914164,
+    "pd_life": 0.8989574980600918,
+    "ecl_12m": 6472.642521721265,
+    "ecl_lifetime": 14108.121778250867,
+    "ecl_reported": 14108.121778250867,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -558,11 +558,11 @@
     "ead": 80000.0,
     "lgd": 0.1919,
     "eir": 0.0614,
-    "pd_12m": 0.6659526511767795,
+    "pd_12m": 0.66595265117677,
     "pd_life": 0.9950326472427826,
-    "ecl_12m": 9632.282929023853,
-    "ecl_lifetime": 14001.26971607662,
-    "ecl_reported": 14001.26971607662,
+    "ecl_12m": 9632.282929023719,
+    "ecl_lifetime": 14001.269716076613,
+    "ecl_reported": 14001.269716076613,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -576,11 +576,11 @@
     "ead": 70517.16,
     "lgd": 0.4034,
     "eir": 0.1271,
-    "pd_12m": 0.18944710972877057,
-    "pd_life": 0.6324510067681695,
-    "ecl_12m": 4781.412815736549,
-    "ecl_lifetime": 13434.063089444267,
-    "ecl_reported": 13434.063089444267,
+    "pd_12m": 0.18944710972875992,
+    "pd_life": 0.6324510067681585,
+    "ecl_12m": 4781.41281573628,
+    "ecl_lifetime": 13434.063089443996,
+    "ecl_reported": 13434.063089443996,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -592,11 +592,11 @@
     "ead": 80000.0,
     "lgd": 0.2936,
     "eir": 0.0939,
-    "pd_12m": 0.21509395515268848,
-    "pd_life": 0.6849163900283848,
-    "ecl_12m": 4618.453989054161,
-    "ecl_lifetime": 12955.008218964125,
-    "ecl_reported": 12955.008218964125,
+    "pd_12m": 0.21509395515267504,
+    "pd_life": 0.6849163900283709,
+    "ecl_12m": 4618.453989053872,
+    "ecl_lifetime": 12955.008218963827,
+    "ecl_reported": 12955.008218963827,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -610,11 +610,11 @@
     "ead": 80000.0,
     "lgd": 0.2617,
     "eir": 0.0899,
-    "pd_12m": 0.246811160759017,
-    "pd_life": 0.741482814735054,
-    "ecl_12m": 4741.020700661326,
-    "ecl_lifetime": 12683.850665178079,
-    "ecl_reported": 12683.850665178079,
+    "pd_12m": 0.24681116075900392,
+    "pd_life": 0.7414828147350436,
+    "ecl_12m": 4741.020700661074,
+    "ecl_lifetime": 12683.850665177873,
+    "ecl_reported": 12683.850665177873,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -626,11 +626,11 @@
     "ead": 70550.54,
     "lgd": 0.3166,
     "eir": 0.0701,
-    "pd_12m": 0.18857875633962498,
-    "pd_life": 0.6305622486933633,
-    "ecl_12m": 3936.222649302576,
-    "ecl_lifetime": 11898.251089733674,
-    "ecl_reported": 11898.251089733674,
+    "pd_12m": 0.18857875633961538,
+    "pd_life": 0.6305622486933546,
+    "ecl_12m": 3936.222649302375,
+    "ecl_lifetime": 11898.251089733494,
+    "ecl_reported": 11898.251089733494,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -642,11 +642,11 @@
     "ead": 80000.0,
     "lgd": 0.2574,
     "eir": 0.0589,
-    "pd_12m": 0.20211240130129557,
-    "pd_life": 0.6591506036678529,
-    "ecl_12m": 3930.3981184212657,
-    "ecl_lifetime": 11783.995908878576,
-    "ecl_reported": 11783.995908878576,
+    "pd_12m": 0.20211240130128819,
+    "pd_life": 0.6591506036678499,
+    "ecl_12m": 3930.3981184211225,
+    "ecl_lifetime": 11783.995908878513,
+    "ecl_reported": 11783.995908878513,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -658,11 +658,11 @@
     "ead": 36928.4,
     "lgd": 0.4858,
     "eir": 0.1463,
-    "pd_12m": 0.3386002012518262,
-    "pd_life": 0.8616853961843152,
-    "ecl_12m": 5299.1586424259585,
-    "ecl_lifetime": 11596.366751220936,
-    "ecl_reported": 11596.366751220936,
+    "pd_12m": 0.33860020125181456,
+    "pd_life": 0.8616853961843117,
+    "ecl_12m": 5299.158642425777,
+    "ecl_lifetime": 11596.366751220856,
+    "ecl_reported": 11596.366751220856,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -674,11 +674,11 @@
     "ead": 69660.78,
     "lgd": 0.4791,
     "eir": 0.1369,
-    "pd_12m": 0.11460759034084216,
-    "pd_life": 0.43949090816703423,
-    "ecl_12m": 3364.3844639520953,
-    "ecl_lifetime": 10523.711065075273,
-    "ecl_reported": 10523.711065075273,
+    "pd_12m": 0.11460759034083841,
+    "pd_life": 0.4394909081670342,
+    "ecl_12m": 3364.3844639519857,
+    "ecl_lifetime": 10523.711065075253,
+    "ecl_reported": 10523.711065075253,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -690,11 +690,11 @@
     "ead": 63667.51,
     "lgd": 0.5294,
     "eir": 0.1878,
-    "pd_12m": 0.1260975218167931,
-    "pd_life": 0.47335230284299523,
-    "ecl_12m": 3578.2034714780066,
-    "ecl_lifetime": 10332.495566214726,
-    "ecl_reported": 10332.495566214726,
+    "pd_12m": 0.12609752181678513,
+    "pd_life": 0.47335230284298385,
+    "ecl_12m": 3578.2034714777797,
+    "ecl_lifetime": 10332.495566214438,
+    "ecl_reported": 10332.495566214438,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -706,11 +706,11 @@
     "ead": 79273.51,
     "lgd": 0.409,
     "eir": 0.1264,
-    "pd_12m": 0.11180003435785389,
-    "pd_life": 0.43096416608687327,
-    "ecl_12m": 3218.108564401703,
-    "ecl_lifetime": 10251.425652122083,
-    "ecl_reported": 10251.425652122083,
+    "pd_12m": 0.11180003435784937,
+    "pd_life": 0.4309641660868707,
+    "ecl_12m": 3218.1085644015725,
+    "ecl_lifetime": 10251.425652122003,
+    "ecl_reported": 10251.425652122003,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -722,11 +722,11 @@
     "ead": 66107.38,
     "lgd": 0.2675,
     "eir": 0.0931,
-    "pd_12m": 0.21686311642913003,
-    "pd_life": 0.6883062038045278,
-    "ecl_12m": 3508.3226870753538,
-    "ecl_lifetime": 9821.98212867771,
-    "ecl_reported": 9821.98212867771,
+    "pd_12m": 0.21686311642912212,
+    "pd_life": 0.6883062038045247,
+    "ecl_12m": 3508.322687075226,
+    "ecl_lifetime": 9821.98212867765,
+    "ecl_reported": 9821.98212867765,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -738,11 +738,11 @@
     "ead": 54555.98,
     "lgd": 0.3587,
     "eir": 0.0939,
-    "pd_12m": 0.17213802358593494,
-    "pd_life": 0.593345542666863,
-    "ecl_12m": 3079.4483771589485,
-    "ecl_lifetime": 9273.78603736682,
-    "ecl_reported": 9273.78603736682,
+    "pd_12m": 0.1721380235859253,
+    "pd_life": 0.5933455426668526,
+    "ecl_12m": 3079.4483771587766,
+    "ecl_lifetime": 9273.786037366639,
+    "ecl_reported": 9273.786037366639,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -754,11 +754,11 @@
     "ead": 80000.0,
     "lgd": 0.4588,
     "eir": 0.1683,
-    "pd_12m": 0.1300571265070061,
-    "pd_life": 0.48464331224367846,
-    "ecl_12m": 4085.951186607166,
-    "ecl_lifetime": 11998.376529024768,
-    "ecl_reported": 4085.951186607166,
+    "pd_12m": 0.13005712650700038,
+    "pd_life": 0.48464331224367396,
+    "ecl_12m": 4085.9511866069865,
+    "ecl_lifetime": 11998.376529024627,
+    "ecl_reported": 4085.9511866069865,
     "sicr_triggers": []
    },
    {
@@ -768,11 +768,11 @@
     "ead": 80000.0,
     "lgd": 0.5174,
     "eir": 0.1535,
-    "pd_12m": 0.09165794131983519,
-    "pd_life": 0.36677897583833274,
-    "ecl_12m": 3289.0381509411513,
-    "ecl_lifetime": 10443.29210807935,
-    "ecl_reported": 3289.0381509411513,
+    "pd_12m": 0.09165794131983317,
+    "pd_life": 0.36677897583833613,
+    "ecl_12m": 3289.038150941079,
+    "ecl_lifetime": 10443.292108079431,
+    "ecl_reported": 3289.038150941079,
     "sicr_triggers": []
    },
    {
@@ -782,11 +782,11 @@
     "ead": 59297.72,
     "lgd": 0.4865,
     "eir": 0.1863,
-    "pd_12m": 0.1347501487478347,
-    "pd_life": 0.4977797826254337,
-    "ecl_12m": 3276.8424607883558,
-    "ecl_lifetime": 9355.484366604705,
-    "ecl_reported": 3276.8424607883558,
+    "pd_12m": 0.13475014874782684,
+    "pd_life": 0.4977797826254238,
+    "ecl_12m": 3276.8424607881643,
+    "ecl_lifetime": 9355.484366604484,
+    "ecl_reported": 3276.8424607881643,
     "sicr_triggers": []
    },
    {
@@ -796,11 +796,11 @@
     "ead": 47131.29,
     "lgd": 0.4619,
     "eir": 0.1714,
-    "pd_12m": 0.14624890733975832,
-    "pd_life": 0.5288620189711961,
-    "ecl_12m": 2717.970253378635,
-    "ecl_lifetime": 7756.969526585111,
-    "ecl_reported": 2717.970253378635,
+    "pd_12m": 0.14624890733975043,
+    "pd_life": 0.5288620189711876,
+    "ecl_12m": 2717.970253378488,
+    "ecl_lifetime": 7756.969526584959,
+    "ecl_reported": 2717.970253378488,
     "sicr_triggers": []
    },
    {
@@ -810,11 +810,11 @@
     "ead": 80000.0,
     "lgd": 0.48,
     "eir": 0.1541,
-    "pd_12m": 0.08024312846741416,
-    "pd_life": 0.3279762366997075,
-    "ecl_12m": 2669.9039365295075,
-    "ecl_lifetime": 8624.458694447123,
-    "ecl_reported": 2669.9039365295075,
+    "pd_12m": 0.08024312846740904,
+    "pd_life": 0.327976236699699,
+    "ecl_12m": 2669.9039365293365,
+    "ecl_lifetime": 8624.458694446877,
+    "ecl_reported": 2669.9039365293365,
     "sicr_triggers": []
    },
    {
@@ -824,11 +824,11 @@
     "ead": 78922.67,
     "lgd": 0.1711,
     "eir": 0.0926,
-    "pd_12m": 0.2062362018124259,
-    "pd_life": 0.667507816010242,
-    "ecl_12m": 2548.915771074225,
-    "ecl_lifetime": 7266.631220441228,
-    "ecl_reported": 2548.915771074225,
+    "pd_12m": 0.20623620181242028,
+    "pd_life": 0.6675078160102428,
+    "ecl_12m": 2548.9157710741556,
+    "ecl_lifetime": 7266.631220441229,
+    "ecl_reported": 2548.9157710741556,
     "sicr_triggers": []
    },
    {
@@ -838,11 +838,11 @@
     "ead": 80000.0,
     "lgd": 0.4786,
     "eir": 0.1592,
-    "pd_12m": 0.0730739239974297,
-    "pd_life": 0.3026734133137621,
-    "ecl_12m": 2413.608007258099,
-    "ecl_lifetime": 7832.593939092338,
-    "ecl_reported": 2413.608007258099,
+    "pd_12m": 0.07307392399742627,
+    "pd_life": 0.3026734133137587,
+    "ecl_12m": 2413.608007257986,
+    "ecl_lifetime": 7832.593939092234,
+    "ecl_reported": 2413.608007257986,
     "sicr_triggers": []
    },
    {
@@ -852,11 +852,11 @@
     "ead": 80000.0,
     "lgd": 0.3845,
     "eir": 0.1438,
-    "pd_12m": 0.08937630430481547,
-    "pd_life": 0.35916647913289784,
-    "ecl_12m": 2403.580276635884,
+    "pd_12m": 0.08937630430481268,
+    "pd_life": 0.35916647913289845,
+    "ecl_12m": 2403.580276635809,
     "ecl_lifetime": 7756.768890347941,
-    "ecl_reported": 2403.580276635884,
+    "ecl_reported": 2403.580276635809,
     "sicr_triggers": []
    },
    {
@@ -866,11 +866,11 @@
     "ead": 80000.0,
     "lgd": 0.3599,
     "eir": 0.0836,
-    "pd_12m": 0.08980509127999935,
-    "pd_life": 0.36060251422745204,
-    "ecl_12m": 2386.183267011574,
-    "ecl_lifetime": 8370.407509461986,
-    "ecl_reported": 2386.183267011574,
+    "pd_12m": 0.089805091279994,
+    "pd_life": 0.3606025142274442,
+    "ecl_12m": 2386.1832670114322,
+    "ecl_lifetime": 8370.407509461793,
+    "ecl_reported": 2386.1832670114322,
     "sicr_triggers": []
    },
    {
@@ -880,11 +880,11 @@
     "ead": 62062.85,
     "lgd": 0.4084,
     "eir": 0.1257,
-    "pd_12m": 0.10389343892990761,
-    "pd_life": 0.40640595514948646,
-    "ecl_12m": 2339.283751455318,
-    "ecl_lifetime": 7554.8300187189,
-    "ecl_reported": 2339.283751455318,
+    "pd_12m": 0.10389343892990116,
+    "pd_life": 0.40640595514947686,
+    "ecl_12m": 2339.2837514551725,
+    "ecl_lifetime": 7554.830018718703,
+    "ecl_reported": 2339.2837514551725,
     "sicr_triggers": []
    }
   ],
@@ -1009,7 +1009,7 @@
      "Archivo: ifrs9_retail_latam",
      "6.000 filas · 578 malos (9,63 %) · 17 columnas",
      "Muestras: Desarrollo 4.024 (9,64 %) · Holdout 1.030 (10,00 %) · Fuera de tiempo (OOT) 946 (9,20 %) — cohortes fuera de tiempo: 2024Q2 (columna «cohorte»); holdout 20 % del resto",
-     "Evidencia de la corrida: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+     "Evidencia de la corrida: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/462e87da62b54d80a56ddd04c85ce882"
     ],
     "alerts": [],
     "table": {
@@ -1049,7 +1049,7 @@
      "Informe Word: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.docx",
      "Informe PDF: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.pdf",
      "Fuente editable (Quarto): /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/reports/ifrs9_ecl_report.qmd",
-     "Registro de auditoría: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa/audit_trail.jsonl"
+     "Registro de auditoría: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/462e87da62b54d80a56ddd04c85ce882/audit_trail.jsonl"
     ],
     "alerts": [],
     "table": null
@@ -1064,15 +1064,15 @@
    "files": [
     [
      "Carpeta del proyecto",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/462e87da62b54d80a56ddd04c85ce882"
     ],
     [
      "Evidencia de la corrida",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/462e87da62b54d80a56ddd04c85ce882"
     ],
     [
      "Registro de auditoría",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/87bf47cf702642d4b9330b55f60e9eaa/audit_trail.jsonl"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f4/runs/462e87da62b54d80a56ddd04c85ce882/audit_trail.jsonl"
     ],
     [
      "Informe HTML",

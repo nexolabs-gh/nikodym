@@ -1,16 +1,16 @@
 {
  "status": "done",
- "run_id": "019e1754e60f4208a14ac5cba080c28f",
+ "run_id": "6e31f5e9a899435e9f4d75cf0e6754ff",
  "error": null,
  "model_card": {
-  "run_id": "019e1754e60f4208a14ac5cba080c28f",
+  "run_id": "6e31f5e9a899435e9f4d75cf0e6754ff",
   "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
-  "git_sha": "664872ae9a9165656bea7fa0c133b0024f203108",
+  "git_sha": "e77cc6a5d3c91915cd790d92cf8cad2930a04c81",
   "git_dirty": false,
   "root_seed": 20240706,
   "schema_version": "1.0.0",
-  "created_at": "2026-09-21T19:58:59.297615Z",
+  "created_at": "2026-09-22T15:30:11.791012Z",
   "purpose": "Demostración pública de Nikodym RiskLib: scorecard de comportamiento sobre una cartera de consumo sintética. Ilustra el flujo completo de construcción y validación; no decide sobre ninguna operación real.",
   "assumptions": [
    "Los datos son sintéticos y reproducibles: no representan a ninguna institución.",
@@ -110,7 +110,9 @@
     "umbral": "cohort",
     "valor": "cohort",
     "accion": "aplicar_estrategia",
-    "ts": "2026-09-21T19:58:59.557543Z"
+    "ts": "2026-09-22T15:30:12.067320Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -131,7 +133,9 @@
      }
     },
     "accion": "reportar_particiones",
-    "ts": "2026-09-21T19:58:59.557622Z"
+    "ts": "2026-09-22T15:30:12.067402Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -139,7 +143,9 @@
     "umbral": 0.25,
     "valor": "eje de cohorte sin cronología",
     "accion": "no_evaluable",
-    "ts": "2026-09-21T19:58:59.572726Z"
+    "ts": "2026-09-22T15:30:12.083533Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -150,7 +156,9 @@
      "variable": "ingreso_mensual"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-21T19:59:03.201981Z"
+    "ts": "2026-09-22T15:30:18.208228Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -161,7 +169,9 @@
      "variable": "deuda_ingreso"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-21T19:59:03.202064Z"
+    "ts": "2026-09-22T15:30:18.208319Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -172,7 +182,9 @@
      "variable": "utilizacion_linea"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-21T19:59:03.202106Z"
+    "ts": "2026-09-22T15:30:18.208340Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -183,7 +195,9 @@
      "variable": "mora_max_12m"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-21T19:59:03.202122Z"
+    "ts": "2026-09-22T15:30:18.208353Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -194,7 +208,9 @@
      "variable": "antiguedad_meses"
     },
     "accion": "registrar_tendencia",
-    "ts": "2026-09-21T19:59:03.202134Z"
+    "ts": "2026-09-22T15:30:18.208365Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -205,7 +221,9 @@
      "variable": "utilizacion_linea"
     },
     "accion": "conservar_variable",
-    "ts": "2026-09-21T19:59:03.202542Z"
+    "ts": "2026-09-22T15:30:18.208785Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -216,7 +234,9 @@
      "variable": "segmento"
     },
     "accion": "conservar_variable",
-    "ts": "2026-09-21T19:59:03.202568Z"
+    "ts": "2026-09-22T15:30:18.208810Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -227,7 +247,9 @@
      "variable": "segmento"
     },
     "accion": "diagnosticar_sin_eliminar",
-    "ts": "2026-09-21T19:59:03.202581Z"
+    "ts": "2026-09-22T15:30:18.208824Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -240,7 +262,9 @@
      "woe_column": "segmento__woe"
     },
     "accion": "excluir",
-    "ts": "2026-09-21T19:59:03.399922Z"
+    "ts": "2026-09-22T15:30:18.419859Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -253,7 +277,9 @@
      "p_value": 9.904266606974601e-41
     },
     "accion": "enter",
-    "ts": "2026-09-21T19:59:03.633187Z"
+    "ts": "2026-09-22T15:30:18.694800Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -266,7 +292,9 @@
      "p_value": null
     },
     "accion": "flag",
-    "ts": "2026-09-21T19:59:03.640348Z"
+    "ts": "2026-09-22T15:30:18.702574Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -279,7 +307,9 @@
      "p_value": 4.298619202001295e-28
     },
     "accion": "enter",
-    "ts": "2026-09-21T19:59:03.670541Z"
+    "ts": "2026-09-22T15:30:18.733239Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -292,7 +322,9 @@
      "p_value": 9.97028567388611e-12
     },
     "accion": "enter",
-    "ts": "2026-09-21T19:59:03.701431Z"
+    "ts": "2026-09-22T15:30:18.768926Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -305,7 +337,9 @@
      "p_value": 1.7899471110038037e-07
     },
     "accion": "enter",
-    "ts": "2026-09-21T19:59:03.725701Z"
+    "ts": "2026-09-22T15:30:18.795524Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -318,7 +352,9 @@
      "p_value": 0.00036461213095663236
     },
     "accion": "enter",
-    "ts": "2026-09-21T19:59:03.741893Z"
+    "ts": "2026-09-22T15:30:18.814582Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -335,7 +371,9 @@
      "woe_column": "ingreso_mensual__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-21T19:59:03.782148Z"
+    "ts": "2026-09-22T15:30:18.857286Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -354,7 +392,9 @@
      "woe_column": "ingreso_mensual__woe"
     },
     "accion": "flag",
-    "ts": "2026-09-21T19:59:03.782223Z"
+    "ts": "2026-09-22T15:30:18.857379Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -371,7 +411,9 @@
      "woe_column": "deuda_ingreso__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-21T19:59:03.782249Z"
+    "ts": "2026-09-22T15:30:18.857411Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -388,7 +430,9 @@
      "woe_column": "utilizacion_linea__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-21T19:59:03.782268Z"
+    "ts": "2026-09-22T15:30:18.857435Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -405,7 +449,9 @@
      "woe_column": "antiguedad_meses__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-21T19:59:03.782283Z"
+    "ts": "2026-09-22T15:30:18.857453Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -422,7 +468,9 @@
      "woe_column": "mora_max_12m__woe"
     },
     "accion": "entrar",
-    "ts": "2026-09-21T19:59:03.782297Z"
+    "ts": "2026-09-22T15:30:18.857470Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -437,7 +485,9 @@
      "optimizer": "newton"
     },
     "accion": "aceptar_ajuste",
-    "ts": "2026-09-21T19:59:03.782315Z"
+    "ts": "2026-09-22T15:30:18.857489Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -481,7 +531,9 @@
      }
     ],
     "accion": "usar_punto_determinista",
-    "ts": "2026-09-21T19:59:03.794905Z"
+    "ts": "2026-09-22T15:30:18.871197Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -493,7 +545,9 @@
      "n_variables": 5
     },
     "accion": "publicar_puntos_redondeados",
-    "ts": "2026-09-21T19:59:03.795160Z"
+    "ts": "2026-09-22T15:30:18.871480Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -504,7 +558,9 @@
      "feature": "antiguedad_meses"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-21T19:59:03.803026Z"
+    "ts": "2026-09-22T15:30:18.879646Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -515,7 +571,9 @@
      "feature": "deuda_ingreso"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-21T19:59:03.808087Z"
+    "ts": "2026-09-22T15:30:18.884801Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -526,7 +584,9 @@
      "feature": "ingreso_mensual"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-21T19:59:03.812883Z"
+    "ts": "2026-09-22T15:30:18.889866Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -537,7 +597,9 @@
      "feature": "mora_max_12m"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-21T19:59:03.817968Z"
+    "ts": "2026-09-22T15:30:18.895569Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -548,7 +610,9 @@
      "feature": "utilizacion_linea"
     },
     "accion": "calcular_por_formula",
-    "ts": "2026-09-21T19:59:03.823058Z"
+    "ts": "2026-09-22T15:30:18.901259Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -560,7 +624,9 @@
      "target_pd": 0.23327442565008835
     },
     "accion": "fijar_ancla",
-    "ts": "2026-09-21T19:59:03.868178Z"
+    "ts": "2026-09-22T15:30:18.951285Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -571,7 +637,9 @@
      "n_fit": 3961
     },
     "accion": "ajustar_calibracion",
-    "ts": "2026-09-21T19:59:03.868235Z"
+    "ts": "2026-09-22T15:30:18.951349Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -583,7 +651,9 @@
      "raw_mean_pd_dev": 0.23327442565008835
     },
     "accion": "publicar_pd_calibrada",
-    "ts": "2026-09-21T19:59:03.868259Z"
+    "ts": "2026-09-22T15:30:18.951374Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -594,7 +664,9 @@
      "ties_created": 0
     },
     "accion": "registrar_ranking",
-    "ts": "2026-09-21T19:59:03.868279Z"
+    "ts": "2026-09-22T15:30:18.951394Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -606,7 +678,9 @@
      "statistic": 19.4510712384807
     },
     "accion": "revisar_calibracion",
-    "ts": "2026-09-21T19:59:03.968349Z"
+    "ts": "2026-09-22T15:30:19.059173Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -624,6 +698,7 @@
     "valor": {
      "missing_sections": [],
      "sections": [
+      "executive_summary",
       "toc",
       "introduction",
       "model_card",
@@ -667,7 +742,9 @@
      ]
     },
     "accion": "renderizar_reporte",
-    "ts": "2026-09-21T19:59:15.618532Z"
+    "ts": "2026-09-22T15:30:32.519021Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -677,7 +754,9 @@
      "provider": "none"
     },
     "accion": "usar_narrativa_basica",
-    "ts": "2026-09-21T19:59:15.619997Z"
+    "ts": "2026-09-22T15:30:32.520583Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -685,10 +764,12 @@
     "umbral": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports",
     "valor": {
      "path": "scorecard_report.html",
-     "sha256": "f0e4fe3b8403ccae97b1f5001a218d7f32c4b27d8310005aeadc9e792b0ac0e6"
+     "sha256": "a52f73faff3f37a2c3ae4af81af29c460f81d5172a9440052d73c21aabbb4c47"
     },
     "accion": "publicar_html_local",
-    "ts": "2026-09-21T19:59:15.620067Z"
+    "ts": "2026-09-22T15:30:32.520652Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -698,7 +779,9 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.pdf"
     },
     "accion": "publicar_pdf_local",
-    "ts": "2026-09-21T19:59:15.620090Z"
+    "ts": "2026-09-22T15:30:32.520677Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -708,7 +791,9 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.qmd"
     },
     "accion": "publicar_qmd_local",
-    "ts": "2026-09-21T19:59:15.620110Z"
+    "ts": "2026-09-22T15:30:32.520696Z",
+    "autor": null,
+    "motivo": null
    },
    {
     "step": null,
@@ -718,17 +803,19 @@
      "path": "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.docx"
     },
     "accion": "publicar_docx_local",
-    "ts": "2026-09-21T19:59:15.620120Z"
+    "ts": "2026-09-22T15:30:32.520706Z",
+    "autor": null,
+    "motivo": null
    }
   ],
   "determinism_caveats": [],
-  "review_date": "2026-09-21T19:59:15.636372Z",
-  "next_review_date": "2027-09-21T19:59:15.636372Z",
+  "review_date": "2026-09-22T15:30:32.528397Z",
+  "next_review_date": "2027-09-22T15:30:32.528397Z",
   "environment": {
    "python_version": "3.12.14",
    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
    "library_versions": {
-    "nikodym": "1.18.0",
+    "nikodym": "1.19.0",
     "numpy": "2.4.6",
     "pandas": "2.3.3",
     "pandera": "0.32.0",
@@ -738,26 +825,26 @@
     "PyYAML": "6.0.3"
    },
    "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-   "captured_at": "2026-09-21T19:59:15.637201Z"
+   "captured_at": "2026-09-22T15:30:32.529294Z"
   }
  },
  "lineage": {
-  "git_sha": "664872ae9a9165656bea7fa0c133b0024f203108",
+  "git_sha": "e77cc6a5d3c91915cd790d92cf8cad2930a04c81",
   "git_dirty": false,
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
   "config_hash": "1063d6cfef0448c502b5f63c7e1f9f5b7ef234b0663b2d02a7527c52652c8633",
   "root_seed": 20240706,
   "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
-  "runtime_environment_hash": "557cef544f1141f89ae5f86b17eff20ee4ed7e084bbf81c2eccaa5f8efe4cfa1",
+  "runtime_environment_hash": "5b9f004ccf409b18dfdb62d3948ea3d3322cd9caa2fc3d00f99ab894eed80740",
   "library_versions": {
-   "nikodym": "1.18.0",
+   "nikodym": "1.19.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-09-21T19:58:59.297615Z",
+  "created_at": "2026-09-22T15:30:11.791012Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -11687,7 +11774,7 @@
      "Archivo: consumo_comportamiento",
      "6.000 filas · 1.407 malos (23,45 %) · 8 columnas",
      "Muestras: Desarrollo 3.961 (23,33 %) · Holdout 1.031 (23,67 %) · Fuera de tiempo (OOT) 1.008 (23,71 %) — cohortes fuera de tiempo: 2024Q2 (columna «cohorte»); holdout 20 % del resto",
-     "Evidencia de la corrida: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/019e1754e60f4208a14ac5cba080c28f"
+     "Evidencia de la corrida: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/6e31f5e9a899435e9f4d75cf0e6754ff"
     ],
     "alerts": [],
     "table": {
@@ -13037,7 +13124,7 @@
      "Informe Word: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.docx",
      "Informe PDF: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.pdf",
      "Fuente editable (Quarto): /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/reports/scorecard_report.qmd",
-     "Registro de auditoría: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/019e1754e60f4208a14ac5cba080c28f/audit_trail.jsonl"
+     "Registro de auditoría: /home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/6e31f5e9a899435e9f4d75cf0e6754ff/audit_trail.jsonl"
     ],
     "alerts": [],
     "table": null
@@ -13080,15 +13167,15 @@
    "files": [
     [
      "Carpeta del proyecto",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/019e1754e60f4208a14ac5cba080c28f"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/6e31f5e9a899435e9f4d75cf0e6754ff"
     ],
     [
      "Evidencia de la corrida",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/019e1754e60f4208a14ac5cba080c28f"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/6e31f5e9a899435e9f4d75cf0e6754ff"
     ],
     [
      "Registro de auditoría",
-     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/019e1754e60f4208a14ac5cba080c28f/audit_trail.jsonl"
+     "/home/runner/work/nikodym/nikodym/.nikodym-demo-fixtures-f1/runs/6e31f5e9a899435e9f4d75cf0e6754ff/audit_trail.jsonl"
     ],
     [
      "Informe HTML",
