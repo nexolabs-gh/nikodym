@@ -45,6 +45,18 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   —en la fuente editable, como texto literal—; las decisiones del motor, las métricas y las
   fechas siguen en la ficha que el motor emite.
 
+- **El informe usa la tipografía y la paleta del sitio** (capa C2; D-FLU-11 fila C). El tema
+  `nikodym` del HTML —y por tanto el PDF, que se dibuja del mismo HTML— incrusta Roboto 400 y 700
+  (la fuente que sirve docs.nikodym.cl) como subconjunto latino en base64 dentro de su CSS, con
+  la pila del sistema detrás para los glifos que el subconjunto no trae: el informe sigue siendo
+  un solo archivo, sin red ni fuentes del sistema, y se ve igual en cualquier máquina; el Word
+  declara Roboto en el cuerpo y en los títulos, con el navy y el azul de la marca en vez del azul
+  de fábrica de Word (lo monoespaciado sigue en Consolas). La paleta ya era la del sitio. Los
+  archivos viajan en el paquete bajo `report/templates/fonts/` con su licencia (Apache-2.0) y su
+  origen; el tema `plain` no cambia. Los goldens del HTML se re-anclaron midiendo que, fuera del
+  bloque de estilos, el documento es idéntico; el PDF con la fuente incrustada lo verifica el
+  job `test-pdf` de CI.
+
 ### Sabido
 
 - La página ejecutiva del informe se escribe **durante** la corrida, como todo el informe

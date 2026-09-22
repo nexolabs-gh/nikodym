@@ -1,0 +1,9 @@
+Roboto (Google, Christian Robertson), Apache License 2.0 (LICENSE-Roboto.txt).
+Origen: https://github.com/googlefonts/roboto-2 (main, release v2.138), src/hinted/Roboto-Regular.ttf
+(sha256 56a45233d29f11b4dfb86d248e921939d115778f87325e7ae8cc108383d6664d) y Roboto-Bold.ttf
+(sha256 61f89f8db49261c2f6106e8dccc35df7b2f7ed909020db40a3fc905e95f99334).
+Modificacion (2026-09-21, Nikodym): subconjunto latino (U+0000-00FF, U+0131, U+0152-0153,
+U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2190-2193, U+2212, U+2215,
+U+2264-2265, U+2022, U+FEFF, U+FFFD; los glifos que la fuente no trae caen a la pila del sistema)
+convertido a WOFF2 sin hinting con fontTools 4.65 (pyftsubset --flavor=woff2 --no-hinting).
+El informe los incrusta en base64 dentro de su CSS para no depender de la red ni del sistema.

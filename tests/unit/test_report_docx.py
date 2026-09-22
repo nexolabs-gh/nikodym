@@ -220,6 +220,30 @@ def test_docx_abre_sin_reparar_y_usa_estilos_nativos_de_word(tmp_path: Path) -> 
 
 
 @_SKIP_DOCX
+def test_el_word_usa_la_tipografia_y_la_paleta_del_sitio() -> None:
+    """Capa C2: el Word declara la misma fuente que el HTML y el sitio (Roboto; Word sustituye
+    si no está instalada) y los títulos llevan el navy y el azul de la marca, no el azul de la
+    plantilla de fábrica de Word. Lo monoespaciado sigue en Consolas."""
+    import docx
+    from docx.shared import RGBColor
+
+    word = docx.Document(io.BytesIO(DocxReportRenderer.from_config(_config()).render(_bundle())))
+    estilos = word.styles
+    assert estilos["Normal"].font.name == "Roboto"
+    for nombre in ("Title", "Heading 1", "Heading 2", "Heading 3"):
+        assert estilos[nombre].font.name == "Roboto", nombre
+    navy = RGBColor(0x0A, 0x22, 0x40)
+    assert estilos["Title"].font.color.rgb == navy
+    assert estilos["Heading 1"].font.color.rgb == navy
+    assert estilos["Heading 2"].font.color.rgb == navy
+    assert estilos["Heading 3"].font.color.rgb == RGBColor(0x18, 0x59, 0xE0)
+    monoespaciados = {
+        run.font.name for p in word.paragraphs for run in p.runs if run.font.name == "Consolas"
+    }
+    assert monoespaciados == {"Consolas"}
+
+
+@_SKIP_DOCX
 def test_docx_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
     """Word espeja el capítulo formal y mantiene su tabla editable y el juicio humano visible."""
     import docx

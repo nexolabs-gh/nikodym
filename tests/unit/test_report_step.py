@@ -95,7 +95,10 @@ ROOT_SEED = 20_240_629
 # Recalculado el mismo día tras la pasada 2 de Codex sobre C1: la página gana un segundo párrafo
 # («Las rutas son las que el informe escribió al generarse…»). Remedido con el mismo `diff`: 21
 # líneas, sólo la sección y sus tres entradas de índice; sin la página, otra vez `947ddd7b…`.
-GOLDEN_STEP_HTML_SHA256 = "4ead6d611ee06934bd0f345d3a4e7c104c21bd5d50e75bed66b01f2fa2cba56d"
+# Recalculado el mismo día (capa C2): el tema `nikodym` incrusta Roboto 400/700 en el CSS y la
+# pila `--sans` empieza por Roboto. Medido: con el CSS del commit anterior este mismo Study da
+# exactamente `4ead6d61…`, y fuera del bloque `<style>` los dos HTML son idénticos.
+GOLDEN_STEP_HTML_SHA256 = "f9ab90b08091d66e63dea6730d64fc13587d292dd6d6c0db2c319d9ec8c479d1"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

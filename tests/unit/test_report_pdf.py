@@ -231,6 +231,38 @@ def test_report_step_formats_pdf_escribe_pdf_real(tmp_path: Path) -> None:
     assert result.manifest.output_format == "html"
 
 
+@pytest.mark.skipif(
+    not _HAS_WEASYPRINT,
+    reason="requiere el extra pdf (WeasyPrint + nativas Pango/HarfBuzz/libffi)",
+)
+def test_el_pdf_incrusta_roboto_y_lleva_la_pagina_ejecutiva(tmp_path: Path) -> None:
+    """Capa C2 (corre en el job `test-pdf` de CI, Linux): el PDF se dibuja con la fuente del
+    sitio incrustada desde el CSS —no con la que tenga el runner— y trae la página ejecutiva de
+    C1 tras la portada. Se verifica sobre el artefacto: los `BaseFont` de la primera página
+    nombran Roboto y el texto extraído contiene la página."""
+    from pypdf import PdfReader
+
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("pdf",),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(20_240_629))
+    assert result.pdf_path is not None
+    reader = PdfReader(result.pdf_path)
+    fuentes: set[str] = set()
+    for page in reader.pages:
+        recursos = page.get("/Resources") or {}
+        for fuente in (recursos.get("/Font") or {}).values():
+            fuentes.add(str(fuente.get_object().get("/BaseFont")))
+    assert any("Roboto" in nombre for nombre in fuentes), fuentes
+    texto = "".join(page.extract_text() for page in reader.pages)
+    assert "Resumen de la corrida" in texto
+    assert "Resumen ejecutivo" in texto
+    assert texto.index("Resumen de la corrida") < texto.index("Resumen ejecutivo")
+
+
 # ─────────────────────── (c) fallback SIN weasyprint (corre SIEMPRE) ───────────────────────
 
 

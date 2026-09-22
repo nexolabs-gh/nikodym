@@ -20,6 +20,8 @@ lo heredan. Sin eso, tres renderers son tres documentos que divergen en la prime
 
 from __future__ import annotations
 
+import base64
+import functools
 import hashlib
 import json
 import logging
@@ -1311,9 +1313,49 @@ def _load_template(environment: Any) -> Any:
 
 
 def _css_for_theme(theme: Literal["nikodym", "plain"]) -> str:
-    """Lee el CSS del tema desde los archivos empaquetados bajo ``report/templates``."""
+    """Lee el CSS del tema desde los archivos empaquetados bajo ``report/templates``.
+
+    El tema ``nikodym`` antepone las ``@font-face`` de la fuente del sitio (capa C2):
+    incrustadas, no enlazadas, para que el HTML siga siendo autocontenido y determinista y el
+    PDF se dibuje igual en cualquier máquina. El tema ``plain`` sigue con las del sistema.
+    """
     filename = _CSS_FILES.get(theme, _CSS_FILES["nikodym"])
-    return resources.files(_TEMPLATE_PACKAGE).joinpath(filename).read_text("utf-8").strip()
+    css = resources.files(_TEMPLATE_PACKAGE).joinpath(filename).read_text("utf-8").strip()
+    if theme == "plain":
+        return css
+    return f"{_font_faces()}\n{css}"
+
+
+#: La fuente del sitio (docs.nikodym.cl sirve Roboto): los dos pesos que el informe usa, como
+#: subconjunto latino empaquetado bajo ``templates/fonts`` (origen y licencia en ``ORIGEN.txt`` y
+#: ``LICENSE-Roboto.txt``). Los glifos que el subconjunto no trae caen a la pila del sistema.
+_FONT_FILES: Final[tuple[tuple[int, str], ...]] = (
+    (400, "roboto-regular-latin.woff2"),
+    (700, "roboto-bold-latin.woff2"),
+)
+
+
+@functools.cache
+def _font_faces() -> str:
+    """Las reglas ``@font-face`` con los WOFF2 empaquetados en base64 (``data:`` URI).
+
+    Se leen una vez por proceso: son bytes fijos del paquete, y el digest del HTML los incluye
+    como incluye el resto del CSS.
+    """
+    reglas: list[str] = []
+    for peso, nombre in _FONT_FILES:
+        payload = resources.files(_TEMPLATE_PACKAGE).joinpath("fonts", nombre).read_bytes()
+        codificado = base64.b64encode(payload).decode("ascii")
+        reglas.append(
+            "@font-face {\n"
+            '  font-family: "Roboto";\n'
+            "  font-style: normal;\n"
+            f"  font-weight: {peso};\n"
+            "  font-display: swap;\n"
+            f'  src: url("data:font/woff2;base64,{codificado}") format("woff2");\n'
+            "}"
+        )
+    return "\n".join(reglas)
 
 
 def _normalize_newlines(text: str) -> str:

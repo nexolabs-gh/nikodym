@@ -299,6 +299,12 @@ sc.resume()                             # corrida nueva y completa sobre el conf
   `purpose=`) muestra la decisión con sus seis campos; **el motivo no llega a la ficha en la capa
   A**: extender `DecisionRecord` es una enmienda a D-GOB que va con la ficha renderizada de la
   capa C. El resumen final lista siempre decisión y motivo desde el trail.
+  **Implementado en la capa C (S19, 2026-09-21): D-GOB-17**, aprobada por Cami el mismo día:
+  `DecisionRecord` gana `autor` y `motivo` aditivos, y la ficha en disco, Resultados (columnas
+  «Autor» y «Motivo») y el capítulo «Ficha del modelo» del informe muestran el motivo de cada
+  decisión humana. El evento del trail lleva además `variables` (el sujeto de la decisión), para
+  que la línea «exclude score — «motivo»» se escriba igual desde el trail —la página ejecutiva
+  del informe— que desde la memoria —el resumen final— con una sola función.
 - `run()` sobre `sc.config` sin la puerta guiada reproduce los mismos **resultados**: las decisiones
   viven en el config, no en el objeto. La **procedencia** (inferencias y motivos en el trail) es de
   la puerta guiada y se declara (D-SIM-1).
@@ -464,6 +470,21 @@ lectura.
 | **A** | Puerta guiada por código: entrada mínima e inferencias, `run`/`until`/`resume`, decisiones humanas, resúmenes por etapa, resumen final, `compare`, `track=`, `purpose=`, los dos artefactos de §3.6, `raise_on_error`, notebook mínimo. Sale en 1.17.0 **declarada experimental** en copy público y CHANGELOG hasta que cierre B (D-SIM-1) | las cinco cifras ancladas; notebook en CI; `config_hash` de `sc.config` == el del YAML exportado; `run()` y `resume()` tras `run(until)` dejan artefactos idénticos sin decisiones; los goldens de `selection_table` y de las tablas de binning **no se mueven** |
 | **B** | Pantalla esenciales/«Avanzado» con su golden; Excel opcional y `export()`; Resultados sobre la fuente de `summary()` | golden de esenciales; copy gate; Excel byte a byte con las tablas del informe |
 | **C** | Informe: página ejecutiva = resumen final; tipografía y marca del sitio; ficha renderizada (lo que ENTREGABLES-LEGIBLES pedía y no depende de la API) | goldens del informe declarados antes de moverlos |
+
+**Implementada en S19 (2026-09-21), tres sub-capas:** **C1** la página ejecutiva «Resumen de la
+corrida» (capítulo `kind="summary"`, primero en `CHAPTER_SPECS`, sin número, condicional any-of a
+los dominios del scorecard) que el `ReportBuilder` arma en `collect(study)` con los mismos
+constructores que `summary()` y la pantalla; **C2** la tipografía del sitio (Roboto 400/700
+incrustada en base64 en el CSS del tema `nikodym`, Word con Roboto y la paleta de la marca; la
+paleta ya era la del sitio) y el PDF con la fuente verificado en el job `test-pdf`; **C3** la ficha
+con motivo (D-GOB-17). **Tres precisiones medidas:** (1) el informe se escribe DURANTE la corrida
+—`report` es un paso—, así que la página dice qué corrió sin fallos antes de él y, si `run.steps`
+puso pasos después (la validación formal es insumo opcional del informe y puede ir detrás),
+cuáles quedan y que no los refleja; el estado terminal lo dicen `summary()` y Resultados
+(pasadas 1 y 2 de Codex); (2) el informe no conoce la carpeta de evidencia —se consolida
+después—, así que los archivos se nombran con lo que el config manda y la ficha condicionada a
+que haya `run_dir`; (3) sin corrida (bundle armado a mano) no hay capítulo y el HTML de los
+bundles sintéticos no cambia, por lo que el golden del renderer sólo se movió por el CSS de C2.
 
 ### 3.13 D-FLU-12 — Presupuesto de perillas: cero. Qué NO se configura
 

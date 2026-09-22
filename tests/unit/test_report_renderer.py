@@ -64,7 +64,13 @@ from nikodym.validation.results import VALIDATION_STATUS_LABELS
 # (`<figure class="chart-slot" id="figure-eda-figures" data-figure="eda.figures">` con la clave
 # interna por rótulo): las figuras de `eda` se dibujan en el cuerpo de su subsección. Medido con
 # `diff` sobre los dos renders: cambian SOLO esas tres líneas.
-GOLDEN_HTML_SHA256 = "f2c483804b5ee775ed60377bed2e665ee189e3f489f35131a922f22123e4a964"
+# Recalculado el 2026-09-21 (capa C2 de FLUJO-GUIADO-SCORECARD): el tema `nikodym` incrusta la
+# tipografía del sitio —dos `@font-face` de Roboto (400/700) en base64 antepuestas a la hoja— y
+# la pila `--sans` empieza por Roboto. Medido: con el CSS del commit anterior este mismo bundle
+# da exactamente el golden anterior `f2c48380…`, y fuera del bloque `<style>` los dos HTML son
+# idénticos; el CSS es lo único que se movió. (La página ejecutiva de C1 no toca este golden: el
+# bundle sintético no trae corrida y el capítulo no se emite.)
+GOLDEN_HTML_SHA256 = "3f0720b68b0fe5a78b55f8dc40c91a3256b20ca8f22150819dac06ec48b3edd8"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -417,8 +423,40 @@ def test_plantilla_y_css_empaquetados_en_el_paquete() -> None:
         "_tables.html.j2",
         "scorecard_report.css",
         "scorecard_report_plain.css",
+        # Capa C2 de FLUJO-GUIADO-SCORECARD: la fuente del sitio, incrustada en el informe, con
+        # su licencia (Apache-2.0) y su origen.
+        "_run_summary.html.j2",
+        "fonts/roboto-regular-latin.woff2",
+        "fonts/roboto-bold-latin.woff2",
+        "fonts/LICENSE-Roboto.txt",
+        "fonts/ORIGEN.txt",
     ):
         assert root.joinpath(nombre).is_file(), nombre
+
+
+def test_el_tema_nikodym_incrusta_roboto_y_el_tema_plain_no() -> None:
+    """Capa C2 (D-FLU-11 fila C): el informe usa la tipografía del sitio (Roboto, la que sirve
+    docs.nikodym.cl) sin depender de la red ni del sistema: los dos pesos van incrustados en el
+    CSS como `data:` URIs desde los archivos empaquetados, y la pila de fuentes empieza por
+    Roboto con la del sistema detrás. El tema `plain` sigue en Arial y sin fuentes incrustadas."""
+    import base64
+    from importlib import resources
+
+    html = _renderer().render(_bundle())
+    assert html.count("@font-face {") == 2  # las dos reglas (el comentario del CSS no cuenta)
+    assert 'font-family: "Roboto"' in html
+    assert "--sans: Roboto," in html
+    root = resources.files("nikodym.report.templates").joinpath("fonts")
+    for peso, nombre in ((400, "roboto-regular-latin.woff2"), (700, "roboto-bold-latin.woff2")):
+        payload = base64.b64encode(root.joinpath(nombre).read_bytes()).decode("ascii")
+        assert f"font-weight: {peso}" in html
+        assert f"data:font/woff2;base64,{payload}" in html, nombre
+    # Nada remoto: ni hojas importadas ni fuentes por URL (el comentario del CSS sí nombra la
+    # regla `@import` para decir que no la usa).
+    assert "@import url" not in html and "url(https://" not in html and "url('http" not in html
+    plain = HtmlReportRenderer(HtmlRenderConfig(theme="plain")).render(_bundle())
+    assert "@font-face" not in plain and "Roboto" not in plain
+    assert "font-family:Arial" in plain
 
 
 def test_truncado_bloques_ia_y_write_manifest(tmp_path: Path) -> None:

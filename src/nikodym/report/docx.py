@@ -37,6 +37,9 @@ __all__ = ["DocxReportRenderer", "render_docx"]
 _DOCX_EXTENSION: Final = ".docx"
 _TABLE_STYLE: Final = "Table Grid"
 _MONO_FONT: Final = "Consolas"
+#: La fuente del sitio y del HTML del informe (capa C2). Word la usa si está instalada y, si no,
+#: sustituye: el `.docx` no incrusta fuentes.
+_BODY_FONT: Final = "Roboto"
 # Ámbar suave: el bloque POR COMPLETAR tiene que saltar a la vista al abrir el archivo.
 _PLACEHOLDER_FILL: Final = "FFF3CD"
 _MISSING_FILL: Final = "F8D7DA"
@@ -78,6 +81,7 @@ def render_docx(document: Mapping[str, Any], *, config: ReportConfig) -> bytes:
         ) from exc
 
     word = docx.Document()
+    _aplicar_tipografia_y_marca(word)
     _set_core_properties(word, document, config)
 
     word.add_heading(str(document["document_title"]), level=0)
@@ -168,6 +172,37 @@ class DocxReportRenderer:
 
 
 # ─────────────────────────── bloques del documento Word ───────────────────────────
+
+
+def _aplicar_tipografia_y_marca(word: Any) -> None:
+    """Los estilos equivalentes al HTML (capa C2): la fuente del sitio y la paleta de la marca.
+
+    La plantilla de fábrica de Word trae Calibri y sus títulos en un azul propio; aquí el cuerpo
+    y los títulos declaran Roboto —la que el HTML incrusta y el sitio sirve; Word sustituye si
+    no está instalada— y los títulos llevan el navy y el azul de la marca. Lo monoespaciado
+    (hashes, rutas, JSON) sigue en Consolas, presente en todo Windows.
+    """
+    from docx.oxml.ns import qn
+    from docx.shared import RGBColor
+
+    navy = RGBColor(0x0A, 0x22, 0x40)
+    brand = RGBColor(0x18, 0x59, 0xE0)
+    colores = {"Title": navy, "Heading 1": navy, "Heading 2": navy, "Heading 3": brand}
+    for nombre in ("Normal", *colores):
+        estilo = word.styles[nombre]
+        estilo.font.name = _BODY_FONT
+        # `font.name` fija ascii/hAnsi; el atributo eastAsia queda en la fuente de fábrica y Word
+        # puede elegirla para algunos caracteres: se declara la misma en los cuatro.
+        rpr = estilo.element.get_or_add_rPr()
+        rfonts = rpr.find(qn("w:rFonts"))
+        if rfonts is not None:
+            for atributo in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+                rfonts.set(qn(atributo), _BODY_FONT)
+            for tema in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme", "w:cstheme"):
+                rfonts.attrib.pop(qn(tema), None)
+        color = colores.get(nombre)
+        if color is not None:
+            estilo.font.color.rgb = color
 
 
 def _set_core_properties(word: Any, document: Mapping[str, Any], config: ReportConfig) -> None:
