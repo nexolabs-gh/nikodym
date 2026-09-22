@@ -208,6 +208,36 @@ def test_wheel_minimo_cumple_b21(tmp_path: Path) -> None:
     _validate(tmp_path, _wheel(tmp_path, files), files, "wheel")
 
 
+def test_todo_archivo_de_datos_del_paquete_esta_en_la_allowlist() -> None:
+    """Un archivo que no sea `.py` añadido bajo `src/nikodym` tiene que estar en la allowlist.
+
+    🔴 Los demás tests de este módulo construyen wheels SINTÉTICOS: validan el validador, no el
+    artefacto real, así que añadir un archivo al paquete pasaba en local y sólo lo acusaba el job
+    `Build` del CI, que construye el wheel de verdad (pasó con las fuentes del informe de la capa
+    C: `Ruta fuera de allowlist: nikodym/report/templates/fonts/LICENSE-Roboto.txt`). Este gate
+    censa el árbol y comprueba las dos allowlists —wheel y sdist— sin construir nada.
+    """
+    _matches_segments = _MODULE._matches_segments
+    politica = json.loads(_POLICY.read_text(encoding="utf-8"))
+    paquete = _POLICY.parents[1] / "src" / "nikodym"
+    datos = [
+        archivo
+        for archivo in sorted(paquete.rglob("*"))
+        if archivo.is_file()
+        and archivo.suffix not in {".py", ".pyc"}
+        and "__pycache__" not in archivo.parts
+    ]
+    assert datos, "el censo no puede medir cero: el paquete sí trae archivos de datos"
+    fuera: list[str] = []
+    for archivo in datos:
+        relativa = archivo.relative_to(_POLICY.parents[1]).as_posix()  # src/nikodym/...
+        en_wheel = relativa.removeprefix("src/")
+        for clave, ruta in (("wheel", en_wheel), ("sdist", relativa)):
+            if not any(_matches_segments(ruta, patron) for patron in politica[clave]["allowed"]):
+                fuera.append(f"{clave}: {ruta}")
+    assert fuera == [], fuera
+
+
 @pytest.mark.parametrize(
     "name",
     [

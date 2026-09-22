@@ -60,7 +60,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   declara Roboto en el cuerpo y en los títulos, con el navy y el azul de la marca en vez del azul
   de fábrica de Word (lo monoespaciado sigue en Consolas). La paleta ya era la del sitio. Los
   archivos viajan en el paquete bajo `report/templates/fonts/` con su licencia (Apache-2.0) y su
-  origen; el tema `plain` no cambia. Los goldens del HTML se re-anclaron midiendo que, fuera del
+  origen; el tema `plain` no cambia. La allowlist de contenido del wheel y del sdist admite esas dos
+  rutas, y un gate nuevo censa el paquete para que ningún archivo de datos vuelva a quedarse
+  fuera de ella sin que se note antes del CI. Los goldens del HTML se re-anclaron midiendo que, fuera del
   bloque de estilos, el documento es idéntico; el PDF con la fuente incrustada lo verifica el
   job `test-pdf` de CI.
 
