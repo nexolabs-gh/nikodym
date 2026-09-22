@@ -108,31 +108,31 @@ class DefaultRateResult(BaseModel):
         hay tabla. Ninguno de los dos lo puede producir el motor; los dos los puede construir a
         mano quien use esta API estable, así que el DTO los rechaza en su frontera.
 
-        Las seis columnas se exigen **sólo** cuando la tabla está vacía: es la forma que esta
-        enmienda introduce y la que nadie más escribe. Una tabla con filas y columnas incompletas
-        sigue siendo asunto de quien la consume —``TemporalStabilityAnalyzer`` la rechaza con su
-        mensaje—, y endurecerlo aquí cambiaría un contrato que esta enmienda no abre.
+        🔴 **Sólo se comprueba la dirección aditiva**: «con causa ⇒ tabla vacía y con sus seis
+        columnas». La recíproca —«tabla vacía ⇒ causa»— **no** se exige aquí, y no por descuido:
+        antes de esta enmienda ``DefaultRateResult(by_period=<vacía>, …)`` era una construcción
+        legal de una API estable 1.x, y prohibirla en una minor sería una ruptura (hallazgo
+        adversarial del rango, verificado). Una tabla vacía sin causa se sigue tratando como
+        siempre —el informe la recolecta, nadie la omite—, así que tampoco esconde nada. La
+        bicondicional sigue siendo la invariante del **motor**, y sus tests la prueban en los dos
+        sentidos; lo que el DTO garantiza es que nadie apague superficies sin haber vaciado la
+        tabla.
         """
-        vacia = len(self.by_period.index) == 0
-        if self.not_evaluable_reason is not None and not vacia:
+        if self.not_evaluable_reason is None:
+            return self
+        if len(self.by_period.index) != 0:
             raise ValueError(
                 "DefaultRateResult con causa de no evaluabilidad y tabla no vacía: la causa apaga "
                 "la figura y la tabla del informe, así que publicarla con filas escondería "
                 "evidencia calculada."
             )
-        if self.not_evaluable_reason is None and vacia:
+        faltan = [c for c in _RESULT_COLUMNS if c not in self.by_period.columns]
+        if faltan:
+            joined = ", ".join(f"'{c}'" for c in faltan)
             raise ValueError(
-                "DefaultRateResult con tabla vacía y sin causa: el informe y el panel omitirían la "
-                "tasa sin poder decir por qué. Declare la causa."
+                f"DefaultRateResult no evaluable sin la(s) columna(s) {joined}: sus "
+                "consumidores leen columnas aunque no haya filas."
             )
-        if self.not_evaluable_reason is not None:
-            faltan = [c for c in _RESULT_COLUMNS if c not in self.by_period.columns]
-            if faltan:
-                joined = ", ".join(f"'{c}'" for c in faltan)
-                raise ValueError(
-                    f"DefaultRateResult no evaluable sin la(s) columna(s) {joined}: sus "
-                    "consumidores leen columnas aunque no haya filas."
-                )
         return self
 
 

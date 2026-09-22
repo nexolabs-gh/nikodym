@@ -544,6 +544,7 @@ Tope declarado: **tres**, con el mismo criterio de parada. Sobre el rango `b0a9f
 |---|---|---|
 | 1 | La prosa afirmaba que el resto del análisis se hizo «sobre la población completa», y `eda` describe la partición de `analysis_partition` | Copy factual + test regresivo que prohíbe las tres formas de atribuirlo al archivo entero |
 | 2 | (a) La invariante causa ↔ tabla vacía estaba documentada pero **no comprobada**, y la causa apaga superficies aguas abajo; (b) con `sampling` encendido, perfiles y calidad corren sobre una muestra, así que tampoco son «la misma población analizada» | (a) `model_validator` en el DTO, tres tests y el control negativo (i); (b) la frase deja de delimitar población |
+| 3 | (a) El `model_validator` **rompía la compatibilidad 1.x**: `DefaultRateResult(by_period=<vacía>)` sin causa era legal antes y pasaba a levantar; (b) el gate end-to-end saca `segment` del binning y eso se podía leer como esquivar el caso real | (a) el validador comprueba **sólo** la dirección aditiva «con causa ⇒ tabla vacía con sus columnas», con un test de compatibilidad del legado; la bicondicional sigue siendo la invariante del motor, probada en los dos sentidos; (b) el test declara que `segment` sale porque tropieza con el defecto de D-RAR, **no** con éste, y que este gate no demuestra el criterio de completado |
 
 **Elevado, no programado:** que la card de `eda` publique **si hubo muestreo y con qué tamaños**.
 Hoy el informe no puede decir sobre qué población exacta corrió cada cálculo porque ese dato no

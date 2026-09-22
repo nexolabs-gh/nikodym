@@ -211,11 +211,6 @@ def test_el_rotulo_publico_de_la_causa_existe_y_esta_en_espanol() -> None:
             id="causa-con-filas",
         ),
         pytest.param(
-            {"by_period": "vacia", "not_evaluable_reason": None},
-            "sin causa",
-            id="vacia-sin-causa",
-        ),
-        pytest.param(
             {"by_period": "vacia_incompleta", "not_evaluable_reason": "sin_eje_temporal"},
             "columna",
             id="vacia-sin-las-columnas",
@@ -253,6 +248,24 @@ def test_el_dto_rechaza_un_resultado_inconsistente(kwargs: dict, match: str) -> 
             overall_rate=0.2,
             not_evaluable_reason=kwargs["not_evaluable_reason"],
         )
+
+
+def test_una_tabla_vacia_sin_causa_sigue_siendo_construible() -> None:
+    """🔴 Compatibilidad 1.x: el validador sólo comprueba la dirección ADITIVA.
+
+    Antes de esta enmienda `DefaultRateResult(by_period=<vacía>, …)` era una construcción legal de
+    una API estable, y prohibirla en una minor sería una ruptura (hallazgo adversarial del rango).
+    La bicondicional sigue siendo la invariante del MOTOR —los tests de arriba la prueban en los
+    dos sentidos—; lo que el DTO garantiza es que nadie apague superficies sin vaciar la tabla.
+    """
+    legado = DefaultRateResult(
+        by_period=pd.DataFrame({"period": pd.Series([], dtype="object")}),
+        axis="period",
+        overall_rate=float("nan"),
+    )
+
+    assert legado.not_evaluable_reason is None
+    assert legado.by_period.empty
 
 
 # ───────────────────── los bordes que NO se ablandan ─────────────────────
@@ -353,8 +366,14 @@ def _corrida_f1_sin_eje(tmp_path: Path) -> Study:
                     )
                 }
             ),
-            # Con partición aleatoria el frame de 30 filas deja un bin de `segment` con una clase
-            # en cero: se describe `score`, que es lo que esta capa necesita ejercer.
+            # 🔴 `segment` sale del binning A PROPÓSITO, y la razón importa: con partición
+            # aleatoria el frame de 30 filas deja uno de sus niveles con una clase en cero, que
+            # es EXACTAMENTE el defecto que `_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md` (D-RAR)
+            # viene a resolver y que hoy sigue abierto —es también lo que detiene a UCI German
+            # Credit una etapa después de `eda`—. Dejarlo aquí haría que este gate midiera ese
+            # otro defecto en vez de D-SC-17. **Este test NO demuestra el criterio de completado
+            # del scorecard**: demuestra que la corrida ya no muere en `eda`. El gate del caso
+            # real, con sus categóricas intactas, entra con D-RAR.
             "binning": config.binning.model_copy(
                 update={"feature_columns": ("score",), "categorical_columns": ()}
             ),
