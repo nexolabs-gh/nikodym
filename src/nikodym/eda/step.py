@@ -28,7 +28,12 @@ from nikodym.data.config import CohortSplitConfig, TargetConfig
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
 from nikodym.eda.card import EdaCardSection
 from nikodym.eda.config import DefaultRateConfig, EdaConfig
-from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult, datetime_columns
+from nikodym.eda.default_rate import (
+    DefaultRateAnalyzer,
+    DefaultRateResult,
+    datetime_columns,
+    tasa_no_evaluable,
+)
 from nikodym.eda.exceptions import EdaError
 from nikodym.eda.figures import FigureSpec, _build_figure_specs
 from nikodym.eda.quality import DataQualityProfiler, QualityFlag, QualityResult
@@ -103,7 +108,7 @@ class EdaStep(AuditableMixin):
         frame_part = self._partition_frame(study, frame)
         profile_frame = self._sample_if_needed(frame_part, rng)
         target_col = labels.target_col
-        default_rate_config, axis_inferred = self._resolve_axis(study, frame_part)
+        default_rate_config, axis_inferred, sin_eje = self._resolve_axis(study, frame_part)
         columns = _resolve_univariate_columns(
             frame_part,
             target_col,
@@ -113,11 +118,31 @@ class EdaStep(AuditableMixin):
             label_columns=_label_defining_columns(study),
         )
 
-        default_rate = DefaultRateAnalyzer.from_config(default_rate_config).compute(
-            frame_part,
-            target_col=target_col,
-            audit=self._audit,
-        )
+        if sin_eje:
+            # D-SC-17: no hay eje con que agrupar y tampoco contradicción que denunciar. La tasa
+            # se publica «no evaluable» con su causa —el mismo trato que `stability` ya daba a su
+            # señal— y la corrida sigue con el resto del análisis, que no depende del eje.
+            default_rate = tasa_no_evaluable(
+                frame_part,
+                target_col=target_col,
+                axis=default_rate_config.axis,
+                reason="sin_eje_temporal",
+            )
+            # La decisión va DESPUÉS de construir el resultado: si la población no valida, la
+            # corrida se detiene con el error de siempre y el trail no registra una degradación
+            # que nunca ocurrió.
+            self.log_decision(
+                regla="tasa_por_periodo",
+                umbral="una columna de fecha o una cohorte declarada",
+                valor="sin eje temporal",
+                accion="no_evaluable",
+            )
+        else:
+            default_rate = DefaultRateAnalyzer.from_config(default_rate_config).compute(
+                frame_part,
+                target_col=target_col,
+                audit=self._audit,
+            )
         stability = TemporalStabilityAnalyzer.from_config(self.config.stability).assess(
             default_rate,
             audit=self._audit,
@@ -157,8 +182,10 @@ class EdaStep(AuditableMixin):
 
     def _resolve_axis(
         self, study: Study, frame_part: pd.DataFrame
-    ) -> tuple[DefaultRateConfig, bool]:
-        """El config de la tasa que de verdad corre, y si el eje lo decidió el paso (D-SC-3).
+    ) -> tuple[DefaultRateConfig, bool, bool]:
+        """El config de la tasa que corre, si el eje lo decidió el paso, y si no hay eje.
+
+        Devuelve ``(config, axis_inferred, sin_eje)``. El tercero es D-SC-17.
 
         Regla nueva de SDD-27 §7.2/§8, del mismo tipo que la inferencia de ``date_col`` que ya
         existe («la única columna datetime»): con ``axis="period"`` y ``date_col`` en blanco, si el
@@ -168,28 +195,28 @@ class EdaStep(AuditableMixin):
         correr ``eda`` con sus defaults sobre una cartera sin fecha, que era el caso del preset F1
         (§0-1 del scorecard completo).
 
-        Sin fecha y sin cohorte declarada el error es el de siempre, ahora **anclado al campo**
-        (D-VIS): ``eda.default_rate.date_col``. Una fecha declarada que falte, o más de una columna
-        datetime, siguen siendo asunto del analizador, que ya los rechaza con su mensaje.
+        Sin fecha y sin cohorte declarada **no hay eje**, y desde D-SC-17 eso deja de ser un error:
+        no se contradice nada de lo que el usuario declaró —``date_col=None`` es el default y
+        significa «infiere», así que el config está completo y lo que falta es el dato—, de modo
+        que la tasa sale «no evaluable» con causa y la corrida sigue. Hasta la 1.19.0 esto
+        levantaba ``EdaError`` y con él morían `eda` y las nueve etapas siguientes, sobre el caso
+        que SDD-31 §8 declara soportado. Una fecha declarada que falte, una que no sea datetime, o
+        más de una columna datetime, siguen siendo asunto del analizador, que ya los rechaza con su
+        mensaje: ahí sí hay una declaración que el archivo desmiente.
         """
         config = self.config.default_rate
         if config.axis != "period" or config.date_col is not None or datetime_columns(frame_part):
-            return config, False
+            return config, False, False
         cohort_col = _declared_cohort_column(study)
         if cohort_col is None:
-            raise EdaError(
-                "La tasa de default por período requiere una columna de fecha, y el archivo no "
-                "trae ninguna; declárela en eda.default_rate.date_col, o particiona por cohorte "
-                "para que el eje la tome de ahí, o usa axis='cohort'.",
-                loc=(*_LOC_SECCION, "default_rate", "date_col"),
-            )
+            return config, False, True
         self.log_decision(
             regla="eje_eda_inferido",
             umbral="sin columna de fecha y partición por cohorte",
             valor=cohort_col,
             accion="usar_cohorte",
         )
-        return config.model_copy(update={"axis": "cohort", "cohort_col": cohort_col}), True
+        return config.model_copy(update={"axis": "cohort", "cohort_col": cohort_col}), True, False
 
     def metrics(self, study: Study) -> dict[str, float | None]:
         """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4, respuesta 6).
@@ -265,6 +292,7 @@ class EdaStep(AuditableMixin):
             axis=result.default_rate.axis,
             axis_inferred=result.axis_inferred,
             stability_not_evaluable_reason=result.stability.not_evaluable_reason,
+            default_rate_not_evaluable_reason=result.default_rate.not_evaluable_reason,
         )
 
     def _publish_artifacts(self, study: Study, result: EdaResult, eda_card: EdaCardSection) -> None:

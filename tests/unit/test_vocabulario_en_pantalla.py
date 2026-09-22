@@ -37,7 +37,12 @@ from pydantic import BaseModel
 from nikodym.binning.results import IV_BAND_LABELS, IvBand
 from nikodym.eda.card import EdaCardSection
 from nikodym.eda.default_rate import _RESULT_COLUMNS as _COLUMNAS_TASA
-from nikodym.eda.default_rate import AXIS_LABELS, EdaAxis
+from nikodym.eda.default_rate import (
+    AXIS_LABELS,
+    DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+    DefaultRateNotEvaluableReason,
+    EdaAxis,
+)
 from nikodym.eda.quality import _RESULT_COLUMNS as _COLUMNAS_CALIDAD
 from nikodym.eda.quality import QUALITY_FLAG_LABELS, QualityFlag
 from nikodym.eda.stability import (
@@ -303,6 +308,10 @@ def test_el_front_espeja_el_vocabulario_de_la_validacion(
         ("EDA_AXIS_LABELS", AXIS_LABELS),
         ("EDA_STABILITY_INDICATOR_LABELS", STABILITY_INDICATOR_LABELS),
         ("EDA_NOT_EVALUABLE_REASON_LABELS", NOT_EVALUABLE_REASON_LABELS),
+        (
+            "EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS",
+            DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+        ),
         ("EDA_QUALITY_FLAG_LABELS", QUALITY_FLAG_LABELS),
     ],
 )
@@ -358,6 +367,7 @@ def test_los_colores_del_estado_tecnico_cubren_las_cuatro_palabras() -> None:
         (EdaAxis, "EdaAxis"),
         (StabilityMetric, "EdaStabilityIndicator"),
         (NotEvaluableReason, "EdaNotEvaluableReason"),
+        (DefaultRateNotEvaluableReason, "EdaDefaultRateNotEvaluableReason"),
         (QualityFlag, "EdaQualityFlag"),
     ],
 )

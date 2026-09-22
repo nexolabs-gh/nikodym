@@ -434,26 +434,39 @@ def test_sin_fecha_y_con_particion_por_cohorte_el_eje_se_infiere_a_la_cohorte() 
     ]
 
 
-def test_sin_fecha_ni_cohorte_declarada_sigue_siendo_un_error_anclado_al_campo() -> None:
-    """Sin fecha y sin cohorte no hay eje que tomar prestado: ``EdaError`` con ``loc`` (D-VIS)."""
+def test_sin_fecha_ni_cohorte_declarada_la_tasa_se_declara_no_evaluable() -> None:
+    """D-SC-17: sin fecha y sin cohorte no hay eje que tomar prestado, y eso **no es un error**.
+
+    🔴 Este test **se invirtió** el 2026-09-22, con la enmienda aprobada por Cami: hasta la
+    1.19.0 exigía ``EdaError`` anclado a ``eda.default_rate.date_col``, y ese error mataba la
+    corrida en la segunda etapa del pipeline —con las nueve siguientes— sobre el caso que SDD-31
+    §8 declara soportado (`partition="random"` sobre un archivo sin fechas). Ahora la tasa se
+    publica «no evaluable» con causa y la corrida sigue. El detalle vive en
+    ``test_eda_sin_eje_temporal.py``; aquí queda el contraste con la inferencia de D-SC-3.
+    """
     cfg = _eda_defaults(columns=("score",))
     study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_aleatorio())
 
-    with pytest.raises(EdaError, match="columna de fecha") as capturado:
-        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+    result = study._run_one(EdaStep.from_config(cfg))
 
-    assert capturado.value.loc == ("eda", "default_rate", "date_col")
+    assert result.default_rate.not_evaluable_reason == "sin_eje_temporal"
+    assert result.axis_inferred is False
+    assert result.default_rate.by_period.empty
 
 
 def test_sin_config_de_data_tampoco_se_infiere() -> None:
-    """Sin sección ``data`` no hay partición que consultar: error, no adivinanza."""
+    """Sin sección ``data`` no hay partición que consultar: tampoco se adivina un eje.
+
+    🔴 Invertido con el anterior (D-SC-17): antes exigía ``EdaError``. Lo que se conserva es lo
+    que el test siempre midió —que **no** se inventa un eje—; lo que cambia es la consecuencia.
+    """
     cfg = _eda_defaults(columns=("score",))
     study = _study_with_data(_frame_sin_fecha(), cfg)
 
-    with pytest.raises(EdaError, match="columna de fecha") as capturado:
-        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+    result = study._run_one(EdaStep.from_config(cfg))
 
-    assert capturado.value.loc == ("eda", "default_rate", "date_col")
+    assert result.default_rate.not_evaluable_reason == "sin_eje_temporal"
+    assert result.axis_inferred is False
 
 
 def test_con_fecha_en_el_archivo_el_eje_no_se_infiere() -> None:

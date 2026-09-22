@@ -22,15 +22,32 @@ from nikodym.eda.exceptions import EdaError
 
 __all__ = [
     "AXIS_LABELS",
+    "DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS",
     "MAX_PUBLISHED_PERIODS",
     "DefaultRateAnalyzer",
+    "DefaultRateNotEvaluableReason",
     "DefaultRateResult",
     "EdaAxis",
+    "tasa_no_evaluable",
 ]
 
 #: Los dos ejes con que se agrupa la tasa de incumplimiento; es la anotación de ``axis`` en el
 #: config y en el resultado, para que ninguno de los dos pueda ganar un valor sin el otro.
 EdaAxis = Literal["period", "cohort"]
+
+#: Por qué la tasa NO se pudo agrupar (D-SC-17). Mismo molde que
+#: :data:`nikodym.eda.stability.NotEvaluableReason`: hay causa **si y sólo si** ``by_period`` está
+#: vacía. Hoy tiene una sola causa porque hay un solo caso en que el motor no puede agrupar sin
+#: contradecir algo que el usuario declaró (§2 de la enmienda); el tipo es un ``Literal`` para que
+#: una causa nueva mueva su rótulo, su espejo en el front y sus gates a la vez.
+DefaultRateNotEvaluableReason = Literal["sin_eje_temporal"]
+
+#: Las palabras públicas de cada causa de la tasa: una sola fuente para el resumen de la etapa, el
+#: panel de Resultados y la prosa del informe, con espejo gateado en el front (mismo molde que
+#: ``NOT_EVALUABLE_REASON_LABELS`` y ``BAND_LABELS``).
+DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS: Final[dict[str, str]] = {
+    "sin_eje_temporal": "el archivo no trae columna de fecha ni cohorte declarada",
+}
 
 #: Las palabras públicas de cada eje: el panel y el informe dicen «por fecha de observación» o
 #: «por cohorte», nunca ``period``/``cohort`` crudos (D-SC-5; mismo molde que ``BAND_LABELS``).
@@ -64,13 +81,22 @@ _RESULT_COLUMNS: Final = (
 
 
 class DefaultRateResult(BaseModel):
-    """Resultado inmutable de la tasa de default por período/cohorte."""
+    """Resultado inmutable de la tasa de default por período/cohorte.
+
+    ``not_evaluable_reason`` es aditivo (D-SC-17) y sigue el molde que D-SC-2 le dio a
+    ``StabilityResult``: la causa por la que la tasa **no se pudo agrupar**, o ``None``. La
+    invariante, probada en los dos sentidos, se ancla en la TABLA —hay causa si y sólo si
+    ``by_period`` está vacía— y no en ``overall_rate``, porque ahí el ``NaN`` ya significaba desde
+    antes «sin operaciones elegibles» y las dos ausencias son independientes.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     by_period: pd.DataFrame
     axis: EdaAxis
     overall_rate: float
+    #: Aditivo (D-SC-17): la causa cuando no hay eje con que agrupar, o ``None``.
+    not_evaluable_reason: DefaultRateNotEvaluableReason | None = None
 
 
 class DefaultRateAnalyzer:
@@ -116,9 +142,7 @@ class DefaultRateAnalyzer:
             que describir.
         """
         del audit
-        _validate_non_empty_frame(frame)
-        _validate_unique_index(frame)
-        _validate_target_column(frame, target_col)
+        _validar_poblacion(frame, target_col=target_col)
 
         source = frame.copy(deep=True)
         group_frame = _resolve_group_frame(source, self.config)
@@ -136,6 +160,63 @@ class DefaultRateAnalyzer:
             axis=self.config.axis,
             overall_rate=_overall_rate(by_period),
         )
+
+
+def tasa_no_evaluable(
+    frame: pd.DataFrame,
+    *,
+    target_col: str,
+    axis: EdaAxis,
+    reason: DefaultRateNotEvaluableReason,
+) -> DefaultRateResult:
+    """La tasa que no se pudo agrupar: tabla vacía, causa declarada y tasa global (D-SC-17).
+
+    Vive aquí, en el módulo dueño del DTO, para que la invariante de ``DefaultRateResult`` tenga
+    **una sola** fuente: ``EdaStep`` decide *cuándo* no hay eje (es el único que ve la partición
+    declarada, D-SC-3), y este constructor decide *qué forma* tiene ese resultado.
+
+    🔴 **Valida la población igual que ``compute``.** Los tres guards —frame no vacío, índice
+    único, columna de target presente— vivían dentro de ``compute``, que esta rama no llama;
+    saltárselos aceptaría un índice duplicado, que es lo contrario de reproducible, o mataría la
+    corrida con un ``KeyError`` incidental en vez del ``EdaError`` del contrato.
+
+    ``by_period`` sale vacía y no con una fila ``<NA>`` que agregue toda la población: esa fila
+    sería un período inventado, y el informe y el panel la pintarían como una serie de un punto.
+    ``overall_rate`` sí se calcula —no necesita eje— con la **misma regla de siempre**: ``NaN``
+    cuando no hay ninguna operación elegible.
+    """
+    _validar_poblacion(frame, target_col=target_col)
+    target = frame[target_col]
+    n_eligible = int(_eligible_mask(target).sum())
+    n_bad = int(_bad_mask(target).sum())
+    overall = float("nan") if n_eligible == 0 else float(n_bad / n_eligible)
+    return DefaultRateResult(
+        by_period=_tabla_vacia(),
+        axis=axis,
+        overall_rate=overall,
+        not_evaluable_reason=reason,
+    )
+
+
+def _tabla_vacia() -> pd.DataFrame:
+    """``by_period`` sin filas y con las seis columnas del contrato, en su orden y con su dtype."""
+    return pd.DataFrame(
+        {
+            "period": pd.Series([], dtype="object"),
+            "n_total": pd.Series([], dtype="int64"),
+            "n_eligible": pd.Series([], dtype="int64"),
+            "n_bad": pd.Series([], dtype="int64"),
+            "default_rate": pd.Series([], dtype="float64"),
+            "low_confidence": pd.Series([], dtype="bool"),
+        }
+    )
+
+
+def _validar_poblacion(frame: pd.DataFrame, *, target_col: str) -> None:
+    """Las tres validaciones de entrada, compartidas por las DOS rutas de la tasa (D-SC-17)."""
+    _validate_non_empty_frame(frame)
+    _validate_unique_index(frame)
+    _validate_target_column(frame, target_col)
 
 
 def _validate_non_empty_frame(frame: pd.DataFrame) -> None:

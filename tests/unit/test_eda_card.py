@@ -192,4 +192,5 @@ def test_build_eda_card_sobre_mismo_resultado_es_determinista() -> None:
         "axis": "period",
         "axis_inferred": False,
         "stability_not_evaluable_reason": None,
+        "default_rate_not_evaluable_reason": None,
     }

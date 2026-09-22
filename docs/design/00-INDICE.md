@@ -1012,7 +1012,7 @@ por módulo bajo SDD-31, la primera
 > `config_hash` ni fixture de la demo se mueve (medido). Nueve decisiones para Cami en §8.
 
 > **`eda` sin eje temporal: la tasa por período se declara «No evaluable» en vez de matar la
-> corrida (2026-09-22; PROPUESTA, pendiente del OK de Cami; nace del criterio de completado del
+> corrida (2026-09-22; **APROBADA por Cami el 2026-09-22** con la recomendación de sus tres puntos; nace del criterio de completado del
 > scorecard que Cami fijó el 2026-09-22 y del tercer dataset —UCI German Credit— que falla).**
 > [`_ENMIENDA-EDA-SIN-EJE-TEMPORAL.md`](_ENMIENDA-EDA-SIN-EJE-TEMPORAL.md), D-SC-17 y D-SC-18,
 > enmienda corta a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) (familia

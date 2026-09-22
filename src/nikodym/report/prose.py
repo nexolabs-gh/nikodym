@@ -1428,18 +1428,28 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
     periods = _int(eda.get("n_periods"))
     columns = _int(eda.get("n_columns_profiled"))
     axis = _text(eda.get("axis")) or "period"
+    # D-SC-17: sin eje con que agrupar, las dos frases que dependen del eje serían falsas —«en 0
+    # períodos» y «con un solo período … se reproduce en la tabla», cuando no hay ni período ni
+    # tabla—, y el mismo documento ya trae la explicación correcta en «Resultados». Se omiten y se
+    # publica la causa, una sola vez.
+    sin_eje = _text(eda.get("default_rate_not_evaluable_reason"))
     frases: list[str] = []
     if rate is not None:
         frases.append(
             f"La tasa de incumplimiento observada en la población analizada es de {_pct(rate)}"
         )
-    if periods is not None:
+    if periods is not None and sin_eje is None:
         unidad = (
             _plural(periods, "cohorte", "cohortes")
             if axis == "cohort"
             else _plural(periods, "período", "períodos")
         )
         frases.append(f"la tasa se agrupó {_eda_axis_label(axis)} en {periods} {unidad}")
+    if sin_eje is not None:
+        frases.append(
+            "la tasa no se pudo agrupar en el tiempo porque "
+            f"{_eda_default_rate_reason_label(sin_eje)}"
+        )
     if columns is not None:
         frases.append(
             f"se describieron {columns} {_plural(columns, 'variable', 'variables')} frente al "
@@ -1454,7 +1464,7 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
             "una columna de fecha, así que la tasa se agrupó por la misma cohorte con la que se "
             "particionaron los datos. La decisión consta en el trail de la corrida."
         )
-    if periods is not None and periods < 2 and axis != "cohort":
+    if sin_eje is None and periods is not None and periods < 2 and axis != "cohort":
         paragraphs.append(
             "Con un solo período con observaciones no hay serie temporal que graficar: la tasa se "
             "reproduce en la tabla y no como figura."
@@ -1519,6 +1529,17 @@ def _eda_axis_label(axis: str) -> str:
     return AXIS_LABELS.get(axis, axis)
 
 
+def _eda_default_rate_reason_label(reason: str) -> str:
+    """Rótulo público de la causa por la que la tasa no se pudo agrupar (D-SC-17).
+
+    Misma disciplina que :func:`_eda_axis_label`: la fuente es el diccionario del motor y el
+    import es perezoso para no arrastrar ``pandas`` a este módulo.
+    """
+    from nikodym.eda.default_rate import DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS
+
+    return DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS.get(reason, reason)
+
+
 def _eda_indicator_label(metric: str) -> str:
     """Rótulo público del indicador de estabilidad temporal (fuente única en ``nikodym.eda``)."""
     from nikodym.eda.stability import STABILITY_INDICATOR_LABELS
@@ -1551,8 +1572,13 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
         return ()
     axis = _text(card.get("axis")) or "period"
     columns = _int(card.get("n_columns_profiled")) or 0
+    sin_eje = _text(card.get("default_rate_not_evaluable_reason"))
     piezas: list[str] = []
-    if axis == "cohort" or periods >= 2:
+    if sin_eje is not None:
+        # D-SC-17: no hay tabla ni figura de la tasa que anunciar, y caer en la rama de «un solo
+        # período» diría que se reproduce en una tabla que el documento no trae.
+        pass
+    elif axis == "cohort" or periods >= 2:
         piezas.append(
             "la tasa de incumplimiento "
             + ("por cohorte" if axis == "cohort" else "por período")
@@ -1564,7 +1590,15 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
         descritas = _plural(columns, "variable descrita", "variables descritas")
         piezas.append(f"el perfil por tramo de {columns} {descritas}")
     piezas.append("la calidad de datos por columna")
-    return (f"A continuación se reproducen {_enumerar(tuple(piezas))}.",)
+    frase = f"A continuación se reproducen {_enumerar(tuple(piezas))}."
+    if sin_eje is None:
+        return (frase,)
+    return (
+        frase,
+        "La tasa de incumplimiento no se pudo agrupar en el tiempo: "
+        f"{_eda_default_rate_reason_label(sin_eje)}. El resto del análisis exploratorio se hizo "
+        "sobre la población completa.",
+    )
 
 
 def _results_binning(bundle: ReportInputBundle) -> tuple[str, ...]:

@@ -998,22 +998,23 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "help": (
                         "Agrupa por la fecha en que se observó cada operación, por mes, "
                         "trimestre o año, y permite evaluar si la tasa se deteriora en el "
-                        "tiempo. Es la opción de fábrica."
+                        "tiempo. Es la opción de fábrica. Si no indicas la columna, el motor usa "
+                        "la única columna de fecha que haya; si tu archivo no trae ninguna y "
+                        "particionas por cohorte, agrupa por esa cohorte y lo deja registrado. "
+                        "Sin fecha ni cohorte, la tasa en el tiempo queda sin evaluar: la corrida "
+                        "sigue y el resto del análisis se hace igual."
                     ),
-                    # ⚠️ Exige una columna de fecha, y la diferencia con la cohorte está medida:
-                    # si no la indicas, el motor usa la única columna de fecha de tu archivo; y
-                    # si no hay ninguna pero particionas por cohorte, el eje pasa a esa cohorte y
-                    # lo deja registrado (D-SC-3). Lo que no puede hacer es inventarla: sin fecha
-                    # y sin cohorte la corrida se detiene en este campo.
-                    "estado": _EXIGE_OTRO_CAMPO,
-                    "motivo": (
-                        "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor "
-                        "usa la única columna de fecha que haya; si no hay ninguna y particionas "
-                        "por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni "
-                        "cohorte, la corrida se detiene aquí."
-                    ),
-                    "prueba": "eda/step.py:170",
-                    "exige": ("eda.default_rate.date_col",),
+                    # ⚠️ Estuvo marcada `_EXIGE_OTRO_CAMPO` hasta la enmienda de D-SC-17. Ese
+                    # estado significa «hasta que declares el otro campo el config NO se
+                    # construye» (D-EXI-2), y dejó de ser verdad: sin fecha ni cohorte el motor
+                    # degrada —tasa «no evaluable» con causa— y la corrida termina. Mantener la
+                    # marca habría publicado una falsedad con los gates en verde, que es
+                    # justamente lo que D-ABA-5 persigue; y D-ABA-3 sólo prohíbe ofrecer como
+                    # elegible lo que el motor RECHAZA, cosa que dejó de hacer. El aviso de que
+                    # la columna hace falta **para el análisis** vive ahora en el `help`.
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
                 },
                 {
                     "value": "cohort",

@@ -55,6 +55,7 @@ import {
   discriminantRows,
   edaAxisLabel,
   edaChartKind,
+  edaDefaultRateReasonLabel,
   edaPeriodNoun,
   edaProfiles,
   edaQualityRows,
@@ -564,8 +565,16 @@ export function ResultsPanel({
               mono={eda.overall_default_rate !== null}
             />
             <DefItem
-              label={`Agrupada ${edaAxisLabel(eda.axis)}`}
-              value={`${formatCount(eda.n_periods)} ${edaPeriodNoun(eda.axis, eda.n_periods)}`}
+              label={
+                eda.default_rate_not_evaluable_reason
+                  ? "Agrupada en el tiempo"
+                  : `Agrupada ${edaAxisLabel(eda.axis)}`
+              }
+              value={
+                eda.default_rate_not_evaluable_reason
+                  ? "No evaluable"
+                  : `${formatCount(eda.n_periods)} ${edaPeriodNoun(eda.axis, eda.n_periods)}`
+              }
               mono={false}
             />
             <DefItem
@@ -581,6 +590,17 @@ export function ResultsPanel({
               Eje tomado de la partición por cohorte: el archivo no trae una columna de fecha, así
               que la tasa se agrupó por la misma cohorte con la que se particionaron los datos. La
               decisión queda registrada en el trail de la corrida.
+            </p>
+          ) : null}
+
+          {/* 🔴 Sin eje que agrupar (D-SC-17) la tasa en el tiempo NO se calculó, y se dice con
+              su causa en palabras. La corrida no se detuvo: el resto del análisis está abajo. */}
+          {eda.default_rate_not_evaluable_reason ? (
+            <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              La tasa no se pudo agrupar en el tiempo:{" "}
+              {edaDefaultRateReasonLabel(eda.default_rate_not_evaluable_reason)}. El resto del
+              análisis exploratorio corrió completo y la decisión queda registrada en el trail de
+              la corrida.
             </p>
           ) : null}
 

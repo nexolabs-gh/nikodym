@@ -58,13 +58,11 @@
           "multiple": false,
           "options": [
             {
-              "estado": "exige_otro_campo",
-              "exige": [
-                "eda.default_rate.date_col"
-              ],
-              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica.",
+              "estado": "disponible",
+              "exige": [],
+              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica. Si no indicas la columna, el motor usa la única columna de fecha que haya; si tu archivo no trae ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la tasa en el tiempo queda sin evaluar: la corrida sigue y el resto del análisis se hace igual.",
               "label": "Por la fecha de observación",
-              "motivo": "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor usa la única columna de fecha que haya; si no hay ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la corrida se detiene aquí.",
+              "motivo": null,
               "value": "period"
             },
             {
@@ -4587,13 +4585,11 @@
           "multiple": false,
           "options": [
             {
-              "estado": "exige_otro_campo",
-              "exige": [
-                "eda.default_rate.date_col"
-              ],
-              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica.",
+              "estado": "disponible",
+              "exige": [],
+              "help": "Agrupa por la fecha en que se observó cada operación, por mes, trimestre o año, y permite evaluar si la tasa se deteriora en el tiempo. Es la opción de fábrica. Si no indicas la columna, el motor usa la única columna de fecha que haya; si tu archivo no trae ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la tasa en el tiempo queda sin evaluar: la corrida sigue y el resto del análisis se hace igual.",
               "label": "Por la fecha de observación",
-              "motivo": "Necesita una columna de fecha en tu archivo. Si no la indicas, el motor usa la única columna de fecha que haya; si no hay ninguna y particionas por cohorte, agrupa por esa cohorte y lo deja registrado. Sin fecha ni cohorte, la corrida se detiene aquí.",
+              "motivo": null,
               "value": "period"
             },
             {

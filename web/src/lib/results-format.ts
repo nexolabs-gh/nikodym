@@ -2240,8 +2240,22 @@ export const EDA_STABILITY_INDICATOR_LABELS: Record<string, string> = {
 export const EDA_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
   eje_cohorte: "eje de cohorte, sin orden cronológico",
   pocos_periodos_evaluables: "menos de dos períodos con observaciones suficientes",
+  sin_eje_temporal: "el archivo no trae un eje temporal que ordenar",
   tasa_media_cero: "sin incumplimientos en los períodos evaluables",
 } as const
+
+/**
+ * Espejo de `nikodym.eda.default_rate.DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS` (D-SC-17): por
+ * qué la TASA no se pudo agrupar. Distinto del de arriba, que explica la SEÑAL temporal.
+ */
+export const EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
+  sin_eje_temporal: "el archivo no trae columna de fecha ni cohorte declarada",
+} as const
+
+/** La causa de la tasa en palabras; el slug crudo sólo si el motor gana una que el front no tiene. */
+export function edaDefaultRateReasonLabel(reason: string): string {
+  return EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS[reason] ?? reason
+}
 
 /** Espejo de `nikodym.eda.quality.QUALITY_FLAG_LABELS`: las tres marcas de calidad. */
 export const EDA_QUALITY_FLAG_LABELS: Record<string, string> = {

@@ -31,6 +31,7 @@ export const EDA_SCORECARD_REAL: EdaResult = {
   "axis": "cohort",
   "axis_inferred": true,
   "stability_not_evaluable_reason": "eje_cohorte",
+  "default_rate_not_evaluable_reason": null,
   "default_rate": [
     {
       "period": "2023Q1",

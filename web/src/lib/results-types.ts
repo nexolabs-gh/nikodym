@@ -219,7 +219,15 @@ export type EdaStabilityIndicator = "cv" | "max_relative_drift" | "trend_slope"
 export type EdaNotEvaluableReason =
   | "eje_cohorte"
   | "pocos_periodos_evaluables"
+  | "sin_eje_temporal"
   | "tasa_media_cero"
+
+/**
+ * Por qué la TASA no se pudo agrupar (`DefaultRateNotEvaluableReason` del backend, D-SC-17);
+ * `null` si sí. Va con `n_periods = 0` y `default_rate` vacío: el panel dice «No evaluable» y su
+ * causa en vez de «agrupada por fecha de observación · 0 períodos».
+ */
+export type EdaDefaultRateNotEvaluableReason = "sin_eje_temporal"
 
 /** Las tres marcas booleanas de la tabla de calidad (`QualityFlag` del backend). */
 export type EdaQualityFlag = "near_constant" | "near_unique" | "high_cardinality"
@@ -294,6 +302,7 @@ export interface EdaResult {
   axis: EdaAxis
   axis_inferred: boolean
   stability_not_evaluable_reason: EdaNotEvaluableReason | null
+  default_rate_not_evaluable_reason: EdaDefaultRateNotEvaluableReason | null
   default_rate?: EdaPeriodRow[] | null
   default_rate_window?: EdaDefaultRateWindow | null
   quality?: EdaQualityRow[] | null

@@ -5,6 +5,31 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## No publicado
+
+### Corregido
+
+- **Una cartera sin columna de fecha ya no mata la corrida en el análisis exploratorio**
+  (D-SC-17/18). Con `partition="random"` —o con cualquier config que agrupe la tasa por período
+  sin indicar la columna— sobre un archivo que no trae ninguna columna de fecha, la corrida moría
+  en `eda`, la **segunda** etapa del pipeline, y se llevaba por delante las nueve siguientes: sin
+  scorecard, sin PD, sin informe y sin ficha. Era justamente el caso que el contrato declaraba
+  soportado. Ahora el motor **degrada**: la tasa de incumplimiento en el tiempo se publica **«No
+  evaluable» con su causa** —el mismo mecanismo que la estabilidad ya tenía—, la tabla por período
+  sale vacía, la tasa global de la población se calcula igual y **el resto del análisis
+  exploratorio —el perfil por tramo de cada variable y la calidad de datos por columna— se hace
+  completo**. La decisión queda en el registro de auditoría; el resumen de la etapa, el panel de
+  Resultados y los capítulos «Contexto» y «Resultados» del informe lo dicen en palabras, sin
+  publicar ni una tabla vacía ni las frases que dependían del eje. En la pantalla, la opción «Por
+  la fecha de observación» deja de estar marcada como que exige otro campo —ya no detiene nada— y
+  su aviso pasa a la ayuda de la opción. **Nada cambia para una corrida que hoy termina**: con el
+  mismo config los resultados son bit a bit los de antes y ningún `config_hash` se mueve. Lo que
+  **sigue siendo un error**, con su mensaje de siempre, es contradecir lo declarado: una columna
+  de fecha que no existe o que no es fecha, más de una columna de fecha sin decir cuál, o el eje
+  por cohorte sin indicar la columna.
+  `DefaultRateResult` y la sección EDA de la ficha ganan cada uno un campo aditivo con la causa
+  (`not_evaluable_reason` y `default_rate_not_evaluable_reason`), nulos en toda corrida anterior.
+
 ## [1.19.0] — 2026-09-22
 
 ### Añadido

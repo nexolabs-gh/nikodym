@@ -974,9 +974,13 @@ def _chart_eda_default_rate(
     """La tasa en el tiempo desde ``eda.default_rate.by_period`` y el eje EFECTIVO de la card.
 
     Devuelve ``None`` —y no una excepción— cuando hay un solo período sobre el eje temporal: no es
-    una degradación sino la omisión que D-SC-5 (b) prescribe, así que no merece un aviso.
+    una degradación sino la omisión que D-SC-5 (b) prescribe, así que no merece un aviso. Lo mismo
+    cuando la tabla **no está**: con D-SC-17 el builder la omite si la tasa no se pudo agrupar, y
+    un acceso por índice mataría el render entero por una figura que no existe.
     """
-    table = bundle.tables["eda.default_rate.by_period"]
+    table = bundle.tables.get("eda.default_rate.by_period")
+    if table is None:
+        return None
     card = bundle.cards.get("eda")
     axis = str(card.get("axis") or "period") if isinstance(card, Mapping) else "period"
     if axis != "cohort" and len(table) < 2:

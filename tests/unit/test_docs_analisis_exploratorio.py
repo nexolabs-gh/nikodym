@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from nikodym.eda.default_rate import AXIS_LABELS
+from nikodym.eda.default_rate import (
+    AXIS_LABELS,
+    DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+)
 from nikodym.eda.quality import QUALITY_FLAG_LABELS
 from nikodym.eda.stability import NOT_EVALUABLE_REASON_LABELS, STABILITY_INDICATOR_LABELS
 
@@ -54,6 +57,8 @@ def test_la_guia_publica_las_palabras_de_la_fuente_unica_y_no_los_identificadore
     texto = _GUIA.read_text(encoding="utf-8")
     for palabra in NOT_EVALUABLE_REASON_LABELS.values():
         assert palabra[0].upper() + palabra[1:] in texto or palabra in texto, palabra
+    for palabra in DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS.values():
+        assert palabra[0].upper() + palabra[1:] in texto or palabra in texto, palabra
     for palabra in QUALITY_FLAG_LABELS.values():
         assert palabra in texto, palabra
     for palabra in STABILITY_INDICATOR_LABELS.values():
@@ -64,6 +69,7 @@ def test_la_guia_publica_las_palabras_de_la_fuente_unica_y_no_los_identificadore
     prosa = re.sub(r"<!-- eda-example:start -->.*?<!-- eda-example:end -->", "", texto, flags=re.S)
     for slug in (
         "pocos_periodos_evaluables",
+        "sin_eje_temporal",
         "tasa_media_cero",
         "near_constant",
         "high_cardinality",

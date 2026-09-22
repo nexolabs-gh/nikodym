@@ -40,13 +40,19 @@ StabilityMetric = Literal["cv", "max_relative_drift", "trend_slope"]
 
 #: Por qué la señal temporal no se evaluó (D-SC-2). Hay causa **si y sólo si** el indicador
 #: configurado no es finito; ``None`` significa «evaluable», con o sin señal.
-NotEvaluableReason = Literal["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero"]
+NotEvaluableReason = Literal[
+    "eje_cohorte",
+    "pocos_periodos_evaluables",
+    "sin_eje_temporal",
+    "tasa_media_cero",
+]
 
 #: Las palabras públicas de cada causa: una sola fuente para el panel de Resultados y para la
 #: prosa del informe, con espejo gateado en el front (mismo molde que ``BAND_LABELS``).
 NOT_EVALUABLE_REASON_LABELS: Final[dict[str, str]] = {
     "eje_cohorte": "eje de cohorte, sin orden cronológico",
     "pocos_periodos_evaluables": "menos de dos períodos con observaciones suficientes",
+    "sin_eje_temporal": "el archivo no trae un eje temporal que ordenar",
     "tasa_media_cero": "sin incumplimientos en los períodos evaluables",
 }
 
@@ -65,6 +71,7 @@ _REQUIRED_COLUMNS: Final = ("period", "default_rate", "low_confidence")
 _TRAIL_VALUE_BY_REASON: Final[dict[str, str]] = {
     "eje_cohorte": "eje de cohorte sin cronología",
     "pocos_periodos_evaluables": "<2 períodos",
+    "sin_eje_temporal": "sin eje temporal",
     "tasa_media_cero": "tasa media cero",
 }
 
@@ -125,6 +132,11 @@ class TemporalStabilityAnalyzer(AuditableMixin):
 
         Notes
         -----
+        Con una tasa que **no se pudo agrupar** —sin columna de fecha ni cohorte declarada,
+        D-SC-17— la señal sale no evaluable con la causa ``sin_eje_temporal``, que se mira
+        **antes** que el eje: la tabla llega vacía y «menos de dos períodos» describiría el
+        síntoma en vez de la causa.
+
         Con ``axis="cohort"`` la señal temporal **no se evalúa y no es un error** (D-SC-2,
         SDD-27 §8): las cohortes no tienen un orden cronológico que el motor pueda inferir, así
         que el resultado sale con los tres indicadores ``NaN``, ``flagged=False`` y la causa
@@ -137,6 +149,11 @@ class TemporalStabilityAnalyzer(AuditableMixin):
         aplica a los indicadores relativos —``cv`` y ``max_relative_drift``—; con ``trend_slope``
         el indicador vale cero, es evaluable y no hay causa.
         """
+        if default_rate.not_evaluable_reason is not None:
+            # La tasa no se pudo agrupar por nada (D-SC-17): la señal hereda esa carencia con su
+            # causa PROPIA. Caer por «menos de dos períodos» sería verdadero y engañoso —sugiere
+            # que faltan datos cuando lo que falta es la columna del eje—.
+            return self._not_evaluable(audit, reason="sin_eje_temporal")
         if default_rate.axis != "period":
             return self._not_evaluable(audit, reason="eje_cohorte")
         rates = _evaluable_rates(default_rate.by_period.copy(deep=True))

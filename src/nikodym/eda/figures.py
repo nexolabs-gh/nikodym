@@ -46,7 +46,9 @@ def _build_figure_specs(
 ) -> tuple[FigureSpec, ...]:
     """Construye las figuras especificadas por SDD-27 §6, sin renderizar."""
     figures: list[FigureSpec] = []
-    if default_rate.axis == "period":
+    # Sin eje con que agrupar (D-SC-17) la tabla llega vacía: la receta saldría con un frame sin
+    # filas, nadie podría dibujarla y `n_figures` la contaría igual.
+    if default_rate.axis == "period" and default_rate.not_evaluable_reason is None:
         figures.append(_default_rate_line(default_rate))
     figures.extend(_univariate_bars(univariate))
     return tuple(figures)

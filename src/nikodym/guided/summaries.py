@@ -24,7 +24,10 @@ import numpy as np
 import pandas as pd
 
 from nikodym.binning.results import IV_BAND_LABELS
-from nikodym.eda.default_rate import AXIS_LABELS
+from nikodym.eda.default_rate import (
+    AXIS_LABELS,
+    DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+)
 from nikodym.eda.quality import QUALITY_FLAG_LABELS
 from nikodym.eda.stability import NOT_EVALUABLE_REASON_LABELS, STABILITY_INDICATOR_LABELS
 from nikodym.report.prose import (
@@ -538,16 +541,37 @@ def _resumen_eda(study: Study, context: SummaryContext) -> StageSummary:
     if card is not None:
         eje = AXIS_LABELS.get(str(card.get("axis")), str(card.get("axis")))
         n_periods = _int(card.get("n_periods")) or 0
-        lines.append(
-            f"Tasa de malos {eje}: {_miles(n_periods)} "
-            f"{_plural(n_periods, 'período', 'períodos')}, media "
-            f"{_pct(card.get('overall_default_rate'))}"
-        )
+        sin_eje = card.get("default_rate_not_evaluable_reason")
+        if sin_eje:
+            # D-SC-17: no hubo eje con que agrupar. Decir «por fecha de observación: 0 períodos»
+            # sería absurdo, y la tasa global sí existe y es la cifra que el modelador quiere. No
+            # lleva denominador: el único que `eda` publica vive en las filas de `by_period`, que
+            # aquí no hay, y el resumen NO calcula (D-FLU-2); el tamaño lo dio la etapa de datos.
+            media = card.get("overall_default_rate")
+            lines.append(
+                "Tasa de malos: sin operaciones elegibles"
+                if media is None or media != media
+                else f"Tasa de malos: {_pct(media)}"
+            )
+            lines.append(
+                "Tasa de malos en el tiempo: no evaluable "
+                f"({DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS.get(str(sin_eje), str(sin_eje))})"
+            )
+        else:
+            lines.append(
+                f"Tasa de malos {eje}: {_miles(n_periods)} "
+                f"{_plural(n_periods, 'período', 'períodos')}, media "
+                f"{_pct(card.get('overall_default_rate'))}"
+            )
         causa = card.get("stability_not_evaluable_reason")
         indicador = STABILITY_INDICATOR_LABELS.get(
             str(card.get("stability_metric_used")), str(card.get("stability_metric_used"))
         )
-        if causa:
+        if sin_eje:
+            # La línea de arriba ya dijo que la tasa en el tiempo no es evaluable y por qué;
+            # repetirlo con las palabras de la señal sería decir dos veces lo mismo.
+            pass
+        elif causa:
             lines.append(
                 "Deterioro de la tasa en el tiempo: no evaluable "
                 f"({NOT_EVALUABLE_REASON_LABELS.get(str(causa), str(causa))})"

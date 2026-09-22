@@ -543,10 +543,19 @@ class ReportBuilder:
         """Extrae ``DataFrame`` de artefactos tabulares conocidos sin alterar upstream."""
         tables: dict[str, DataFrameLike] = {}
         for domain, key in _TABLE_ARTIFACTS:
-            if study.artifacts.has(domain, key):
-                tables.update(
-                    _extract_dataframes(study.artifacts.get(domain, key), f"{domain}.{key}")
-                )
+            if not study.artifacts.has(domain, key):
+                continue
+            artefacto = study.artifacts.get(domain, key)
+            # D-SC-17: la tasa que no se pudo agrupar llega con la tabla vacía y su causa
+            # declarada. Una tabla de sólo encabezados no es evidencia —ni en el cuerpo ni en el
+            # anexo—, y la prosa del capítulo ya dice por qué no está. La condición nombra la
+            # clave: `("eda", "stability")` también publica `not_evaluable_reason` —con otro
+            # significado, la SEÑAL temporal— y no aporta ninguna tabla que omitir.
+            if (domain, key) == ("eda", "default_rate") and (
+                getattr(artefacto, "not_evaluable_reason", None) is not None
+            ):
+                continue
+            tables.update(_extract_dataframes(artefacto, f"{domain}.{key}"))
         return tables
 
     def _collect_figures(self, study: Study) -> dict[str, Any]:

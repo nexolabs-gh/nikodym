@@ -2783,6 +2783,7 @@ describe("edaRatePoints: dos cohortes que se escriben igual no se funden (D-SC-5
     axis: "cohort" as const,
     axis_inferred: false,
     stability_not_evaluable_reason: "eje_cohorte" as const,
+    default_rate_not_evaluable_reason: null,
     default_rate: [
       { period: 2024, n_total: 10, n_eligible: 10, n_bad: 1, default_rate: 0.1, low_confidence: false, period_type: "int" },
       { period: 2024, n_total: 10, n_eligible: 10, n_bad: 4, default_rate: 0.4, low_confidence: false, period_type: "float" },
@@ -2872,6 +2873,7 @@ describe("edaRateWindow: cuántas filas de la tasa llegaron frente a cuántas ca
     axis: "cohort" as const,
     axis_inferred: false,
     stability_not_evaluable_reason: "eje_cohorte" as const,
+    default_rate_not_evaluable_reason: null,
     default_rate: filas,
   }
 

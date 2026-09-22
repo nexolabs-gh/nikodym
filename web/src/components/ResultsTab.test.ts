@@ -1036,6 +1036,37 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     expect(html).toContain("El indicador configurado es variación relativa")
   })
 
+  it("sin eje temporal: la cifra dice «No evaluable», se da la causa y no se pinta serie ni tabla", () => {
+    // D-SC-17: el archivo no trae fecha ni cohorte declarada, así que el motor no agrupó nada.
+    // La corrida NO se detuvo: el resto del bloque —tasa global, columnas, calidad— sigue.
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        n_periods: 0,
+        default_rate: [],
+        default_rate_window: { total_periods: 0, truncated: false },
+        stability_value: null,
+        stability_not_evaluable_reason: "sin_eje_temporal",
+        default_rate_not_evaluable_reason: "sin_eje_temporal",
+      }),
+    )
+    expect(html).toContain("Agrupada en el tiempo")
+    expect(html).toContain(">No evaluable<")
+    expect(html).toContain(
+      "La tasa no se pudo agrupar en el tiempo: el archivo no trae columna de fecha ni cohorte",
+    )
+    expect(html).toContain("No evaluable: el archivo no trae un eje temporal que ordenar")
+    expect(html).not.toContain("data-eda-chart")
+    expect(html).not.toContain("Agrupada por fecha de observación")
+    expect(html).not.toContain("0 períodos")
+    expect(html).not.toContain("sin_eje_temporal")
+    // Lo que sí sigue estando, porque la corrida siguió.
+    expect(html).toContain("Columnas descritas")
+    expect(html).toContain("casi constante")
+  })
+
   it("con la pendiente el mismo caso es evaluable: valor cero, sin causa y sin aviso", () => {
     const html = render(
       conEda({

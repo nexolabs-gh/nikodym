@@ -174,6 +174,8 @@ correspondencia tiene una sola fuente en `nikodym.eda`.
 | `eje_cohorte` | eje de cohorte, sin orden cronológico | Causa de no evaluar la señal (`stability_not_evaluable_reason`) | `nikodym.eda.stability.NOT_EVALUABLE_REASON_LABELS` |
 | `pocos_periodos_evaluables` | menos de dos períodos con observaciones suficientes | Ídem | ídem |
 | `tasa_media_cero` | sin incumplimientos en los períodos evaluables | Ídem; sólo con un indicador relativo | ídem |
+| `sin_eje_temporal` | el archivo no trae un eje temporal que ordenar | Ídem; la tasa no se pudo agrupar, así que no hay serie que mirar | ídem |
+| `sin_eje_temporal` | el archivo no trae columna de fecha ni cohorte declarada | Causa de no evaluar **la tasa** (`default_rate_not_evaluable_reason`): sin columna de fecha y sin cohorte declarada no hay eje, la tabla por período sale vacía y la corrida sigue | `nikodym.eda.default_rate.DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS` |
 | `near_constant` | casi constante | Marca de calidad por columna | `nikodym.eda.quality.QUALITY_FLAG_LABELS` |
 | `near_unique` | casi única | Ídem | ídem |
 | `high_cardinality` | alta cardinalidad | Ídem | ídem |

@@ -48,5 +48,11 @@ class EdaCardSection(BaseModel):
     axis: Literal["period", "cohort"] = "period"
     axis_inferred: bool = False
     stability_not_evaluable_reason: (
-        Literal["eje_cohorte", "pocos_periodos_evaluables", "tasa_media_cero"] | None
+        Literal["eje_cohorte", "pocos_periodos_evaluables", "sin_eje_temporal", "tasa_media_cero"]
+        | None
     ) = None
+    #: Aditivo (D-SC-17): la causa por la que la TASA no se pudo agrupar —sin columna de fecha ni
+    #: cohorte declarada—, o ``None``. Va junto a ``n_periods = 0`` y a una ``by_period`` vacía, y
+    #: es lo que el resumen de la etapa, la prosa del informe y el panel dicen en palabras en vez
+    #: de publicar «agrupada por fecha de observación en 0 períodos».
+    default_rate_not_evaluable_reason: Literal["sin_eje_temporal"] | None = None

@@ -6,7 +6,7 @@
 | **Decisiones** | **D-SC-17** (el motor degrada) y **D-SC-18** (qué dicen las superficies) |
 | **Módulos** | `nikodym.eda` (`default_rate`, `stability`, `card`, `figures`, `step`), `nikodym.report` (`builder`, `prose`), `nikodym.guided.summaries`, `nikodym.ui` (`serializers`, `jobs`), `web/` (`results-types`, `results-format`, `ResultsTab`), `docs_site/guias/analisis-exploratorio.md` |
 | **Fase** | F1 (`eda` es estable) + F7 (UI) |
-| **Estado** | **Propuesta** — pendiente del OK de Cami |
+| **Estado** | **APROBADA por Cami el 2026-09-22** (interactivo), con la recomendación de los tres puntos de su §8 |
 | **Depende de** | D-SC-2 (causa de no evaluabilidad en `stability`), D-SC-3 (inferencia del eje), D-SC-5 (la card publica eje y causa), D-SIM-1/2, D-FLU-1, D-VIS, D-EXI |
 | **Lo consumen** | la puerta guiada (`nikodym.Scorecard`), Resultados, el informe, la guía de análisis exploratorio |
 | **Release** | Aditiva: convierte un error en un resultado declarado y no mueve ningún número con el mismo config ⇒ **minor**. Ningún `config_hash` de preset se mueve; presupuesto de perillas **cero** |
