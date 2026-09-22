@@ -1595,14 +1595,16 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
         return (frase,)
     return (
         frase,
-        # ⚠️ «El resto del análisis» y no «el resto sobre la población completa»: `eda` describe
-        # la partición que fija `analysis_partition` —de fábrica, desarrollo— y puede muestrearla.
-        # Atribuir los perfiles y la calidad al archivo entero exageraría el alcance de la
-        # evidencia ante quien firma el informe.
+        # ⚠️ La frase dice que el análisis CONTINUÓ y no sobre qué población, a propósito y en dos
+        # pasos de revisión adversarial: `eda` describe la partición de `analysis_partition` —de
+        # fábrica, desarrollo—, así que no es el archivo entero; y con `sampling` encendido los
+        # perfiles y la calidad corren sobre una MUESTRA de esa partición, que tampoco es la misma
+        # población sobre la que se calculó la tasa. Delimitar el alcance exigiría que la card
+        # publicara el muestreo, que es trabajo de otra enmienda; afirmarlo sin ese dato sería
+        # dar por equivalente evidencia calculada sobre conjuntos distintos.
         "La tasa de incumplimiento no se pudo agrupar en el tiempo: "
         f"{_eda_default_rate_reason_label(sin_eje)}. El resto del análisis exploratorio —el "
-        "perfil por tramo y la calidad de datos— se hizo igual, sobre la misma población "
-        "analizada que describe esta sección.",
+        "perfil por tramo de cada variable y la calidad de datos por columna— se hizo igual.",
     )
 
 

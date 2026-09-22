@@ -14,7 +14,7 @@ from typing import Final, Literal, cast
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from nikodym.core.audit import AuditSink
 from nikodym.eda.config import DefaultRateConfig
@@ -97,6 +97,43 @@ class DefaultRateResult(BaseModel):
     overall_rate: float
     #: Aditivo (D-SC-17): la causa cuando no hay eje con que agrupar, o ``None``.
     not_evaluable_reason: DefaultRateNotEvaluableReason | None = None
+
+    @model_validator(mode="after")
+    def _causa_si_y_solo_si_tabla_vacia(self) -> DefaultRateResult:
+        """La invariante se **comprueba**, no sólo se documenta (D-SC-17).
+
+        Aguas abajo la causa apaga la figura, la tabla del informe y la validación de columnas de
+        la estabilidad. Un resultado con causa **y** filas haría que esas superficies escondieran
+        evidencia que sí existe, y uno sin causa y sin filas dejaría al lector sin saber por qué no
+        hay tabla. Ninguno de los dos lo puede producir el motor; los dos los puede construir a
+        mano quien use esta API estable, así que el DTO los rechaza en su frontera.
+
+        Las seis columnas se exigen **sólo** cuando la tabla está vacía: es la forma que esta
+        enmienda introduce y la que nadie más escribe. Una tabla con filas y columnas incompletas
+        sigue siendo asunto de quien la consume —``TemporalStabilityAnalyzer`` la rechaza con su
+        mensaje—, y endurecerlo aquí cambiaría un contrato que esta enmienda no abre.
+        """
+        vacia = len(self.by_period.index) == 0
+        if self.not_evaluable_reason is not None and not vacia:
+            raise ValueError(
+                "DefaultRateResult con causa de no evaluabilidad y tabla no vacía: la causa apaga "
+                "la figura y la tabla del informe, así que publicarla con filas escondería "
+                "evidencia calculada."
+            )
+        if self.not_evaluable_reason is None and vacia:
+            raise ValueError(
+                "DefaultRateResult con tabla vacía y sin causa: el informe y el panel omitirían la "
+                "tasa sin poder decir por qué. Declare la causa."
+            )
+        if self.not_evaluable_reason is not None:
+            faltan = [c for c in _RESULT_COLUMNS if c not in self.by_period.columns]
+            if faltan:
+                joined = ", ".join(f"'{c}'" for c in faltan)
+                raise ValueError(
+                    f"DefaultRateResult no evaluable sin la(s) columna(s) {joined}: sus "
+                    "consumidores leen columnas aunque no haya filas."
+                )
+        return self
 
 
 class DefaultRateAnalyzer:

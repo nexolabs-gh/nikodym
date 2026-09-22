@@ -17,6 +17,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from _ui_f1 import full_f1_config, write_behavior_parquet
+from pydantic import ValidationError
 from test_eda_step import (
     _data_config_aleatorio,
     _data_config_por_cohorte,
@@ -37,6 +38,7 @@ from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
 from nikodym.eda.default_rate import (
     _RESULT_COLUMNS,
     DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+    DefaultRateResult,
     tasa_no_evaluable,
 )
 from nikodym.eda.exceptions import EdaError
@@ -198,6 +200,59 @@ def test_el_rotulo_publico_de_la_causa_existe_y_esta_en_espanol() -> None:
     assert NOT_EVALUABLE_REASON_LABELS["sin_eje_temporal"] == (
         "el archivo no trae un eje temporal que ordenar"
     )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        pytest.param(
+            {"by_period": "con_filas", "not_evaluable_reason": "sin_eje_temporal"},
+            "tabla no vacía",
+            id="causa-con-filas",
+        ),
+        pytest.param(
+            {"by_period": "vacia", "not_evaluable_reason": None},
+            "sin causa",
+            id="vacia-sin-causa",
+        ),
+        pytest.param(
+            {"by_period": "vacia_incompleta", "not_evaluable_reason": "sin_eje_temporal"},
+            "columna",
+            id="vacia-sin-las-columnas",
+        ),
+    ],
+)
+def test_el_dto_rechaza_un_resultado_inconsistente(kwargs: dict, match: str) -> None:
+    """🔴 La invariante se COMPRUEBA, no sólo se documenta (hallazgo adversarial del rango).
+
+    La causa apaga aguas abajo la figura, la tabla del informe y la validación de columnas de la
+    estabilidad. El motor nunca produce un resultado inconsistente, pero esta es API estable y
+    quien la use a mano sí puede: con causa y filas escondería evidencia calculada; sin causa y
+    sin filas dejaría al lector sin saber por qué no hay tabla.
+    """
+    tablas = {
+        "con_filas": pd.DataFrame(
+            {
+                "period": ["2024-01"],
+                "n_total": [10],
+                "n_eligible": [10],
+                "n_bad": [2],
+                "default_rate": [0.2],
+                "low_confidence": [False],
+            }
+        ),
+        "vacia": tasa_no_evaluable(
+            _frame_sin_fecha(), target_col="target", axis="period", reason="sin_eje_temporal"
+        ).by_period,
+        "vacia_incompleta": pd.DataFrame({"period": pd.Series([], dtype="object")}),
+    }
+    with pytest.raises(ValidationError, match=match):
+        DefaultRateResult(
+            by_period=tablas[kwargs["by_period"]],
+            axis="period",
+            overall_rate=0.2,
+            not_evaluable_reason=kwargs["not_evaluable_reason"],
+        )
 
 
 # ───────────────────── los bordes que NO se ablandan ─────────────────────

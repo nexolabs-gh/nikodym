@@ -156,10 +156,15 @@ juntas sin contradecirse:
 | Panel | `6,33 %` | «Sin operaciones elegibles» (copy que **ya existe**) |
 | Resumen de la etapa | «Tasa de malos: 6,33 %» | «Tasa de malos: sin operaciones elegibles» |
 
-**Regla de invariante, probada en los dos sentidos (igual que D-SC-2):** hay causa **si y sólo si**
-`by_period` está vacía. Una tabla con filas y una causa, o una tabla vacía sin causa, son contrato
-roto. La invariante se ancla en la tabla, **no** en `overall_rate`, precisamente porque `NaN` ahí
-tiene su propio significado desde antes de esta enmienda.
+**Regla de invariante, COMPROBADA y no sólo documentada (hallazgo adversarial del rango de
+código):** hay causa **si y sólo si** `by_period` está vacía, y lo exige un `model_validator` del
+propio DTO. No basta con que el motor no produzca resultados inconsistentes: `DefaultRateResult` es
+API estable 1.x y quien la construya a mano puede. Y la causa **apaga superficies** aguas abajo —la
+figura, la tabla del informe y la validación de columnas de la estabilidad—, así que una causa con
+filas escondería evidencia calculada, y una tabla vacía sin causa dejaría al lector sin saber por
+qué no hay tabla. Cuando hay causa se exigen además las seis columnas: sus consumidores leen
+columnas aunque no haya filas. La invariante se ancla en la tabla, **no** en `overall_rate`,
+precisamente porque `NaN` ahí tiene su propio significado desde antes de esta enmienda.
 
 **Bit a bit:** en la ruta normal `overall_rate` se sigue calculando con `_overall_rate(by_period)`,
 byte por byte como hoy. El cálculo global vive **sólo** en la ruta degradada, que hoy no existe
@@ -328,7 +333,16 @@ observada y la de las columnas descritas se conservan tal cual.
 
 > A continuación se reproducen el perfil por tramo de 7 variables descritas y la calidad de datos
 > por columna. La tasa de incumplimiento no se pudo agrupar en el tiempo: el archivo no trae
-> columna de fecha ni cohorte declarada.
+> columna de fecha ni cohorte declarada. El resto del análisis exploratorio —el perfil por tramo de
+> cada variable y la calidad de datos por columna— se hizo igual.
+
+⚠️ **La frase dice que el análisis continuó, y NO sobre qué población.** Dos pasadas adversariales
+lo corrigieron: `eda` describe la partición de `analysis_partition` —de fábrica, **desarrollo**—,
+así que no es el archivo entero; y con `sampling` encendido los perfiles y la calidad corren sobre
+una **muestra** de esa partición, que tampoco es la población sobre la que se calculó la tasa.
+Delimitar el alcance exigiría que la card publicara el muestreo con sus tamaños, que es trabajo de
+otra enmienda (§8bis); afirmarlo sin ese dato daría por equivalente evidencia calculada sobre
+conjuntos distintos, delante de quien firma el informe.
 
 El `ReportBuilder` **omite la tabla** `eda.default_rate.by_period` cuando el resultado declara su
 causa: una tabla de sólo encabezados no es evidencia, y la prosa ya dice por qué no está. Medido
@@ -521,6 +535,20 @@ Ese censo, y dos cambios que salieron de él —el estado de la opción del cat�
 de goldens (§5)— entran **después** de la tercera pasada y **no llevan pasada propia**: el tope
 está alcanzado y se declara aquí, como en S12 y S18. La implementación abre con una pasada sobre
 su propio rango de código, que es donde el revisor rinde más.
+
+### 8bis.1 Las pasadas sobre el CÓDIGO
+
+Tope declarado: **tres**, con el mismo criterio de parada. Sobre el rango `b0a9f0d..HEAD`:
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | La prosa afirmaba que el resto del análisis se hizo «sobre la población completa», y `eda` describe la partición de `analysis_partition` | Copy factual + test regresivo que prohíbe las tres formas de atribuirlo al archivo entero |
+| 2 | (a) La invariante causa ↔ tabla vacía estaba documentada pero **no comprobada**, y la causa apaga superficies aguas abajo; (b) con `sampling` encendido, perfiles y calidad corren sobre una muestra, así que tampoco son «la misma población analizada» | (a) `model_validator` en el DTO, tres tests y el control negativo (i); (b) la frase deja de delimitar población |
+
+**Elevado, no programado:** que la card de `eda` publique **si hubo muestreo y con qué tamaños**.
+Hoy el informe no puede decir sobre qué población exacta corrió cada cálculo porque ese dato no
+viaja, y esta enmienda se limita a no afirmar lo que no sabe. Es un campo aditivo de la card y su
+copy: merece su enmienda corta, junto a la de la categoría rara.
 
 ## 9. Lo que NO entra en esta enmienda
 
