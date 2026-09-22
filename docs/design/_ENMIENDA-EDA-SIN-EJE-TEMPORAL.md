@@ -154,7 +154,7 @@ juntas sin contradecirse:
 | Serializer (`_EDA_AUSENCIAS_DECLARADAS`) | el número | `null` — es una de las **dos** ausencias que el guard ya permite hoy, sin tocarlo |
 | `EdaStep.metrics` | la tasa | **omite** la clave; el canal D-GOB-2 no admite no finitos y la regla de hoy es omitir, no rellenar |
 | Panel | `6,33 %` | «Sin operaciones elegibles» (copy que **ya existe**) |
-| Resumen de la etapa | «Tasa de malos: 6,33 % sobre 4.000 operaciones elegibles» | «Tasa de malos: sin operaciones elegibles» |
+| Resumen de la etapa | «Tasa de malos: 6,33 %» | «Tasa de malos: sin operaciones elegibles» |
 
 **Regla de invariante, probada en los dos sentidos (igual que D-SC-2):** hay causa **si y sólo si**
 `by_period` está vacía. Una tabla con filas y una causa, o una tabla vacía sin causa, son contrato
@@ -242,8 +242,14 @@ estabilidad:
 default_rate_not_evaluable_reason: Literal["sin_eje_temporal"] | None = None
 ```
 
-Con la regla activa: `n_periods = 0`, `overall_default_rate` **finito** (la tasa global),
-`stability_not_evaluable_reason = "sin_eje_temporal"`, `axis = "period"`, `axis_inferred = False`.
+Con la regla activa: `n_periods = 0`, `overall_default_rate` = la tasa global (`NaN` sólo si no
+hay elegibles), `stability_not_evaluable_reason = "sin_eje_temporal"`, `axis = "period"`,
+`axis_inferred = False`.
+
+⚠️ El campo nuevo **mueve dos goldens que ya existen** y los dos son bidireccionales, así que no
+hay forma de olvidarlos: `test_vocabulario_en_pantalla::test_el_tipo_eda_result_espeja_la_card_y_sus_tres_tablas`
+exige que `EdaResult` de `results-types.ts` declare los campos de `EdaCardSection` **en su orden**,
+y el fixture `schema.json`/`eda.fixture.ts` del front se regenera.
 
 ### 4.2 El resumen de la etapa (puerta guiada)
 
@@ -251,12 +257,24 @@ Con la regla activa: `n_periods = 0`, `overall_default_rate` **finito** (la tasa
 es absurdo. Con la causa presente dice, en dos líneas:
 
 ```text
-Tasa de malos: 6,33 % sobre 4.000 operaciones elegibles
+Tasa de malos: 6,33 %
 Tasa de malos en el tiempo: no evaluable (el archivo no trae columna de fecha ni cohorte declarada)
 ```
 
 y **no** publica la tabla de la etapa (el `by_period` vacío ya la apaga). Las demás líneas del
-resumen —columnas descritas, marcas de calidad— no cambian.
+resumen —columnas descritas, marcas de calidad— no cambian. Sin operaciones elegibles la primera
+línea dice «Tasa de malos: sin operaciones elegibles», en vez de un porcentaje.
+
+🔴 **La línea NO lleva denominador, y es deliberado.** El único denominador que `eda` publica hoy
+—`n_eligible`— vive en las filas de `by_period`, y la ruta degradada no las tiene. Escribirlo
+exigiría una de dos cosas, y las dos están vetadas: recalcularlo en el resumen rompería D-FLU-2
+(«el resumen no calcula nada») y duplicaría la regla de elegibilidad y la selección de
+`analysis_partition`; y añadir `n_total`/`n_eligible`/`n_bad` a `DefaultRateResult` pondría una
+**segunda fuente** del número que `by_period` ya suma en la ruta normal, que es justo lo que
+RUNBOOK §12.2-3 prohíbe. Además el denominador no sería el que el lector supone: `eda` describe de
+fábrica **sólo la partición de desarrollo** (`analysis_partition="desarrollo"`), no el archivo, de
+modo que la cifra no coincidiría con las «1.000 filas» del resumen de datos. Quien quiera el
+tamaño lo tiene una etapa antes, dicho con su población correcta.
 
 ### 4.3 El informe
 
@@ -340,7 +358,27 @@ que el revisor no los lea como un oráculo debilitado: son el contrato que esta 
 | 11 | Espejo bidireccional del diccionario de rótulos nuevo (Python ↔ TS) | El diccionario no existe |
 | 12 | `ResultsTab` pinta «No evaluable» y su causa (vitest, render estático) | La rama no existe |
 | 13 | **Gate de aceptación end-to-end**: el pipeline F1 completo sobre un frame sin fecha con `partition="random"` termina `done` | Hoy termina `failed` en `eda` |
-| 14 | **Bit a bit**: la proyección canónica (`_proyeccion_canonica.py`) de una corrida F1 del preset, antes y después, con 0 diferencias y `config_hash` `1063d6cf…` intacto | — (guardrail de aditividad) |
+| 14 | **Bit a bit**: la proyección canónica (`_proyeccion_canonica.py`) de una corrida F1 del preset, antes y después. Las **únicas** diferencias admitidas son las **dos claves nuevas, y sólo con valor `None`** (ver abajo); todo lo demás, idéntico, y `config_hash` `1063d6cf…` intacto | — (guardrail de aditividad) |
+
+**Qué significa exactamente «bit a bit» con dos campos aditivos (test 14).** `proyeccion_canonica`
+vuelca cada `BaseModel` con `model_dump()`, **campos con default incluidos**, así que dos campos
+nuevos aparecen en la proyección de **toda** corrida, también las normales: exigir «cero
+diferencias» contra `015c1bd` sería un gate imposible que sólo se podría cumplir debilitando el
+oráculo. El criterio —el mismo que S17 aplicó y dejó escrito («cero diferencias… sólo aparecen las
+dos claves nuevas»)— es:
+
+1. La lista de diferencias entre la proyección de `015c1bd` y la del árbol nuevo **es exactamente**
+   `eda.default_rate.not_evaluable_reason` y `eda.eda_card.default_rate_not_evaluable_reason`.
+2. Las dos aparecen **ausentes antes y `None` después**. Una clave nueva con valor no nulo en una
+   corrida normal es un rojo, no una diferencia de esquema.
+3. Cualquier otra diferencia —un `float` que cambie un bit, un hash de tabla, una clave más— es un
+   rojo y detiene la capa.
+4. El `config_hash` del preset no se mueve (`1063d6cf…`), y la comparación **estricta** (cero
+   diferencias, sin excepciones) se sigue exigiendo entre dos corridas **del mismo árbol**: las
+   paridades `run()` vs `run(until=)+resume()` y las dos puertas no admiten ninguna.
+
+La proyección de referencia de `015c1bd` se mide y se guarda **antes** de tocar código, y la
+evidencia del cierre publica la lista literal de diferencias, no un «sin cambios».
 
 **Controles negativos (§6 del runbook), preespecificados:** (a) anular la rama de `_resolve_axis` y
 ver rojo el test 13; (b) devolver una tabla con una fila `<NA>` en vez de vacía y ver rojo el test 3;
