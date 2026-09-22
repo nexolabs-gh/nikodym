@@ -1026,6 +1026,23 @@ por módulo bajo SDD-31, la primera
 > negativo que inyecta la causa en uno de ellos. Presupuesto de perillas **cero**; ningún
 > `config_hash` se mueve; las cinco cifras no cambian. Tres decisiones para Cami en §8.
 
+> **Una categoría rara con una clase en cero no puede matar la corrida (2026-09-22; PROPUESTA,
+> pendiente del OK de Cami; nace del tercer dataset del criterio de completado del scorecard, que
+> tras D-SC-17 pasa `eda` y muere una etapa después).**
+> [`_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md`](_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md), D-RAR-1 y
+> D-RAR-2, enmienda a [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) §8 y a
+> [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md); **no** toca SDD-06
+> ni el contrato de `binning`. 🔴 **Medido con OptBinning real**: el default `cat_cutoff = 0.01`
+> deja al nivel `A48` de `proposito` **solo** en su grupo de raras —es el único bajo el 1 %—, y al
+> partir, su único malo cae en Holdout: en desarrollo quedan 5 buenos y 0 malos, y el WoE no
+> existe. Con `None`, `0.005`, `0.02` o `0.05` el nivel se junta con otro y no hay bin degenerado:
+> la regla general es que **un corte de rareza que aísla exactamente un nivel crea un bin unitario**,
+> y ninguna constante lo evita en todos los archivos. La puerta guiada, que hoy no expone
+> `cat_cutoff`, mide los conteos por nivel **en desarrollo** y escribe un override **por variable**
+> sólo cuando la corrida iba a fallar, declarándolo en el trail y en el resumen de la etapa —mismo
+> patrón que D-SC-3—. Sin perillas nuevas, sin mover ningún `config_hash` y sin cambiar una corrida
+> que hoy termina. Tres decisiones para Cami en §6.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
