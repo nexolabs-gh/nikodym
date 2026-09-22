@@ -1011,6 +1011,21 @@ por módulo bajo SDD-31, la primera
 > clave de tabla. Ocho pasadas en total; la revisión del documento se detuvo ahí, declarado. Ningún
 > `config_hash` ni fixture de la demo se mueve (medido). Nueve decisiones para Cami en §8.
 
+> **`eda` sin eje temporal: la tasa por período se declara «No evaluable» en vez de matar la
+> corrida (2026-09-22; PROPUESTA, pendiente del OK de Cami; nace del criterio de completado del
+> scorecard que Cami fijó el 2026-09-22 y del tercer dataset —UCI German Credit— que falla).**
+> [`_ENMIENDA-EDA-SIN-EJE-TEMPORAL.md`](_ENMIENDA-EDA-SIN-EJE-TEMPORAL.md), D-SC-17 y D-SC-18,
+> enmienda corta a [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md) (familia
+> D-SC) y a [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) §8. Medido sobre
+> `015c1bd`: con `partition="random"` y un archivo sin columna datetime —el caso que SDD-31 §8
+> declara soportado— la corrida muere en `eda` con `EdaError`, y con ella las nueve etapas
+> siguientes; la puerta guiada ya daba por hecho lo contrario en un comentario. Extiende a la tasa
+> el mecanismo de «no evaluable con causa» que D-SC-2 le dio a la estabilidad: tabla vacía, causa
+> declarada, `overall_rate` global finito, decisión en el trail y la corrida sigue. Cuatro
+> condiciones acotan la regla (§2) y cinco errores del motor se declaran intactos, con control
+> negativo que inyecta la causa en uno de ellos. Presupuesto de perillas **cero**; ningún
+> `config_hash` se mueve; las cinco cifras no cambian. Tres decisiones para Cami en §8.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
