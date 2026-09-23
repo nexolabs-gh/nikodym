@@ -36,7 +36,7 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from functools import partial
 from itertools import pairwise
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Self, TypeAlias, cast
 
 from nikodym.binning.config import BinningConfig, MonotonicTrend, VariableBinningConfig
 from nikodym.binning.exceptions import BinningFitError, BinningTransformError
@@ -922,8 +922,14 @@ def _regroup_isolated_rare_categories(
         declared = params.get("cat_cutoff")
         if params.get("dtype") != "categorical" or not isinstance(declared, int | float):
             continue
+        fitted = process.get_binned_variable(column)
+        if estimator.require_optimal and str(fitted.status) != "OPTIMAL":
+            # Se descarta por su estado en `_collect_fitted_outputs`, como antes de D-RAR: si la
+            # regla la mirara primero podría reajustarla —cambiando números— o detener una
+            # corrida que terminaba (revisión adversarial del código, pasada 1).
+            continue
         with _suppress_known_optbinning_warnings():
-            table = process.get_binned_variable(column).binning_table.build(add_totals=True)
+            table = fitted.binning_table.build(add_totals=True)
         degenerate = _degenerate_category_bin(table)
         if degenerate is None:
             continue
@@ -935,6 +941,20 @@ def _regroup_isolated_rare_categories(
             continue  # fuera del caso de la regla: habla la validación de siempre
         second_smallest = int(counts.sort_values(kind="stable").iloc[1])
         effective = (second_smallest + 0.5) / n_clean
+        mensaje = partial(
+            _mensaje_categoria_rara,
+            column=column,
+            levels=levels,
+            n_obs=n_obs,
+            n_events=n_events,
+            declared=float(declared),
+            effective=effective,
+        )
+        if not bool((counts >= math.ceil(effective * n_clean)).any()):
+            # Juntar los dos niveles más raros mandaría TODAS las categorías al grupo de raras
+            # —dos categorías, o empates arriba— y OptBinning no tendría nada que tramificar. No
+            # se intenta lo imposible, y la única salida ejecutable es excluir la variable.
+            raise BinningFitError(mensaje(sin_reagrupacion=True))
         valor = {
             "variable": column,
             "niveles": list(levels),
@@ -947,15 +967,6 @@ def _regroup_isolated_rare_categories(
             valor=valor,
             accion="intentar",
         )
-        mensaje = partial(
-            _mensaje_categoria_rara,
-            column=column,
-            levels=levels,
-            n_obs=n_obs,
-            n_events=n_events,
-            declared=float(declared),
-            effective=effective,
-        )
         try:
             optb = _refit_single_column(
                 estimator=estimator,
@@ -967,12 +978,19 @@ def _regroup_isolated_rare_categories(
                 params={**params, "cat_cutoff": effective},
             )
         except Exception as exc:
-            raise BinningFitError(mensaje(detalle=f"el reajuste no fue posible: {exc}")) from exc
+            raise BinningFitError(
+                mensaje(
+                    detalle=f"el reajuste no fue posible: {exc}",
+                    subir_umbral=_hay_umbral_mayor(counts, effective),
+                )
+            ) from exc
         with _suppress_known_optbinning_warnings():
             new_table = optb.binning_table.build(add_totals=True)
         still = _degenerate_category_bin(new_table)
         if still is not None:
-            raise BinningFitError(mensaje(residual=still))
+            raise BinningFitError(
+                mensaje(residual=still, subir_umbral=_hay_umbral_mayor(counts, effective))
+            )
         process.update_binned_variable(column, optb)
         estimator.log_decision(
             regla="categoria_rara_reagrupada",
@@ -1069,6 +1087,8 @@ def _mensaje_categoria_rara(
     effective: float,
     residual: tuple[tuple[str, ...], int, int] | None = None,
     detalle: str | None = None,
+    subir_umbral: bool = False,
+    sin_reagrupacion: bool = False,
 ) -> str:
     """El diagnóstico del camino fallido (D-RAR-2), que es lo que lee la persona.
 
@@ -1082,7 +1102,12 @@ def _mensaje_categoria_rara(
     )
     clase = "ninguna incumplida" if n_events == 0 else "todas incumplidas"
     cortes = f"umbral {_corte_legible(declared)} → {_corte_legible(effective)}"
-    if detalle is not None:
+    if sin_reagrupacion:
+        resultado = (
+            "No se puede reagrupar con otra categoría rara sin juntar todas las categorías de la "
+            "variable en un solo grupo, y entonces no quedaría nada que tramificar."
+        )
+    elif detalle is not None:
         resultado = (
             f"Se intentó reagruparlo con las categorías más raras ({cortes}), pero {detalle}."
         )
@@ -1095,11 +1120,41 @@ def _mensaje_categoria_rara(
             f"Se reagrupó con las categorías más raras ({cortes}) y el grupo resultante ({grupo}: "
             f"{filas_residuales} operaciones) sigue sin {falta}."
         )
+    salidas = (
+        "Puedes excluir la variable, o subir el umbral de categorías raras de esa variable en el "
+        "config completo (`binning.variable_overrides`)."
+        if subir_umbral
+        else "Puedes excluir la variable."
+    )
     return (
         f"WoE no defendible por bin con una clase en cero: variable «{column}», {nivel} con "
-        f"{n_obs} operaciones y {clase}. {resultado} Puedes excluir la variable, o subir el umbral "
-        "de categorías raras de esa variable en el config completo (`binning.variable_overrides`)."
+        f"{n_obs} operaciones y {clase}. {resultado} {salidas}"
     )
+
+
+def _hay_umbral_mayor(counts: Series, effective: float) -> bool:
+    """Dice si hay un umbral por variable que agrupe más niveles y deje alguno fuera (D-RAR-2).
+
+    Sólo entonces «sube el umbral» es una salida ejecutable: el siguiente corte junta el próximo
+    nivel más raro, tiene que caber en el máximo que acepta el config (0,5) y dejar al menos una
+    categoría fuera del grupo de raras, o OptBinning no tendría nada que tramificar.
+    """
+    total = int(counts.sum())
+    umbral = math.ceil(effective * total)
+    siguientes = counts[counts >= umbral]
+    if siguientes.empty:
+        return False
+    proximo = int(siguientes.min())
+    return bool((counts > proximo).any()) and (proximo + 0.5) / total <= _MAX_CAT_CUTOFF
+
+
+#: Máximo que acepta `cat_cutoff` en el config (global y por variable): se lee del campo, que es
+#: la única fuente, para que el mensaje nunca ofrezca un umbral que el config rechaza.
+_MAX_CAT_CUTOFF: Final[float] = next(
+    float(regla.le)
+    for regla in BinningConfig.model_fields["cat_cutoff"].metadata
+    if getattr(regla, "le", None) is not None
+)
 
 
 def _corte_legible(corte: float) -> str:

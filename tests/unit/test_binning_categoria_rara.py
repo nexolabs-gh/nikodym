@@ -322,3 +322,76 @@ def test_los_conteos_son_los_de_la_muestra_ajustada_no_los_del_archivo(tmp_path:
     ]
     assert reagrupada.n_events == 0
     assert reagrupada.n_obs < 9
+
+
+# ───────────────────────── revisión adversarial del código ─────────────────────────
+
+
+def test_una_variable_no_optima_se_descarta_como_antes_y_no_dispara_la_regla(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Pasada 1 de Codex: con `require_optimal`, una variable de estado no óptimo se descarta
+    y la corrida sigue. La regla corría ANTES de ese descarte: podía reajustarla —cambiando
+    números— o detener una corrida que antes terminaba. Ahora no la mira."""
+    from optbinning import OptimalBinning
+
+    estado_real = OptimalBinning.status.fget
+
+    def estado(self: OptimalBinning) -> str:
+        return "FEASIBLE" if self.name == "proposito" else estado_real(self)
+
+    monkeypatch.setattr(OptimalBinning, "status", property(estado))
+    binner, sink = _ajustar(NIVELES_RESCATABLES)
+
+    assert binner.skipped_variables_["proposito"] == "solver_status:FEASIBLE"
+    assert binner.feature_columns_ == ("ingreso",)
+    assert binner.rare_category_regroupings_ == {}
+    assert _decisiones(sink, "categoria_rara_intento_reagrupar") == []
+
+
+@pytest.mark.parametrize(
+    "niveles",
+    [
+        pytest.param({"A": (992, 200), "RARO": (8, 0)}, id="dos-categorias"),
+        pytest.param({"A": (496, 100), "B": (496, 100), "RARO": (8, 0)}, id="empate-arriba"),
+    ],
+)
+def test_si_reagrupar_mandaria_todas_a_otros_no_se_intenta_y_la_salida_es_ejecutable(
+    niveles: dict[str, tuple[int, int]],
+) -> None:
+    """🔴 Pasada 1 de Codex: si el menor corte que junta dos niveles deja TODAS las categorías bajo
+    el umbral, OptBinning no puede ajustar. No se intenta —el trail no registra un intento
+    imposible— y el mensaje sólo ofrece excluir la variable: subir el umbral no lo resuelve."""
+    frame, y = _cartera(niveles)
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("proposito", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+
+    with pytest.raises(BinningFitError) as error:
+        binner.fit(frame, y, audit=sink)
+
+    mensaje = str(error.value)
+    assert "«proposito»" in mensaje and "«RARO»" in mensaje
+    assert "excluir la variable" in mensaje
+    assert "variable_overrides" not in mensaje
+    assert _decisiones(sink, "categoria_rara_intento_reagrupar") == []
+
+
+def test_si_el_reintento_no_basta_y_subir_el_umbral_tampoco_la_unica_salida_es_excluir() -> None:
+    """Pasada 1 de Codex: tras juntar las dos raras sigue sin malos, y la categoría que viene es
+    la mayoritaria —juntarla dejaría todo en «raras»—. Hubo un intento, y el mensaje no ofrece un
+    umbral que no resuelve nada."""
+    frame, y = _cartera({"A": (970, 200), "E": (12, 0), "RARO": (8, 0)})
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("proposito", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+
+    with pytest.raises(BinningFitError) as error:
+        binner.fit(frame, y, audit=sink)
+
+    mensaje = str(error.value)
+    assert "Se reagrupó con las categorías más raras" in mensaje
+    assert mensaje.endswith("Puedes excluir la variable.")
+    assert "variable_overrides" not in mensaje
+    assert len(_decisiones(sink, "categoria_rara_intento_reagrupar")) == 1
+    assert _decisiones(sink, "categoria_rara_reagrupada") == []

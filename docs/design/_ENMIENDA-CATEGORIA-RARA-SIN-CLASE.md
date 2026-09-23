@@ -323,6 +323,12 @@ CI).
 **Controles negativos:** los siete de §4 más uno del resumen (h), cada uno rojo en su test y
 restaurado byte a byte.
 
+**Revisión adversarial del código.** Tope declarado: tres pasadas sobre `9a4312a..HEAD`.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | (a) **alto**: la regla miraba las categóricas **antes** del descarte por estado del solver (`require_optimal`): una variable no óptima, que antes se descartaba y dejaba terminar la corrida, podía reajustarse —cambiando números— o detenerla; (b) con dos categorías, o con empates por encima del nivel raro, juntar los dos más raros manda **todas** al grupo de raras y el reajuste es imposible, y el mensaje igual ofrecía subir el umbral, que no puede resolverlo (y cuyo máximo es 0,5) | (a) la regla salta la variable si su estado no es óptimo y la exige el config, como hace la recolección; (b) si el corte dejaría todas bajo el umbral no se intenta —el trail no registra un intento imposible— y el mensaje sólo ofrece excluir la variable; tras un reintento fallido, «sube el umbral» se ofrece sólo si existe un umbral ≤ 0,5 que agrupe el nivel siguiente y deje alguno fuera (el máximo se lee del campo del config). Tres controles negativos más y un test del reintento fallido sin umbral posible |
+
 ## 13. Simplicidad (SDD-31) — obligatoria
 
 - **Entrada mínima:** no cambia. Nada nuevo que declarar.
