@@ -17,9 +17,10 @@ error y que no filtre rutas de la máquina en la que se generó.
 sin comparar dejaba el CI verde con cifras viejas publicadas. Cada celda se ejecuta como la ejecuta
 un kernel —si la última sentencia es una expresión, su valor es la salida— y lo impreso, el texto
 del resultado y su HTML —que es lo que se ve al abrir el cuaderno— se comparan con lo guardado,
-con las rutas relativas a la carpeta del cuaderno. Sólo se eximen las menciones del informe en PDF
-y en Word, que dependen de los extras instalados y cambian entre entornos sin que el cuaderno esté
-viejo, y el hash del archivo de entrada copiado.
+con las rutas relativas a la carpeta del cuaderno. Sólo se eximen las menciones del informe en
+PDF, que depende de un extra que el CI no instala junto a los demás, y el hash del archivo de
+entrada copiado. El informe Word **no** se exime (pasada 3): el gate exige `python-docx`, así que
+su mención es la misma en todo entorno donde corre, y además se exige que el `.docx` exista.
 
 El cuaderno termina exportando los once libros de Excel, así que su ejecución exige `openpyxl`:
 corre en el job del CI con todos los extras y en la máquina de desarrollo, no en la matriz, que
@@ -44,14 +45,14 @@ _CUADERNO = _RAIZ / "docs_site" / "notebooks" / "primer-scorecard.ipynb"
 _GUIA = _RAIZ / "docs_site" / "getting-started.md"
 _BLOQUE = "primer-scorecard"
 _TOPE_LINEAS_DE_USUARIO = 25
-#: Menciones que dependen de los extras instalados —el informe en PDF y en Word—: varían entre
-#: entornos sin que el cuaderno esté viejo. Aparecen como línea impresa, como par del `repr` del
+#: Menciones que dependen del entorno —el informe en PDF, cuyo extra no viaja con los demás—:
+#: varían sin que el cuaderno esté viejo. Aparecen como línea impresa, como par del `repr` del
 #: resumen final, como cadena dentro del `repr` de un resumen de etapa y como ítem del HTML.
 _MENCIONES_DEL_ENTORNO = (
-    re.compile(r"^[ \t]*Informe (?:PDF|Word):.*$", re.M),
-    re.compile(r"\('Informe (?:PDF|Word)', '[^']*'\),? ?"),
-    re.compile(r"'Informe (?:PDF|Word): [^']*',? ?"),
-    re.compile(r"<li>Informe (?:PDF|Word): .*?</li>"),
+    re.compile(r"^[ \t]*Informe PDF:.*$", re.M),
+    re.compile(r"\('Informe PDF', '[^']*'\),? ?"),
+    re.compile(r"'Informe PDF: [^']*',? ?"),
+    re.compile(r"<li>Informe PDF: .*?</li>"),
 )
 #: El nombre de la copia de entrada lleva el hash del archivo, que depende del escritor de parquet.
 _HASH_DE_ENTRADA = re.compile(r"data-[0-9a-f]{16}")
@@ -214,6 +215,7 @@ def test_el_cuaderno_corre_de_punta_a_punta_y_publica_las_salidas_de_hoy(
     assert sc.summary().execution == "completada"
     proyecto = tmp_path / "nikodym-runs" / "consumo_v01"
     assert (proyecto / "reports" / "scorecard_report.html").is_file()
+    assert (proyecto / "reports" / "scorecard_report.docx").is_file()
     libros = sorted((proyecto / "excel").glob("*.xlsx"))
     assert len(libros) == 11, [libro.name for libro in libros]
 
