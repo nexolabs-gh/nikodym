@@ -1643,6 +1643,15 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
         )
     if sin_eje != "sin_eje_temporal":
         return tuple(frases)
+    if fallos:
+        # Otra parte del análisis también cayó: «el resto se hizo igual» sería falso (revisión
+        # adversarial del código, pasada 1). Queda la causa de la tasa; la del resto la dice el
+        # contexto de la población.
+        return (
+            *frases,
+            "La tasa de incumplimiento no se pudo agrupar en el tiempo: "
+            f"{_eda_default_rate_reason_label(sin_eje)}.",
+        )
     return (
         *frases,
         # ⚠️ La frase dice que el análisis CONTINUÓ y no sobre qué población, a propósito y en dos

@@ -1141,6 +1141,32 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     )
   })
 
+  it("🔴 sin eje y con los perfiles caídos, el panel no dice que el resto corrió completo", () => {
+    // Pasada 1 de Codex: el aviso de D-SC-17 afirmaba «el resto del análisis exploratorio corrió
+    // completo» aunque otra parte hubiera fallado.
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        n_periods: 0,
+        default_rate: [],
+        default_rate_window: { total_periods: 0, truncated: false },
+        stability_value: null,
+        stability_not_evaluable_reason: "sin_eje_temporal",
+        default_rate_not_evaluable_reason: "sin_eje_temporal",
+        n_columns_profiled: 0,
+        univariate: [],
+        failed_analyses: {
+          univariate: "El perfil univariado requiere columna(s) existente(s): 'no_existe'.",
+        },
+      }),
+    )
+    expect(html).toContain("La tasa no se pudo agrupar en el tiempo")
+    expect(html).not.toContain("corrió completo")
+    expect(html).toContain("La descripción de las columnas frente al incumplimiento no se pudo")
+  })
+
   it("una corrida sana —o un payload anterior sin la clave— no pinta ningún aviso de parcial", () => {
     const sinClave = render(conEda(base))
     const vacia = render(conEda({ ...base, failed_analyses: {} }))

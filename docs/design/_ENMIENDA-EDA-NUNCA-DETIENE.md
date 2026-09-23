@@ -279,6 +279,13 @@ Controles negativos: los once de §3 más (g2) y cinco de superficie —métrica
 tabla vacía del builder, alertas del resumen y aviso del panel (vitest)—, cada uno rojo en su test
 y restaurado byte a byte.
 
+**Revisión adversarial del código.** Tope declarado: tres pasadas sobre el rango `5fe52f0..HEAD`,
+que incluye el commit del notebook.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | (a) **alto**: con la preparación caída, `_publicar` derivaba la estabilidad llamando a `assess()` sin protección —la red de las redes todavía podía levantar—; (b) sin eje temporal y con otra parte caída, el panel y el informe seguían diciendo que «el resto del análisis se hizo completo»; (c) el gate del notebook ejecutaba las celdas pero no comparaba las salidas guardadas, y su docstring prometía que sí | (a) la construcción final se protege y, si falla, la estabilidad se anota como caída con su causa; (b) la frase se dice sólo si nada más cayó; (c) cada celda se ejecuta como un kernel y lo impreso y lo devuelto se comparan con lo guardado, eximiendo sólo las líneas que dependen de los extras. De paso se midió que el gate del notebook habría fallado en los nueve jobs de la matriz, que no instalan `openpyxl`: ahora exige `openpyxl` y corre en el job con todos los extras. Cinco controles negativos más, todos rojos |
+
 ## 13. Simplicidad (SDD-31) — obligatoria
 
 - **Entrada mínima:** no cambia.

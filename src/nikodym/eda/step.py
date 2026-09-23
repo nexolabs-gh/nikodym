@@ -250,14 +250,20 @@ class EdaStep(AuditableMixin):
         construye aquí con su causa: ``tasa_no_calculable`` si lo caído fue la tasa entera,
         ``no_calculable`` si fue la estabilidad sola. Las figuras son una receta pura sobre lo que
         sí se calculó; si aun así fallan, se publican sin ninguna.
+
+        🔴 Esta es la red de las redes, así que tampoco puede levantar (revisión adversarial del
+        código, pasada 1): con la preparación caída, la estabilidad se deriva aquí de la tasa
+        degradada, y si ese cálculo fallara el paso se llevaría la corrida después de haber
+        atrapado todo lo demás. Si falla, la estabilidad se anota como caída con su causa.
         """
         analizador = TemporalStabilityAnalyzer.from_config(self.config.stability)
+        if stability is None and "stability" not in fallos:
+            try:
+                stability = analizador.assess(default_rate, audit=None)
+            except Exception as exc:  # D-SC-19: la red final tampoco detiene la corrida
+                fallos["stability"] = _causa(exc)
         if stability is None:
-            stability = (
-                analizador.no_calculable()
-                if "stability" in fallos
-                else analizador.assess(default_rate, audit=None)
-            )
+            stability = analizador.no_calculable()
         try:
             figures = _build_figure_specs(default_rate=default_rate, univariate=univariate)
         except Exception:  # las figuras son una receta, no una superficie que se lea

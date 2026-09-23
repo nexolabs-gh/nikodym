@@ -606,3 +606,53 @@ def test_el_estado_de_ejecucion_dice_parcial_solo_si_algo_cayo(parcial: bool) ->
     assert "quedan por correr" in con_pendientes
     assert terminada == "completada — con el análisis exploratorio parcial"
     assert hasta.endswith("(corrida parcial) — con el análisis exploratorio parcial")
+
+
+# ───────────────────────── revisión adversarial del código ─────────────────────────
+
+
+def test_la_red_final_de_la_estabilidad_tampoco_levanta(monkeypatch: pytest.MonkeyPatch) -> None:
+    """🔴 Pasada 1 de Codex: con la preparación caída, la estabilidad se construía al publicar
+    llamando a `assess()` sin protección; si ese cálculo también fallaba, el paso levantaba."""
+
+    def explota(self: object, *args: object, **kwargs: object) -> object:
+        raise RuntimeError("fallo inyectado al publicar")
+
+    monkeypatch.setattr(TemporalStabilityAnalyzer, "assess", explota)
+    cfg = EdaConfig(
+        default_rate=DefaultRateConfig(min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("score",)),
+        analysis_partition="todas",
+    )
+    study = Study(
+        NikodymConfig(repro=ReproConfig(seed=20_240_626), data=_data_config_aleatorio(), eda=cfg)
+    )
+    study.artifacts.set("data", "frame", _frame_sin_fecha().iloc[:0])
+    study.artifacts.set("data", "labels", _labels(_frame_sin_fecha()))
+    study.artifacts.set("data", "splits", _splits(_frame_sin_fecha()))
+
+    study._run_one(EdaStep.from_config(cfg))
+
+    for clave in EDA_ARTIFACTS:
+        assert study.artifacts.has("eda", clave), clave
+    card = study.artifacts.get("eda", "eda_card")
+    assert "(RuntimeError)" in card.failed_analyses["stability"]
+    assert card.stability_not_evaluable_reason == "no_calculable"
+
+
+def test_sin_eje_y_con_perfiles_caidos_nada_dice_que_el_resto_se_hizo_completo() -> None:
+    """🔴 Pasada 1 de Codex: la frase de D-SC-17 «el resto del análisis se hizo igual» seguía
+    saliendo aunque los perfiles o la calidad hubieran caído."""
+    cfg = EdaConfig(
+        default_rate=DefaultRateConfig(min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("no_existe",)),
+    )
+    _, _, study = _correr(_frame_sin_fecha(), cfg)
+    card = study.artifacts.get("eda", "eda_card")
+    assert card.default_rate_not_evaluable_reason == "sin_eje_temporal"
+    assert set(card.failed_analyses) == {"univariate"}
+
+    contexto, resultados = _prosa_eda(study)
+    assert "se hizo igual" not in resultados
+    assert "el archivo no trae columna de fecha ni cohorte declarada" in resultados
+    assert "no_existe" in contexto

@@ -13,10 +13,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   enlazado desde «Instalación y primeros pasos» y descargable desde docs.nikodym.cl. Es el
   mismo flujo de las guías —datos, corrida completa, una etapa por dentro, una decisión humana
   con `exclude` y `resume`, el resumen final y los once libros de Excel— con sus salidas
-  **reales**, en 22 líneas de usuario. **Se ejecuta entero en cada integración continua**, sin
-  añadir jupyter a las dependencias: un gate corre sus celdas en orden, comprueba que su flujo
-  es el del notebook mínimo publicado, que no trae celdas en error y que no filtra rutas de la
-  máquina en la que se generó (las salidas muestran rutas relativas a la carpeta del cuaderno).
+  **reales**, en 22 líneas de usuario. **Se ejecuta entero en la integración continua** —en el
+  job con todos los extras, porque termina exportando a Excel—, sin añadir jupyter a las
+  dependencias: un gate corre sus celdas en orden como lo haría un kernel y **compara cada salida
+  guardada con la de la ejecución**, así que una cifra vieja publicada pone el CI en rojo;
+  comprueba además que su flujo es el del notebook mínimo publicado, que no trae celdas en error
+  y que no filtra rutas de la máquina en la que se generó (las salidas muestran rutas relativas a
+  la carpeta del cuaderno).
 
 ### Corregido
 

@@ -630,9 +630,12 @@ export function ResultsPanel({
           {eda.default_rate_not_evaluable_reason === "sin_eje_temporal" ? (
             <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               La tasa no se pudo agrupar en el tiempo:{" "}
-              {edaDefaultRateReasonLabel(eda.default_rate_not_evaluable_reason)}. El resto del
-              análisis exploratorio corrió completo y la decisión queda registrada en el trail de
-              la corrida.
+              {edaDefaultRateReasonLabel(eda.default_rate_not_evaluable_reason)}.{" "}
+              {/* «El resto corrió completo» sólo si nada más cayó (revisión adversarial del
+                  código, pasada 1): lo que cayó se lista en el aviso de arriba. */}
+              {edaFailed.length > 0
+                ? "La decisión queda registrada en el trail de la corrida."
+                : "El resto del análisis exploratorio corrió completo y la decisión queda registrada en el trail de la corrida."}
             </p>
           ) : null}
 

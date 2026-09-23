@@ -12,10 +12,24 @@ dependencias de desarrollo y mide lo mismo: que el cuaderno llega hasta el final
 Tres cosas más que un cuaderno publicado tiene que cumplir, y que un test de «corre» no vería:
 que su flujo no se aparte del notebook mínimo que publican las guías, que no traiga una celda en
 error y que no filtre rutas de la máquina en la que se generó.
+
+🔴 Y que sus salidas **sean las de hoy** (revisión adversarial del código, pasada 1): ejecutar sin
+comparar dejaba el CI verde con cifras viejas publicadas. Cada celda se ejecuta como la ejecuta
+un kernel —si la última sentencia es una expresión, su valor es la salida— y lo impreso y lo
+devuelto se comparan con lo guardado, con las rutas relativas a la carpeta del cuaderno. Sólo se
+eximen las líneas que dependen de los extras instalados —el informe en PDF y en Word—, que cambian
+entre entornos sin que el cuaderno esté viejo, y el hash del archivo de entrada copiado.
+
+El cuaderno termina exportando los once libros de Excel, así que su ejecución exige `openpyxl`:
+corre en el job del CI con todos los extras y en la máquina de desarrollo, no en la matriz, que
+instala sólo `scoring`.
 """
 
 from __future__ import annotations
 
+import ast
+import contextlib
+import io
 import json
 import re
 import tempfile
@@ -29,6 +43,11 @@ _CUADERNO = _RAIZ / "docs_site" / "notebooks" / "primer-scorecard.ipynb"
 _GUIA = _RAIZ / "docs_site" / "getting-started.md"
 _BLOQUE = "primer-scorecard"
 _TOPE_LINEAS_DE_USUARIO = 25
+#: Líneas de salida que dependen de los extras instalados: varían entre entornos sin que el
+#: cuaderno esté viejo.
+_LINEAS_DEL_ENTORNO = ("Informe PDF:", "Informe Word:")
+#: El nombre de la copia de entrada lleva el hash del archivo, que depende del escritor de parquet.
+_HASH_DE_ENTRADA = re.compile(r"data-[0-9a-f]{16}")
 
 
 def _cuaderno() -> dict[str, Any]:
@@ -100,16 +119,77 @@ def test_el_cuaderno_cabe_en_el_tope_de_lineas_de_usuario() -> None:
     assert len(lineas) <= _TOPE_LINEAS_DE_USUARIO, len(lineas)
 
 
-def test_el_cuaderno_corre_de_punta_a_punta(
+def _ejecutar_como_un_kernel(codigo: str, espacio: dict[str, Any], nombre: str) -> tuple[str, Any]:
+    """Lo impreso por la celda y el valor de su última expresión, como en jupyter."""
+    arbol = ast.parse(codigo)
+    ultima = arbol.body.pop() if arbol.body else None
+    impreso = io.StringIO()
+    valor: Any = None
+    with contextlib.redirect_stdout(impreso):
+        if arbol.body:
+            exec(compile(arbol, nombre, "exec"), espacio)
+        if isinstance(ultima, ast.Expr):
+            valor = eval(compile(ast.Expression(ultima.value), nombre, "eval"), espacio)
+        elif ultima is not None:
+            exec(compile(ast.Module([ultima], []), nombre, "exec"), espacio)
+    return impreso.getvalue(), valor
+
+
+def _comparable(texto: str, raices: tuple[Path, ...]) -> list[str]:
+    """Relativo a la carpeta del cuaderno, con una sola barra, sin las líneas del entorno."""
+    barra = chr(92)
+    prefijos: set[str] = set()
+    for raiz in raices:
+        for base in (str(raiz), str(raiz).replace(barra, "/")):
+            for sep in (barra, "/"):
+                prefijos |= {base + sep, (base + sep).replace(barra, barra + barra)}
+    for prefijo in sorted(prefijos, key=len, reverse=True):
+        texto = texto.replace(prefijo, "")
+    texto = _HASH_DE_ENTRADA.sub(
+        "data-<hash>", texto.replace(barra + barra, "/").replace(barra, "/")
+    )
+    return [
+        linea.rstrip()
+        for linea in texto.splitlines()
+        if not linea.lstrip().startswith(_LINEAS_DEL_ENTORNO)
+    ]
+
+
+def _guardado(salidas: list[dict[str, Any]], tipo: str, formato: str = "text/plain") -> str | None:
+    for salida in salidas:
+        if salida["output_type"] == tipo:
+            return "".join(salida["text"] if tipo == "stream" else salida["data"][formato])
+    return None
+
+
+def test_el_cuaderno_corre_de_punta_a_punta_y_publica_las_salidas_de_hoy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """🔴 El gate que Cami pidió: el cuaderno publicado se ejecuta entero, celda por celda."""
+    """🔴 El gate que Cami pidió: el cuaderno publicado se ejecuta entero, celda por celda, y cada
+    salida guardada es la que produce hoy."""
     pytest.importorskip("optbinning")
+    pytest.importorskip("openpyxl")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    raices = (tmp_path, tmp_path.resolve())
     espacio: dict[str, Any] = {"__name__": "__main__"}
-    for numero, codigo in enumerate(_celdas_de_codigo(), start=1):
-        exec(compile(codigo, f"{_CUADERNO.name}#celda{numero}", "exec"), espacio)
+    celdas = [c for c in _cuaderno()["cells"] if c["cell_type"] == "code"]
+    for numero, celda in enumerate(celdas, start=1):
+        impreso, valor = _ejecutar_como_un_kernel(
+            "".join(celda["source"]), espacio, f"{_CUADERNO.name}#celda{numero}"
+        )
+        guardado = _guardado(celda["outputs"], "stream")
+        assert _comparable(impreso, raices) == _comparable(guardado or "", raices), (
+            f"celda {numero}: lo impreso cambió; regenera el cuaderno"
+        )
+        guardado = _guardado(celda["outputs"], "execute_result")
+        if valor is None:
+            assert guardado is None, f"celda {numero}: guarda un resultado que ya no produce"
+            continue
+        assert guardado is not None, f"celda {numero}: produce un resultado que no guarda"
+        assert _comparable(repr(valor), raices) == _comparable(guardado, raices), (
+            f"celda {numero}: su resultado cambió; regenera el cuaderno"
+        )
 
     sc = espacio["sc"]
     assert sc.study.run_context.status == "done", sc.study.run_context.error
