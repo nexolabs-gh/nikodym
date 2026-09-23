@@ -140,6 +140,19 @@ export interface BinningResult {
       effective_cat_cutoff: number
     }
   >
+  /**
+   * Bins de faltantes o especiales cuyo WoE asignó el motor (D-FAL-2): una entrada por par
+   * (variable, bin), con el WoE del tramo de mayor tasa de malos observada. Opcional: un payload
+   * anterior —la demo capturada— no lo trae. El panel lo lee de los resúmenes, no de aquí.
+   */
+  assigned_bins?: {
+    variable: string
+    bin: "Missing" | "Special"
+    n_obs: number
+    n_events: number
+    assigned_woe: number
+    reference_bin: string
+  }[]
   tables_by_variable?: Record<string, BinRow[]>
 }
 

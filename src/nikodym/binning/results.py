@@ -39,6 +39,7 @@ IV_BAND_LABELS: dict[str, str] = {
 
 __all__ = [
     "IV_BAND_LABELS",
+    "AssignedBin",
     "BinningCardSection",
     "BinningResult",
     "BinningVariableSummary",
@@ -126,6 +127,25 @@ class RareCategoryRegrouping(BaseModel):
     effective_cat_cutoff: float
 
 
+class AssignedBin(BaseModel):
+    """Un bin de faltantes o especiales al que el motor **asignó** su WoE (D-FAL-1/2).
+
+    El bin tenía operaciones y una de las dos clases en cero en las filas ajustadas, así que su WoE
+    empírico no existe. Recibe el del tramo regular de mayor tasa de malos observada de la misma
+    variable —el de menor WoE; ante un empate, la primera fila—, con IV 0 en su fila, y comparte
+    sus puntos. Los conteos son **operaciones** de las filas ajustadas, sin pesos.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    variable: str
+    bin: Literal["Missing", "Special"]
+    n_obs: int
+    n_events: int
+    assigned_woe: float
+    reference_bin: str
+
+
 class BinningCardSection(BaseModel):
     """Resumen compacto de ``binning`` para model card y reporte."""
 
@@ -143,13 +163,20 @@ class BinningCardSection(BaseModel):
     #: Aditivo (D-RAR-2): las categóricas que el motor reagrupó para que su WoE exista, con el
     #: corte declarado y el efectivo. Vacío en toda corrida en la que la regla no entró.
     rare_category_regroupings: dict[str, RareCategoryRegrouping] = {}
+    #: Aditivo (D-FAL-2): una entrada por par (variable, bin) de faltantes o especiales cuyo WoE
+    #: se asignó. Vacío en toda corrida en la que la regla no entró.
+    assigned_bins: tuple[AssignedBin, ...] = ()
 
     def __setstate__(self, state: dict[Any, Any]) -> None:
-        """Migra cards serializadas antes de la evidencia anti-fuga y de D-RAR."""
+        """Migra cards serializadas antes de la evidencia anti-fuga, de D-RAR y de D-FAL."""
         values = state.get("__dict__", {})
         faltantes: dict[str, object] = {
             campo: vacio
-            for campo, vacio in (("excluded_by_target_rule", ()), ("rare_category_regroupings", {}))
+            for campo, vacio in (
+                ("excluded_by_target_rule", ()),
+                ("rare_category_regroupings", {}),
+                ("assigned_bins", ()),
+            )
             if campo not in values
         }
         if faltantes:
@@ -166,6 +193,7 @@ class BinningCardSection(BaseModel):
         optbinning_version: str,
         excluded_by_target_rule: tuple[str, ...] = (),
         rare_category_regroupings: dict[str, RareCategoryRegrouping] | None = None,
+        assigned_bins: tuple[AssignedBin, ...] = (),
     ) -> BinningCardSection:
         """Deriva una sección de model card sin recalcular ni mutar el resultado."""
         n_variables_binned = len(result.variable_summaries)
@@ -183,4 +211,5 @@ class BinningCardSection(BaseModel):
             optbinning_version=optbinning_version,
             excluded_by_target_rule=excluded_by_target_rule,
             rare_category_regroupings=dict(rare_category_regroupings or {}),
+            assigned_bins=tuple(assigned_bins),
         )

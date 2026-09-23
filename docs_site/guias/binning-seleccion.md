@@ -195,6 +195,23 @@ Los nombres y defaults salen directo de `nikodym.binning.config.BinningConfig`:
     el mensaje dice qué se intentó: puedes excluir la variable o subir su `cat_cutoff` en
     `variable_overrides`.
 
+!!! note "Faltantes o valores especiales sin incumplimientos"
+    Si los faltantes de una variable —o sus valores especiales— no tienen ningún incumplimiento
+    en la muestra de desarrollo, o no tienen ninguna operación cumplida, su WoE no existe. En vez
+    de detener la corrida, el motor les **asigna** el WoE del tramo de la misma variable con la
+    mayor tasa de malos observada: un grupo sin evidencia de incumplimiento no recibe un buen
+    puntaje por falta de datos. La fila conserva IV 0 —no aporta evidencia—, comparte los puntos
+    de ese tramo (un ajuste manual de puntos se hace sobre el tramo, no sobre los faltantes) y la
+    asignación queda en el trail, en la card de `binning` (`assigned_bins`) y en una línea del
+    resumen de «Tramos y WoE». Si declaraste un valor numérico en `metric_missing` o
+    `metric_special`, la regla no entra.
+
+!!! note "Excluir una variable"
+    `sc.exclude("variable", reason=...)` la descarta en toda la corrida: escribe
+    `binning.exclude_columns`, así que la variable no se tramifica ni aparece en las tablas. Sus
+    tramos fijados con `set_bins`/`merge_bins` quedan en suspenso —declarado en el trail— y
+    `sc.keep(...)` la devuelve con esos mismos cortes.
+
 ## Selección de variables
 
 Tras el binning, la sección `selection` (`nikodym.selection.config.SelectionConfig`) aplica una

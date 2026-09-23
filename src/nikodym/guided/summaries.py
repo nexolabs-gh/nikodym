@@ -668,18 +668,42 @@ def _categorias_reagrupadas(reagrupadas: Mapping[str, Any]) -> tuple[str, ...]:
         filas = _int(registro.get("n_obs")) or 0
         malos = _int(registro.get("n_events")) or 0
         nivel = f"nivel {niveles[0]}" if len(niveles) == 1 else f"niveles {_enumerar(niveles)}"
-        clase = (
-            "ninguna incumplida"
-            if malos == 0
-            else "todas incumplidas"
-            if malos == filas
-            else f"{_miles(malos)} {_plural(malos, 'incumplida', 'incumplidas')}"
-        )
-        partes.append(
-            f"«{variable}» ({nivel}: {_miles(filas)} "
-            f"{_plural(filas, 'operación', 'operaciones')}, {clase})"
-        )
+        partes.append(f"«{variable}» ({nivel}: {_operaciones_y_clase(filas, malos)})")
     return tuple(partes)
+
+
+def _operaciones_y_clase(filas: int, malos: int) -> str:
+    """«4 operaciones, ninguna incumplida», «5 operaciones, todas incumplidas» o cuántas."""
+    clase = (
+        "ninguna incumplida"
+        if malos == 0
+        else "todas incumplidas"
+        if malos == filas
+        else f"{_miles(malos)} {_plural(malos, 'incumplida', 'incumplidas')}"
+    )
+    return f"{_miles(filas)} {_plural(filas, 'operación', 'operaciones')}, {clase}"
+
+
+#: El bin auxiliar de OptBinning, dicho para quien lee (D-FAL-2).
+_BIN_ASIGNADO_LABELS: Final[dict[str, str]] = {
+    "Missing": "Faltantes",
+    "Special": "Valores especiales",
+}
+
+
+def _bins_asignados(asignados: Sequence[Any]) -> tuple[str, ...]:
+    """Una línea por bin de faltantes o especiales cuyo WoE se asignó (D-FAL-2)."""
+    lineas: list[str] = []
+    for datos in asignados:
+        registro = _mapping(datos)
+        tipo = str(registro.get("bin"))
+        filas = _int(registro.get("n_obs")) or 0
+        malos = _int(registro.get("n_events")) or 0
+        lineas.append(
+            f"{_BIN_ASIGNADO_LABELS.get(tipo, tipo)} de «{registro.get('variable')}» "
+            f"({_operaciones_y_clase(filas, malos)}): se les asignó el riesgo de su peor tramo"
+        )
+    return tuple(lineas)
 
 
 def _resumen_binning(study: Study, context: SummaryContext) -> StageSummary:
@@ -709,6 +733,7 @@ def _resumen_binning(study: Study, context: SummaryContext) -> StageSummary:
                 "Categorías con muy pocas operaciones agrupadas para poder calcular su WoE: "
                 + "; ".join(reagrupadas)
             )
+        lines.extend(_bins_asignados(_sequence(card.get("assigned_bins"))))
         summary = _artifact(study, "binning", "summary")
         if isinstance(summary, pd.DataFrame) and not summary.empty:
             bandas: dict[str, list[str]] = {}

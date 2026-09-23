@@ -167,6 +167,9 @@ class ScorecardStep(AuditableMixin):
             binning_tables=tables,
             woe_column_map=woe_column_map,
             audit=self,
+            assigned_bins=_assigned_bins_from_card(
+                card_publicada(study, "binning", "binning_card")
+            ),
         )
 
         modelable_woe_frame = self._filter_modelable_rows(woe_frame)
@@ -322,6 +325,20 @@ def _scorecard_config_from_study(study: Study, *, fallback: ScorecardConfig) -> 
     if isinstance(raw_config, ScorecardConfig):
         return raw_config
     return ScorecardConfig.model_validate(raw_config)
+
+
+def _assigned_bins_from_card(card: object) -> dict[str, set[str]]:
+    """Los bins cuyo WoE asignó el binning, por variable (D-FAL-1); vacío sin card o sin campo.
+
+    La card puede llegar como DTO o como ``Mapping``, y sus entradas también.
+    """
+    por_variable: dict[str, set[str]] = {}
+    for entrada in campo_de_card(card, "assigned_bins") or ():
+        variable = campo_de_card(entrada, "variable")
+        bin_label = campo_de_card(entrada, "bin")
+        if variable is not None and bin_label is not None:
+            por_variable.setdefault(str(variable), set()).add(str(bin_label))
+    return por_variable
 
 
 def _woe_column_map_from_binning_result(result: _BinningResultLike) -> dict[str, str]:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import importlib
 import math
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias, cast
 
@@ -109,8 +109,14 @@ class PointsScaler(NikodymTransformer):
         binning_tables: Mapping[str, DataFrame],
         woe_column_map: Mapping[str, str],
         audit: AuditSink | None = None,
+        assigned_bins: Mapping[str, Collection[str]] | None = None,
     ) -> Self:
-        """Deriva puntos por bin desde coeficientes y tablas WoE sin mutar entradas."""
+        """Deriva puntos por bin desde coeficientes y tablas WoE sin mutar entradas.
+
+        ``assigned_bins`` nombra, por variable, los bins auxiliares cuyo WoE asignó el binning
+        (D-FAL-1). Comparten los puntos de su tramo de referencia —la primera fila con su mismo
+        WoE, la que usa la búsqueda de puntos—: heredan su ajuste manual y no admiten uno propio.
+        """
         pd = _import_pandas()
         np = _import_numpy()
         _validate_runtime_config(self)
@@ -153,6 +159,7 @@ class PointsScaler(NikodymTransformer):
             factor=factor,
             offset_share=offset_share,
             intercept_share=intercept_share,
+            assigned_bins=assigned_bins or {},
         )
         scorecard = _normalize_float_frame(pd.DataFrame(rows), pd=pd)
         point_lookup, duplicate_woe = _point_lookup(scorecard)
@@ -471,15 +478,47 @@ def _scorecard_rows(
     factor: float,
     offset_share: float,
     intercept_share: float,
+    assigned_bins: Mapping[str, Collection[str]],
 ) -> list[dict[str, object]]:
     """Construye filas de puntos en orden estable feature/bin."""
     rows: list[dict[str, object]] = []
     for feature, woe_column in zip(features, woe_columns, strict=True):
         beta = coefficients[feature].beta
         table = tables[feature]
+        asignados = set(assigned_bins.get(feature, ()))
+        filas_de_la_variable: list[dict[str, object]] = []
         for bin_index, row in enumerate(table.to_dict(orient="records")):
             bin_label = str(row["Bin"])
             woe = _finite_float(row["WoE"], label="WoE", error_cls=ScorecardFitError)
+            referencia = (
+                _reference_row(filas_de_la_variable, woe) if bin_label in asignados else None
+            )
+            if referencia is not None:
+                if (feature, bin_label) in overrides:
+                    raise ScorecardFitError(
+                        f"El bin «{bin_label}» de «{feature}» comparte los puntos de su tramo de "
+                        f"referencia «{referencia['bin_label']}», del que tomó el WoE: el ajuste "
+                        "manual de puntos se hace sobre ese tramo."
+                    )
+                heredada = {
+                    **referencia,
+                    "bin_label": bin_label,
+                    "bin_index": int(bin_index),
+                }
+                if referencia["source"] == "override":
+                    estimator.log_decision(
+                        regla="point_override_heredado",
+                        umbral=str(referencia["bin_label"]),
+                        valor={
+                            "feature": feature,
+                            "bin_label": bin_label,
+                            "puntos_nuevo": referencia["points"],
+                        },
+                        accion="heredar_override",
+                    )
+                rows.append(heredada)
+                filas_de_la_variable.append(heredada)
+                continue
             raw_points = _raw_points(
                 direction=estimator.score_direction,
                 factor=factor,
@@ -521,7 +560,13 @@ def _scorecard_rows(
                     "source": source,
                 }
             )
+            filas_de_la_variable.append(rows[-1])
     return rows
+
+
+def _reference_row(rows: list[dict[str, object]], woe: float) -> dict[str, object] | None:
+    """La primera fila ya construida con ese WoE: el tramo del que un bin asignado lo tomó."""
+    return next((row for row in rows if row["woe"] == woe), None)
 
 
 def _override_map(

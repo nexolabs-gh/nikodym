@@ -23,6 +23,25 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- **Un bin de faltantes sin incumplimientos ya no mata la corrida** (D-FAL-1/2). Con una muestra
+  pública de préstamos 7(a) de la SBA partida por fecha, ocho préstamos no declaraban la
+  antigüedad de la empresa y en desarrollo su bin de faltantes quedaba con 4 operaciones y
+  ningún malo: el WoE no existía y la corrida moría en «Tramos y WoE». Ahora el motor le asigna el
+  WoE del tramo de la misma variable con la mayor tasa de malos observada —el conservador: un
+  grupo sin evidencia no se lleva el mejor puntaje—, con IV 0 en su fila, y lo mismo para un bin
+  de valores especiales sin una clase. Tabla, transformación, puntos y bundle leen el mismo
+  número; el bin asignado comparte los puntos de su tramo de referencia, hereda su ajuste manual
+  y rechaza uno propio. La asignación queda en el trail (`bin_sin_clase_asignado`), en la card
+  de `binning` (`assigned_bins`, aditivo) y en una línea del resumen. Con un valor declarado en
+  `metric_missing`/`metric_special` nada cambia; ninguna corrida que hoy termina cambia un número.
+- **`exclude()` excluye de verdad** (D-EXC-1). Escribía sólo la lista forzada de la selección, así
+  que una variable que tumbaba el binning seguía tumbándolo aunque se excluyera. Ahora escribe
+  `binning.exclude_columns` y retira la variable de las listas forzadas de selección y modelo; sus
+  tramos fijados con `set_bins`/`merge_bins` quedan en suspenso y `keep()` los reactiva. Una
+  variable excluida ya no aparece en «Tramos y WoE» ni en la tabla de selección; la decisión, con
+  su motivo, sigue en el trail. Los mensajes de error que ofrecen excluir dicen cómo. El cuaderno
+  `primer-scorecard.ipynb` se regeneró: la variable que excluye ya no figura en esas dos etapas y
+  las cifras del modelo no cambian.
 - **Una cartera sin columna de fecha ya no mata la corrida en el análisis exploratorio**
   (D-SC-17/18). Con `partition="random"` —o con cualquier config que agrupe la tasa por período
   sin indicar la columna— sobre un archivo que no trae ninguna columna de fecha, la corrida moría

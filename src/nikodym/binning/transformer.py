@@ -32,7 +32,7 @@ from __future__ import annotations
 import importlib
 import math
 import warnings
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from functools import partial
 from itertools import pairwise
@@ -54,7 +54,7 @@ except ModuleNotFoundError as exc:
 if TYPE_CHECKING:
     import pandas as pd
 
-    from nikodym.binning.results import RareCategoryRegrouping
+    from nikodym.binning.results import AssignedBin, RareCategoryRegrouping
     from nikodym.core.audit import AuditSink
     from nikodym.data.special import MaskedFrame
 
@@ -167,6 +167,12 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         deja dos niveles debajo (D-RAR-1). El intento y la reagrupación van a ``audit`` como dos
         decisiones —la primera antes de reajustar, la segunda sólo si el reajuste resuelve—, y el
         corte efectivo queda en ``rare_category_regroupings_``.
+
+        Si un bin ``Missing`` o ``Special`` con observaciones queda sin una de las dos clases y su
+        WoE es el empírico, se le **asigna** el del tramo regular de mayor tasa de malos observada
+        de la misma variable —el de menor WoE; ante un empate, la primera fila—, con IV 0 en su
+        fila (D-FAL-1). Cada asignación va a ``audit`` y a ``assigned_bins_``, y la transformación
+        usa ese mismo WoE.
 
         Raises
         ------
@@ -281,6 +287,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         previo = self.__dict__.get("_audit")
         if audit is not None:
             self._audit = audit
+        asignados: list[AssignedBin] = []
         try:
             regroupings = _regroup_isolated_rare_categories(
                 estimator=self,
@@ -293,6 +300,23 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                 special_codes=special_codes,
                 pd=pd,
             )
+            tables, fitted_summary, binned_columns, fitted_dtypes = _collect_fitted_outputs(
+                process=process,
+                process_columns=process_columns,
+                skipped=skipped,
+                require_optimal=self.require_optimal,
+                fail_on_non_binnable=self.fail_on_non_binnable,
+                np=np,
+                pd=pd,
+                assign=partial(
+                    _assign_classless_bins,
+                    estimator=self,
+                    working=working,
+                    target=target,
+                    special_codes=special_codes,
+                    out=asignados,
+                ),
+            )
         finally:
             if audit is not None:
                 if previo is None:
@@ -300,20 +324,12 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                 else:
                     self._audit = previo
 
-        tables, fitted_summary, binned_columns, fitted_dtypes = _collect_fitted_outputs(
-            process=process,
-            process_columns=process_columns,
-            skipped=skipped,
-            require_optimal=self.require_optimal,
-            fail_on_non_binnable=self.fail_on_non_binnable,
-            np=np,
-            pd=pd,
-        )
         if not binned_columns:
             raise BinningFitError(f"OptBinning no dejó variables publicables; razones={skipped!r}.")
 
         self.process_ = process
         self.rare_category_regroupings_ = regroupings
+        self.assigned_bins_ = tuple(asignados)
         self.feature_columns_ = tuple(binned_columns)
         self.process_columns_ = tuple(process_columns)
         self.skipped_variables_ = dict(skipped)
@@ -383,6 +399,17 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                     metric_missing=self.metric_missing,
                     check_input=True,
                 )
+                # D-FAL-1: la columna con un bin asignado se transforma otra vez por la misma
+                # llamada que `BinningProcess` hace por variable, con el WoE asignado como valor
+                # de ese bin. Tabla, transformación, puntos y bundle leen el mismo número.
+                for column, woe_por_bin in _assigned_woe_by_column(self).items():
+                    transformed[column] = self.process_.get_binned_variable(column).transform(
+                        working[column],
+                        metric="woe",
+                        metric_special=woe_por_bin.get("Special", self.metric_special),
+                        metric_missing=woe_por_bin.get("Missing", self.metric_missing),
+                        check_input=True,
+                    )
         except Exception as exc:
             raise BinningTransformError(f"No se pudo transformar a WoE: {exc}") from exc
 
@@ -1163,11 +1190,12 @@ def _mensaje_categoria_rara(
             f"Se reagrupó con las categorías más raras ({cortes}) y el grupo resultante ({grupo}: "
             f"{filas_residuales} operaciones) sigue sin {falta}."
         )
+    excluir = "`exclude()` en la puerta guiada o `binning.exclude_columns` en el config completo"
     salidas = (
-        "Puedes excluir la variable, o subir el umbral de categorías raras de esa variable en el "
-        "config completo (`binning.variable_overrides`)."
+        f"Puedes excluir la variable —{excluir}— o subir el umbral de categorías raras de esa "
+        "variable en el config completo (`binning.variable_overrides`)."
         if subir_umbral
-        else "Puedes excluir la variable."
+        else f"Puedes excluir la variable: {excluir}."
     )
     return (
         f"WoE no defendible por bin con una clase en cero: variable «{column}», {nivel} con "
@@ -1263,8 +1291,13 @@ def _collect_fitted_outputs(
     fail_on_non_binnable: bool,
     np: Any,
     pd: Any,
+    assign: Callable[[str, DataFrame], tuple[DataFrame, frozenset[str]]] | None = None,
 ) -> tuple[dict[str, DataFrame], DataFrame, list[str], dict[str, str]]:
-    """Construye tablas y resumen de variables fiteadas."""
+    """Construye tablas y resumen de variables fiteadas.
+
+    ``assign`` recibe cada tabla publicable antes de validarla y devuelve la tabla con los WoE que
+    asignó y los bins asignados, que la validación no rechaza por su clase en cero (D-FAL-1).
+    """
     with _suppress_known_optbinning_warnings():
         raw_summary = process.summary().copy(deep=True)
     raw_summary["name"] = raw_summary["name"].astype(str)
@@ -1302,7 +1335,10 @@ def _collect_fitted_outputs(
         with _suppress_known_optbinning_warnings():
             table = process.get_binned_variable(column).binning_table.build(add_totals=True)
         table = _normalize_numeric_dataframe(table.copy(deep=True), pd)
-        _validate_finite_woe_table(column, table, np, pd)
+        assigned: frozenset[str] = frozenset()
+        if assign is not None:
+            table, assigned = assign(column, table)
+        _validate_finite_woe_table(column, table, np, pd, assigned=assigned)
         tables[column] = table
         binned_columns.append(column)
         rows.append(
@@ -1318,6 +1354,93 @@ def _collect_fitted_outputs(
     if not fitted_summary.empty:
         fitted_summary = _normalize_numeric_dataframe(fitted_summary, pd)
     return tables, fitted_summary, binned_columns, fitted_dtypes
+
+
+def _assign_classless_bins(
+    column: str,
+    table: DataFrame,
+    *,
+    estimator: WoEBinner,
+    working: DataFrame,
+    target: Series,
+    special_codes: dict[str, list[object]],
+    out: list[AssignedBin],
+) -> tuple[DataFrame, frozenset[str]]:
+    """Asigna su WoE a los bins de faltantes o especiales que quedaron sin una clase (D-FAL-1).
+
+    La unidad es el par (variable, bin). Entra sólo con el WoE **empírico** de ese bin —con un
+    valor declarado el comportamiento no cambia— y sólo si todos los bins regulares tienen las dos
+    clases: un bin regular sin una clase es asunto de D-RAR o de la validación de siempre. El WoE
+    es el del tramo regular de mayor tasa de malos observada —el de menor WoE—, y ante un empate
+    el de la primera fila, que es el que usa la búsqueda de puntos del escalador. El IV de la fila
+    queda en 0, que es lo que OptBinning ya le calcula: el bin no aporta evidencia.
+    """
+    from nikodym.binning.results import AssignedBin
+
+    empirical = {
+        "Missing": estimator.metric_missing == "empirical",
+        "Special": estimator.metric_special == "empirical",
+    }
+    is_totals = table.index.astype(str) == "Totals"
+    labels = [value if isinstance(value, str) else None for value in table["Bin"].tolist()]
+    counts = [float(value) for value in table["Count"].tolist()]
+    events = [float(value) for value in table["Event"].tolist()]
+    nonevents = [float(value) for value in table["Non-event"].tolist()]
+
+    def sin_una_clase(i: int) -> bool:
+        return counts[i] > 0 and (events[i] == 0 or nonevents[i] == 0)
+
+    auxiliares = [i for i, label in enumerate(labels) if label in _SPECIAL_BIN_LABELS]
+    regulares = [i for i in range(len(labels)) if not is_totals[i] and i not in auxiliares]
+    degenerados = [i for i in auxiliares if sin_una_clase(i) and empirical[str(labels[i])]]
+    if not degenerados or not regulares or any(sin_una_clase(i) for i in regulares):
+        return table, frozenset()
+
+    woe_regulares = [(i, float(table["WoE"].iloc[i])) for i in regulares if counts[i] > 0]
+    woe_asignado = min(woe for _, woe in woe_regulares)
+    referencia = next(i for i, woe in woe_regulares if woe == woe_asignado)
+    tramo = str(table["Bin"].iloc[referencia])
+
+    series = working[column]
+    especiales = special_codes.get(column, [])
+    en_bin = {"Missing": series.isna(), "Special": series.notna() & series.isin(especiales)}
+    patched = table.copy(deep=True)
+    asignados: set[str] = set()
+    for i in degenerados:
+        label = cast(Literal["Missing", "Special"], labels[i])
+        filas = en_bin[label]
+        n_obs, n_events = int(filas.sum()), int(target[filas].astype(int).sum())
+        patched.loc[patched.index[i], "WoE"] = woe_asignado
+        estimator.log_decision(
+            regla="bin_sin_clase_asignado",
+            umbral={
+                "regla": "peor_tramo_observado",
+                "woe_asignado": woe_asignado,
+                "tramo_de_referencia": tramo,
+            },
+            valor={"variable": column, "bin": label, "operaciones": n_obs, "incumplidas": n_events},
+            accion="asignar_woe",
+        )
+        out.append(
+            AssignedBin(
+                variable=column,
+                bin=label,
+                n_obs=n_obs,
+                n_events=n_events,
+                assigned_woe=woe_asignado,
+                reference_bin=tramo,
+            )
+        )
+        asignados.add(label)
+    return patched, frozenset(asignados)
+
+
+def _assigned_woe_by_column(estimator: WoEBinner) -> dict[str, dict[str, float]]:
+    """El WoE asignado por variable y bin; vacío en un binner ajustado antes de D-FAL."""
+    por_columna: dict[str, dict[str, float]] = {}
+    for asignado in getattr(estimator, "assigned_bins_", ()):
+        por_columna.setdefault(asignado.variable, {})[asignado.bin] = asignado.assigned_woe
+    return por_columna
 
 
 def _summary_row(
@@ -1478,8 +1601,19 @@ def _normalize_numeric_dataframe(df: DataFrame, pd: Any) -> DataFrame:
     return result
 
 
-def _validate_finite_woe_table(column: str, table: DataFrame, np: Any, pd: Any) -> None:
-    """Falla si una tabla con observaciones conserva WoE no finito."""
+def _validate_finite_woe_table(
+    column: str,
+    table: DataFrame,
+    np: Any,
+    pd: Any,
+    *,
+    assigned: frozenset[str] = frozenset(),
+) -> None:
+    """Falla si una tabla con observaciones conserva WoE no finito o un bin con una clase en cero.
+
+    ``assigned`` nombra los bins auxiliares cuyo WoE se asignó (D-FAL-1): su clase en cero es la
+    razón de la asignación, no un defecto.
+    """
     required = {"WoE", "Count", "Event", "Non-event"}
     if not required <= set(table.columns):
         raise BinningFitError(
@@ -1498,9 +1632,11 @@ def _validate_finite_woe_table(column: str, table: DataFrame, np: Any, pd: Any) 
         )
     event = pd.to_numeric(table["Event"], errors="coerce").fillna(0)
     nonevent = pd.to_numeric(table["Non-event"], errors="coerce").fillna(0)
+    is_assigned = table["Bin"].map(lambda value: isinstance(value, str) and value in assigned)
     pure = (
         count.gt(0).to_numpy(dtype=bool, copy=True)
         & ~is_totals
+        & ~is_assigned.to_numpy(dtype=bool, copy=True)
         & (
             event.eq(0).to_numpy(dtype=bool, copy=True)
             | nonevent.eq(0).to_numpy(dtype=bool, copy=True)

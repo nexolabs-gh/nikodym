@@ -72,7 +72,10 @@ def test_exclude_escribe_las_dos_hojas_y_retira_de_las_contrarias(
     assert sc.config.selection.force_include == ("score",)
     assert sc.config.model.force_include == ("score",)
     sc.exclude(["score"], reason="cambió de opinión el comité")
-    assert sc.config.selection.force_exclude == ("score",)
+    # D-EXC-1: `exclude` escribe SÓLO `binning.exclude_columns`; la variable no se tramifica, y
+    # selección y modelo rechazan forzar una variable que el binning no publica.
+    assert sc.config.binning.exclude_columns == ("score",)
+    assert sc.config.selection.force_exclude == ()
     # `model.force_exclude` NO se escribe: la variable ya no llega al modelo, y el motor rechaza
     # un override de `model` sobre una variable que la selección descartó (medido).
     assert sc.config.model.force_exclude == ()
@@ -111,7 +114,7 @@ def test_la_decision_llega_una_vez_al_trail_con_autor_y_motivo_y_resume_la_aplic
     assert payload["autor"] == "usuario"
     assert payload["motivo"] == "dato no disponible en originación"
     assert payload["umbral"] is None
-    assert payload["valor"] == {"selection.force_exclude": ["score"]}
+    assert payload["valor"] == {"binning.exclude_columns": ["score"]}
     # Desde la capa C el evento lleva también el SUJETO de la decisión (`variables`), además de
     # la hoja acumulada en `valor`: es lo que la línea «exclude score — «motivo»» necesita para
     # decirse igual desde el trail (la página ejecutiva del informe) que desde la memoria (el
@@ -119,11 +122,11 @@ def test_la_decision_llega_una_vez_al_trail_con_autor_y_motivo_y_resume_la_aplic
     assert payload["variables"] == ["score"]
     final = sc.summary()
     assert final.decisions == ("exclude score — «dato no disponible en originación»",)
-    # La ejecución del motor queda aparte de la intención (§3.3, «propietarios distintos, sin
-    # duplicado»): la tabla de selección la publica con su propio motivo.
+    # D-EXC-1: la exclusión se ejecuta en el binning —la variable no se tramifica—, así que no
+    # llega ni a la tabla de binning ni a la de selección; la intención queda en el trail.
+    assert "score" not in sc.study.artifacts.get("binning", "tables")
     tabla = sc.study.artifacts.get("selection", "selection_table").set_index("feature")
-    assert tabla.loc["score", "reason"] == "business_exclude"
-    assert tabla.loc["score", "forced"] == "exclude"
+    assert "score" not in tabla.index
 
 
 def test_la_decision_del_usuario_llega_a_la_ficha_con_purpose(fuente: Path, tmp_path: Path) -> None:

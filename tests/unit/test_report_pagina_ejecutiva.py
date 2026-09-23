@@ -220,13 +220,13 @@ def test_el_preambulo_es_un_snapshot_que_nadie_muta(corrida: Scorecard) -> None:
     se emitió al trail y lo que el informe lee son lo mismo."""
     original = next(d for d in corrida._decisions if d["regla"] == "decision_del_usuario")
     original["variables"].append("intruso")
-    original["valor"]["selection.force_exclude"].append("intruso")
+    original["valor"]["binning.exclude_columns"].append("intruso")
     try:
         decision = next(
             p for _paso, p in corrida.study.preamble if p.get("regla") == "decision_del_usuario"
         )
         assert decision["variables"] == ["score"]
-        assert decision["valor"] == {"selection.force_exclude": ["score"]}
+        assert decision["valor"] == {"binning.exclude_columns": ["score"]}
         decision["variables"].append("otro")
         de_nuevo = next(
             p for _paso, p in corrida.study.preamble if p.get("regla") == "decision_del_usuario"
@@ -234,7 +234,7 @@ def test_el_preambulo_es_un_snapshot_que_nadie_muta(corrida: Scorecard) -> None:
         assert de_nuevo["variables"] == ["score"]
     finally:
         original["variables"].remove("intruso")
-        original["valor"]["selection.force_exclude"].remove("intruso")
+        original["valor"]["binning.exclude_columns"].remove("intruso")
 
 
 def test_un_informe_regenerado_desde_un_study_recargado_dice_las_mismas_decisiones(

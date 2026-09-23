@@ -391,7 +391,11 @@ def test_si_el_reintento_no_basta_y_subir_el_umbral_tampoco_la_unica_salida_es_e
 
     mensaje = str(error.value)
     assert "Se reagrupó con las categorías más raras" in mensaje
-    assert mensaje.endswith("Puedes excluir la variable.")
+    # D-EXC-1: la salida dice cómo se excluye, y por la puerta guiada ahora sí se cumple.
+    assert mensaje.endswith(
+        "Puedes excluir la variable: `exclude()` en la puerta guiada o `binning.exclude_columns` "
+        "en el config completo."
+    )
     assert "variable_overrides" not in mensaje
     assert len(_decisiones(sink, "categoria_rara_intento_reagrupar")) == 1
     assert _decisiones(sink, "categoria_rara_reagrupada") == []

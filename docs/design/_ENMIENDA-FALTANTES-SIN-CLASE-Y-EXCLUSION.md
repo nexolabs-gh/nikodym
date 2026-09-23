@@ -6,7 +6,7 @@
 | **Decisiones** | **D-FAL-1** (el WoE de un bin de faltantes o especiales sin una clase se **asigna** con una regla declarada), **D-FAL-2** (qué dicen las superficies) y **D-EXC-1** (`exclude()` descarta en toda la corrida, binning incluido) |
 | **Módulos** | `nikodym.binning` (`transformer`, `results`, `step`), `nikodym.guided` (`scorecard`, `summaries`) |
 | **Fase** | F1 |
-| **Estado** | **PROPUESTA** — Cami pidió enmienda y código hoy (2026-09-23), con la regla que el writer recomiende pensando en auditorías |
+| **Estado** | **APROBADA por Cami el 2026-09-23** (interactivo): regla **conservadora** (§5.1 a) y `exclude()` en toda la corrida (§5.2 a); **implementada el mismo día** (lo que el código precisó, en §7) |
 | **Depende de** | D-RAR-1/2, D-SC-19/20 (el patrón: un error fatal pasa a ser una degradación **declarada**), D-FLU (decisiones humanas) |
 | **Release** | Aditiva para todo lo que hoy corre: D-FAL-1 sólo entra donde la corrida iba a morir. D-EXC-1 cambia qué hace `exclude()`, pero sólo para acercarlo a lo que su propio contrato ya promete ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-23 |
@@ -178,6 +178,46 @@ Tope declarado: tres pasadas.
 | 3 | (a) **alto**: la regla se decía «por variable» mientras el trail va por bin; con `Missing` y `Special` degenerados a la vez, uno quedaría sin tratar y la corrida moriría, o la card perdería una asignación; (b) **alto**: «peor tramo» no desempataba dos tramos con el mismo WoE mínimo; si la referencia fuera el segundo y se ajustaran sus puntos, la corrida usaría los del primero y el bundle los heredados | (a) §1 y §2: la unidad es el par (variable, bin) y la card admite dos entradas por variable, con su gate; (b) §1: ante un empate, la referencia es la primera fila regular, que es la que usa el escalador, con su gate |
 
 **Tope alcanzado.** Las dos primeras pasadas tumbaron premisas —la exclusión moría en selección; los puntos del bin asignado podían divergir entre corrida y bundle— y la tercera ya sólo afinó bordes. Es el criterio de parada declarado; la implementación abre con su propia pasada.
+
+## 7. Implementación (2026-09-23): lo que el código precisó
+
+Implementada el mismo día de su aprobación. Diecisiete tests nuevos con OptBinning real
+(`tests/unit/test_binning_faltantes_sin_clase.py`): contra el código anterior, dieciséis rojos y
+uno verde —el test 4, que es el guardrail del alcance y debe serlo—. Once controles negativos, uno
+por cada defecto que §4 promete detectar más el desempate, rojos con el defecto y verdes tras
+restaurar byte a byte.
+
+1. **La referencia, en el escalador, se ubica por WoE, no por etiqueta.** La card dice qué bins se
+   asignaron (`assigned_bins`: variable y bin); el escalador toma como referencia la **primera
+   fila de la variable con el mismo WoE**, que es exactamente la que gana la búsqueda de puntos.
+   Así no depende de cómo se escribe la etiqueta de un tramo categórico, que en la card queda como
+   el texto del arreglo de niveles. La herencia de un override se declara en el trail
+   (`point_override_heredado`).
+2. **La regla no entra si un tramo regular también quedó sin una clase**: ese caso lo resuelve
+   D-RAR o lo dice la validación de siempre, y asignar primero dejaría en el trail una decisión
+   de una corrida que igual se detiene.
+3. **La transformación usa la misma llamada que `BinningProcess` hace por variable**, con el WoE
+   asignado como valor numérico de ese bin: es la vía pública de OptBinning, no un parche sobre
+   su salida.
+4. **`exclude()` retira la variable de las cuatro listas forzadas** —también de
+   `model.force_exclude`, que un config completo puede traer—: el modelo rechaza un override sobre
+   una variable que no le llega.
+5. **El cuaderno publicado `primer-scorecard.ipynb` se regeneró.** Excluye `mora_max_12m`; con
+   D-EXC-1 esa variable ya no aparece en «Tramos y WoE» ni en la selección —6 → 5 variables
+   tramificadas, y desaparece su aviso de tendencia invertida—. Las cifras del modelo no cambian
+   (AUC fuera de tiempo 0,648, la misma validación). Su gate lo exigía: compara cada salida
+   guardada con la de hoy.
+6. **Los mensajes de D-RAR nombran cómo excluir**: «`exclude()` en la puerta guiada o
+   `binning.exclude_columns` en el config completo».
+
+**Medido.** El dataset SBA crudo, con sus faltantes, termina `done` por la puerta guiada con
+`date="fecha_aprobacion"` y `oot_from="2008-01-01"` en 20,7 s, con el mismo `config_hash`
+(`a27e678f…`) y AUC fuera de tiempo 0,795; el resumen dice «Faltantes de
+«antiguedad_de_la_empresa» (4 operaciones, ninguna incumplida): se les asignó el riesgo de su peor
+tramo». Bit a bit sobre el preset F1: una diferencia, la clave aditiva
+`binning_card.assigned_bins = ()`; `config_hash` `1063d6cf…` intacto. Paridad de puntos entre
+corrida y bundle en las filas faltantes: diferencia máxima 0,0, con y sin override en la
+referencia.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 

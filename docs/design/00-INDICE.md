@@ -1063,6 +1063,21 @@ por módulo bajo SDD-31, la primera
 > (`DefaultRateAnalyzer`, los perfiladores) siguen levantando como API estable. Perillas: cero;
 > ningún `config_hash` se mueve.
 
+> **Un bin de faltantes sin una clase no mata la corrida, y excluir excluye de verdad (2026-09-23;
+> **APROBADA por Cami el 2026-09-23** con la regla conservadora e **implementada el mismo día** —lo
+> que el código precisó, en su §7—; nace del cuarto dataset real, una muestra pública de
+> préstamos 7(a) de la SBA con fecha).**
+> [`_ENMIENDA-FALTANTES-SIN-CLASE-Y-EXCLUSION.md`](_ENMIENDA-FALTANTES-SIN-CLASE-Y-EXCLUSION.md),
+> D-FAL-1, D-FAL-2 y D-EXC-1, enmienda a [`06-binning.md`](06-binning.md) §8, a
+> [`_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md`](_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md) y al contrato de
+> `exclude` de [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md).
+> 🔴 **Medido**: con partición por fecha y OOT desde 2008, el bin `Missing` de
+> `antiguedad_de_la_empresa` queda 4/0 en desarrollo y la corrida muere en «Tramos y WoE»;
+> `exclude()` no la salva porque sólo escribía `selection.force_exclude`. **D-FAL-1**: el bin recibe
+> el WoE del tramo regular de mayor tasa de malos observada de la misma variable, con IV 0 en su
+> fila, y comparte sus puntos; **D-FAL-2**: trail, card (`assigned_bins`) y una línea por bin en
+> el resumen; **D-EXC-1**: `exclude()` escribe `binning.exclude_columns`. Cero perillas.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |

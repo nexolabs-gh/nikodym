@@ -1074,11 +1074,13 @@ class Scorecard:
     def exclude(self, columns: str | Sequence[str], *, reason: str) -> Scorecard:
         """Descarta variables en toda la corrida siguiente, con motivo.
 
-        Escribe ``selection.force_exclude`` —con eso la variable no llega al modelo; un
-        ``model.force_exclude`` sobre una variable ya descartada lo rechaza el propio motor— y la
-        retira de ``force_include`` en las dos secciones (la última decisión sobre una variable
-        gana). La corrida siguiente (``resume()``) emite al trail **un** evento ``decision`` con
-        autor ``usuario`` y este motivo; el motor registra aparte la ejecución de la exclusión.
+        Escribe ``binning.exclude_columns`` (D-EXC-1): la variable no se tramifica, no aparece en
+        las tablas y no puede detener la corrida en «Tramos y WoE». La retira de las listas
+        forzadas de selección y modelo —las dos rechazan forzar una variable que el binning ya no
+        publica— (la última decisión sobre una variable gana). Sus tramos fijados con
+        ``set_bins()``/``merge_bins()`` quedan en suspenso, y ``keep()`` los reactiva. La corrida
+        siguiente (``resume()``) emite al trail **un** evento ``decision`` con autor ``usuario`` y
+        este motivo.
         """
         return self._decidir("exclude", columns, reason=reason)
 
@@ -1087,9 +1089,9 @@ class Scorecard:
 
         Escribe ``selection.force_include`` **y** ``model.force_include`` (sólo con la primera,
         ``model`` no vería una variable que ``selection`` descartó por IV, correlación o VIF) y
-        las retira de las listas contrarias. Una variable forzada que falle una validación dura
-        del motor —signo invertido con la política en ``fail``— sigue fallando: ``keep`` no
-        apaga ninguna guarda.
+        las retira de las listas contrarias y de ``binning.exclude_columns``. Una variable forzada
+        que falle una validación dura del motor —signo invertido con la política en ``fail``—
+        sigue fallando: ``keep`` no apaga ninguna guarda.
         """
         return self._decidir("keep", columns, reason=reason)
 
@@ -1111,24 +1113,27 @@ class Scorecard:
                 f"{accion}(): {', '.join(desconocidas)} no está entre las predictoras de esta "
                 f"corrida ({', '.join(predictoras)})."
             )
-        propia = "force_exclude" if accion == "exclude" else "force_include"
-        contraria = "force_include" if accion == "exclude" else "force_exclude"
-        # `keep` escribe las dos secciones (sólo con `selection`, `model` no vería una variable
-        # que la selección descartó). `exclude` escribe SÓLO `selection.force_exclude`: la
-        # variable no llega al modelo, y `model` rechaza un override sobre una variable que no
-        # está entre las seleccionadas (`model/step.py::_validate_force_overrides`; medido al
-        # implementar: la enmienda §3.3 decía «las dos hojas» y está corregida). En las dos
-        # secciones se retira de la lista contraria: la última decisión gana.
-        escribe_en = ("selection", "model") if accion == "keep" else ("selection",)
+        # D-EXC-1: `exclude` escribe SÓLO `binning.exclude_columns` —la variable no se tramifica
+        # y no puede detener la corrida allí— y la retira de las cuatro listas forzadas: selección
+        # y modelo rechazan forzar una variable que el binning no publica (revisión adversarial
+        # de la enmienda, pasada 1). `keep` la retira de `binning.exclude_columns` y escribe
+        # `force_include` en las dos secciones (sólo con `selection`, `model` no vería una
+        # variable que la selección descartó). La última decisión gana.
         hojas: dict[str, list[str]] = {}
+        excluidas = [c for c in binning.exclude_columns if c not in nombres] if binning else []
+        if accion == "exclude":
+            excluidas += nombres
+            hojas["binning.exclude_columns"] = list(excluidas)
+        self._actualizar_seccion("binning", {"exclude_columns": tuple(excluidas)})
         for seccion in ("selection", "model"):
             actual = getattr(self._config, seccion)
-            opuesta = [c for c in getattr(actual, contraria) if c not in nombres]
-            campos: dict[str, Any] = {contraria: tuple(opuesta)}
-            if seccion in escribe_en:
-                lista = [c for c in getattr(actual, propia) if c not in nombres] + nombres
-                campos[propia] = tuple(lista)
-                hojas[f"{seccion}.{propia}"] = list(lista)
+            campos: dict[str, Any] = {
+                lista: tuple(c for c in getattr(actual, lista) if c not in nombres)
+                for lista in ("force_include", "force_exclude")
+            }
+            if accion == "keep":
+                campos["force_include"] = (*campos["force_include"], *nombres)
+                hojas[f"{seccion}.force_include"] = list(campos["force_include"])
             self._actualizar_seccion(seccion, campos)
         self._decisions.append(
             {

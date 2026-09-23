@@ -140,7 +140,10 @@ class BinningStep(AuditableMixin):
         x_transform = frame.loc[eligible_mask, list(feature_columns)].copy(deep=True)
 
         self._log_special_policy(special=special, feature_columns=feature_columns)
+        overrides, suspendidos = _active_overrides(self.config, feature_columns)
+        self._log_suspended_overrides(suspendidos)
         binner = _build_binner(self.config, feature_columns)
+        binner.set_params(variable_overrides=overrides)
         # El sumidero va al binner (D-RAR-1): si reagrupa una categoría rara, el intento
         # tiene que quedar en el trail aunque el reajuste falle y `execute` no termine.
         binner.fit(x_train, y_train, special=special, audit=self._audit)
@@ -194,6 +197,16 @@ class BinningStep(AuditableMixin):
             tasas_por_muestra,
         )
         return result
+
+    def _log_suspended_overrides(self, suspendidos: tuple[VariableBinningConfig, ...]) -> None:
+        """Declara los tramos fijados de variables excluidas que quedan en suspenso (D-EXC-1)."""
+        for override in suspendidos:
+            self.log_decision(
+                regla="override_en_suspenso",
+                umbral="binning.exclude_columns",
+                valor={"variable": override.name},
+                accion="no_aplicar_override",
+            )
 
     def _log_target_rule_decisions(self, resolution: _FeatureColumnResolution) -> None:
         """Declara exclusiones automáticas y contradicciones de una lista explícita."""
@@ -690,6 +703,21 @@ def _validate_training_target(y_train: Series) -> None:
         )
 
 
+def _active_overrides(
+    config: BinningConfig, feature_columns: tuple[str, ...]
+) -> tuple[tuple[VariableBinningConfig, ...], tuple[VariableBinningConfig, ...]]:
+    """Separa los overrides que se aplican de los que quedan en suspenso (D-EXC-1).
+
+    Un override de una variable que el config excluye —``exclude()`` después de ``set_bins()`` o
+    ``merge_bins()``— queda en suspenso en vez de detener la corrida; sigue en el config, así que
+    ``keep()`` lo reactiva. Un override de una variable que no existe sigue siendo un error.
+    """
+    excluidas = set(config.exclude_columns) - set(feature_columns)
+    activos = tuple(o for o in config.variable_overrides if o.name not in excluidas)
+    suspendidos = tuple(o for o in config.variable_overrides if o.name in excluidas)
+    return activos, suspendidos
+
+
 def _build_binner(config: BinningConfig, feature_columns: tuple[str, ...]) -> WoEBinner:
     """Construye ``WoEBinner`` y bloquea las features ya resueltas por el paso."""
     from nikodym.binning.transformer import WoEBinner
@@ -808,6 +836,7 @@ def _build_results(
         optbinning_version=_optbinning_version(),
         excluded_by_target_rule=excluded_by_target_rule,
         rare_category_regroupings=dict(getattr(binner, "rare_category_regroupings_", {})),
+        assigned_bins=tuple(getattr(binner, "assigned_bins_", ())),
     )
     return result, card
 
