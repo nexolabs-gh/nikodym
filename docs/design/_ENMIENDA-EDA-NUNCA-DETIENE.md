@@ -54,7 +54,8 @@ separado:
 | Sub-análisis | Si falla, publica | Y declara |
 |---|---|---|
 | Preparación (frame, etiquetas, partición de análisis, muestreo, columnas a perfilar) | **los cuatro siguientes degradados** con la misma causa: sin población no hay nada que describir | una causa por cada sub-análisis |
-| Tasa por período + estabilidad | la tasa degradada de D-SC-17 —tabla vacía con sus seis columnas— con la causa **nueva** `no_calculable`; la estabilidad, no evaluable con la causa **nueva** `tasa_no_calculable` | la causa en palabras |
+| Tasa por período | la tasa degradada de D-SC-17 —tabla vacía con sus seis columnas— con la causa **nueva** `no_calculable`; la estabilidad, entonces, no evaluable con la causa **nueva** `tasa_no_calculable` (no hay tasa que mirar) | la causa en palabras |
+| Estabilidad, sola | **la tasa se conserva entera** —tabla, figura y cifras—; la estabilidad sale no evaluable con la causa **nueva** `no_calculable` | la causa. Es una unidad de fallo **propia**: atribuir su falla a la tasa haría perder evidencia válida (revisión adversarial, pasada 2) |
 | Perfiles por variable | `UnivariateResult` sin perfiles (estado legal: `columns=()` ya lo produce) | la causa |
 | Calidad por columna | `QualityResult` con la tabla vacía y sus siete columnas | la causa |
 | Figuras | las que se puedan armar con lo que sí se calculó | — (no es una superficie que se lea) |
@@ -79,6 +80,29 @@ con contratos distintos y a propósito:
 
 Los dos devuelven la tabla vacía con sus seis columnas, así que la invariante del DTO de D-SC-17
 («con causa ⇒ tabla vacía y sus columnas») se cumple sin tocarla.
+
+### 1.2 🔴 El preflight no puede predecir un corte que ya no ocurre
+
+`check_dataset()` —la verificación previa que usan la pantalla, el YAML y la puerta de
+artefactos— existe para decir **antes** de correr qué hará fallar la corrida, y cualquier desajuste
+la declara `compatible=False` (`core/dataset_check.py:817`). Dos cosas de `eda` lo alimentan hoy, y
+las dos predirían un corte que D-SC-19 elimina (revisión adversarial, pasada 2, verificado):
+
+- **`DefaultRateConfig.requisitos_incumplidos()`** declara, para `axis="cohort"` sin `cohort_col`,
+  que «la corrida se detendrá al llegar al análisis exploratorio». Pasa a **no declarar nada**: su
+  docstring dice por qué, y el aviso vive donde sí es verdad —el `help` de la opción y la alerta del
+  resumen—.
+- **Las columnas que nombra `eda`** (`date_col`, `cohort_col`, `univariate.columns`) llevan
+  `column_role="input"`, y una ausente produce `missing_column`. El `column_role` **se conserva**
+  —es lo que hace que la pantalla ofrezca la lista de columnas del archivo en vez de un campo de
+  texto—, pero el recorrido del preflight **deja de contarlas como desajuste**: una columna que falta
+  en `eda` cuesta un sub-análisis, no la corrida, y decir «incompatible» sería falso. Se implementa
+  como una exención explícita de la sección `eda` en el recorrido, con su razón en el código.
+
+Queda declarado lo que se pierde: por YAML, una columna de `eda` mal escrita ya no se avisa
+**antes** de correr; se dice **durante** la corrida, como alerta con su causa, sin detener nada. Un
+preflight con avisos no bloqueantes sería una capacidad nueva del contrato transversal D-INV, y no
+entra aquí.
 
 **Qué excepciones se atrapan: todas.** `EdaError` es el caso esperado y su mensaje ya está redactado
 para una persona. Cualquier otra excepción —un defecto del motor— **también** degrada, porque la
@@ -107,7 +131,8 @@ class EdaCardSection(BaseModel):
     failed_analyses: dict[str, str] = {}   # aditivo: sub-análisis → causa, en palabras
 ```
 
-Con claves `default_rate`, `univariate` y `quality`. Vacío en toda corrida que hoy termina.
+Con claves `default_rate`, `stability`, `univariate` y `quality`. Vacío en toda corrida que hoy
+termina.
 
 | Superficie | Qué dice |
 |---|---|
@@ -138,6 +163,8 @@ degradado) se quedan como están, porque su contrato no cambia.
 | 10 | `ResultsTab` pinta el aviso con cada sub-análisis caído (vitest, render estático) | La rama no existe |
 | 10b | **El constructor nuevo nunca levanta**: con frame vacío, índice duplicado, sin la columna del target y con `None` devuelve la tabla vacía con sus seis columnas, y `overall_rate` es finito sólo cuando hay elegibles | El constructor no existe |
 | 10c | La opción `axis="cohort"` del catálogo es **«disponible»** sin `motivo`, `prueba` ni `exige`, con el aviso en su `help`; y un config con `axis="cohort"` sin `cohort_col` **corre** y degrada la tasa | Hoy está marcada «exige otro campo» |
+| 10d | **Preflight**: `check_dataset` declara **compatible** un config cuyos únicos desajustes son de `eda` —`axis="cohort"` sin `cohort_col`, `date_col`/`cohort_col` ausentes, una columna de perfil ausente—, y **sigue** declarando incompatible uno con la misma columna ausente en `binning` (control de que la exención no se derramó) | Hoy los cinco salen `compatible=False` |
+| 10e | **La estabilidad falla sola**: con una excepción inyectada en `assess()`, la tasa se publica entera y la estabilidad sale `no_calculable` con su causa en `failed_analyses["stability"]` | Hoy la corrida muere |
 | 11 | **Bit a bit**: la proyección canónica de una corrida F1 del preset antes y después; las únicas diferencias admitidas son las claves nuevas con su valor vacío (`failed_analyses: {}`), `config_hash` `1063d6cf…` intacto | — (guardrail) |
 
 **Controles negativos (RUNBOOK §6):** (a) volver a dejar que el paso propague la excepción de la
@@ -145,7 +172,9 @@ tasa y ver rojo el 1; (b) atrapar sólo `EdaError` y ver rojo el 5; (c) no publi
 artefactos cuando falla la preparación y ver rojo el 3; (d) rellenar la tasa global con `NaN` en el
 caso de las dos fechas y ver rojo el 6; (e) emitir la decisión también en una corrida sana y ver
 rojo el 7; (f) borrar un rótulo nuevo del espejo del front y ver rojo el 9; (g) usar
-`tasa_no_evaluable` como red —que valida— y ver rojo el 3 por la población rota.
+`tasa_no_evaluable` como red —que valida— y ver rojo el 3 por la población rota; (h) extender la
+exención del preflight a todas las secciones y ver rojo el 10d por `binning`; (i) atribuir la falla
+de la estabilidad a la tasa y ver rojo el 10e.
 
 ## 4. Riesgos
 
@@ -172,6 +201,7 @@ cuando una pasada deja de tumbar premisas y sólo refina detalles).
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
 | 1 | (a) La opción «Por cohorte o añada» de la pantalla seguía marcada «exige otro campo» y decía que la corrida se detiene; (b) el constructor degradado de D-SC-17 **valida la población** y levanta en los tres casos que había que rescatar | (a) la opción pasa a «disponible» con el aviso en su `help` (§2, test 10c); (b) §1.1: un constructor nuevo, `tasa_no_calculable`, que nunca levanta (test 10b, control negativo g) |
+| 2 | (a) El **preflight** seguiría declarando incompatible un config que ahora corre —el requisito de cohorte y las columnas de `eda` ausentes—; (b) tasa y estabilidad como una sola unidad de fallo harían perder una tasa válida cuando falla sólo la estabilidad | (a) §1.2: el requisito deja de declararse y el preflight exime a `eda` conservando el `column_role` del selector de columnas (test 10d, control h); (b) la estabilidad es una unidad propia con su causa (test 10e, control i) |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
