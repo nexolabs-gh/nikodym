@@ -441,3 +441,32 @@ def test_el_sumidero_vale_solo_para_su_ajuste() -> None:
 
     assert len(primero.events) == antes
     assert "proposito" in binner.rare_category_regroupings_
+
+
+def test_un_reajuste_no_optimo_es_un_reintento_fallido_y_no_se_declara_exito(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Pasada 3 de Codex: si el reajuste no alcanza el estado óptimo que exige el config, la
+    recolección descartaría la variable; declarar «reagrupada» y publicar el corte afirmaría algo
+    que no ocurrió, y descartar la variable es decisión de la persona (§1). Es un reintento
+    fallido: el motor se detiene con su diagnóstico y el trail sólo registra el intento."""
+    from optbinning import OptimalBinning
+
+    estado_real = OptimalBinning.status.fget
+
+    def estado(self: OptimalBinning) -> str:
+        reajuste = self.name == "proposito" and self.cat_cutoff not in (None, 0.01)
+        return "FEASIBLE" if reajuste else estado_real(self)
+
+    monkeypatch.setattr(OptimalBinning, "status", property(estado))
+    frame, y = _cartera(NIVELES_RESCATABLES)
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("proposito", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+
+    with pytest.raises(BinningFitError) as error:
+        binner.fit(frame, y, audit=sink)
+
+    assert "FEASIBLE" in str(error.value)
+    assert len(_decisiones(sink, "categoria_rara_intento_reagrupar")) == 1
+    assert _decisiones(sink, "categoria_rara_reagrupada") == []

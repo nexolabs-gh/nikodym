@@ -998,6 +998,18 @@ def _regroup_isolated_rare_categories(
                     subir_umbral=_hay_umbral_mayor(counts, effective),
                 )
             ) from exc
+        if estimator.require_optimal and str(optb.status) != "OPTIMAL":
+            # Un reajuste que no alcanza el estado que exige el config sería descartado por la
+            # recolección: declararlo «reagrupado» afirmaría algo que no ocurrió, y descartar la
+            # variable es decisión de la persona. Es un reintento fallido (pasada 3).
+            raise BinningFitError(
+                mensaje(
+                    detalle=(
+                        f"el nuevo ajuste no alcanzó una solución óptima (estado {optb.status})"
+                    ),
+                    subir_umbral=_hay_umbral_mayor(counts, effective),
+                )
+            )
         with _suppress_known_optbinning_warnings():
             new_table = optb.binning_table.build(add_totals=True)
         still = _degenerate_category_bin(new_table)
