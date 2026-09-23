@@ -14,6 +14,14 @@
 
 ---
 
+> ⚠️ **Generalizada al día siguiente** por
+> [`_ENMIENDA-EDA-NUNCA-DETIENE.md`](_ENMIENDA-EDA-NUNCA-DETIENE.md) (D-SC-19/20): Cami juzgó que
+> el análisis exploratorio no puede detener la corrida por ningún error, y la medición le dio la
+> razón (una cartera con dos columnas de fecha seguía muriendo en `eda`). **El §2 de esta enmienda
+> —«los cinco errores quedan intactos»— y su §8.2 quedan derogados**: esos errores se degradan
+> desde el paso. El resto —el mecanismo de «no evaluable con causa», la tabla vacía, las
+> superficies de D-SC-18— sigue vigente y es lo que la enmienda nueva reutiliza.
+
 ## 0. Por qué existe: el defecto medido
 
 El criterio de completado que Cami fijó el 2026-09-22 exige que el writer corra la librería con tres

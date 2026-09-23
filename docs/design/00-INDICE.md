@@ -1049,6 +1049,18 @@ por módulo bajo SDD-31, la primera
 > pipeline o contar sobre otra población; `BinningStep`, cuyos `requires` incluyen
 > `("data", "splits")`, sí recibe las filas correctas. Tres decisiones para Cami en §6.
 
+> **El análisis exploratorio nunca detiene la corrida (2026-09-23; PROPUESTA —la dirección la
+> eligió Cami el 2026-09-23—; generaliza D-SC-17 y deroga su §2 y su §8.2).**
+> [`_ENMIENDA-EDA-NUNCA-DETIENE.md`](_ENMIENDA-EDA-NUNCA-DETIENE.md), D-SC-19 y D-SC-20. Medido
+> sobre `bda7f20`: una cartera con **dos columnas de fecha** y `partition="random"` muere en `eda`
+> en 3,5 s y se lleva las nueve etapas siguientes, aunque ninguna etapa del modelo necesita a `eda`
+> y ésta tiene 20 puntos donde levanta. Regla: `EdaStep.execute` nunca levanta, siempre publica
+> sus seis artefactos y cada sub-análisis —tasa y estabilidad, perfiles, calidad— falla por
+> separado con su causa (`failed_analyses` en la card, aditivo) y una **alerta** en el resumen;
+> se atrapan todas las excepciones pero las inesperadas se publican con su tipo. Las piezas
+> (`DefaultRateAnalyzer`, los perfiladores) siguen levantando como API estable. Perillas: cero;
+> ningún `config_hash` se mueve.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
