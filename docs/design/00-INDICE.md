@@ -1049,8 +1049,9 @@ por módulo bajo SDD-31, la primera
 > pipeline o contar sobre otra población; `BinningStep`, cuyos `requires` incluyen
 > `("data", "splits")`, sí recibe las filas correctas. Tres decisiones para Cami en §6.
 
-> **El análisis exploratorio nunca detiene la corrida (2026-09-23; PROPUESTA —la dirección la
-> eligió Cami el 2026-09-23—; generaliza D-SC-17 y deroga su §2 y su §8.2).**
+> **El análisis exploratorio nunca detiene la corrida (2026-09-23; **APROBADA por Cami el
+> 2026-09-23** con la recomendación de sus dos decisiones; generaliza D-SC-17 y deroga su §2 y su
+> §8.2).**
 > [`_ENMIENDA-EDA-NUNCA-DETIENE.md`](_ENMIENDA-EDA-NUNCA-DETIENE.md), D-SC-19 y D-SC-20. Medido
 > sobre `bda7f20`: una cartera con **dos columnas de fecha** y `partition="random"` muere en `eda`
 > en 3,5 s y se lleva las nueve etapas siguientes, aunque ninguna etapa del modelo necesita a `eda`

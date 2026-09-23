@@ -6,7 +6,7 @@
 | **Decisiones** | **D-SC-19** (la regla: `eda` nunca detiene la corrida) y **D-SC-20** (qué dicen las superficies de un sub-análisis que falló) |
 | **Módulos** | `nikodym.eda` (`step`, `default_rate`, `stability`, `card`), `nikodym.guided.summaries`, `nikodym.report` (`builder`, `prose`), `web/` (`results-types`, `results-format`, `ResultsTab`), `docs_site/guias/analisis-exploratorio.md` |
 | **Fase** | F1 |
-| **Estado** | **Propuesta** — la dirección la eligió Cami el 2026-09-23 (interactivo: «nunca la mata», y todo en la misma sesión); tres pasadas de Codex absorbidas; falta su OK al documento |
+| **Estado** | **APROBADA por Cami el 2026-09-23** (interactivo), con la recomendación de sus dos decisiones de §5; tres pasadas de Codex absorbidas; se implementa en la misma sesión |
 | **Depende de** | D-SC-17/18 (el mecanismo de «no evaluable con causa» que esta enmienda reutiliza), D-SIM-1/2, D-FLU |
 | **Release** | Aditiva para todo lo que hoy termina: la regla **sólo** entra donde `eda` hoy levanta. Ningún `config_hash` se mueve ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-23 |
