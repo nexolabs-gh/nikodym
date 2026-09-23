@@ -6,7 +6,7 @@
 | **Decisiones** | **D-SC-19** (la regla: `eda` nunca detiene la corrida) y **D-SC-20** (qué dicen las superficies de un sub-análisis que falló) |
 | **Módulos** | `nikodym.eda` (`step`, `default_rate`, `stability`, `card`), `nikodym.guided.summaries`, `nikodym.report` (`builder`, `prose`), `web/` (`results-types`, `results-format`, `ResultsTab`), `docs_site/guias/analisis-exploratorio.md` |
 | **Fase** | F1 |
-| **Estado** | **APROBADA por Cami el 2026-09-23** (interactivo), con la recomendación de sus dos decisiones de §5; tres pasadas de Codex absorbidas; se implementa en la misma sesión |
+| **Estado** | **APROBADA por Cami el 2026-09-23** (interactivo), con la recomendación de sus dos decisiones de §5; tres pasadas de Codex absorbidas. **Implementada el 2026-09-23** en la misma sesión; lo que el código midió distinto de lo escrito, en §7 |
 | **Depende de** | D-SC-17/18 (el mecanismo de «no evaluable con causa» que esta enmienda reutiliza), D-SIM-1/2, D-FLU |
 | **Release** | Aditiva para todo lo que hoy termina: la regla **sólo** entra donde `eda` hoy levanta. Ningún `config_hash` se mueve ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-23 |
@@ -236,6 +236,48 @@ cuando una pasada deja de tumbar premisas y sólo refina detalles).
 **leer mal** lo que el diseño ya publicaba. Ninguna tumbó la regla; las tres afinaron sus bordes.
 Es el criterio de parada declarado: estas correcciones no llevan pasada propia, y la
 implementación abre con una pasada sobre su rango de código.
+
+## 7. Implementación (2026-09-23) — lo que el código midió distinto de lo escrito
+
+Implementada en la misma sesión de la aprobación. Cinco cosas se resolvieron al programar y quedan
+declaradas aquí, porque el lector de §1–§3 las encontraría distintas en el código:
+
+1. **La población se valida una vez, en la preparación.** §1 la ponía implícita en la red de la
+   tasa; medido, con el target ausente la calidad —que describe el archivo y no lee el target—
+   salía **bien** mientras la tasa y los perfiles caían, y el test 3 («los tres sub-análisis con la
+   misma causa») quedaba rojo por la razón correcta. `EdaStep` llama a `_validar_poblacion` —el
+   mismo guard de D-SC-17— justo después de elegir la partición: una población rota (vacía, con
+   índice duplicado o sin el target) cae en la preparación y los tres sub-análisis salen con **su**
+   causa, una sola. Consecuencia para los controles negativos: el defecto (g) —usar
+   `tasa_no_evaluable` como red— ya no lo delata el 3, porque la población rota nunca llega a esa
+   red; lo delata el 2, porque la causa sale «sin eje» en vez de `no_calculable`. Y se añade el
+   control (g2): quitar el guard de la preparación pone rojo el 3.
+2. **La frase de un análisis caído tiene una sola fuente** en `nikodym.eda.card`:
+   `FAILED_ANALYSIS_LABELS` (el sujeto de cada clave, en el orden del paso) y
+   `failed_analysis_sentence(key, cause)` → «<sujeto> no se pudo calcular: «<causa>»». La causa va
+   **citada** porque es el mensaje del motor tal cual, y como cita conserva su mayúscula tras los
+   dos puntos; se le quita el punto final. La leen el resumen de la etapa y el informe; el panel
+   la replica en `edaFailedAnalyses` y el espejo de vocabulario ata los dos mapas.
+3. **El tipo de una excepción inesperada viaja en la causa**, no en un campo nuevo del trail:
+   `DecisionRecord` no cambia (RUNBOOK §12.2-11), y la causa —que va al `umbral` de la decisión
+   `analisis_exploratorio_parcial`— ya dice «error inesperado del motor (`KeyError`): …».
+4. **Las causas del motor conservan sus nombres de campo.** Algunos mensajes de `EdaError` dicen
+   el campo que hay que tocar —«declare `eda.default_rate.date_col` explícitamente»—. Esta enmienda
+   los publica tal cual (§1.3 los da por redactados para una persona) y el gate de identificadores
+   del resumen y del informe vigila los **slugs** de los mapas de rótulos (`no_calculable`,
+   `tasa_no_calculable`, `failed_analyses`), no las rutas de config. Reescribir los mensajes para
+   una lectura sin YAML es trabajo aparte y no entra aquí.
+5. **Los tests de D-SC-17 que exigían `EdaError` desde el paso se invirtieron**, con la inversión
+   dicha en su docstring: los cinco errores se miden ahora sobre la **pieza**
+   (`DefaultRateAnalyzer.compute` sigue levantando) y desde el paso publican su causa; y los
+   cinco de `test_eda_step.py` (seis casos) que exigían el error por artefactos mal tipados,
+   partición sin filas o sin columna de partición pasan a exigir la causa en los tres
+   sub-análisis. El requisito de cohorte de `test_invariantes_previas.py` se invirtió igual: ya no
+   se declara.
+
+Controles negativos: los once de §3 más (g2) y cinco de superficie —métricas, párrafo del informe,
+tabla vacía del builder, alertas del resumen y aviso del panel (vitest)—, cada uno rojo en su test
+y restaurado byte a byte.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 

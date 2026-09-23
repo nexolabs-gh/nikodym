@@ -193,4 +193,6 @@ def test_build_eda_card_sobre_mismo_resultado_es_determinista() -> None:
         "axis_inferred": False,
         "stability_not_evaluable_reason": None,
         "default_rate_not_evaluable_reason": None,
+        # Aditivo de D-SC-19/20: los sub-análisis que no se pudieron calcular; vacío si ninguno.
+        "failed_analyses": {},
     }

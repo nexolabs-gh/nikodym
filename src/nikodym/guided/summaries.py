@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from nikodym.binning.results import IV_BAND_LABELS
+from nikodym.eda.card import FAILED_ANALYSIS_LABELS, failed_analysis_sentence
 from nikodym.eda.default_rate import (
     AXIS_LABELS,
     DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
@@ -542,7 +543,24 @@ def _resumen_eda(study: Study, context: SummaryContext) -> StageSummary:
         eje = AXIS_LABELS.get(str(card.get("axis")), str(card.get("axis")))
         n_periods = _int(card.get("n_periods")) or 0
         sin_eje = card.get("default_rate_not_evaluable_reason")
-        if sin_eje:
+        fallos = _mapping(card.get("failed_analyses"))
+        # D-SC-19/20: un sub-análisis caído es algo que revisar —una ALERTA, que el resumen final
+        # recoge en «Qué revisar»— y su línea de cifras se calla: publicar «ninguna marca» o «0
+        # columnas» sobre un cálculo que no se hizo sería afirmar un resultado negativo.
+        for clave in FAILED_ANALYSIS_LABELS:
+            if clave in fallos:
+                alerts.append(failed_analysis_sentence(clave, str(fallos[clave])))
+        if sin_eje == "no_calculable":
+            # La agrupación falló, no el archivo: la tasa global se conserva si hubo población.
+            # Sin población no hay cifra, y «sin operaciones elegibles» afirmaría algo que nadie
+            # midió; la línea «en el tiempo» la dice la alerta de arriba, con su causa.
+            media = card.get("overall_default_rate")
+            lines.append(
+                "Tasa de malos: no disponible"
+                if media is None or media != media
+                else f"Tasa de malos: {_pct(media)}"
+            )
+        elif sin_eje:
             # D-SC-17: no hubo eje con que agrupar. Decir «por fecha de observación: 0 períodos»
             # sería absurdo, y la tasa global sí existe y es la cifra que el modelador quiere. No
             # lleva denominador: el único que `eda` publica vive en las filas de `by_period`, que
@@ -567,9 +585,9 @@ def _resumen_eda(study: Study, context: SummaryContext) -> StageSummary:
         indicador = STABILITY_INDICATOR_LABELS.get(
             str(card.get("stability_metric_used")), str(card.get("stability_metric_used"))
         )
-        if sin_eje:
-            # La línea de arriba ya dijo que la tasa en el tiempo no es evaluable y por qué;
-            # repetirlo con las palabras de la señal sería decir dos veces lo mismo.
+        if sin_eje or causa in ("no_calculable", "tasa_no_calculable"):
+            # La línea de arriba —o la alerta— ya dijo que la tasa en el tiempo no es evaluable y
+            # por qué; repetirlo con las palabras de la señal sería decir dos veces lo mismo.
             pass
         elif causa:
             lines.append(
@@ -588,12 +606,15 @@ def _resumen_eda(study: Study, context: SummaryContext) -> StageSummary:
                 f"{_num(card.get('stability_value'))}, umbral "
                 f"{_num(card.get('stability_threshold'))})"
             )
-        lines.append(
-            f"{_miles(_int(card.get('n_columns_profiled')) or 0)} columnas descritas frente al "
-            "incumplimiento"
-        )
+        if "univariate" not in fallos:
+            lines.append(
+                f"{_miles(_int(card.get('n_columns_profiled')) or 0)} columnas descritas frente "
+                "al incumplimiento"
+            )
         marcas = _marcas_de_calidad(study)
-        if marcas:
+        if "quality" in fallos:
+            pass
+        elif marcas:
             lines.append(f"Marcas de calidad del archivo: {_enumerar(marcas)}")
         else:
             lines.append("Marcas de calidad del archivo: ninguna")
@@ -1476,11 +1497,29 @@ def _estado_de_ejecucion(
     if study is None:
         return "sin correr todavía"
     estado = study.run_context.status
+    caidos = _analisis_exploratorios_caidos(study)
     if estado == "running":
         # El informe se renderiza con la corrida todavía en curso: no afirma «completada» —eso lo
         # dice summary() al terminar— sino qué corrió sin fallos hasta aquí y, si `run.steps`
         # puso pasos después del informe, cuáles quedan y que este documento no los refleja.
         corrieron = _enumerar([s.label for s in stages]) if stages else "ninguna etapa"
+        if caidos:
+            # D-SC-20: con un análisis exploratorio parcial, «sin fallos» sería falso. Una corrida
+            # sana no entra aquí y conserva byte a byte las dos frases de abajo.
+            parcial = (
+                "el análisis exploratorio, de forma parcial: "
+                f"{_miles(caidos)} de sus análisis no se "
+                f"{_plural(caidos, 'pudo', 'pudieron')} calcular (ver «Qué revisar»)"
+            )
+            if context.pending_stages:
+                quedan = _enumerar([STAGE_LABELS.get(s, s) for s in context.pending_stages])
+                return (
+                    f"corrieron {corrieron} antes de este informe; {parcial}; después del informe "
+                    f"quedan por correr {quedan}, y este documento no puede reflejarlas"
+                )
+            return (
+                f"corrieron {corrieron}; {parcial}; este informe es la última etapa de la corrida"
+            )
         if context.pending_stages:
             quedan = _enumerar([STAGE_LABELS.get(s, s) for s in context.pending_stages])
             return (
@@ -1489,10 +1528,11 @@ def _estado_de_ejecucion(
             )
         return f"corrieron sin fallos {corrieron}; este informe es la última etapa de la corrida"
     if estado == "done":
+        cola = " — con el análisis exploratorio parcial" if caidos else ""
         if context.until is not None:
             hasta = STAGE_LABELS.get(context.until, context.until)
-            return f"completada hasta «{hasta}» (corrida parcial)"
-        return "completada"
+            return f"completada hasta «{hasta}» (corrida parcial){cola}"
+        return f"completada{cola}"
     if estado == "failed":
         error = study.run_context.error
         etapa = STAGE_LABELS.get(
@@ -1502,6 +1542,12 @@ def _estado_de_ejecucion(
         donde = f" en «{etapa}»" if getattr(error, "step", None) else " antes del primer paso"
         return f"fallida{donde}: {mensaje}"
     return estado
+
+
+def _analisis_exploratorios_caidos(study: Study) -> int:
+    """Cuántos sub-análisis de `eda` no se pudieron calcular (D-SC-19); 0 si no corrió."""
+    card = _card(study, "eda", "eda_card")
+    return len(_mapping(card.get("failed_analyses"))) if card is not None else 0
 
 
 def _estado_de_validacion(study: Study | None, context: SummaryContext) -> str:

@@ -34,10 +34,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   publicar ni una tabla vacía ni las frases que dependían del eje. En la pantalla, la opción «Por
   la fecha de observación» deja de estar marcada como que exige otro campo —ya no detiene nada— y
   su aviso pasa a la ayuda de la opción. **Nada cambia para una corrida que hoy termina**: con el
-  mismo config los resultados son bit a bit los de antes y ningún `config_hash` se mueve. Lo que
-  **sigue siendo un error**, con su mensaje de siempre, es contradecir lo declarado: una columna
-  de fecha que no existe o que no es fecha, más de una columna de fecha sin decir cuál, o el eje
-  por cohorte sin indicar la columna.
+  mismo config los resultados son bit a bit los de antes y ningún `config_hash` se mueve.
+- **El análisis exploratorio ya no detiene la corrida por ningún error** (D-SC-19/20). La
+  corrección anterior dejaba como errores fatales las contradicciones con lo declarado, y el
+  archivo de banco más común —fecha de originación y fecha de corte— moría igual en `eda` a los
+  3,5 s con «más de una columna datetime». El análisis exploratorio es descriptivo y ninguna etapa
+  del modelo depende de él, así que ahora **cada una de sus partes falla por separado**: la tasa
+  en el tiempo, la señal de deterioro, la descripción de las columnas y la revisión de calidad. La
+  que no se pudo calcular sale «no se pudo calcular» **con la causa del motor**, el resto se hace
+  igual, la tasa global se conserva siempre que haya población y la corrida sigue hasta el
+  informe. Nada de lo que falló se publica como resultado negativo: ni «ninguna marca de
+  calidad», ni «0 columnas descritas», ni «estable» en el canal de métricas. Cada falla va al
+  registro de auditoría, al resumen de la etapa como aviso, a «Qué revisar» del resumen final, al
+  panel de Resultados y al informe; la corrida se da por «completada — con el análisis
+  exploratorio parcial» y la página ejecutiva del informe deja de decir «sin fallos». Un error
+  que no sea del análisis —un defecto del motor— también degrada, pero se publica con su tipo. La
+  verificación previa deja de predecir un corte que ya no ocurre: una columna de `eda` que falta
+  ya no hace «incompatible» el archivo, y la opción «Por cohorte o añada» deja de estar marcada
+  como que exige otro campo. Las piezas usadas por código —`DefaultRateAnalyzer`,
+  `UnivariateProfiler`, `DataQualityProfiler`— siguen levantando su error de siempre. **Nada
+  cambia para una corrida que hoy termina**: con el mismo config los resultados son bit a bit los
+  de antes y ningún `config_hash` se mueve.
   `DefaultRateResult` y la sección EDA de la ficha ganan cada uno un campo aditivo con la causa
   (`not_evaluable_reason` y `default_rate_not_evaluable_reason`), nulos en toda corrida anterior.
 

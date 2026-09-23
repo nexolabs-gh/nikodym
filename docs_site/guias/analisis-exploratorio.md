@@ -40,9 +40,18 @@ que agrupar, y eso **no detiene la corrida**: la tasa en el tiempo se publica co
 evaluable»**, con su causa en palabras, y el resto del análisis exploratorio —la tasa global, el
 perfil por tramo de cada variable y la calidad de datos por columna— se hace igual.
 La decisión queda en el trail, el resumen de la etapa la dice, el panel de Resultados la pinta bajo
-las cifras y el informe la redacta. Lo que sí sigue siendo un error es **contradecir lo que
-declaraste**: nombrar una columna de fecha que el archivo no trae, una que no es fecha, tener más
-de una columna de fecha sin decir cuál, o elegir el eje por cohorte sin indicar qué columna es.
+las cifras y el informe la redacta.
+
+**El análisis exploratorio nunca detiene la corrida.** Es descriptivo y ninguna etapa del modelo
+depende de él, así que si una de sus partes no se puede calcular —nombraste una columna de fecha
+que el archivo no trae o que no es fecha, el archivo tiene más de una columna de fecha y no dijiste
+cuál, elegiste el eje por cohorte sin indicar qué columna es, o pediste describir una columna que
+no existe—, esa parte sale **«no se pudo calcular»** con la causa del motor y el resto se hace
+igual. La tasa global se conserva siempre que haya población con que calcularla. Cada parte que
+no se pudo calcular es algo que revisar: el resumen de la etapa la avisa, el resumen final la
+recoge en «Qué revisar», el panel de Resultados la lista bajo las cifras, el informe la redacta,
+y la corrida se da por **completada, con el análisis exploratorio parcial**. Si el dato está roto
+de verdad, lo detiene la primera etapa que sí lo necesita —los tramos—, con su propio mensaje.
 
 Es lo que ocurre en la corrida de esta guía: el archivo no tiene fecha y se particiona por la
 columna `cohorte`, así que la tasa sale por cohorte, y Resultados lo dice con todas sus letras
@@ -68,7 +77,7 @@ con uno de tres indicadores —la **variación relativa**, el **peor desvío** r
 la **tendencia**— y lo compara con un umbral. Por encima del umbral registra un **aviso de posible
 redesarrollo**. Es un umbral de exploración, no una regla: la corrida sigue igual.
 
-Hay cuatro situaciones en las que la señal **no se evalúa**, y las cuatro se declaran con su causa
+Hay seis situaciones en las que la señal **no se evalúa**, y las seis se declaran con su causa
 en vez de callarse o de fallar:
 
 | Causa | Cuándo |
@@ -77,6 +86,8 @@ en vez de callarse o de fallar:
 | Menos de dos períodos con observaciones suficientes | Un solo período, o varios de los que menos de dos superan el mínimo |
 | Sin incumplimientos en los períodos evaluables | La tasa media es cero y el indicador es relativo (variación relativa o peor desvío); con la tendencia sí se evalúa, y vale cero |
 | El archivo no trae un eje temporal que ordenar | No hubo con qué agrupar la tasa: sin columna de fecha y sin cohorte declarada. La propia tasa en el tiempo sale «No evaluable», con su causa —**el archivo no trae columna de fecha ni cohorte declarada**— y la corrida sigue |
+| La tasa por período no se pudo calcular | La tasa en el tiempo falló —por ejemplo, dos columnas de fecha sin decir cuál—: no hay serie que mirar. La tasa sale «no se pudo calcular» y la causa del motor está en «Qué revisar» |
+| No se pudo calcular | La señal falló por sí sola: la tasa en el tiempo se conserva entera —tabla y gráfico— y la causa del motor está en «Qué revisar» |
 
 En la corrida de esta guía la causa es la primera: la tasa por cohorte se ve y se lee, pero no hay
 serie temporal que evaluar.

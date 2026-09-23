@@ -555,6 +555,13 @@ class ReportBuilder:
                 getattr(artefacto, "not_evaluable_reason", None) is not None
             ):
                 continue
+            # D-SC-20: la calidad que no se pudo calcular llega con la tabla vacía y sus siete
+            # columnas. Mismo trato: una tabla de sólo encabezados no es evidencia, y la prosa del
+            # contexto ya dice qué no se calculó y por qué.
+            if (domain, key) == ("eda", "quality") and (
+                getattr(getattr(artefacto, "by_column", None), "empty", False) is True
+            ):
+                continue
             tables.update(_extract_dataframes(artefacto, f"{domain}.{key}"))
         return tables
 

@@ -2239,9 +2239,11 @@ export const EDA_STABILITY_INDICATOR_LABELS: Record<string, string> = {
 /** Espejo de `nikodym.eda.stability.NOT_EVALUABLE_REASON_LABELS`: por qué no se evaluó. */
 export const EDA_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
   eje_cohorte: "eje de cohorte, sin orden cronológico",
+  no_calculable: "no se pudo calcular",
   pocos_periodos_evaluables: "menos de dos períodos con observaciones suficientes",
   sin_eje_temporal: "el archivo no trae un eje temporal que ordenar",
   tasa_media_cero: "sin incumplimientos en los períodos evaluables",
+  tasa_no_calculable: "la tasa por período no se pudo calcular",
 } as const
 
 /**
@@ -2250,11 +2252,47 @@ export const EDA_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
  */
 export const EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS: Record<string, string> = {
   sin_eje_temporal: "el archivo no trae columna de fecha ni cohorte declarada",
+  no_calculable: "no se pudo calcular",
 } as const
 
 /** La causa de la tasa en palabras; el slug crudo sólo si el motor gana una que el front no tiene. */
 export function edaDefaultRateReasonLabel(reason: string): string {
   return EDA_DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS[reason] ?? reason
+}
+
+/**
+ * Espejo de `nikodym.eda.card.FAILED_ANALYSIS_LABELS` (D-SC-20): el sujeto de cada sub-análisis
+ * que puede fallar, en el orden del paso, que es el orden del aviso.
+ */
+export const EDA_FAILED_ANALYSIS_LABELS: Record<string, string> = {
+  default_rate: "La tasa de malos en el tiempo",
+  stability: "El deterioro de la tasa en el tiempo",
+  univariate: "La descripción de las columnas frente al incumplimiento",
+  quality: "La revisión de calidad del archivo",
+} as const
+
+/**
+ * Los sub-análisis que no se pudieron calcular, cada uno como la frase que escribe el motor
+ * (`nikodym.eda.card.failed_analysis_sentence`): «<sujeto> no se pudo calcular: «<causa>»». La
+ * causa va citada —es el mensaje del motor tal cual— y sin su punto final. Un payload sin
+ * `failed_analyses` —anterior a D-SC-19— no tiene ninguno.
+ */
+export function edaFailedAnalyses(eda: EdaResult): string[] {
+  const fallos = eda.failed_analyses ?? {}
+  const frases: string[] = []
+  for (const [clave, sujeto] of Object.entries(EDA_FAILED_ANALYSIS_LABELS)) {
+    const causa = fallos[clave]
+    if (causa === undefined) continue
+    frases.push(`${sujeto} no se pudo calcular: «${causa.trim().replace(/\.+$/, "")}»`)
+  }
+  // Una clave que el motor gane y el front no conozca se dice igual, con su slug: callarla
+  // escondería una falla.
+  for (const [clave, causa] of Object.entries(fallos)) {
+    if (!(clave in EDA_FAILED_ANALYSIS_LABELS)) {
+      frases.push(`${clave} no se pudo calcular: «${causa.trim().replace(/\.+$/, "")}»`)
+    }
+  }
+  return frases
 }
 
 /** Espejo de `nikodym.eda.quality.QUALITY_FLAG_LABELS`: las tres marcas de calidad. */

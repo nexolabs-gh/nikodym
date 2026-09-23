@@ -31,11 +31,14 @@ from nikodym.eda.config import DefaultRateConfig, EdaConfig
 from nikodym.eda.default_rate import (
     DefaultRateAnalyzer,
     DefaultRateResult,
+    _validar_poblacion,
     datetime_columns,
+    tasa_no_calculable,
     tasa_no_evaluable,
 )
 from nikodym.eda.exceptions import EdaError
 from nikodym.eda.figures import FigureSpec, _build_figure_specs
+from nikodym.eda.quality import _RESULT_COLUMNS as _COLUMNAS_CALIDAD
 from nikodym.eda.quality import DataQualityProfiler, QualityFlag, QualityResult
 from nikodym.eda.stability import StabilityResult, TemporalStabilityAnalyzer
 from nikodym.eda.univariate import UnivariateProfiler, UnivariateResult
@@ -102,72 +105,172 @@ class EdaStep(AuditableMixin):
         particiones, lee ``("data", "splits")`` de forma condicional cuando
         ``analysis_partition`` no es ``"todas"``; esa clave no entra en ``requires`` por decisión
         de frontera documentada en el módulo.
-        """
-        frame = _as_dataframe(study.artifacts.get("data", "frame"))
-        labels = _as_labeled_frame(study.artifacts.get("data", "labels"))
-        frame_part = self._partition_frame(study, frame)
-        profile_frame = self._sample_if_needed(frame_part, rng)
-        target_col = labels.target_col
-        default_rate_config, axis_inferred, sin_eje = self._resolve_axis(study, frame_part)
-        columns = _resolve_univariate_columns(
-            frame_part,
-            target_col,
-            labels.status_col,
-            self.config,
-            default_rate_config=default_rate_config,
-            label_columns=_label_defining_columns(study),
-        )
 
-        if sin_eje:
-            # D-SC-17: no hay eje con que agrupar y tampoco contradicción que denunciar. La tasa
-            # se publica «no evaluable» con su causa —el mismo trato que `stability` ya daba a su
-            # señal— y la corrida sigue con el resto del análisis, que no depende del eje.
-            default_rate = tasa_no_evaluable(
+        🔴 **Nunca levanta** (D-SC-19). El análisis exploratorio es descriptivo y ninguna etapa
+        del modelo lo necesita, así que un error aquí cuesta un sub-análisis, no la corrida: la
+        preparación, la tasa por período, la estabilidad, los perfiles y la calidad fallan **por
+        separado**, cada uno publica su versión vacía y su causa va a ``failed_analyses`` de la
+        card, al trail y —como alerta— a las superficies. El paso publica siempre sus seis
+        artefactos. Se atrapa cualquier excepción, pero una que no sea ``EdaError`` —un defecto
+        del motor— se publica con su tipo, para que no quede escondida. Las piezas
+        (``DefaultRateAnalyzer``, los perfiladores), usadas sueltas, siguen levantando.
+        """
+        fallos: dict[str, str] = {}
+
+        def anotar(sub_analisis: str, exc: BaseException) -> None:
+            fallos[sub_analisis] = _causa(exc)
+
+        try:
+            frame = _as_dataframe(study.artifacts.get("data", "frame"))
+            labels = _as_labeled_frame(study.artifacts.get("data", "labels"))
+            frame_part = self._partition_frame(study, frame)
+            target_col = labels.target_col
+            # Una población rota —vacía, con índice duplicado o sin la columna del target— se
+            # detecta UNA vez, aquí: los tres sub-análisis que la leen salen con la misma causa, en
+            # vez de que la calidad la describa como si nada y los otros dos fallen por separado.
+            _validar_poblacion(frame_part, target_col=target_col)
+            profile_frame = self._sample_if_needed(frame_part, rng)
+            default_rate_config, axis_inferred, sin_eje = self._resolve_axis(study, frame_part)
+            columns = _resolve_univariate_columns(
                 frame_part,
-                target_col=target_col,
-                axis=default_rate_config.axis,
-                reason="sin_eje_temporal",
+                target_col,
+                labels.status_col,
+                self.config,
+                default_rate_config=default_rate_config,
+                label_columns=_label_defining_columns(study),
             )
-            # La decisión va DESPUÉS de construir el resultado: si la población no valida, la
-            # corrida se detiene con el error de siempre y el trail no registra una degradación
-            # que nunca ocurrió.
-            self.log_decision(
-                regla="tasa_por_periodo",
-                umbral="una columna de fecha o una cohorte declarada",
-                valor="sin eje temporal",
-                accion="no_evaluable",
+        except Exception as exc:  # D-SC-19: sin población no hay qué describir
+            for sub_analisis in ("default_rate", "univariate", "quality"):
+                anotar(sub_analisis, exc)
+            return self._publicar(
+                study,
+                default_rate=tasa_no_calculable(
+                    None, target_col=None, axis=self.config.default_rate.axis
+                ),
+                stability=None,
+                univariate=_perfiles_vacios(),
+                quality=_calidad_vacia(),
+                axis_inferred=False,
+                fallos=fallos,
             )
-        else:
-            default_rate = DefaultRateAnalyzer.from_config(default_rate_config).compute(
-                frame_part,
+
+        try:
+            if sin_eje:
+                # D-SC-17: no hay eje con que agrupar y tampoco contradicción que denunciar. La
+                # tasa se publica «no evaluable» con su causa y la corrida sigue.
+                default_rate = tasa_no_evaluable(
+                    frame_part,
+                    target_col=target_col,
+                    axis=default_rate_config.axis,
+                    reason="sin_eje_temporal",
+                )
+                # La decisión va DESPUÉS de construir el resultado: si la población no valida,
+                # el trail no registra una degradación que no ocurrió; esa falla la anota D-SC-19.
+                self.log_decision(
+                    regla="tasa_por_periodo",
+                    umbral="una columna de fecha o una cohorte declarada",
+                    valor="sin eje temporal",
+                    accion="no_evaluable",
+                )
+            else:
+                default_rate = DefaultRateAnalyzer.from_config(default_rate_config).compute(
+                    frame_part,
+                    target_col=target_col,
+                    audit=self._audit,
+                )
+        except Exception as exc:  # D-SC-19: la tasa falla sola
+            anotar("default_rate", exc)
+            default_rate = tasa_no_calculable(
+                frame_part, target_col=target_col, axis=default_rate_config.axis
+            )
+
+        try:
+            stability: StabilityResult | None = TemporalStabilityAnalyzer.from_config(
+                self.config.stability
+            ).assess(default_rate, audit=self._audit)
+        except Exception as exc:  # D-SC-19: una unidad de fallo propia
+            anotar("stability", exc)
+            stability = None
+
+        try:
+            univariate = UnivariateProfiler.from_config(self.config.univariate).profile(
+                profile_frame,
                 target_col=target_col,
+                columns=columns,
                 audit=self._audit,
             )
-        stability = TemporalStabilityAnalyzer.from_config(self.config.stability).assess(
-            default_rate,
-            audit=self._audit,
+        except Exception as exc:  # D-SC-19: los perfiles fallan solos
+            anotar("univariate", exc)
+            univariate = _perfiles_vacios()
+
+        try:
+            # La calidad es del ARCHIVO: las cuatro columnas que produce ``data`` (target
+            # derivado, estado de la etiqueta, partición y rol TTD) no se diagnostican —sobre
+            # desarrollo, la partición y el TTD salían «casi constante» por construcción—. Las del
+            # usuario, incluidas la fecha, la cohorte y la que define la etiqueta, sí (decisión de
+            # Cami, 2026-09-12).
+            quality = DataQualityProfiler.from_config(self.config.quality).profile(
+                profile_frame.drop(
+                    columns=[
+                        column
+                        for column in (target_col, labels.status_col, PARTITION_COL, TTD_COL)
+                        if column in profile_frame.columns
+                    ]
+                ),
+                audit=self._audit,
+            )
+        except Exception as exc:  # D-SC-19: la calidad falla sola
+            anotar("quality", exc)
+            quality = _calidad_vacia()
+
+        return self._publicar(
+            study,
+            default_rate=default_rate,
+            stability=stability,
+            univariate=univariate,
+            quality=quality,
+            axis_inferred=axis_inferred,
+            fallos=fallos,
         )
-        univariate = UnivariateProfiler.from_config(self.config.univariate).profile(
-            profile_frame,
-            target_col=target_col,
-            columns=columns,
-            audit=self._audit,
-        )
-        # La calidad es del ARCHIVO: las cuatro columnas que produce ``data`` (target derivado,
-        # estado de la etiqueta, partición y rol TTD) no se diagnostican —sobre desarrollo, la
-        # partición y el TTD salían «casi constante» por construcción—. Las del usuario, incluidas
-        # la fecha, la cohorte y la que define la etiqueta, sí (decisión de Cami, 2026-09-12).
-        quality = DataQualityProfiler.from_config(self.config.quality).profile(
-            profile_frame.drop(
-                columns=[
-                    column
-                    for column in (target_col, labels.status_col, PARTITION_COL, TTD_COL)
-                    if column in profile_frame.columns
-                ]
-            ),
-            audit=self._audit,
-        )
-        figures = _build_figure_specs(default_rate=default_rate, univariate=univariate)
+
+    def _publicar(
+        self,
+        study: Study,
+        *,
+        default_rate: DefaultRateResult,
+        stability: StabilityResult | None,
+        univariate: UnivariateResult,
+        quality: QualityResult,
+        axis_inferred: bool,
+        fallos: dict[str, str],
+    ) -> EdaResult:
+        """Arma el resultado, la card y el trail de lo que falló, y publica los seis artefactos.
+
+        Una estabilidad que no llegó a calcularse —porque falló ella o porque no hubo con qué— se
+        construye aquí con su causa: ``tasa_no_calculable`` si lo caído fue la tasa entera,
+        ``no_calculable`` si fue la estabilidad sola. Las figuras son una receta pura sobre lo que
+        sí se calculó; si aun así fallan, se publican sin ninguna.
+        """
+        analizador = TemporalStabilityAnalyzer.from_config(self.config.stability)
+        if stability is None:
+            stability = (
+                analizador.no_calculable()
+                if "stability" in fallos
+                else analizador.assess(default_rate, audit=None)
+            )
+        try:
+            figures = _build_figure_specs(default_rate=default_rate, univariate=univariate)
+        except Exception:  # las figuras son una receta, no una superficie que se lea
+            figures = ()
+        # `DecisionRecord` no cambia (RUNBOOK §12.2-11): el tipo de una excepción inesperada ya
+        # viaja en la causa —«error inesperado del motor (KeyError): …»—, que va al `umbral`.
+        for sub_analisis, causa in fallos.items():
+            self.log_decision(
+                regla="analisis_exploratorio_parcial",
+                umbral=causa,
+                valor=sub_analisis,
+                accion="no_evaluable",
+            )
         result = EdaResult(
             default_rate=default_rate,
             stability=stability,
@@ -176,7 +279,7 @@ class EdaStep(AuditableMixin):
             figures=figures,
             axis_inferred=axis_inferred,
         )
-        eda_card = self._build_eda_card(result=result)
+        eda_card = self._build_eda_card(result=result, fallos=fallos)
         self._publish_artifacts(study, result, eda_card)
         return result
 
@@ -228,10 +331,21 @@ class EdaStep(AuditableMixin):
         """
         card = card_publicada(study, "eda", "eda_card")
         flagged = campo_de_card(card, "stability_flagged")
+        # D-SC-19 §1.3: lo que FALLÓ no se publica como negativo. Una estabilidad caída —o sin
+        # tasa de la que colgar— no es «estable» (0.0), y una tasa caída no tiene «0 períodos». Las
+        # causas esperadas de antes (cohorte, pocos períodos, …) conservan su 0.0: cambiarlo
+        # movería el `results.metrics` de corridas que hoy terminan.
+        estabilidad_caida = campo_de_card(card, "stability_not_evaluable_reason") in (
+            "no_calculable",
+            "tasa_no_calculable",
+        )
+        tasa_caida = campo_de_card(card, "default_rate_not_evaluable_reason") == "no_calculable"
         return {
             "overall_default_rate": campo_de_card(card, "overall_default_rate"),
-            "n_periods": campo_de_card(card, "n_periods"),
-            "stability_flagged": None if flagged is None else float(bool(flagged)),
+            "n_periods": None if tasa_caida else campo_de_card(card, "n_periods"),
+            "stability_flagged": (
+                None if flagged is None or estabilidad_caida else float(bool(flagged))
+            ),
         }
 
     def _partition_frame(self, study: Study, frame: pd.DataFrame) -> pd.DataFrame:
@@ -274,8 +388,16 @@ class EdaStep(AuditableMixin):
         )
         return frame_part.sample(n=max_rows, random_state=rng).copy(deep=True)
 
-    def _build_eda_card(self, *, result: EdaResult) -> EdaCardSection:
-        """Construye el resumen EDA leyendo campos ya calculados por ``EdaResult``."""
+    def _build_eda_card(
+        self, *, result: EdaResult, fallos: Mapping[str, str] | None = None
+    ) -> EdaCardSection:
+        """Construye el resumen EDA leyendo campos ya calculados por ``EdaResult``.
+
+        🔴 Lo que FALLÓ no se publica como resultado negativo (D-SC-19 §1.3): con la calidad caída,
+        ``quality_flag_counts`` sale **vacío** y no con ceros, que se leerían «el archivo no tiene
+        problemas de calidad».
+        """
+        fallos = dict(fallos or {})
         by_column = result.quality.by_column
         return EdaCardSection(
             overall_default_rate=result.default_rate.overall_rate,
@@ -285,14 +407,17 @@ class EdaStep(AuditableMixin):
             stability_threshold=result.stability.threshold,
             stability_value=float(getattr(result.stability, result.stability.metric_used)),
             n_columns_profiled=len(result.univariate.profiles),
-            quality_flag_counts={
-                flag: int(by_column[flag].sum()) for flag in _QUALITY_FLAG_COLUMNS
-            },
+            quality_flag_counts=(
+                {}
+                if "quality" in fallos
+                else {flag: int(by_column[flag].sum()) for flag in _QUALITY_FLAG_COLUMNS}
+            ),
             n_figures=len(result.figures),
             axis=result.default_rate.axis,
             axis_inferred=result.axis_inferred,
             stability_not_evaluable_reason=result.stability.not_evaluable_reason,
             default_rate_not_evaluable_reason=result.default_rate.not_evaluable_reason,
+            failed_analyses=fallos,
         )
 
     def _publish_artifacts(self, study: Study, result: EdaResult, eda_card: EdaCardSection) -> None:
@@ -303,6 +428,28 @@ class EdaStep(AuditableMixin):
         study.artifacts.set("eda", "quality", result.quality)
         study.artifacts.set("eda", "figures", result.figures)
         study.artifacts.set("eda", "eda_card", eda_card)
+
+
+def _causa(exc: BaseException) -> str:
+    """La causa de un sub-análisis caído, en palabras (D-SC-19).
+
+    Un ``EdaError`` trae un mensaje ya redactado para una persona. Cualquier otra excepción es un
+    defecto del motor: se degrada igual —la regla es «nunca detiene la corrida»— pero se publica
+    con su tipo, para que no quede escondida detrás de un «no se pudo calcular».
+    """
+    if isinstance(exc, EdaError):
+        return str(exc)
+    return f"error inesperado del motor ({type(exc).__name__}): {exc}"
+
+
+def _perfiles_vacios() -> UnivariateResult:
+    """Perfiles sin ninguna variable: el mismo estado legal que produce ``columns=()``."""
+    return UnivariateResult(profiles={}, descriptive_iv={})
+
+
+def _calidad_vacia() -> QualityResult:
+    """La tabla de calidad sin filas y con sus siete columnas: sus consumidores leen columnas."""
+    return QualityResult(by_column=pd.DataFrame(columns=list(_COLUMNAS_CALIDAD)))
 
 
 def _as_dataframe(value: object) -> pd.DataFrame:

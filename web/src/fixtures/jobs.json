@@ -66,13 +66,11 @@
               "value": "period"
             },
             {
-              "estado": "exige_otro_campo",
-              "exige": [
-                "eda.default_rate.cohort_col"
-              ],
-              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar.",
+              "estado": "disponible",
+              "exige": [],
+              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar. Necesita que indiques la columna de cohorte o añada —suele ser la misma con la que particionas tus datos—: sin ella, la tasa en el tiempo no se puede calcular y la corrida sigue.",
               "label": "Por cohorte o añada",
-              "motivo": "Necesita que indiques la columna de cohorte o añada: suele ser la misma con la que particionas tus datos. Sin ella, la corrida se detiene aquí.",
+              "motivo": null,
               "value": "cohort"
             }
           ],
@@ -4593,13 +4591,11 @@
               "value": "period"
             },
             {
-              "estado": "exige_otro_campo",
-              "exige": [
-                "eda.default_rate.cohort_col"
-              ],
-              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar.",
+              "estado": "disponible",
+              "exige": [],
+              "help": "Agrupa por la cohorte o añada de cada operación, que es la vista por camada que interesa cuando se compara la calidad de lo que se fue colocando. La señal de deterioro en el tiempo queda sin evaluar. Necesita que indiques la columna de cohorte o añada —suele ser la misma con la que particionas tus datos—: sin ella, la tasa en el tiempo no se puede calcular y la corrida sigue.",
               "label": "Por cohorte o añada",
-              "motivo": "Necesita que indiques la columna de cohorte o añada: suele ser la misma con la que particionas tus datos. Sin ella, la corrida se detiene aquí.",
+              "motivo": null,
               "value": "cohort"
             }
           ],

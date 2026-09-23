@@ -42,18 +42,22 @@ StabilityMetric = Literal["cv", "max_relative_drift", "trend_slope"]
 #: configurado no es finito; ``None`` significa «evaluable», con o sin señal.
 NotEvaluableReason = Literal[
     "eje_cohorte",
+    "no_calculable",
     "pocos_periodos_evaluables",
     "sin_eje_temporal",
     "tasa_media_cero",
+    "tasa_no_calculable",
 ]
 
 #: Las palabras públicas de cada causa: una sola fuente para el panel de Resultados y para la
 #: prosa del informe, con espejo gateado en el front (mismo molde que ``BAND_LABELS``).
 NOT_EVALUABLE_REASON_LABELS: Final[dict[str, str]] = {
     "eje_cohorte": "eje de cohorte, sin orden cronológico",
+    "no_calculable": "no se pudo calcular",
     "pocos_periodos_evaluables": "menos de dos períodos con observaciones suficientes",
     "sin_eje_temporal": "el archivo no trae un eje temporal que ordenar",
     "tasa_media_cero": "sin incumplimientos en los períodos evaluables",
+    "tasa_no_calculable": "la tasa por período no se pudo calcular",
 }
 
 #: Las palabras públicas de los tres indicadores (el ``metric`` del config), para que ni el
@@ -70,9 +74,11 @@ _REQUIRED_COLUMNS: Final = ("period", "default_rate", "low_confidence")
 #: auditable, así que lleva la causa en palabras; ``StabilityResult`` lleva el identificador.
 _TRAIL_VALUE_BY_REASON: Final[dict[str, str]] = {
     "eje_cohorte": "eje de cohorte sin cronología",
+    "no_calculable": "no calculable",
     "pocos_periodos_evaluables": "<2 períodos",
     "sin_eje_temporal": "sin eje temporal",
     "tasa_media_cero": "tasa media cero",
+    "tasa_no_calculable": "tasa no calculable",
 }
 
 
@@ -150,10 +156,15 @@ class TemporalStabilityAnalyzer(AuditableMixin):
         el indicador vale cero, es evaluable y no hay causa.
         """
         if default_rate.not_evaluable_reason is not None:
-            # La tasa no se pudo agrupar por nada (D-SC-17): la señal hereda esa carencia con su
-            # causa PROPIA. Caer por «menos de dos períodos» sería verdadero y engañoso —sugiere
-            # que faltan datos cuando lo que falta es la columna del eje—.
-            return self._not_evaluable(audit, reason="sin_eje_temporal")
+            # La tasa no se pudo agrupar (D-SC-17) o no se pudo calcular (D-SC-19): la señal hereda
+            # esa carencia con su causa PROPIA. Caer por «menos de dos períodos» sería verdadero y
+            # engañoso —sugiere que faltan datos cuando lo que falta es la tasa—.
+            reason: NotEvaluableReason = (
+                "sin_eje_temporal"
+                if default_rate.not_evaluable_reason == "sin_eje_temporal"
+                else "tasa_no_calculable"
+            )
+            return self._not_evaluable(audit, reason=reason)
         if default_rate.axis != "period":
             return self._not_evaluable(audit, reason="eje_cohorte")
         rates = _evaluable_rates(default_rate.by_period.copy(deep=True))
@@ -203,6 +214,22 @@ class TemporalStabilityAnalyzer(AuditableMixin):
             metric_used=self.config.metric,
             threshold=self.config.threshold,
             flagged=flagged,
+        )
+
+    def no_calculable(self) -> StabilityResult:
+        """La señal cuyo PROPIO cálculo falló (D-SC-19): no evaluable, sin decisión en el trail.
+
+        La decisión la registra el paso, que es quien atrapó la falla y conoce su causa; aquí sólo
+        se construye el resultado con la forma de siempre —tres indicadores ``NaN``, sin señal—.
+        """
+        return StabilityResult(
+            cv=float("nan"),
+            max_relative_drift=float("nan"),
+            trend_slope=float("nan"),
+            metric_used=self.config.metric,
+            threshold=self.config.threshold,
+            flagged=False,
+            not_evaluable_reason="no_calculable",
         )
 
     def _not_evaluable(

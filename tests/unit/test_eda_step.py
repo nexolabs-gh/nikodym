@@ -33,7 +33,6 @@ from nikodym.eda.config import (
     UnivariateConfig,
 )
 from nikodym.eda.default_rate import DefaultRateResult
-from nikodym.eda.exceptions import EdaError
 from nikodym.eda.figures import FigureSpec, _build_figure_specs
 from nikodym.eda.step import EDA_ARTIFACTS, EdaResult, EdaStep
 from nikodym.eda.univariate import UnivariateResult
@@ -490,15 +489,25 @@ def test_con_fecha_en_el_archivo_el_eje_no_se_infiere() -> None:
 
 
 def test_con_date_col_declarada_y_ausente_no_se_infiere_nada() -> None:
-    """La inferencia sólo entra con ``date_col`` en blanco: una fecha declarada ausente es error."""
+    """La inferencia sólo entra con ``date_col`` en blanco: una fecha declarada ausente no se
+    reemplaza por la cohorte.
+
+    Invertido por D-SC-19: hasta entonces era un ``EdaError`` desde el paso; ahora la tasa sale
+    «no se pudo calcular» con la causa del motor, y lo que se sigue midiendo es que el motor NO
+    infirió el eje de la cohorte para tapar la fecha declarada.
+    """
     cfg = EdaConfig(
         default_rate=DefaultRateConfig(date_col="fecha_que_no_existe", min_obs_per_period=1),
         univariate=UnivariateConfig(columns=("score",)),
     )
     study = _study_con_data(_frame_sin_fecha(), cfg, _data_config_por_cohorte())
 
-    with pytest.raises(EdaError, match="fecha_que_no_existe"):
-        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+    result = study._run_one(EdaStep.from_config(cfg))
+
+    assert result.axis_inferred is False
+    assert result.default_rate.not_evaluable_reason == "no_calculable"
+    card = study.artifacts.get("eda", "eda_card")
+    assert "fecha_que_no_existe" in card.failed_analyses["default_rate"]
 
 
 def test_con_eje_de_cohorte_explicito_no_hay_inferencia_y_la_card_lo_dice() -> None:
@@ -605,41 +614,54 @@ def test_execute_rechaza_artefactos_data_mal_tipados(
     value: object,
     match: str,
 ) -> None:
-    """Los artefactos obligatorios de ``data`` fallan con ``EdaError`` claro."""
+    """Los artefactos obligatorios de ``data`` mal tipados se dicen con su causa clara.
+
+    Invertido por D-SC-19: el paso ya no levanta; sin población los tres sub-análisis que la leen
+    salen «no se pudo calcular» con la misma causa, y la corrida sigue.
+    """
     frame = _frame()
     study = _study_with_data(frame)
     study.artifacts.set("data", domain_key, value, overwrite=True)
 
-    with pytest.raises(EdaError, match=match):
-        EdaStep.from_config(study.config.eda).execute(
-            study,
-            study.seed_manager.generator_for("eda"),
-        )
+    EdaStep.from_config(study.config.eda).execute(study, study.seed_manager.generator_for("eda"))
+
+    card = study.artifacts.get("eda", "eda_card")
+    assert set(card.failed_analyses) == {"default_rate", "univariate", "quality"}
+    for causa in card.failed_analyses.values():
+        assert match in causa, causa
 
 
 def test_execute_rechaza_splits_mal_tipado_si_filtra_particion() -> None:
-    """``splits`` se lee condicionalmente y debe ser ``PartitionResult``."""
+    """``splits`` se lee condicionalmente y debe ser ``PartitionResult``.
+
+    Invertido por D-SC-19: la causa se publica en los tres sub-análisis y la corrida sigue.
+    """
     frame = _frame()
     study = _study_with_data(frame)
     study.artifacts.set("data", "splits", object(), overwrite=True)
 
-    with pytest.raises(EdaError, match="PartitionResult"):
-        EdaStep.from_config(study.config.eda).execute(
-            study,
-            study.seed_manager.generator_for("eda"),
-        )
+    EdaStep.from_config(study.config.eda).execute(study, study.seed_manager.generator_for("eda"))
+
+    card = study.artifacts.get("eda", "eda_card")
+    assert set(card.failed_analyses) == {"default_rate", "univariate", "quality"}
+    for causa in card.failed_analyses.values():
+        assert "PartitionResult" in causa, causa
 
 
 def test_execute_rechaza_frame_sin_columna_partition() -> None:
-    """Filtrar particiones requiere la columna producida por ``DataStep``."""
+    """Filtrar particiones requiere la columna producida por ``DataStep``.
+
+    Invertido por D-SC-19: la causa se publica en los tres sub-análisis y la corrida sigue.
+    """
     frame = _frame()
     study = _study_with_data(frame.drop(columns=[PARTITION_COL]))
 
-    with pytest.raises(EdaError, match="columna 'partition'"):
-        EdaStep.from_config(study.config.eda).execute(
-            study,
-            study.seed_manager.generator_for("eda"),
-        )
+    EdaStep.from_config(study.config.eda).execute(study, study.seed_manager.generator_for("eda"))
+
+    card = study.artifacts.get("eda", "eda_card")
+    assert set(card.failed_analyses) == {"default_rate", "univariate", "quality"}
+    for causa in card.failed_analyses.values():
+        assert "columna 'partition'" in causa, causa
 
 
 def test_execute_rechaza_particion_sin_filas() -> None:
@@ -651,11 +673,13 @@ def test_execute_rechaza_particion_sin_filas() -> None:
     )
     study = _study_with_data(frame)
 
-    with pytest.raises(EdaError, match="no tiene filas"):
-        EdaStep.from_config(study.config.eda).execute(
-            study,
-            study.seed_manager.generator_for("eda"),
-        )
+    # Invertido por D-SC-19: la causa se publica en los tres sub-análisis y la corrida sigue.
+    EdaStep.from_config(study.config.eda).execute(study, study.seed_manager.generator_for("eda"))
+
+    card = study.artifacts.get("eda", "eda_card")
+    assert set(card.failed_analyses) == {"default_rate", "univariate", "quality"}
+    for causa in card.failed_analyses.values():
+        assert "no tiene filas" in causa, causa
 
 
 def test_figurespec_es_modelo_frozen_con_dataframe() -> None:

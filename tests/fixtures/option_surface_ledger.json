@@ -1107,7 +1107,7 @@
     },
     {
       "authority": "SDD-30 D-RDY-ABA-1…4",
-      "classification": "methodology_selectable_conditioned",
+      "classification": "methodology_selectable",
       "path": "eda.default_rate.axis",
       "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
       "value": "cohort"

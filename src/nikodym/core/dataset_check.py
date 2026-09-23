@@ -23,7 +23,7 @@ una propiedad del campo, no un criterio transversal —a diferencia de
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from pydantic import BaseModel
 
@@ -696,6 +696,17 @@ def _mensaje_indice_ausente(ruta: str, columna: str) -> str:
     )
 
 
+#: Secciones cuyas columnas ausentes **no** son un desajuste (D-SC-19 §1.2). El preflight predice
+#: lo que detiene la corrida, y el análisis exploratorio ya no la detiene: una ``date_col``, una
+#: ``cohort_col`` o una columna de perfil que no está en el archivo cuestan ese sub-análisis —que
+#: se publica «no se pudo calcular» con su causa— y la corrida sigue. Decir «incompatible» sería
+#: falso. Sus campos **conservan** ``column_role``: es lo que hace que la pantalla ofrezca la lista
+#: de columnas del archivo en vez de un campo de texto. Lo que se pierde, declarado en la enmienda:
+#: por YAML, una columna de ``eda`` mal escrita ya no se avisa antes de correr sino durante la
+#: corrida, como alerta.
+_SECCIONES_QUE_NO_DETIENEN: Final[frozenset[str]] = frozenset({"eda"})
+
+
 def check_dataset(
     config: NikodymConfig,
     columns: Sequence[str],
@@ -761,6 +772,8 @@ def check_dataset(
     for ruta, rol, columna in _declaraciones(config):
         if corren is not None and ruta.split(".", 1)[0] not in corren:
             continue  # ese paso no va a correr: su columna no se abre, y exigirla es un aviso falso
+        if ruta.split(".", 1)[0] in _SECCIONES_QUE_NO_DETIENEN:
+            continue  # su columna ausente cuesta un análisis, no la corrida: ver la constante
         if rol in (ROL_DERIVADA, ROL_NO_COLUMNA):
             continue  # la produce el pipeline (o no es columna): exigirla sería un falso positivo
         if rol == ROL_INDICE:

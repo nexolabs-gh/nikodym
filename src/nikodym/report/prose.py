@@ -1433,6 +1433,10 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
     # tabla—, y el mismo documento ya trae la explicación correcta en «Resultados». Se omiten y se
     # publica la causa, una sola vez.
     sin_eje = _text(eda.get("default_rate_not_evaluable_reason"))
+    # D-SC-19/20: lo que FALLÓ se dice con su causa en un párrafo propio y se calla en las frases
+    # de cifras: «se describieron 0 variables» o «no levantó alertas» sobre un cálculo que no se
+    # hizo serían resultados negativos que nadie midió.
+    fallos = _mapping(eda.get("failed_analyses"))
     frases: list[str] = []
     if rate is not None:
         frases.append(
@@ -1445,18 +1449,20 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
             else _plural(periods, "período", "períodos")
         )
         frases.append(f"la tasa se agrupó {_eda_axis_label(axis)} en {periods} {unidad}")
-    if sin_eje is not None:
+    if sin_eje == "sin_eje_temporal":
         frases.append(
             "la tasa no se pudo agrupar en el tiempo porque "
             f"{_eda_default_rate_reason_label(sin_eje)}"
         )
-    if columns is not None:
+    if columns is not None and "univariate" not in fallos:
         frases.append(
             f"se describieron {columns} {_plural(columns, 'variable', 'variables')} frente al "
             "incumplimiento"
         )
     if frases:
         paragraphs.append(f"{_enumerar(frases)}.")
+    if fallos:
+        paragraphs.append(_eda_parcial(fallos))
 
     if _bool(eda.get("axis_inferred")):
         paragraphs.append(
@@ -1477,7 +1483,11 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
         for flag, count in sorted(flags.items(), key=lambda item: str(item[0]))
         if _int(count)
     )
-    if alertas:
+    if "quality" in fallos:
+        # Sin tabla de calidad no hay marcas que contar, y «no levantó alertas» sería falso: la
+        # causa ya consta en el párrafo de lo que no se pudo calcular.
+        pass
+    elif alertas:
         paragraphs.append(
             f"El perfilado de calidad de datos levantó alertas sobre {_enumerar(alertas)}. "
             "El detalle por variable está en el Anexo B."
@@ -1497,6 +1507,10 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
     reason = _text(eda.get("stability_not_evaluable_reason"))
     value = _float(eda.get("stability_value"))
     threshold = _float(eda.get("stability_threshold"))
+    if reason == "no_calculable":
+        # La estabilidad falló por sí sola: su causa ya consta en el párrafo de lo que no se pudo
+        # calcular, y repetirla sin la causa no añadiría nada.
+        return tuple(paragraphs)
     if reason is not None or value is None:
         causa = _eda_reason_label(reason) if reason is not None else "sin valor publicado"
         paragraphs.append(
@@ -1516,6 +1530,25 @@ def _eda_context(eda: Mapping[str, Any]) -> tuple[str, ...]:
             f"({indicador}) vale {_num(value)} frente al umbral configurado de {_num(threshold)}."
         )
     return tuple(paragraphs)
+
+
+def _eda_parcial(fallos: Mapping[str, Any]) -> str:
+    """El párrafo de los sub-análisis que no se pudieron calcular, cada uno con su causa (D-SC-20).
+
+    El orden, los sujetos y la frase son los de ``nikodym.eda.card``, la misma fuente que el
+    resumen de la etapa; la causa es el mensaje del motor, citado.
+    """
+    from nikodym.eda.card import failed_analysis_sentence
+
+    frases = tuple(
+        f"{failed_analysis_sentence(clave, str(fallos[clave]))}."
+        for clave in _eda_failed_labels()
+        if clave in fallos
+    )
+    return (
+        "El análisis exploratorio se hizo de forma parcial y la corrida siguió, porque ninguna "
+        "etapa del modelo depende de él. " + " ".join(frases)
+    )
 
 
 def _eda_axis_label(axis: str) -> str:
@@ -1573,6 +1606,7 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
     axis = _text(card.get("axis")) or "period"
     columns = _int(card.get("n_columns_profiled")) or 0
     sin_eje = _text(card.get("default_rate_not_evaluable_reason"))
+    fallos = _mapping(card.get("failed_analyses"))
     piezas: list[str] = []
     if sin_eje is not None:
         # D-SC-17: no hay tabla ni figura de la tasa que anunciar, y caer en la rama de «un solo
@@ -1589,12 +1623,28 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
     if columns:
         descritas = _plural(columns, "variable descrita", "variables descritas")
         piezas.append(f"el perfil por tramo de {columns} {descritas}")
-    piezas.append("la calidad de datos por columna")
-    frase = f"A continuación se reproducen {_enumerar(tuple(piezas))}."
-    if sin_eje is None:
-        return (frase,)
+    if "quality" not in fallos:
+        piezas.append("la calidad de datos por columna")
+    frases: list[str] = []
+    if piezas:
+        frases.append(f"A continuación se reproducen {_enumerar(tuple(piezas))}.")
+    if fallos:
+        # D-SC-20: lo que no se pudo calcular no se anuncia —no hay tabla ni figura que lo
+        # reproduzca— y su causa se dijo en el contexto de la población.
+        caidos = tuple(
+            sujeto[0].lower() + sujeto[1:]
+            for clave, sujeto in _eda_failed_labels().items()
+            if clave in fallos
+        )
+        frases.append(
+            f"No se {_plural(len(caidos), 'reproduce', 'reproducen')} {_enumerar(caidos)}: no se "
+            f"{_plural(len(caidos), 'pudo', 'pudieron')} calcular, y la causa consta en el "
+            "contexto de la población."
+        )
+    if sin_eje != "sin_eje_temporal":
+        return tuple(frases)
     return (
-        frase,
+        *frases,
         # ⚠️ La frase dice que el análisis CONTINUÓ y no sobre qué población, a propósito y en dos
         # pasos de revisión adversarial: `eda` describe la partición de `analysis_partition` —de
         # fábrica, desarrollo—, así que no es el archivo entero; y con `sampling` encendido los
@@ -1606,6 +1656,13 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
         f"{_eda_default_rate_reason_label(sin_eje)}. El resto del análisis exploratorio —el "
         "perfil por tramo de cada variable y la calidad de datos por columna— se hizo igual.",
     )
+
+
+def _eda_failed_labels() -> Mapping[str, str]:
+    """Sujetos de los sub-análisis que pueden fallar (fuente única en ``nikodym.eda.card``)."""
+    from nikodym.eda.card import FAILED_ANALYSIS_LABELS
+
+    return FAILED_ANALYSIS_LABELS
 
 
 def _results_binning(bundle: ReportInputBundle) -> tuple[str, ...]:

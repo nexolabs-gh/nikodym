@@ -218,16 +218,19 @@ export type EdaStabilityIndicator = "cv" | "max_relative_drift" | "trend_slope"
 /** Por qué la señal temporal no se evaluó (`NotEvaluableReason` del backend); `null` si sí. */
 export type EdaNotEvaluableReason =
   | "eje_cohorte"
+  | "no_calculable"
   | "pocos_periodos_evaluables"
   | "sin_eje_temporal"
   | "tasa_media_cero"
+  | "tasa_no_calculable"
 
 /**
  * Por qué la TASA no se pudo agrupar (`DefaultRateNotEvaluableReason` del backend, D-SC-17);
  * `null` si sí. Va con `n_periods = 0` y `default_rate` vacío: el panel dice «No evaluable» y su
- * causa en vez de «agrupada por fecha de observación · 0 períodos».
+ * causa en vez de «agrupada por fecha de observación · 0 períodos». `no_calculable` (D-SC-19) es
+ * una falla del cálculo, no del archivo: su causa en palabras viaja en `failed_analyses`.
  */
-export type EdaDefaultRateNotEvaluableReason = "sin_eje_temporal"
+export type EdaDefaultRateNotEvaluableReason = "sin_eje_temporal" | "no_calculable"
 
 /** Las tres marcas booleanas de la tabla de calidad (`QualityFlag` del backend). */
 export type EdaQualityFlag = "near_constant" | "near_unique" | "high_cardinality"
@@ -303,6 +306,12 @@ export interface EdaResult {
   axis_inferred: boolean
   stability_not_evaluable_reason: EdaNotEvaluableReason | null
   default_rate_not_evaluable_reason: EdaDefaultRateNotEvaluableReason | null
+  /**
+   * Los sub-análisis que NO se pudieron calcular, con la causa del motor (D-SC-19/20): claves
+   * `default_rate`, `stability`, `univariate` y `quality`. Vacío en toda corrida sana; opcional
+   * porque un payload anterior —la demo capturada— no lo trae, y se lee como vacío.
+   */
+  failed_analyses?: Record<string, string>
   default_rate?: EdaPeriodRow[] | null
   default_rate_window?: EdaDefaultRateWindow | null
   quality?: EdaQualityRow[] | null

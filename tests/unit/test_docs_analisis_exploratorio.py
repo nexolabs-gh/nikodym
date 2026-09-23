@@ -71,10 +71,20 @@ def test_la_guia_publica_las_palabras_de_la_fuente_unica_y_no_los_identificadore
         "pocos_periodos_evaluables",
         "sin_eje_temporal",
         "tasa_media_cero",
+        "no_calculable",
+        "failed_analyses",
         "near_constant",
         "high_cardinality",
     ):
         assert slug not in prosa, slug
+
+
+def test_la_guia_dice_que_el_analisis_nunca_detiene_la_corrida() -> None:
+    """D-SC-19 derogó la lista de «lo que sigue siendo un error»: publicarla sería falso."""
+    texto = _GUIA.read_text(encoding="utf-8")
+    assert "sigue siendo un error" not in texto
+    assert "nunca detiene la corrida" in texto
+    assert "«no se pudo calcular»" in texto and "Qué revisar" in texto
 
 
 def test_la_guia_esta_en_la_navegacion_y_enlazada_desde_empezar() -> None:

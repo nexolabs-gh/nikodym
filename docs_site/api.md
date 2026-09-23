@@ -175,7 +175,10 @@ correspondencia tiene una sola fuente en `nikodym.eda`.
 | `pocos_periodos_evaluables` | menos de dos períodos con observaciones suficientes | Ídem | ídem |
 | `tasa_media_cero` | sin incumplimientos en los períodos evaluables | Ídem; sólo con un indicador relativo | ídem |
 | `sin_eje_temporal` | el archivo no trae un eje temporal que ordenar | Ídem; la tasa no se pudo agrupar, así que no hay serie que mirar | ídem |
+| `tasa_no_calculable` | la tasa por período no se pudo calcular | Ídem; el cálculo de la tasa falló, así que no hay serie que mirar | ídem |
+| `no_calculable` | no se pudo calcular | Ídem; la señal falló por sí sola y la tasa se conserva entera | ídem |
 | `sin_eje_temporal` | el archivo no trae columna de fecha ni cohorte declarada | Causa de no evaluar **la tasa** (`default_rate_not_evaluable_reason`): sin columna de fecha y sin cohorte declarada no hay eje, la tabla por período sale vacía y la corrida sigue | `nikodym.eda.default_rate.DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS` |
+| `no_calculable` | no se pudo calcular | Ídem, cuando el **cálculo** falló: la tabla sale vacía, la tasa global se conserva si hubo población y la causa del motor viaja en `failed_analyses` | ídem |
 | `near_constant` | casi constante | Marca de calidad por columna | `nikodym.eda.quality.QUALITY_FLAG_LABELS` |
 | `near_unique` | casi única | Ídem | ídem |
 | `high_cardinality` | alta cardinalidad | Ídem | ídem |
@@ -184,6 +187,17 @@ La regla que gobierna la causa es una sola: hay causa **si y sólo si** el indic
 es finito; entonces `stability_value` viaja como `null` y `stability_flagged` es `false`. Cuando
 el archivo no trae columna de fecha y la partición es por cohorte, el eje se **infiere** a esa
 cohorte y la decisión `eje_eda_inferido` queda en el trail de la corrida.
+
+`EdaStep` **nunca detiene la corrida**: la tasa por período, la señal temporal, los perfiles y la
+calidad fallan por separado, cada uno publica su versión vacía y el paso publica siempre sus seis
+artefactos. La card trae `failed_analyses` —sub-análisis (`default_rate`, `stability`,
+`univariate`, `quality`) → causa del motor—, vacío en toda corrida sana; cada falla deja una
+decisión `analisis_exploratorio_parcial` en el trail, y en el canal de métricas lo que no se
+calculó se **omite** en vez de publicarse como cero. Una excepción que no sea `EdaError` también
+degrada, pero su causa lleva el tipo: «error inesperado del motor (`<Tipo>`): …». Las piezas
+—`DefaultRateAnalyzer`, `UnivariateProfiler`, `DataQualityProfiler`— usadas por código siguen
+levantando su `EdaError` de siempre. Los sujetos en palabras y la frase que los redacta viven en
+`nikodym.eda.card` (`FAILED_ANALYSIS_LABELS`, `failed_analysis_sentence`).
 
 ::: nikodym.eda.config.EdaConfig
     options:

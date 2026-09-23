@@ -20,6 +20,7 @@ import resultsTabSource from "@/components/ResultsTab.tsx?raw"
 import demoF1 from "@/fixtures/demo/results-f1.json"
 import demoF4 from "@/fixtures/demo/results-ifrs9.json"
 import { EDA_SCORECARD_REAL } from "@/lib/eda.fixture"
+import { formatPercent } from "@/lib/results-format"
 import { MODEL_CARD_F1 } from "@/lib/model-card.fixture"
 import type {
   EdaResult,
@@ -1065,6 +1066,88 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     // Lo que sí sigue estando, porque la corrida siguió.
     expect(html).toContain("Columnas descritas")
     expect(html).toContain("casi constante")
+  })
+
+  it("🔴 un análisis que no se pudo calcular se dice con su causa y no se pinta como cero", () => {
+    // D-SC-19/20: dos columnas de fecha sin decir cuál. La tasa en el tiempo falló, la tasa
+    // global se conserva, y la señal no tiene tasa que mirar. La corrida siguió.
+    const html = render(
+      conEda({
+        ...base,
+        axis: "period",
+        axis_inferred: false,
+        n_periods: 0,
+        default_rate: [],
+        default_rate_window: { total_periods: 0, truncated: false },
+        stability_value: null,
+        stability_not_evaluable_reason: "tasa_no_calculable",
+        default_rate_not_evaluable_reason: "no_calculable",
+        failed_analyses: {
+          default_rate:
+            "La tasa de default por período encontró más de una columna datetime plausible.",
+        },
+      }),
+    )
+    expect(html).toContain("de forma parcial y la corrida siguió")
+    expect(html).toContain(
+      "La tasa de malos en el tiempo no se pudo calcular: «La tasa de default por período " +
+        "encontró más de una columna datetime plausible»",
+    )
+    expect(html).toContain(">No se pudo calcular<")
+    expect(html).toContain("No evaluable: la tasa por período no se pudo calcular")
+    // La tasa global se conserva: la población era buena.
+    expect(html).toContain(formatPercent(base.overall_default_rate ?? 0, 2))
+    expect(html).not.toContain("data-eda-chart")
+    expect(html).not.toContain("0 períodos")
+    // El aviso de D-SC-17 es de otra causa —la falta de eje— y no se mezcla.
+    expect(html).not.toContain("La tasa no se pudo agrupar en el tiempo")
+    for (const slug of ["no_calculable", "tasa_no_calculable", "failed_analyses", "default_rate:"]) {
+      expect(html).not.toContain(slug)
+    }
+  })
+
+  it("sin población: «No disponible», no «Sin operaciones elegibles», y los perfiles no son un cero", () => {
+    const html = render(
+      conEda({
+        ...base,
+        overall_default_rate: null,
+        n_periods: 0,
+        n_columns_profiled: 0,
+        default_rate: [],
+        default_rate_window: { total_periods: 0, truncated: false },
+        quality: [],
+        univariate: [],
+        quality_flag_counts: {},
+        stability_value: null,
+        stability_not_evaluable_reason: "tasa_no_calculable",
+        default_rate_not_evaluable_reason: "no_calculable",
+        failed_analyses: {
+          default_rate: "La población entregada a EDA no tiene filas para describir.",
+          univariate: "La población entregada a EDA no tiene filas para describir.",
+          quality: "La población entregada a EDA no tiene filas para describir.",
+        },
+      }),
+    )
+    expect(html).toContain(">No disponible<")
+    expect(html).not.toContain("Sin operaciones elegibles")
+    expect(ocurrencias(html, ">No se pudo calcular<")).toBe(2)
+    expect(ocurrencias(html, "no se pudo calcular: «La población entregada")).toBe(3)
+    // El orden del aviso es el del paso: tasa, descripción de columnas, calidad.
+    expect(html.indexOf("La tasa de malos en el tiempo no se pudo")).toBeLessThan(
+      html.indexOf("La descripción de las columnas frente al incumplimiento no se pudo"),
+    )
+    expect(html.indexOf("La descripción de las columnas")).toBeLessThan(
+      html.indexOf("La revisión de calidad del archivo no se pudo"),
+    )
+  })
+
+  it("una corrida sana —o un payload anterior sin la clave— no pinta ningún aviso de parcial", () => {
+    const sinClave = render(conEda(base))
+    const vacia = render(conEda({ ...base, failed_analyses: {} }))
+    for (const html of [sinClave, vacia]) {
+      expect(html).not.toContain("de forma parcial")
+      expect(html).not.toContain("No se pudo calcular")
+    }
   })
 
   it("con la pendiente el mismo caso es evaluable: valor cero, sin causa y sin aviso", () => {

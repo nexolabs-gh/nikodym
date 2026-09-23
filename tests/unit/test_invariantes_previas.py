@@ -395,15 +395,20 @@ def test_el_protocolo_acepta_columnas_desconocidas(config: BaseModel) -> None:
 # ── `eda`: el eje de cohorte sin su columna (capa 3 del scorecard completo, D-SC-3) ──────────
 
 
-def test_eje_de_cohorte_sin_columna_avisa_antes_de_pagar_la_corrida() -> None:
-    """`_cohort_values` levanta en el paso, con `data` ya pagado; el preflight lo dice antes."""
+def test_eje_de_cohorte_sin_columna_ya_no_predice_un_corte() -> None:
+    """Invertido por D-SC-19: el análisis exploratorio nunca detiene la corrida.
+
+    Hasta D-SC-19 el preflight avisaba que la corrida «se detendrá al llegar al análisis
+    exploratorio». Desde D-SC-19 esa carencia cuesta la tasa en el tiempo —«no se pudo calcular»,
+    con su causa— y la corrida sigue: predecir el corte sería falso, así que no se declara.
+    """
     config = NikodymConfig.model_validate({"eda": {"default_rate": {"axis": "cohort"}}})
 
     resultado = check_dataset(config, frozenset({"mora", "cohorte"}))
 
-    rutas = [m.path for m in resultado.mismatches if m.kind == "unmet_requirement"]
-    assert rutas == ["eda.default_rate.cohort_col"]
-    assert "por cohorte" in resultado.mismatches[0].message
+    assert resultado.compatible
+    assert not resultado.mismatches
+    assert DefaultRateConfig(axis="cohort").requisitos_incumplidos(None) == ()
 
 
 def test_eje_de_cohorte_con_su_columna_no_avisa() -> None:

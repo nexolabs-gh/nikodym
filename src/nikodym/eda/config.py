@@ -129,36 +129,18 @@ class DefaultRateConfig(NikodymBaseConfig):
         return frozenset({"cohort_col"}) if self.axis == "period" else frozenset({"date_col"})
 
     def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
-        """Invariantes que el motor exige y que sólo se descubrían corriendo (D-INV-1).
+        """Invariantes que el motor exige y que sólo se descubrían corriendo (D-INV-1): ninguna.
 
-        La única que el preflight puede **afirmar** con lo que sabe: agrupar por cohorte sin decir
-        qué columna es. ``_cohort_values`` levanta ``EdaError`` en el paso, con el pipeline entero
-        de ``data`` ya pagado; no depende del archivo, así que se avisa aunque ``columnas`` sea
-        ``None`` (D-INV-4 protege lo que se afirma del dataset, y esto no dice nada de él).
-
-        ⚠️ La simétrica del eje temporal **no se declara**, a propósito. Con ``axis="period"`` y
-        ``date_col`` en blanco la corrida sólo se detiene si el frame no tiene ninguna columna
-        ``datetime`` **y** la partición no es por cohorte (D-SC-3). El preflight recibe nombres de
-        columna, no tipos: un Parquet trae fechas nativas que ningún esquema declara, y afirmar
-        «no tienes fecha» desde los nombres sería el falso positivo más caro del repo (D-INV-4).
-        Anticiparlo de verdad exige que el perfil del dataset diga qué columnas son de fecha y que
-        el contexto diga si la partición es por cohorte: es una extensión medida y pendiente.
+        Hasta D-SC-19 declaraba una —agrupar por cohorte sin decir qué columna es— con el aviso «la
+        corrida se detendrá al llegar al análisis exploratorio». Desde D-SC-19 el análisis
+        exploratorio **nunca detiene la corrida**: esa carencia cuesta la tasa en el tiempo, que se
+        publica «no se pudo calcular» con su causa, y el preflight existe para predecir lo que
+        **sí** detiene una corrida (``compatible=False``). Declararla sería anunciar un corte que ya
+        no ocurre. El aviso vive donde sí es verdad: el ``help`` de la opción en la pantalla y la
+        alerta del resumen de la etapa. El método se conserva porque es el protocolo D-INV.
         """
         del columnas  # no depende del dataset
-        if self.axis != "cohort" or self.cohort_col is not None:
-            return ()
-        return (
-            Requisito(
-                path="cohort_col",
-                declared="cohort",
-                message=(
-                    "Agrupas la tasa de incumplimiento por cohorte y no indicaste qué columna "
-                    "trae la cohorte o añada, así que la corrida se detendrá al llegar al análisis "
-                    "exploratorio. Indica la columna —suele ser la misma con la que particionas— "
-                    "o agrupa por la fecha de observación."
-                ),
-            ),
-        )
+        return ()
 
 
 class TemporalStabilityConfig(NikodymBaseConfig):

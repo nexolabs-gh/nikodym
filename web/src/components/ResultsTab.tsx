@@ -56,6 +56,7 @@ import {
   edaAxisLabel,
   edaChartKind,
   edaDefaultRateReasonLabel,
+  edaFailedAnalyses,
   edaPeriodNoun,
   edaProfiles,
   edaQualityRows,
@@ -242,6 +243,9 @@ export function ResultsPanel({
   const edaStability = eda ? edaStabilitySummary(eda) : null
   const edaQuality = edaQualityRows(eda)
   const edaProfileViews = edaProfiles(eda)
+  // Lo que no se pudo calcular (D-SC-19/20): una frase por sub-análisis, con su causa.
+  const edaFailed = eda ? edaFailedAnalyses(eda) : []
+  const edaFailedKeys = eda?.failed_analyses ?? {}
   const rows = discriminantRows(results.performance)
   const ivRows = sortByIv(results.binning?.iv_by_variable)
 
@@ -558,9 +562,13 @@ export function ResultsPanel({
             <DefItem
               label="Tasa de incumplimiento"
               value={
-                eda.overall_default_rate === null
-                  ? "Sin operaciones elegibles"
-                  : formatPercent(eda.overall_default_rate, 2)
+                eda.overall_default_rate !== null
+                  ? formatPercent(eda.overall_default_rate, 2)
+                  : // Sin población no hay cifra: «sin operaciones elegibles» afirmaría algo
+                    // que nadie midió (D-SC-19).
+                    eda.default_rate_not_evaluable_reason === "no_calculable"
+                    ? "No disponible"
+                    : "Sin operaciones elegibles"
               }
               mono={eda.overall_default_rate !== null}
             />
@@ -571,15 +579,22 @@ export function ResultsPanel({
                   : `Agrupada ${edaAxisLabel(eda.axis)}`
               }
               value={
-                eda.default_rate_not_evaluable_reason
-                  ? "No evaluable"
-                  : `${formatCount(eda.n_periods)} ${edaPeriodNoun(eda.axis, eda.n_periods)}`
+                eda.default_rate_not_evaluable_reason === "no_calculable"
+                  ? "No se pudo calcular"
+                  : eda.default_rate_not_evaluable_reason
+                    ? "No evaluable"
+                    : `${formatCount(eda.n_periods)} ${edaPeriodNoun(eda.axis, eda.n_periods)}`
               }
               mono={false}
             />
             <DefItem
               label="Columnas descritas"
-              value={formatCount(eda.n_columns_profiled)}
+              value={
+                "univariate" in edaFailedKeys
+                  ? "No se pudo calcular"
+                  : formatCount(eda.n_columns_profiled)
+              }
+              mono={!("univariate" in edaFailedKeys)}
             />
           </dl>
 
@@ -595,7 +610,24 @@ export function ResultsPanel({
 
           {/* 🔴 Sin eje que agrupar (D-SC-17) la tasa en el tiempo NO se calculó, y se dice con
               su causa en palabras. La corrida no se detuvo: el resto del análisis está abajo. */}
-          {eda.default_rate_not_evaluable_reason ? (
+          {/* 🔴 Lo que NO se pudo calcular (D-SC-19/20): el análisis exploratorio nunca detiene la
+              corrida, así que una falla se dice aquí, con la causa del motor, en vez de pintar un
+              cero o una tabla vacía que se leerían como resultado. */}
+          {edaFailed.length > 0 ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              <p>
+                El análisis exploratorio se hizo de forma parcial y la corrida siguió, porque
+                ninguna etapa del modelo depende de él:
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {edaFailed.map((frase) => (
+                  <li key={frase}>{frase}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {eda.default_rate_not_evaluable_reason === "sin_eje_temporal" ? (
             <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               La tasa no se pudo agrupar en el tiempo:{" "}
               {edaDefaultRateReasonLabel(eda.default_rate_not_evaluable_reason)}. El resto del

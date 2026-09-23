@@ -35,7 +35,7 @@ import pytest
 from pydantic import BaseModel
 
 from nikodym.binning.results import IV_BAND_LABELS, IvBand
-from nikodym.eda.card import EdaCardSection
+from nikodym.eda.card import FAILED_ANALYSIS_LABELS, EdaCardSection
 from nikodym.eda.default_rate import _RESULT_COLUMNS as _COLUMNAS_TASA
 from nikodym.eda.default_rate import (
     AXIS_LABELS,
@@ -313,6 +313,8 @@ def test_el_front_espeja_el_vocabulario_de_la_validacion(
             DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
         ),
         ("EDA_QUALITY_FLAG_LABELS", QUALITY_FLAG_LABELS),
+        # D-SC-20: el sujeto de cada sub-análisis que no se pudo calcular.
+        ("EDA_FAILED_ANALYSIS_LABELS", FAILED_ANALYSIS_LABELS),
     ],
 )
 def test_el_front_espeja_el_vocabulario_del_analisis_exploratorio(

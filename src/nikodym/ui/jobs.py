@@ -1022,15 +1022,20 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "help": (
                         "Agrupa por la cohorte o añada de cada operación, que es la vista por "
                         "camada que interesa cuando se compara la calidad de lo que se fue "
-                        "colocando. La señal de deterioro en el tiempo queda sin evaluar."
+                        "colocando. La señal de deterioro en el tiempo queda sin evaluar. "
+                        "Necesita que indiques la columna de cohorte o añada —suele ser la misma "
+                        "con la que particionas tus datos—: sin ella, la tasa en el tiempo no se "
+                        "puede calcular y la corrida sigue."
                     ),
-                    "estado": _EXIGE_OTRO_CAMPO,
-                    "motivo": (
-                        "Necesita que indiques la columna de cohorte o añada: suele ser la misma "
-                        "con la que particionas tus datos. Sin ella, la corrida se detiene aquí."
-                    ),
-                    "prueba": "eda/default_rate.py:232",
-                    "exige": ("eda.default_rate.cohort_col",),
+                    # ⚠️ Estuvo marcada `_EXIGE_OTRO_CAMPO` hasta D-SC-19, con el motivo «sin
+                    # ella, la corrida se detiene aquí». Desde D-SC-19 el análisis exploratorio
+                    # nunca detiene la corrida: sin la columna, la tasa en el tiempo se publica «no
+                    # se pudo calcular» con su causa. Es la misma corrección que D-SC-18 hizo con
+                    # «period»: el estado significa «el config no se construye» (D-EXI-2) y eso dejó
+                    # de ser verdad. El aviso vive ahora en el `help`.
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
                 },
             ),
         },

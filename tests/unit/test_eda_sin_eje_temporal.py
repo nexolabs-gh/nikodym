@@ -38,6 +38,7 @@ from nikodym.eda.config import DefaultRateConfig, EdaConfig, UnivariateConfig
 from nikodym.eda.default_rate import (
     _RESULT_COLUMNS,
     DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS,
+    DefaultRateAnalyzer,
     DefaultRateResult,
     tasa_no_evaluable,
 )
@@ -319,18 +320,22 @@ def test_sin_seccion_data_tambien_degrada() -> None:
 def test_los_cinco_errores_del_motor_siguen_siendo_errores(
     config: DefaultRateConfig, frame: str | None, match: str
 ) -> None:
-    """La regla nueva degrada la **ausencia** de eje, nunca una contradicción de lo declarado."""
+    """La regla de D-SC-17 degrada la **ausencia** de eje, nunca una contradicción de lo declarado.
+
+    Invertido por D-SC-19 **en el paso**: desde el pipeline, estos cinco ya no detienen la
+    corrida —salen «no se pudo calcular» con su causa, y lo mide ``test_eda_nunca_detiene``—.
+    Lo que este test sigue fijando es el contrato de la **pieza**: ``DefaultRateAnalyzer``, usado
+    por código, levanta el mismo ``EdaError`` de siempre y NO los confunde con la falta de eje.
+    """
     datos = _frame_sin_fecha()
     if frame == "dos_fechas":
         datos = datos.assign(
             fecha_1=pd.to_datetime(["2024-01-01"] * len(datos)),
             fecha_2=pd.to_datetime(["2024-02-01"] * len(datos)),
         )
-    cfg = EdaConfig(default_rate=config, univariate=UnivariateConfig(columns=("score",)))
-    study = _study_con_data(datos, cfg, _data_config_aleatorio())
 
     with pytest.raises(EdaError, match=match):
-        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+        DefaultRateAnalyzer.from_config(config).compute(datos, target_col="target")
 
 
 # ───────────────────── las superficies que lo cuentan ─────────────────────
@@ -511,10 +516,12 @@ def test_el_constructor_degradado_valida_la_poblacion_igual_que_compute(
     ],
 )
 def test_la_rama_degradada_valida_la_poblacion_igual_que_la_normal(mutar: str, match: str) -> None:
-    """El mismo contrato visto desde el paso: la corrida se detiene con el error de siempre.
+    """El mismo contrato visto desde el paso: la población rota NO se degrada como «sin eje».
 
-    Complementa al anterior —que es el que vigila el guard— midiendo que el paso no publica un
-    resultado degradado sobre una población que no valida.
+    Invertido por D-SC-19: hasta entonces el paso levantaba el error de siempre; ahora publica sus
+    seis artefactos con la causa en los tres sub-análisis que leen la población. Lo que se sigue
+    midiendo es que la rama de D-SC-17 no publica «sin eje temporal» sobre una población que no
+    valida: la causa es la del guard, y la tasa sale ``no_calculable``.
     """
     frame = _frame_sin_fecha()
     if mutar == "vaciar":
@@ -537,5 +544,8 @@ def test_la_rama_degradada_valida_la_poblacion_igual_que_la_normal(mutar: str, m
     study.artifacts.set("data", "labels", _labels(_frame_sin_fecha()))
     study.artifacts.set("data", "splits", _splits(_frame_sin_fecha()))
 
-    with pytest.raises(EdaError, match=match):
-        EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+    result = EdaStep.from_config(cfg).execute(study, study.seed_manager.generator_for("eda"))
+
+    assert result.default_rate.not_evaluable_reason == "no_calculable"
+    card = study.artifacts.get("eda", "eda_card")
+    assert match in card.failed_analyses["default_rate"]

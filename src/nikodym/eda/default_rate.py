@@ -28,6 +28,7 @@ __all__ = [
     "DefaultRateNotEvaluableReason",
     "DefaultRateResult",
     "EdaAxis",
+    "tasa_no_calculable",
     "tasa_no_evaluable",
 ]
 
@@ -40,13 +41,15 @@ EdaAxis = Literal["period", "cohort"]
 #: vacía. Hoy tiene una sola causa porque hay un solo caso en que el motor no puede agrupar sin
 #: contradecir algo que el usuario declaró (§2 de la enmienda); el tipo es un ``Literal`` para que
 #: una causa nueva mueva su rótulo, su espejo en el front y sus gates a la vez.
-DefaultRateNotEvaluableReason = Literal["sin_eje_temporal"]
+DefaultRateNotEvaluableReason = Literal["sin_eje_temporal", "no_calculable"]
 
 #: Las palabras públicas de cada causa de la tasa: una sola fuente para el resumen de la etapa, el
 #: panel de Resultados y la prosa del informe, con espejo gateado en el front (mismo molde que
-#: ``NOT_EVALUABLE_REASON_LABELS`` y ``BAND_LABELS``).
+#: ``NOT_EVALUABLE_REASON_LABELS`` y ``BAND_LABELS``). ``no_calculable`` (D-SC-19) es la de una
+#: falla: el detalle —el mensaje del motor— viaja aparte, en ``EdaCardSection.failed_analyses``.
 DEFAULT_RATE_NOT_EVALUABLE_REASON_LABELS: Final[dict[str, str]] = {
     "sin_eje_temporal": "el archivo no trae columna de fecha ni cohorte declarada",
+    "no_calculable": "no se pudo calcular",
 }
 
 #: Las palabras públicas de cada eje: el panel y el informe dicen «por fecha de observación» o
@@ -233,6 +236,46 @@ def tasa_no_evaluable(
         overall_rate=overall,
         not_evaluable_reason=reason,
     )
+
+
+def tasa_no_calculable(
+    frame: pd.DataFrame | None,
+    *,
+    target_col: str | None,
+    axis: EdaAxis,
+) -> DefaultRateResult:
+    """La tasa que FALLÓ, sea por lo que sea: tabla vacía y causa ``no_calculable`` (D-SC-19).
+
+    Es la red del paso, y por eso su contrato es el contrario al de :func:`tasa_no_evaluable`:
+    **no valida la población y nunca levanta**. Aquélla valida porque se usa cuando la población
+    es buena y sólo falta el eje; ésta se usa cuando algo falló —una fecha ambigua, una columna
+    declarada que no existe o una población rota— y validar aquí volvería a detener la corrida
+    justo en los casos que tiene que rescatar (revisión adversarial de la enmienda, pasada 1).
+
+    ``overall_rate`` se conserva cuando se puede: si el frame existe, trae la columna del target y
+    tiene elegibles —el caso de las dos fechas, donde la población es buena—, es la tasa global de
+    siempre. Si no, ``NaN``, y las superficies dicen «no disponible», nunca «sin elegibles».
+    """
+    return DefaultRateResult(
+        by_period=_tabla_vacia(),
+        axis=axis,
+        overall_rate=_tasa_global_si_se_puede(frame, target_col),
+        not_evaluable_reason="no_calculable",
+    )
+
+
+def _tasa_global_si_se_puede(frame: pd.DataFrame | None, target_col: str | None) -> float:
+    """``n_malos / n_elegibles`` sobre el frame, o ``NaN`` si no hay con qué. Nunca levanta."""
+    try:
+        if frame is None or target_col is None or target_col not in frame.columns:
+            return float("nan")
+        target = frame[target_col]
+        n_eligible = int(_eligible_mask(target).sum())
+        if n_eligible == 0:
+            return float("nan")
+        return float(int(_bad_mask(target).sum()) / n_eligible)
+    except Exception:
+        return float("nan")
 
 
 def _tabla_vacia() -> pd.DataFrame:
