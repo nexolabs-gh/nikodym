@@ -125,6 +125,21 @@ export interface BinningResult {
   missing_handling?: string
   optbinning_version?: string
   excluded_by_target_rule?: string[]
+  /**
+   * Categóricas que el motor reagrupó para que su WoE exista (D-RAR-2): el nivel que el corte de
+   * raras dejó solo y sin una clase, con el corte declarado y el efectivo. Opcional: un payload
+   * anterior —la demo capturada— no lo trae. El panel lo lee de los resúmenes, no de aquí.
+   */
+  rare_category_regroupings?: Record<
+    string,
+    {
+      levels: string[]
+      n_obs: number
+      n_events: number
+      declared_cat_cutoff: number | null
+      effective_cat_cutoff: number
+    }
+  >
   tables_by_variable?: Record<string, BinRow[]>
 }
 

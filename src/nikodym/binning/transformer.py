@@ -34,6 +34,7 @@ import math
 import warnings
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from functools import partial
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias, cast
 
@@ -53,6 +54,8 @@ except ModuleNotFoundError as exc:
 if TYPE_CHECKING:
     import pandas as pd
 
+    from nikodym.binning.results import RareCategoryRegrouping
+    from nikodym.core.audit import AuditSink
     from nikodym.data.special import MaskedFrame
 
     DataFrame: TypeAlias = pd.DataFrame
@@ -155,20 +158,31 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         *,
         special: MaskedFrame | None = None,
         sample_weight: Series | None = None,
+        audit: AuditSink | None = None,
     ) -> Self:
         """Ajusta bins supervisados WoE/IV sin mutar ``X``, ``y`` ni ``special``.
+
+        Si el corte de categorías raras deja **un solo** nivel por debajo y ese grupo unitario
+        queda sin una de las dos clases, la columna se reajusta **una vez** con el menor corte que
+        deja dos niveles debajo (D-RAR-1). El intento y la reagrupación van a ``audit`` como dos
+        decisiones —la primera antes de reajustar, la segunda sólo si el reajuste resuelve—, y el
+        corte efectivo queda en ``rare_category_regroupings_``.
 
         Raises
         ------
         BinningFitError
             Si el target no es binario con ambas clases, si todas las variables son no binneables,
-            si OptBinning no alcanza un estado aceptable o si alguna tabla publica WoE infinito.
+            si OptBinning no alcanza un estado aceptable, si alguna tabla publica WoE infinito o si
+            un bin conserva una clase en cero —también tras el único reintento de D-RAR-1, con un
+            mensaje que dice qué se intentó y qué salidas hay—.
         """
         pd = _import_pandas()
         np = _import_numpy()
         binning_process_cls = _import_binning_process()
 
         _validate_runtime_config(self)
+        if audit is not None:
+            self._audit = audit
         frame = _as_dataframe(X, pd, context="fit")
         target = _as_target_series(y, frame.index, pd)
         weights = _as_weight_series(sample_weight, frame.index, pd)
@@ -262,6 +276,18 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         except Exception as exc:
             raise BinningFitError(_mensaje_de_fallo(exc, working.loc[:, process_columns])) from exc
 
+        regroupings = _regroup_isolated_rare_categories(
+            estimator=self,
+            process=process,
+            working=working,
+            target=target,
+            weights=weights,
+            process_columns=process_columns,
+            fit_params=fit_params,
+            special_codes=special_codes,
+            pd=pd,
+        )
+
         tables, fitted_summary, binned_columns, fitted_dtypes = _collect_fitted_outputs(
             process=process,
             process_columns=process_columns,
@@ -275,6 +301,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
             raise BinningFitError(f"OptBinning no dejó variables publicables; razones={skipped!r}.")
 
         self.process_ = process
+        self.rare_category_regroupings_ = regroupings
         self.feature_columns_ = tuple(binned_columns)
         self.process_columns_ = tuple(process_columns)
         self.skipped_variables_ = dict(skipped)
@@ -859,6 +886,225 @@ def _mensaje_de_fallo(exc: Exception, frame: DataFrame) -> str:
         f"Decláral{'as' if plural else 'a'} en la llave de unicidad de fila, o añádel"
         f"{'as' if plural else 'a'} a las variables excluidas del binning."
     )
+
+
+def _regroup_isolated_rare_categories(
+    *,
+    estimator: WoEBinner,
+    process: Any,
+    working: DataFrame,
+    target: Series,
+    weights: Series | None,
+    process_columns: list[str],
+    fit_params: dict[str, dict[str, object]],
+    special_codes: dict[str, list[object]],
+    pd: Any,
+) -> dict[str, RareCategoryRegrouping]:
+    """Reagrupa, una vez, la categoría que el corte de raras dejó sola y sin una clase (D-RAR-1).
+
+    La regla entra sólo en su caso, medido con UCI German Credit: una columna **categórica** con
+    corte declarado, un bin **regular** con observaciones y una clase en cero, y ese bin formado
+    por niveles que el corte ya había mandado al grupo de raras **sin compañía** —un solo nivel
+    debajo—. Fuera de ese caso no hace nada y el error de siempre lo dice la validación de la
+    tabla. Los conteos salen de la tabla del ajuste y de las filas que se ajustaron, que son las de
+    desarrollo: nada se recalcula sobre el archivo.
+
+    El corte nuevo es el menor que deja **dos** niveles debajo; la columna se reajusta sola, por la
+    API pública de OptBinning (``update_binned_variable``), y el resto del ajuste no se toca. Si el
+    reajuste falla o el bin sigue sin una clase, levanta ``BinningFitError`` con qué se intentó y
+    qué salidas hay; el intento ya quedó en el trail.
+    """
+    from nikodym.binning.results import RareCategoryRegrouping
+
+    regroupings: dict[str, RareCategoryRegrouping] = {}
+    for column in process_columns:
+        params = fit_params[column]
+        declared = params.get("cat_cutoff")
+        if params.get("dtype") != "categorical" or not isinstance(declared, int | float):
+            continue
+        with _suppress_known_optbinning_warnings():
+            table = process.get_binned_variable(column).binning_table.build(add_totals=True)
+        degenerate = _degenerate_category_bin(table)
+        if degenerate is None:
+            continue
+        levels, n_obs, n_events = degenerate
+        counts = _clean_category_counts(working[column], special_codes.get(column, []), pd)
+        n_clean = int(counts.sum())
+        below = set(counts[counts < math.ceil(float(declared) * n_clean)].index)
+        if len(below) != 1 or not set(levels) <= below or len(counts) < 2:
+            continue  # fuera del caso de la regla: habla la validación de siempre
+        second_smallest = int(counts.sort_values(kind="stable").iloc[1])
+        effective = (second_smallest + 0.5) / n_clean
+        valor = {
+            "variable": column,
+            "niveles": list(levels),
+            "operaciones": n_obs,
+            "incumplidas": n_events,
+        }
+        estimator.log_decision(
+            regla="categoria_rara_intento_reagrupar",
+            umbral={"corte_declarado": float(declared), "corte_a_probar": effective},
+            valor=valor,
+            accion="intentar",
+        )
+        mensaje = partial(
+            _mensaje_categoria_rara,
+            column=column,
+            levels=levels,
+            n_obs=n_obs,
+            n_events=n_events,
+            declared=float(declared),
+            effective=effective,
+        )
+        try:
+            optb = _refit_single_column(
+                estimator=estimator,
+                working=working,
+                target=target,
+                weights=weights,
+                process_columns=process_columns,
+                column=column,
+                params={**params, "cat_cutoff": effective},
+            )
+        except Exception as exc:
+            raise BinningFitError(mensaje(detalle=f"el reajuste no fue posible: {exc}")) from exc
+        with _suppress_known_optbinning_warnings():
+            new_table = optb.binning_table.build(add_totals=True)
+        still = _degenerate_category_bin(new_table)
+        if still is not None:
+            raise BinningFitError(mensaje(residual=still))
+        process.update_binned_variable(column, optb)
+        estimator.log_decision(
+            regla="categoria_rara_reagrupada",
+            umbral={"corte_declarado": float(declared), "corte_efectivo": effective},
+            valor=valor,
+            accion="reagrupar",
+        )
+        regroupings[column] = RareCategoryRegrouping(
+            levels=levels,
+            n_obs=n_obs,
+            n_events=n_events,
+            declared_cat_cutoff=float(declared),
+            effective_cat_cutoff=effective,
+        )
+    return regroupings
+
+
+def _degenerate_category_bin(table: DataFrame) -> tuple[tuple[str, ...], int, int] | None:
+    """El primer bin regular con observaciones y una clase en cero: niveles, filas y malos.
+
+    Los bins regulares de una categórica traen en ``Bin`` el arreglo de sus categorías; ``Special``,
+    ``Missing`` y ``Totals`` traen texto y quedan fuera: reagrupar categorías no los arregla.
+    """
+    for _, row in table.iterrows():
+        bin_value = row["Bin"]
+        if isinstance(bin_value, str):
+            continue
+        count, events, nonevents = (int(row[campo]) for campo in ("Count", "Event", "Non-event"))
+        if count > 0 and (events == 0 or nonevents == 0):
+            return tuple(str(level) for level in bin_value), count, events
+    return None
+
+
+def _clean_category_counts(series: Series, special: list[object], pd: Any) -> Series:
+    """Filas por nivel sobre las que OptBinning aplica el corte: sin faltantes ni especiales."""
+    clean = series[series.notna() & ~series.isin(special)]
+    return cast(Series, clean.astype(str).value_counts())
+
+
+def _refit_single_column(
+    *,
+    estimator: WoEBinner,
+    working: DataFrame,
+    target: Series,
+    weights: Series | None,
+    process_columns: list[str],
+    column: str,
+    params: dict[str, object],
+) -> Any:
+    """Reajusta una columna con los mismos valores que vio el ajuste completo.
+
+    ``BinningProcess.fit(check_input=True)`` pasa el frame por ``check_array`` y cada variable
+    recibe su columna de esa matriz; aquí se repite la misma conversión y se ajusta un proceso de
+    una sola variable con los mismos parámetros, salvo el corte. Así el resultado es el que el
+    ajuste completo habría dado con ese corte, y el resto de las columnas no se toca.
+    """
+    from sklearn.utils import check_array  # type: ignore[import-untyped]
+
+    binning_process_cls = _import_binning_process()
+    matrix = check_array(
+        working.loc[:, process_columns],
+        ensure_2d=False,
+        dtype=None,
+        ensure_all_finite="allow-nan",
+    )
+    y = check_array(target, ensure_2d=False, dtype=None, ensure_all_finite=True)
+    position = process_columns.index(column)
+    single = binning_process_cls(
+        variable_names=[column],
+        max_n_prebins=estimator.max_n_prebins,
+        min_prebin_size=estimator.min_prebin_size,
+        min_n_bins=estimator.min_n_bins,
+        max_n_bins=estimator.max_n_bins,
+        min_bin_size=_none_if_zero(estimator.min_bin_size),
+        categorical_variables=[column],
+        special_codes=None,
+        split_digits=estimator.split_digits,
+        binning_fit_params={column: params},
+        n_jobs=1,
+        verbose=False,
+    )
+    with _suppress_known_optbinning_warnings():
+        single.fit(matrix[:, [position]], y, sample_weight=weights, check_input=False)
+    return single.get_binned_variable(column)
+
+
+def _mensaje_categoria_rara(
+    *,
+    column: str,
+    levels: tuple[str, ...],
+    n_obs: int,
+    n_events: int,
+    declared: float,
+    effective: float,
+    residual: tuple[tuple[str, ...], int, int] | None = None,
+    detalle: str | None = None,
+) -> str:
+    """El diagnóstico del camino fallido (D-RAR-2), que es lo que lee la persona.
+
+    En esa ruta el resumen de la etapa no llega a construirse. Sólo ofrece salidas ejecutables
+    para una categórica: el motor rechaza ``user_splits`` ahí.
+    """
+    nivel = (
+        f"nivel «{levels[0]}»"
+        if len(levels) == 1
+        else "niveles " + ", ".join(f"«{level}»" for level in levels)
+    )
+    clase = "ninguna incumplida" if n_events == 0 else "todas incumplidas"
+    cortes = f"umbral {_corte_legible(declared)} → {_corte_legible(effective)}"
+    if detalle is not None:
+        resultado = (
+            f"Se intentó reagruparlo con las categorías más raras ({cortes}), pero {detalle}."
+        )
+    else:
+        assert residual is not None
+        niveles_residuales, filas_residuales, malos_residuales = residual
+        falta = "incumplimientos" if malos_residuales == 0 else "operaciones cumplidas"
+        grupo = ", ".join(f"«{level}»" for level in niveles_residuales)
+        resultado = (
+            f"Se reagrupó con las categorías más raras ({cortes}) y el grupo resultante ({grupo}: "
+            f"{filas_residuales} operaciones) sigue sin {falta}."
+        )
+    return (
+        f"WoE no defendible por bin con una clase en cero: variable «{column}», {nivel} con "
+        f"{n_obs} operaciones y {clase}. {resultado} Puedes excluir la variable, o subir el umbral "
+        "de categorías raras de esa variable en el config completo (`binning.variable_overrides`)."
+    )
+
+
+def _corte_legible(corte: float) -> str:
+    """Un corte con coma decimal y sin ceros de más: 0,01 · 0,0125."""
+    return format(corte, ".4g").replace(".", ",")
 
 
 def _none_if_zero(value: float | int | None) -> float | int | None:

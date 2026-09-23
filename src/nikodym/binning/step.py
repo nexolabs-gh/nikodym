@@ -141,7 +141,9 @@ class BinningStep(AuditableMixin):
 
         self._log_special_policy(special=special, feature_columns=feature_columns)
         binner = _build_binner(self.config, feature_columns)
-        binner.fit(x_train, y_train, special=special)
+        # El sumidero va al binner (D-RAR-1): si reagrupa una categoría rara, el intento
+        # tiene que quedar en el trail aunque el reajuste falle y `execute` no termine.
+        binner.fit(x_train, y_train, special=special, audit=self._audit)
         woe_only = binner.transform(x_transform)
         bin_frame = binner.transform_bins(x_transform)
         woe_frame = _assemble_woe_frame(
@@ -805,6 +807,7 @@ def _build_results(
         missing_handling=str(config.metric_missing),
         optbinning_version=_optbinning_version(),
         excluded_by_target_rule=excluded_by_target_rule,
+        rare_category_regroupings=dict(getattr(binner, "rare_category_regroupings_", {})),
     )
     return result, card
 

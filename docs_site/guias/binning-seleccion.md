@@ -183,6 +183,18 @@ Los nombres y defaults salen directo de `nikodym.binning.config.BinningConfig`:
     `cat_cutoff` o `dtype` para una variable puntual sin tocar los globales — útil cuando una sola
     variable tiene una forma en U (`valley`) o necesita más granularidad que el resto.
 
+!!! note "Una categoría rara que queda sola y sin incumplimientos"
+    El umbral de categorías raras puede dejar **un solo** nivel por debajo: el grupo de «raras»
+    que debía protegerlo queda igual de solo, y si ese nivel no tiene ningún incumplimiento —o
+    ninguna operación cumplida— en la muestra de desarrollo, su WoE no existe. Cuando pasa, el
+    motor lo reagrupa **una vez** con el menor umbral que deja dos niveles debajo, lo registra en
+    el trail y lo publica en la card de `binning` (`rare_category_regroupings`, con el umbral
+    declarado y el efectivo); el resumen de «Tramos y WoE» lo dice en una línea. El config
+    guardado conserva lo que declaraste: la corrida se reproduce porque la regla es determinista.
+    Si ni juntando las dos categorías más raras aparece un incumplimiento, la corrida se detiene y
+    el mensaje dice qué se intentó: puedes excluir la variable o subir su `cat_cutoff` en
+    `variable_overrides`.
+
 ## Selección de variables
 
 Tras el binning, la sección `selection` (`nikodym.selection.config.SelectionConfig`) aplica una

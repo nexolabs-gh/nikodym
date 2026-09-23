@@ -6,7 +6,7 @@
 | **Decisiones** | **D-RAR-1** (el motor reagrupa el nivel degenerado y lo declara) y **D-RAR-2** (qué dice, dónde y con qué palabras) |
 | **Módulos** | `nikodym.binning` (`transformer`, `step`), `nikodym.guided.summaries` (el resumen de la etapa) |
 | **Fase** | F1 |
-| **Estado** | **APROBADA por Cami el 2026-09-22** (interactivo), con la recomendación de las cinco decisiones de su §6; se implementa en la sesión siguiente |
+| **Estado** | **APROBADA por Cami el 2026-09-22** (interactivo), con la recomendación de las cinco decisiones de su §6. **Implementada el 2026-09-23**; lo que el código midió distinto de lo escrito, en §8 |
 | **Depende de** | D-SC-2 y D-SC-17 (el precedente: un error fatal pasa a ser una degradación declarada), D-SIM-1/2, D-FLU-1/2 |
 | **Lo consumen** | la puerta guiada, el config completo y la pantalla: las tres, porque la regla vive en el motor |
 | **Release** | Aditiva para todo lo que hoy corre: la regla **sólo** entra donde la corrida iba a fallar. Ningún `config_hash` se mueve ⇒ **minor** |
@@ -277,6 +277,51 @@ Las dos primeras pasadas tumbaron una premisa de arquitectura cada una; la terce
 ninguna —corrigió una contradicción interna y dos promesas que el motor no puede cumplir—, que es
 el criterio de parada declarado. **Tope alcanzado**: estas correcciones no llevan pasada propia, y
 la implementación abrirá con una sobre su propio rango de código.
+
+## 8. Implementación (2026-09-23) — lo que el código midió distinto de lo escrito
+
+Implementada el 2026-09-23. Seis precisiones que el lector de §2–§4 encontraría distintas en el
+código:
+
+1. **El alcance de la regla es exactamente el caso medido.** Entra sólo si la columna es
+   **categórica** con corte declarado, un bin **regular** tiene observaciones y una clase en cero,
+   y ese bin está formado por niveles que el corte ya había mandado **solos** bajo el umbral —un
+   único nivel debajo—. Fuera de ese caso (un bin especial o de faltantes degenerado, un grupo de
+   raras que ya tiene dos niveles, un bin que armó el optimizador con niveles sobre el corte) no
+   hace nada y habla la validación de siempre: reagrupar ahí sería una decisión de modelación que
+   la enmienda no aprobó.
+2. **El corte efectivo es `(n₂ + ½) / n`**, con `n₂` las filas del segundo nivel más raro y `n`
+   las filas limpias (sin faltantes ni especiales) sobre las que OptBinning aplica el corte: es
+   el punto medio del intervalo de cortes que agrupan exactamente los dos niveles más raros, así
+   que no depende de redondeos. Sobre German Credit: 0,01 → 0,0118 (9,5 / 802).
+3. **El reajuste toca sólo esa columna**, por la API pública de OptBinning
+   (`BinningProcess.update_binned_variable`): se repite la conversión `check_array` del ajuste
+   completo y se ajusta un proceso de una sola variable con los mismos parámetros salvo el corte.
+   El resto de las columnas no se reajusta, y `summary()` recalcula sus estadísticas.
+4. **El sumidero llega al binner por `WoEBinner.fit(..., audit=...)`**, un keyword nuevo y
+   aditivo, con el mismo patrón que `PDCalibrator.fit`. `BinningStep` le pasa el suyo: así el
+   intento queda en el trail aunque el reajuste falle y `execute` no termine.
+5. **El bit a bit del test 9 da una diferencia, no cero.** La §2.1 aprobada (6.4) publica el
+   corte efectivo en la card de `binning`, y un campo nuevo de la card es una clave nueva en la
+   proyección: `binning_card.rare_category_regroupings = {}` en el preset F1. Es la única
+   diferencia; el `config_hash` `1063d6cf…` no se mueve y ningún número cambia. El «cero
+   diferencias» de la tabla del §4 no era alcanzable con la decisión aprobada.
+6. **El Anexo publica el corte como el resto de la card**, con los dos campos
+   (`declared_cat_cutoff`, `effective_cat_cutoff`) uno junto al otro, no con la frase de §2.1:
+   el Anexo de parámetros reproduce el payload de cada card sin redactarlo, y es un anexo de
+   auditoría. La frase para una persona vive en el resumen de «Tramos y WoE».
+
+**Gate de aceptación, medido fuera de la suite con el archivo de la UCI** (sha256 del crudo
+`b21f3d81…`, `partition="random"`): German Credit termina **`done` en 12,7 s**, con **20 de 20
+variables tramificadas** —sus 13 categóricas intactas—, la línea «Categorías con muy pocas
+operaciones agrupadas para poder calcular su WoE: «proposito» (nivel A48: 5 operaciones, ninguna
+incumplida)», las dos decisiones en el trail en su orden, el bin final `['A410', 'A48']` con 14
+operaciones y 4 malos, AUC Holdout 0,837 y validación técnica «Pasa». En la suite, el test 1 corre
+sobre una cartera sintética que reproduce el mecanismo (el archivo de la UCI no se descarga en
+CI).
+
+**Controles negativos:** los siete de §4 más uno del resumen (h), cada uno rojo en su test y
+restaurado byte a byte.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 

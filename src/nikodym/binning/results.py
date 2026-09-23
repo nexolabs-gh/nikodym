@@ -42,6 +42,7 @@ __all__ = [
     "BinningCardSection",
     "BinningResult",
     "BinningVariableSummary",
+    "RareCategoryRegrouping",
     "iv_band",
 ]
 
@@ -102,6 +103,29 @@ class BinningResult(BaseModel):
     skipped_variables: dict[str, str]
 
 
+class RareCategoryRegrouping(BaseModel):
+    """Una categórica que el motor reagrupó para que su WoE exista (D-RAR-1/2).
+
+    El corte de categorías raras dejó **un solo** nivel por debajo y ese nivel quedó sin una de las
+    dos clases en las filas que se ajustaron: el grupo de «raras» que debía protegerlo era
+    unitario. El motor reajustó esa columna **una vez** con el menor corte que deja dos niveles
+    debajo. Los conteos son los del bin degenerado en la tabla del ajuste —las filas de
+    desarrollo—, no los del archivo.
+
+    El corte efectivo es un **resultado**, como el IV: el config guardado conserva el declarado y
+    el ``config_hash`` identifica lo que el usuario declaró. La reproducibilidad la da que la regla
+    es determinista.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    levels: tuple[str, ...]
+    n_obs: int
+    n_events: int
+    declared_cat_cutoff: float | None
+    effective_cat_cutoff: float
+
+
 class BinningCardSection(BaseModel):
     """Resumen compacto de ``binning`` para model card y reporte."""
 
@@ -116,12 +140,20 @@ class BinningCardSection(BaseModel):
     missing_handling: str
     optbinning_version: str
     excluded_by_target_rule: tuple[str, ...] = ()
+    #: Aditivo (D-RAR-2): las categóricas que el motor reagrupó para que su WoE exista, con el
+    #: corte declarado y el efectivo. Vacío en toda corrida en la que la regla no entró.
+    rare_category_regroupings: dict[str, RareCategoryRegrouping] = {}
 
     def __setstate__(self, state: dict[Any, Any]) -> None:
-        """Migra cards serializadas antes de que existiera la evidencia anti-fuga."""
+        """Migra cards serializadas antes de la evidencia anti-fuga y de D-RAR."""
         values = state.get("__dict__", {})
-        if "excluded_by_target_rule" not in values:
-            state = {**state, "__dict__": {**values, "excluded_by_target_rule": ()}}
+        faltantes: dict[str, object] = {
+            campo: vacio
+            for campo, vacio in (("excluded_by_target_rule", ()), ("rare_category_regroupings", {}))
+            if campo not in values
+        }
+        if faltantes:
+            state = {**state, "__dict__": {**values, **faltantes}}
         super().__setstate__(state)
 
     @classmethod
@@ -133,6 +165,7 @@ class BinningCardSection(BaseModel):
         missing_handling: str,
         optbinning_version: str,
         excluded_by_target_rule: tuple[str, ...] = (),
+        rare_category_regroupings: dict[str, RareCategoryRegrouping] | None = None,
     ) -> BinningCardSection:
         """Deriva una sección de model card sin recalcular ni mutar el resultado."""
         n_variables_binned = len(result.variable_summaries)
@@ -149,4 +182,5 @@ class BinningCardSection(BaseModel):
             missing_handling=missing_handling,
             optbinning_version=optbinning_version,
             excluded_by_target_rule=excluded_by_target_rule,
+            rare_category_regroupings=dict(rare_category_regroupings or {}),
         )

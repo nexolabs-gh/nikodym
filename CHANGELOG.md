@@ -58,6 +58,20 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   `UnivariateProfiler`, `DataQualityProfiler`— siguen levantando su error de siempre. **Nada
   cambia para una corrida que hoy termina**: con el mismo config los resultados son bit a bit los
   de antes y ningún `config_hash` se mueve.
+- **Una categoría rara que se queda sola y sin incumplimientos ya no mata la corrida en «Tramos y
+  WoE»** (D-RAR-1/2). El umbral de categorías raras (0,01 de fábrica) podía dejar **un solo** nivel
+  por debajo —el grupo de «raras» que debía protegerlo quedaba igual de solo— y, si ese nivel no
+  tenía un solo incumplimiento en desarrollo, su WoE no existía y la corrida moría. Le pasaba a UCI
+  German Credit (`proposito`, nivel `A48`: 5 operaciones, ninguna incumplida). Ahora el motor lo
+  **reagrupa una vez** con el menor umbral que deja dos niveles debajo, sólo en esa columna, lo
+  registra en el trail como dos decisiones —el intento antes de reajustar y la reagrupación sólo
+  si resuelve— y publica el umbral efectivo junto al declarado en la card de `binning`; el resumen
+  de la etapa lo dice en una línea. El config guardado y su `config_hash` conservan lo declarado:
+  la corrida se reproduce porque la regla es determinista. Si ni así aparece un incumplimiento, la
+  corrida se detiene con un mensaje que dice qué se intentó y ofrece las dos salidas que funcionan
+  para una categórica: excluir la variable o subir su umbral en `variable_overrides`. No se
+  inventa ningún WoE, no se descarta ninguna variable ni fila, y ninguna corrida que hoy termina
+  cambia un número.
   `DefaultRateResult` y la sección EDA de la ficha ganan cada uno un campo aditivo con la causa
   (`not_evaluable_reason` y `default_rate_not_evaluable_reason`), nulos en toda corrida anterior.
 

@@ -659,6 +659,23 @@ def _marcas_de_calidad(study: Study) -> tuple[str, ...]:
     return tuple(marcas)
 
 
+def _categorias_reagrupadas(reagrupadas: Mapping[str, Any]) -> tuple[str, ...]:
+    """«proposito» (nivel A48: 5 operaciones, ninguna incumplida), una por variable (D-RAR-2)."""
+    partes: list[str] = []
+    for variable, datos in reagrupadas.items():
+        registro = _mapping(datos)
+        niveles = tuple(str(nivel) for nivel in _sequence(registro.get("levels")))
+        filas = _int(registro.get("n_obs")) or 0
+        malos = _int(registro.get("n_events")) or 0
+        nivel = f"nivel {niveles[0]}" if len(niveles) == 1 else f"niveles {_enumerar(niveles)}"
+        clase = "ninguna incumplida" if malos == 0 else "todas incumplidas"
+        partes.append(
+            f"«{variable}» ({nivel}: {_miles(filas)} "
+            f"{_plural(filas, 'operación', 'operaciones')}, {clase})"
+        )
+    return tuple(partes)
+
+
 def _resumen_binning(study: Study, context: SummaryContext) -> StageSummary:
     del context
     card = _card(study, "binning", "binning_card")
@@ -677,6 +694,14 @@ def _resumen_binning(study: Study, context: SummaryContext) -> StageSummary:
         if excluded:
             lines.append(
                 f"Fuera por definir el incumplimiento (fuga de información): {', '.join(excluded)}"
+            )
+        reagrupadas = _categorias_reagrupadas(_mapping(card.get("rare_category_regroupings")))
+        if reagrupadas:
+            # D-RAR-2: sólo en el camino exitoso. Si el reajuste no alcanza, el paso levanta y
+            # este resumen no llega a construirse: el diagnóstico lo da el mensaje del error.
+            lines.append(
+                "Categorías con muy pocas operaciones agrupadas para poder calcular su WoE: "
+                + "; ".join(reagrupadas)
             )
         summary = _artifact(study, "binning", "summary")
         if isinstance(summary, pd.DataFrame) and not summary.empty:
