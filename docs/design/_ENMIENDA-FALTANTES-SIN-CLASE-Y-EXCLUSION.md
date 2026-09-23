@@ -47,14 +47,16 @@ un banco real tiene faltantes así en cualquier variable.
 
 ## 1. D-FAL-1 — el WoE de un bin de faltantes o especiales sin una clase se asigna, no se estima
 
-Por cada variable cuyo bin **`Missing`** o **`Special`** tiene observaciones y **una clase en cero**
-en las filas ajustadas, y sólo cuando su WoE es el empírico (`metric_missing` / `metric_special` =
-`"empirical"`, el default):
+La unidad es el **par (variable, bin)**: por cada bin **`Missing`** o **`Special`** con
+observaciones y **una clase en cero** en las filas ajustadas —una misma variable puede tener los
+dos—, y sólo cuando su WoE es el empírico (`metric_missing` / `metric_special` = `"empirical"`, el
+default):
 
 1. **No se estima su WoE: se le asigna** con la regla de §5.1. La regla recomendada es la
    **conservadora**: el WoE del tramo regular con la **mayor tasa de malos observada** de esa misma
-   variable —el de menor WoE—. Un grupo sin evidencia de incumplimiento no recibe el WoE de menor
-   riesgo por falta de datos. La promesa es sobre el **WoE**: el puntaje sigue la dirección que el
+   variable —el de menor WoE; ante un empate, la **primera fila regular** con ese WoE, que es la
+   que usa la búsqueda de puntos del escalador—. Un grupo sin evidencia de incumplimiento no recibe
+   el WoE de menor riesgo por falta de datos. La promesa es sobre el **WoE**: el puntaje sigue la dirección que el
    modelo le dé a la variable, así que con el signo esperado el faltante recibe el puntaje más bajo
    de la variable, y si el modelo invierte el signo —que `sign_policy` ya marca— se invierte con
    toda la variable (revisión adversarial, pasada 1).
@@ -99,7 +101,7 @@ corrida muere.
 | Superficie | Qué dice |
 |---|---|
 | **Trail** | Una decisión por bin asignado: `regla="bin_sin_clase_asignado"`, `valor={variable, bin, operaciones, incumplidas}`, `umbral={regla, woe_asignado, tramo_de_referencia}`, `accion="asignar_woe"` |
-| **Card de `binning`** | Campo aditivo `assigned_bins`: por variable, el bin, sus operaciones y malos, el WoE asignado y el tramo del que se tomó |
+| **Card de `binning`** | Campo aditivo `assigned_bins`: una entrada por par (variable, bin) —una variable puede tener dos—, con sus operaciones y malos, el WoE asignado y el tramo del que se tomó |
 | **Resumen de «Tramos y WoE»** | Una línea por bin asignado, con el tipo de bin y la clase que falta —«Faltantes» o «Valores especiales»; «ninguna incumplida» o «todas incumplidas»—: «Faltantes de «antiguedad_de_la_empresa» (4 operaciones, ninguna incumplida): se les asignó el riesgo de su peor tramo» (revisión adversarial, pasada 2: un bin especial puede estar hecho sólo de malos) |
 | **Informe** | Lo publica el Anexo de parámetros con la card; el cuerpo no gana sección |
 
@@ -147,6 +149,8 @@ en el config completo.
 | 8a | `set_bins()` → `exclude()` termina `done`, con el override en suspenso declarado; y `keep()` después vuelve a tramificarla con esos mismos cortes | Hoy muere en binning |
 | 8b | **Paridad de puntos**: las filas faltantes reciben los puntos de su tramo de referencia en la corrida, en la tabla de puntos y en el bundle, **también con un override en el tramo de referencia** | La regla no existe |
 | 8d | El resumen dice el tipo de bin y la clase que falta: «Faltantes» / «Valores especiales», «ninguna incumplida» / «todas incumplidas» | La rama no existe |
+| 8e | **Dos bins asignados en una variable** (`Missing` y `Special` a la vez): la corrida termina `done` y tabla, trail y card llevan las dos asignaciones | La regla no existe |
+| 8f | **Empate de WoE mínimo** entre dos tramos regulares, con override en la referencia: la referencia es la primera fila, y corrida, tabla y bundle dan los mismos puntos | La regla no existe |
 | 8c | Un `point_override` sobre un bin asignado se rechaza con su mensaje | No se valida |
 | 9 | Bit a bit sobre el preset F1: la única diferencia es la clave aditiva vacía de la card | — (guardrail) |
 
@@ -171,6 +175,9 @@ Tope declarado: tres pasadas.
 |---|---|---|
 | 1 | (a) **alto**: escribir `binning.exclude_columns` **y** `selection.force_exclude` hace morir la corrida en selección, que rechaza forzar una variable no binificada; (b) **alto**: con un WoE declarado, la transformación y la tabla —de donde salen los puntos— ya divergen hoy, y «rige ese valor» no lo resolvía; (c) **alto**: los puntos se indexan por `(variable, WoE)` y un bin asignado comparte clave con su tramo de referencia, así que un override por bin sería ambiguo; (d) **medio**: «peor tramo» no garantiza el peor puntaje si el modelo invierte el signo | (a) §3: `exclude()` escribe sólo `binning.exclude_columns` y retira la variable de las listas de selección y modelo; (b) §1, punto 4: la regla entra sólo con WoE empírico, el comportamiento con valor declarado no cambia y la divergencia previa se registra aparte; (c) §1.1: el bin asignado comparte a propósito los puntos de su tramo, y un override sobre él se rechaza; (d) §1, punto 1: la promesa se acota al WoE y a la dirección que el modelo dé a la variable |
 | 2 | (a) **alto**: un override sobre el **tramo de referencia** llegaba a las filas faltantes por la búsqueda por WoE, pero no a la fila `Missing` de la tabla, que es la que congela el bundle: corrida y bundle puntuaban distinto; (b) **alto**: `exclude()` tras `set_bins()` o `merge_bins()` dejaba un override de una variable no tramificada, que el binning rechaza; (c) **medio**: la frase del resumen suponía «sin incumplimientos», y un bin especial puede estar hecho sólo de malos | (a) §1.1: el bin asignado **hereda** los puntos ajustados de su tramo de referencia, con fuente declarada, y el gate de paridad cubre ese caso; (b) §3: los overrides de una variable excluida quedan en suspenso, declarados, y `keep()` los reactiva; (c) §2: el texto dice el tipo de bin y la clase que falta |
+| 3 | (a) **alto**: la regla se decía «por variable» mientras el trail va por bin; con `Missing` y `Special` degenerados a la vez, uno quedaría sin tratar y la corrida moriría, o la card perdería una asignación; (b) **alto**: «peor tramo» no desempataba dos tramos con el mismo WoE mínimo; si la referencia fuera el segundo y se ajustaran sus puntos, la corrida usaría los del primero y el bundle los heredados | (a) §1 y §2: la unidad es el par (variable, bin) y la card admite dos entradas por variable, con su gate; (b) §1: ante un empate, la referencia es la primera fila regular, que es la que usa el escalador, con su gate |
+
+**Tope alcanzado.** Las dos primeras pasadas tumbaron premisas —la exclusión moría en selección; los puntos del bin asignado podían divergir entre corrida y bundle— y la tercera ya sólo afinó bordes. Es el criterio de parada declarado; la implementación abre con su propia pasada.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
