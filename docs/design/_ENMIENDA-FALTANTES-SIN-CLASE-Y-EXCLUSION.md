@@ -52,14 +52,34 @@ en las filas ajustadas, y sólo cuando su WoE es el empírico (`metric_missing` 
 `"empirical"`, el default):
 
 1. **No se estima su WoE: se le asigna** con la regla de §5.1. La regla recomendada es la
-   **conservadora**: el WoE del tramo regular de **mayor riesgo** de esa misma variable. Un grupo
-   sin evidencia de incumplimiento no recibe el mejor puntaje por falta de datos.
-2. La tabla de binning publica ese WoE en la fila del bin, y el **IV de esa fila queda en 0**: el
-   bin no aporta evidencia, así que no suma poder predictivo. El IV de la variable no cambia.
-3. La transformación usa el mismo WoE para las filas de ese bin, en todas las muestras (tabla y
-   puntaje nunca discrepan).
-4. Si el usuario **declaró** un valor numérico en `metric_missing` / `metric_special`, rige ese
-   valor y la regla no entra: el bin ya no depende de lo observado.
+   **conservadora**: el WoE del tramo regular con la **mayor tasa de malos observada** de esa misma
+   variable —el de menor WoE—. Un grupo sin evidencia de incumplimiento no recibe el WoE de menor
+   riesgo por falta de datos. La promesa es sobre el **WoE**: el puntaje sigue la dirección que el
+   modelo le dé a la variable, así que con el signo esperado el faltante recibe el puntaje más bajo
+   de la variable, y si el modelo invierte el signo —que `sign_policy` ya marca— se invierte con
+   toda la variable (revisión adversarial, pasada 1).
+2. La tabla de binning publica ese WoE en la fila del bin, y el **IV de esa fila queda en 0** —que
+   es lo que OptBinning ya le calcula—: el bin no aporta evidencia, así que no suma poder
+   predictivo. El IV de la variable no cambia.
+3. La transformación usa el mismo WoE para las filas de ese bin, en todas las muestras: tabla,
+   transformación, puntos y bundle leen el mismo número.
+4. **Alcance: sólo con el WoE empírico** (`metric_missing` / `metric_special` = `"empirical"`, el
+   default). Con un valor numérico declarado el comportamiento **no cambia**. Medido en la pasada 1:
+   hoy, con un valor declarado, la transformación usa ese valor pero la tabla —de la que salen los
+   puntos— conserva el WoE empírico, así que ya existe una divergencia previa entre ambos; se
+   registra como defecto aparte y no se toca aquí, porque corregirla cambiaría corridas que hoy
+   terminan con un valor declarado.
+
+### 1.1 Los puntos de un bin asignado
+
+El escalador indexa los puntos por `(variable, WoE)` y, ante WoE repetidos, gana el primer bin y el
+duplicado queda registrado —ya pasa hoy entre los bins vacíos `Special` y `Missing`, que tienen WoE
+0—. Un bin asignado comparte a propósito el WoE de su tramo de referencia y, por tanto, **sus
+puntos**: mismo riesgo, mismo puntaje. Lo que no puede quedar ambiguo es un **ajuste manual de
+puntos** (`scorecard.point_overrides`) sobre el bin asignado: aparecería en la tabla y no se
+aplicaría a sus filas. Por eso un override sobre un bin cuyo WoE fue asignado **se rechaza** con un
+mensaje que dice que ese bin comparte los puntos de su tramo de referencia y que el ajuste se hace
+sobre ese tramo.
 
 **Qué no cambia:** un bin **regular** sin una clase sigue siendo asunto de D-RAR (categóricas) o de
 la validación de siempre. Un bin de faltantes con las dos clases, por chico que sea, sigue con su
@@ -80,11 +100,14 @@ pasada 2 de Codex).
 
 ## 3. D-EXC-1 — `exclude()` descarta en toda la corrida
 
-`Scorecard.exclude(columns, reason=...)` escribe, además de `selection.force_exclude`,
-**`binning.exclude_columns`**: la variable no se tramifica, no aparece en las tablas de binning y
-no puede detener la corrida allí. `binning.feature_columns` —la lista inferida— no se toca, para que
+`Scorecard.exclude(columns, reason=...)` escribe **`binning.exclude_columns`** y retira la
+variable de `selection.force_exclude`/`force_include` y de `model.force_include`: la variable no se
+tramifica, no aparece en las tablas de binning y no puede detener la corrida allí. **No** escribe
+`selection.force_exclude`: la selección rechaza forzar una variable que el binning ya no publica, y
+la corrida moriría en selección (revisión adversarial, pasada 1, verificado en
+`selection/selector.py`). `binning.feature_columns` —la lista inferida— no se toca, para que
 `exclude()`/`keep()` sigan reconociendo la variable. `keep()` sobre una variable excluida la retira
-de las dos listas (la última decisión gana, como hoy).
+de `binning.exclude_columns` y la fuerza en selección y modelo, como hoy (la última decisión gana).
 
 Consecuencia deliberada: una variable excluida deja de mostrar su IV en «Tramos y WoE». Es lo que
 significa descartarla, y la decisión con su motivo sigue en el trail.
@@ -100,16 +123,19 @@ en el config completo.
 | 1 | **Gate de aceptación**: el dataset SBA real —con sus faltantes— termina `done` por la puerta guiada con `date` y `oot_from` | Hoy muere en `binning` |
 | 2 | Un fixture con un bin de faltantes sin malos: la tabla publica el WoE del peor tramo en esa fila, IV 0, y la transformación da ese mismo WoE a las filas faltantes | La regla no existe |
 | 3 | Lo mismo para un bin `Special` sin malos | La regla no existe |
-| 4 | Con `metric_missing` numérico declarado, rige ese valor y no hay decisión | Hoy muere igual |
+| 4 | Con `metric_missing` numérico declarado el comportamiento no cambia y no hay decisión | — (guardrail del alcance) |
 | 5 | Una decisión `bin_sin_clase_asignado` por bin asignado, y ninguna sin bins degenerados | No se emite |
 | 6 | La card publica `assigned_bins` y el resumen su línea, sin identificadores del motor | No existe |
-| 7 | `exclude()` escribe `binning.exclude_columns`: una variable que hoy tumba el binning, excluida, deja terminar la corrida y no aparece en las tablas | Hoy muere igual |
-| 8 | `keep()` después de `exclude()` la devuelve al binning | — |
+| 7 | `exclude()` escribe `binning.exclude_columns` y no `selection.force_exclude`: una variable que hoy tumba el binning, excluida, deja terminar la corrida **en `done`** y no aparece en las tablas | Hoy muere igual |
+| 8 | `keep()` después de `exclude()` la devuelve al binning y la corrida termina | — |
+| 8b | **Paridad de puntos**: las filas faltantes reciben los puntos de su tramo de referencia en la corrida, en la tabla de puntos y en el bundle | La regla no existe |
+| 8c | Un `point_override` sobre un bin asignado se rechaza con su mensaje | No se valida |
 | 9 | Bit a bit sobre el preset F1: la única diferencia es la clave aditiva vacía de la card | — (guardrail) |
 
 **Controles negativos:** desactivar la regla (1, 2); asignar el WoE del mejor tramo en vez del peor
-(2); no corregir la transformación (2); emitir la decisión sin bin degenerado (5); ignorar el valor
-declarado (4); no escribir `binning.exclude_columns` (7).
+(2); no corregir la transformación (2, 8b); emitir la decisión sin bin degenerado (5); aplicar la
+regla con un valor declarado (4); no escribir `binning.exclude_columns` (7); volver a escribir
+`selection.force_exclude` (7); aceptar el override sobre un bin asignado (8c).
 
 ## 5. Lo que Cami decide
 
@@ -121,6 +147,10 @@ declarado (4); no escribir `binning.exclude_columns` (7).
 ## 6. La revisión adversarial de este documento
 
 Tope declarado: tres pasadas.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | (a) **alto**: escribir `binning.exclude_columns` **y** `selection.force_exclude` hace morir la corrida en selección, que rechaza forzar una variable no binificada; (b) **alto**: con un WoE declarado, la transformación y la tabla —de donde salen los puntos— ya divergen hoy, y «rige ese valor» no lo resolvía; (c) **alto**: los puntos se indexan por `(variable, WoE)` y un bin asignado comparte clave con su tramo de referencia, así que un override por bin sería ambiguo; (d) **medio**: «peor tramo» no garantiza el peor puntaje si el modelo invierte el signo | (a) §3: `exclude()` escribe sólo `binning.exclude_columns` y retira la variable de las listas de selección y modelo; (b) §1, punto 4: la regla entra sólo con WoE empírico, el comportamiento con valor declarado no cambia y la divergencia previa se registra aparte; (c) §1.1: el bin asignado comparte a propósito los puntos de su tramo, y un override sobre él se rechaza; (d) §1, punto 1: la promesa se acota al WoE y a la dirección que el modelo dé a la variable |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
