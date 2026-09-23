@@ -6,7 +6,7 @@
 | **Decisiones** | **D-RAR-1** (el motor reagrupa el nivel degenerado y lo declara) y **D-RAR-2** (qué dice, dónde y con qué palabras) |
 | **Módulos** | `nikodym.binning` (`transformer`, `step`), `nikodym.guided.summaries` (el resumen de la etapa) |
 | **Fase** | F1 |
-| **Estado** | **Propuesta** — pendiente del OK de Cami |
+| **Estado** | **APROBADA por Cami el 2026-09-22** (interactivo), con la recomendación de las cinco decisiones de su §6; se implementa en la sesión siguiente |
 | **Depende de** | D-SC-2 y D-SC-17 (el precedente: un error fatal pasa a ser una degradación declarada), D-SIM-1/2, D-FLU-1/2 |
 | **Lo consumen** | la puerta guiada, el config completo y la pantalla: las tres, porque la regla vive en el motor |
 | **Release** | Aditiva para todo lo que hoy corre: la regla **sólo** entra donde la corrida iba a fallar. Ningún `config_hash` se mueve ⇒ **minor** |

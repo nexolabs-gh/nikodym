@@ -1026,8 +1026,9 @@ por módulo bajo SDD-31, la primera
 > negativo que inyecta la causa en uno de ellos. Presupuesto de perillas **cero**; ningún
 > `config_hash` se mueve; las cinco cifras no cambian. Tres decisiones para Cami en §8.
 
-> **Una categoría rara con una clase en cero no puede matar la corrida (2026-09-22; PROPUESTA,
-> pendiente del OK de Cami; nace del tercer dataset del criterio de completado del scorecard, que
+> **Una categoría rara con una clase en cero no puede matar la corrida (2026-09-22; **APROBADA por Cami
+> el 2026-09-22** con la recomendación de sus cinco decisiones, por implementar; nace del tercer
+> dataset del criterio de completado del scorecard, que
 > tras D-SC-17 pasa `eda` y muere una etapa después).**
 > [`_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md`](_ENMIENDA-CATEGORIA-RARA-SIN-CLASE.md), D-RAR-1 y
 > D-RAR-2, enmienda a [`06-binning.md`](06-binning.md) §8 y a
