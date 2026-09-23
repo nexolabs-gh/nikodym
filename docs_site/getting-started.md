@@ -141,6 +141,13 @@ sc.resume()                         # corrida nueva y completa con la decisión;
 ```
 <!-- primer-scorecard:end -->
 
+!!! tip "El mismo flujo, como cuaderno"
+    [Descarga `primer-scorecard.ipynb`](notebooks/primer-scorecard.ipynb): este mismo notebook
+    mínimo con sus salidas **reales** —el resumen de cada etapa, la tabla de decisión de la
+    selección, el resumen final y los once libros de Excel—, listo para abrir en Jupyter o VS Code
+    y correr celda por celda. Se ejecuta entero en cada integración continua, así que sus salidas
+    no pueden quedar viejas.
+
 `run()` imprime el resumen de cada etapa mientras corre y, en un notebook, la última línea pinta
 el resumen final (también con `sc.summary()`; el de una etapa, con `sc.summary("binning")`, y su
 tabla de decisión en `sc.results["binning"]`). `sc.run(until="selection")` se detiene tras esa

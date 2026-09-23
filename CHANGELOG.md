@@ -7,6 +7,17 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## No publicado
 
+### Añadido
+
+- **El notebook mínimo, como cuaderno de verdad**: `docs_site/notebooks/primer-scorecard.ipynb`,
+  enlazado desde «Instalación y primeros pasos» y descargable desde docs.nikodym.cl. Es el
+  mismo flujo de las guías —datos, corrida completa, una etapa por dentro, una decisión humana
+  con `exclude` y `resume`, el resumen final y los once libros de Excel— con sus salidas
+  **reales**, en 22 líneas de usuario. **Se ejecuta entero en cada integración continua**, sin
+  añadir jupyter a las dependencias: un gate corre sus celdas en orden, comprueba que su flujo
+  es el del notebook mínimo publicado, que no trae celdas en error y que no filtra rutas de la
+  máquina en la que se generó (las salidas muestran rutas relativas a la carpeta del cuaderno).
+
 ### Corregido
 
 - **Una cartera sin columna de fecha ya no mata la corrida en el análisis exploratorio**
