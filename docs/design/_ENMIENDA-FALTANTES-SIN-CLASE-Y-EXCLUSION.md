@@ -75,11 +75,19 @@ en las filas ajustadas, y sólo cuando su WoE es el empírico (`metric_missing` 
 El escalador indexa los puntos por `(variable, WoE)` y, ante WoE repetidos, gana el primer bin y el
 duplicado queda registrado —ya pasa hoy entre los bins vacíos `Special` y `Missing`, que tienen WoE
 0—. Un bin asignado comparte a propósito el WoE de su tramo de referencia y, por tanto, **sus
-puntos**: mismo riesgo, mismo puntaje. Lo que no puede quedar ambiguo es un **ajuste manual de
-puntos** (`scorecard.point_overrides`) sobre el bin asignado: aparecería en la tabla y no se
-aplicaría a sus filas. Por eso un override sobre un bin cuyo WoE fue asignado **se rechaza** con un
-mensaje que dice que ese bin comparte los puntos de su tramo de referencia y que el ajuste se hace
-sobre ese tramo.
+puntos**: mismo riesgo, mismo puntaje. Una sola política, en las dos direcciones del ajuste
+manual de puntos (`scorecard.point_overrides`):
+
+- **Un override sobre el tramo de referencia se hereda**: la fila del bin asignado en la tabla de
+  puntos lleva los mismos puntos ajustados, con su fuente declarada, y el bundle congela esa fila.
+  Sin esto, las filas faltantes recibirían en la corrida los puntos ajustados —la búsqueda es por
+  WoE y gana el tramo de referencia— mientras la tabla y el bundle conservaban los sin ajustar
+  (revisión adversarial, pasada 2).
+- **Un override sobre el bin asignado se rechaza**, con un mensaje que dice que ese bin comparte los
+  puntos de su tramo de referencia y que el ajuste se hace sobre ese tramo.
+
+Gate: corrida, tabla de puntos y bundle dan los mismos puntos a las filas del bin asignado, con y
+sin override en el tramo de referencia.
 
 **Qué no cambia:** un bin **regular** sin una clase sigue siendo asunto de D-RAR (categóricas) o de
 la validación de siempre. Un bin de faltantes con las dos clases, por chico que sea, sigue con su
@@ -92,7 +100,7 @@ corrida muere.
 |---|---|
 | **Trail** | Una decisión por bin asignado: `regla="bin_sin_clase_asignado"`, `valor={variable, bin, operaciones, incumplidas}`, `umbral={regla, woe_asignado, tramo_de_referencia}`, `accion="asignar_woe"` |
 | **Card de `binning`** | Campo aditivo `assigned_bins`: por variable, el bin, sus operaciones y malos, el WoE asignado y el tramo del que se tomó |
-| **Resumen de «Tramos y WoE»** | Una línea: «Faltantes sin incumplimientos a los que se asignó el riesgo del peor tramo: «antiguedad_de_la_empresa» (4 operaciones, ninguna incumplida)» |
+| **Resumen de «Tramos y WoE»** | Una línea por bin asignado, con el tipo de bin y la clase que falta —«Faltantes» o «Valores especiales»; «ninguna incumplida» o «todas incumplidas»—: «Faltantes de «antiguedad_de_la_empresa» (4 operaciones, ninguna incumplida): se les asignó el riesgo de su peor tramo» (revisión adversarial, pasada 2: un bin especial puede estar hecho sólo de malos) |
 | **Informe** | Lo publica el Anexo de parámetros con la card; el cuerpo no gana sección |
 
 Los conteos son **operaciones** de las filas ajustadas, sin pesos (misma regla que D-RAR tras su
@@ -108,6 +116,14 @@ la corrida moriría en selección (revisión adversarial, pasada 1, verificado e
 `selection/selector.py`). `binning.feature_columns` —la lista inferida— no se toca, para que
 `exclude()`/`keep()` sigan reconociendo la variable. `keep()` sobre una variable excluida la retira
 de `binning.exclude_columns` y la fuerza en selección y modelo, como hoy (la última decisión gana).
+
+**Los tramos fijados de una variable excluida quedan en suspenso.** `set_bins()` y `merge_bins()`
+escriben `binning.variable_overrides`, y el binning rechaza un override de una variable que no va a
+tramificar: excluir después de fijar tramos volvería a detener la corrida (revisión adversarial,
+pasada 2). El paso de binning ignora —y declara en el trail— los overrides de las variables que
+están en `binning.exclude_columns`, en vez de rechazarlos; un override de una variable que **no**
+existe sigue siendo un error. El override queda en el config, así que `keep()` lo reactiva sin
+volver a escribirlo.
 
 Consecuencia deliberada: una variable excluida deja de mostrar su IV en «Tramos y WoE». Es lo que
 significa descartarla, y la decisión con su motivo sigue en el trail.
@@ -128,14 +144,17 @@ en el config completo.
 | 6 | La card publica `assigned_bins` y el resumen su línea, sin identificadores del motor | No existe |
 | 7 | `exclude()` escribe `binning.exclude_columns` y no `selection.force_exclude`: una variable que hoy tumba el binning, excluida, deja terminar la corrida **en `done`** y no aparece en las tablas | Hoy muere igual |
 | 8 | `keep()` después de `exclude()` la devuelve al binning y la corrida termina | — |
-| 8b | **Paridad de puntos**: las filas faltantes reciben los puntos de su tramo de referencia en la corrida, en la tabla de puntos y en el bundle | La regla no existe |
+| 8a | `set_bins()` → `exclude()` termina `done`, con el override en suspenso declarado; y `keep()` después vuelve a tramificarla con esos mismos cortes | Hoy muere en binning |
+| 8b | **Paridad de puntos**: las filas faltantes reciben los puntos de su tramo de referencia en la corrida, en la tabla de puntos y en el bundle, **también con un override en el tramo de referencia** | La regla no existe |
+| 8d | El resumen dice el tipo de bin y la clase que falta: «Faltantes» / «Valores especiales», «ninguna incumplida» / «todas incumplidas» | La rama no existe |
 | 8c | Un `point_override` sobre un bin asignado se rechaza con su mensaje | No se valida |
 | 9 | Bit a bit sobre el preset F1: la única diferencia es la clave aditiva vacía de la card | — (guardrail) |
 
 **Controles negativos:** desactivar la regla (1, 2); asignar el WoE del mejor tramo en vez del peor
 (2); no corregir la transformación (2, 8b); emitir la decisión sin bin degenerado (5); aplicar la
 regla con un valor declarado (4); no escribir `binning.exclude_columns` (7); volver a escribir
-`selection.force_exclude` (7); aceptar el override sobre un bin asignado (8c).
+`selection.force_exclude` (7); aceptar el override sobre un bin asignado (8c); no heredar el
+override del tramo de referencia (8b); rechazar el override en suspenso (8a).
 
 ## 5. Lo que Cami decide
 
@@ -151,6 +170,7 @@ Tope declarado: tres pasadas.
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
 | 1 | (a) **alto**: escribir `binning.exclude_columns` **y** `selection.force_exclude` hace morir la corrida en selección, que rechaza forzar una variable no binificada; (b) **alto**: con un WoE declarado, la transformación y la tabla —de donde salen los puntos— ya divergen hoy, y «rige ese valor» no lo resolvía; (c) **alto**: los puntos se indexan por `(variable, WoE)` y un bin asignado comparte clave con su tramo de referencia, así que un override por bin sería ambiguo; (d) **medio**: «peor tramo» no garantiza el peor puntaje si el modelo invierte el signo | (a) §3: `exclude()` escribe sólo `binning.exclude_columns` y retira la variable de las listas de selección y modelo; (b) §1, punto 4: la regla entra sólo con WoE empírico, el comportamiento con valor declarado no cambia y la divergencia previa se registra aparte; (c) §1.1: el bin asignado comparte a propósito los puntos de su tramo, y un override sobre él se rechaza; (d) §1, punto 1: la promesa se acota al WoE y a la dirección que el modelo dé a la variable |
+| 2 | (a) **alto**: un override sobre el **tramo de referencia** llegaba a las filas faltantes por la búsqueda por WoE, pero no a la fila `Missing` de la tabla, que es la que congela el bundle: corrida y bundle puntuaban distinto; (b) **alto**: `exclude()` tras `set_bins()` o `merge_bins()` dejaba un override de una variable no tramificada, que el binning rechaza; (c) **medio**: la frase del resumen suponía «sin incumplimientos», y un bin especial puede estar hecho sólo de malos | (a) §1.1: el bin asignado **hereda** los puntos ajustados de su tramo de referencia, con fuente declarada, y el gate de paridad cubre ese caso; (b) §3: los overrides de una variable excluida quedan en suspenso, declarados, y `keep()` los reactiva; (c) §2: el texto dice el tipo de bin y la clase que falta |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
