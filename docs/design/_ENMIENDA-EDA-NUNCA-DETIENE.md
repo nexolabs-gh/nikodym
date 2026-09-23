@@ -6,7 +6,7 @@
 | **Decisiones** | **D-SC-19** (la regla: `eda` nunca detiene la corrida) y **D-SC-20** (qué dicen las superficies de un sub-análisis que falló) |
 | **Módulos** | `nikodym.eda` (`step`, `default_rate`, `stability`, `card`), `nikodym.guided.summaries`, `nikodym.report` (`builder`, `prose`), `web/` (`results-types`, `results-format`, `ResultsTab`), `docs_site/guias/analisis-exploratorio.md` |
 | **Fase** | F1 |
-| **Estado** | **Propuesta** — la dirección la eligió Cami el 2026-09-23 (interactivo: «nunca la mata», y todo en la misma sesión); falta su OK al documento |
+| **Estado** | **Propuesta** — la dirección la eligió Cami el 2026-09-23 (interactivo: «nunca la mata», y todo en la misma sesión); tres pasadas de Codex absorbidas; falta su OK al documento |
 | **Depende de** | D-SC-17/18 (el mecanismo de «no evaluable con causa» que esta enmienda reutiliza), D-SIM-1/2, D-FLU |
 | **Release** | Aditiva para todo lo que hoy termina: la regla **sólo** entra donde `eda` hoy levanta. Ningún `config_hash` se mueve ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-23 |
@@ -104,6 +104,28 @@ Queda declarado lo que se pierde: por YAML, una columna de `eda` mal escrita ya 
 preflight con avisos no bloqueantes sería una capacidad nueva del contrato transversal D-INV, y no
 entra aquí.
 
+### 1.3 🔴 Un sub-análisis caído no se publica como resultado negativo
+
+Rellenar lo que falló con «vacío» no es neutro: con el código de hoy, una tabla de calidad vacía se
+convierte en `quality_flag_counts` con **ceros** —que se lee «el archivo no tiene problemas de
+calidad»— y una estabilidad no evaluable publica `stability_flagged = 0.0` en el canal de métricas
+—que se lee «estable»— (revisión adversarial, pasada 3, verificado: `_build_eda_card` y
+`EdaStep.metrics`). Un cálculo que no se hizo no puede publicarse como un resultado negativo. Por
+eso:
+
+| Si falló… | La card publica | El canal de métricas (D-GOB-2) |
+|---|---|---|
+| la calidad | `quality_flag_counts = {}` —**vacío**, no ceros— | sin cambios: la calidad no publica métricas |
+| la estabilidad (`no_calculable`) o la tasa de la que depende (`tasa_no_calculable`) | `stability_flagged = False` (el campo es obligatorio), con la causa en `stability_not_evaluable_reason` y en `failed_analyses` | **omite** `stability_flagged` |
+| la tasa (`no_calculable`) | `n_periods = 0` y la causa | **omite** `n_periods`; `overall_default_rate` se omite si es `NaN`, como hoy |
+
+Las causas de no evaluabilidad que **ya existían** (`eje_cohorte`, `pocos_periodos_evaluables`,
+`tasa_media_cero`, `sin_eje_temporal`) conservan el comportamiento de hoy en el canal de métricas:
+cambiarlo movería el `results.metrics` de corridas que hoy terminan —el preset F1 publica
+`stability_flagged = 0.0` con `eje_cohorte`— y rompería el bit a bit. Queda declarado como límite:
+una señal **no evaluada** por una causa esperada sigue viajando como `0.0`; una **caída** por una
+falla, no.
+
 **Qué excepciones se atrapan: todas.** `EdaError` es el caso esperado y su mensaje ya está redactado
 para una persona. Cualquier otra excepción —un defecto del motor— **también** degrada, porque la
 regla es «nunca la mata», pero **no se esconde**: su causa se publica como «error inesperado del
@@ -140,6 +162,7 @@ termina.
 | **Resumen de la etapa** | Una **alerta** por sub-análisis caído —«La tasa de malos en el tiempo no se pudo calcular: <causa>»—, que el resumen final recoge en «Qué revisar». La falta de eje de D-SC-17 sigue siendo una **línea**: no es una falla, es el archivo |
 | **Panel de Resultados** | Un aviso bajo las cifras con cada sub-análisis caído y su causa, en el molde del que D-SC-18 ya pinta para la falta de eje |
 | **Informe** | `_eda_context` y `_results_eda` dicen qué no se pudo calcular y por qué, sin anunciar tablas ni figuras que no están; el builder omite la tabla de calidad vacía como ya omite la de la tasa |
+| **Página ejecutiva del informe y resumen final** | 🔴 `_estado_de_ejecucion` escribe hoy «corrieron **sin fallos** <etapas>» mientras el informe se renderiza, y con un `eda` parcial eso sería falso (pasada 3). Pasa a decir «corrieron <etapas>; el análisis exploratorio, de forma **parcial**: <n> de sus análisis no se pudieron calcular (ver “Qué revisar”)». Al terminar, `summary()` dice «completada — con el análisis exploratorio parcial». En una corrida sana los dos textos son **byte a byte** los de hoy |
 | **Guía** | La sección de la tasa en el tiempo deja de listar «lo que sigue siendo un error»: pasa a decir que el análisis exploratorio nunca detiene la corrida, y qué se ve cuando algo no se pudo calcular |
 | **Catálogo de la pantalla** (`ui/jobs.py`) | 🔴 La opción `eda.default_rate.axis = "cohort"` sigue marcada **«exige otro campo»** con el motivo «Sin ella, la corrida se detiene aquí». Con D-SC-19 eso deja de ser verdad, y el estado está definido como «hasta que lo declares el config no se construye» (D-EXI-2): es exactamente lo que D-SC-18 ya corrigió para la opción `"period"`. Pasa a **«disponible»**, retira `motivo`/`prueba`/`exige`, y el aviso —«sin la columna de cohorte, la tasa en el tiempo no se puede calcular; la corrida sigue»— se muda a su `help`. Se regeneran el fixture `jobs.json` y el ledger `option_surface_ledger.json` |
 
@@ -165,6 +188,8 @@ degradado) se quedan como están, porque su contrato no cambia.
 | 10c | La opción `axis="cohort"` del catálogo es **«disponible»** sin `motivo`, `prueba` ni `exige`, con el aviso en su `help`; y un config con `axis="cohort"` sin `cohort_col` **corre** y degrada la tasa | Hoy está marcada «exige otro campo» |
 | 10d | **Preflight**: `check_dataset` declara **compatible** un config cuyos únicos desajustes son de `eda` —`axis="cohort"` sin `cohort_col`, `date_col`/`cohort_col` ausentes, una columna de perfil ausente—, y **sigue** declarando incompatible uno con la misma columna ausente en `binning` (control de que la exención no se derramó) | Hoy los cinco salen `compatible=False` |
 | 10e | **La estabilidad falla sola**: con una excepción inyectada en `assess()`, la tasa se publica entera y la estabilidad sale `no_calculable` con su causa en `failed_analyses["stability"]` | Hoy la corrida muere |
+| 10f | **Nada caído se publica como negativo**: con la calidad caída, `quality_flag_counts == {}`; con la estabilidad o la tasa caídas, el canal de métricas **no** trae `eda.stability_flagged` ni `eda.n_periods` | Hoy serían ceros |
+| 10g | **La página ejecutiva no dice «sin fallos»**: el informe de una corrida con `eda` parcial dice «de forma parcial» y no contiene «corrieron sin fallos»; `summary()` dice «completada — con el análisis exploratorio parcial»; y en una corrida sana los dos textos no cambian | Hoy dice «sin fallos» |
 | 11 | **Bit a bit**: la proyección canónica de una corrida F1 del preset antes y después; las únicas diferencias admitidas son las claves nuevas con su valor vacío (`failed_analyses: {}`), `config_hash` `1063d6cf…` intacto | — (guardrail) |
 
 **Controles negativos (RUNBOOK §6):** (a) volver a dejar que el paso propague la excepción de la
@@ -174,7 +199,9 @@ caso de las dos fechas y ver rojo el 6; (e) emitir la decisión también en una 
 rojo el 7; (f) borrar un rótulo nuevo del espejo del front y ver rojo el 9; (g) usar
 `tasa_no_evaluable` como red —que valida— y ver rojo el 3 por la población rota; (h) extender la
 exención del preflight a todas las secciones y ver rojo el 10d por `binning`; (i) atribuir la falla
-de la estabilidad a la tasa y ver rojo el 10e.
+de la estabilidad a la tasa y ver rojo el 10e; (j) publicar ceros en `quality_flag_counts` con la
+calidad caída y ver rojo el 10f; (k) dejar «corrieron sin fallos» con un `eda` parcial y ver rojo el
+10g.
 
 ## 4. Riesgos
 
@@ -202,6 +229,13 @@ cuando una pasada deja de tumbar premisas y sólo refina detalles).
 |---|---|---|
 | 1 | (a) La opción «Por cohorte o añada» de la pantalla seguía marcada «exige otro campo» y decía que la corrida se detiene; (b) el constructor degradado de D-SC-17 **valida la población** y levanta en los tres casos que había que rescatar | (a) la opción pasa a «disponible» con el aviso en su `help` (§2, test 10c); (b) §1.1: un constructor nuevo, `tasa_no_calculable`, que nunca levanta (test 10b, control negativo g) |
 | 2 | (a) El **preflight** seguiría declarando incompatible un config que ahora corre —el requisito de cohorte y las columnas de `eda` ausentes—; (b) tasa y estabilidad como una sola unidad de fallo harían perder una tasa válida cuando falla sólo la estabilidad | (a) §1.2: el requisito deja de declararse y el preflight exime a `eda` conservando el `column_role` del selector de columnas (test 10d, control h); (b) la estabilidad es una unidad propia con su causa (test 10e, control i) |
+| 3 | (a) Un sub-análisis caído se publicaría como resultado **negativo válido** —calidad con ceros, `stability_flagged = 0.0` en el canal de métricas—; (b) la página ejecutiva del informe diría «corrieron **sin fallos**» con un `eda` parcial | (a) §1.3: vacío en vez de ceros y métricas omitidas para lo caído (test 10f, control j); (b) el estado de ejecución dice «parcial» (test 10g, control k) |
+
+**Tope alcanzado.** Las dos primeras pasadas trajeron consumidores que el diseño no había mirado
+—el constructor que valida, la opción de la pantalla, el preflight— y la tercera, dos formas de
+**leer mal** lo que el diseño ya publicaba. Ninguna tumbó la regla; las tres afinaron sus bordes.
+Es el criterio de parada declarado: estas correcciones no llevan pasada propia, y la
+implementación abre con una pasada sobre su rango de código.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
