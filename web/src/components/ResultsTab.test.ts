@@ -1167,6 +1167,21 @@ describe("«Análisis exploratorio» (D-SC-5): los tres casos de la card, con su
     expect(html).toContain("La descripción de las columnas frente al incumplimiento no se pudo")
   })
 
+  it("las figuras caídas se dicen en plural y con su causa", () => {
+    const html = render(
+      conEda({
+        ...base,
+        failed_analyses: {
+          figures: "error inesperado del motor (ValueError): fallo inyectado en las figuras",
+        },
+      }),
+    )
+    expect(html).toContain(
+      "Las figuras del análisis exploratorio no se pudieron calcular: «error inesperado del motor " +
+        "(ValueError): fallo inyectado en las figuras»",
+    )
+  })
+
   it("una corrida sana —o un payload anterior sin la clave— no pinta ningún aviso de parcial", () => {
     const sinClave = render(conEda(base))
     const vacia = render(conEda({ ...base, failed_analyses: {} }))

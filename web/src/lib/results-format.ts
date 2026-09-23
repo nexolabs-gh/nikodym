@@ -2261,14 +2261,16 @@ export function edaDefaultRateReasonLabel(reason: string): string {
 }
 
 /**
- * Espejo de `nikodym.eda.card.FAILED_ANALYSIS_LABELS` (D-SC-20): el sujeto de cada sub-análisis
- * que puede fallar, en el orden del paso, que es el orden del aviso.
+ * Espejo de `nikodym.eda.card.FAILED_ANALYSIS_LABELS` (D-SC-20): sujeto y predicado de cada
+ * sub-análisis que puede fallar —las figuras, en plural—, en el orden del paso, que es el orden
+ * del aviso.
  */
 export const EDA_FAILED_ANALYSIS_LABELS: Record<string, string> = {
-  default_rate: "La tasa de malos en el tiempo",
-  stability: "El deterioro de la tasa en el tiempo",
-  univariate: "La descripción de las columnas frente al incumplimiento",
-  quality: "La revisión de calidad del archivo",
+  default_rate: "La tasa de malos en el tiempo no se pudo calcular",
+  stability: "El deterioro de la tasa en el tiempo no se pudo calcular",
+  univariate: "La descripción de las columnas frente al incumplimiento no se pudo calcular",
+  quality: "La revisión de calidad del archivo no se pudo calcular",
+  figures: "Las figuras del análisis exploratorio no se pudieron calcular",
 } as const
 
 /**
@@ -2280,10 +2282,10 @@ export const EDA_FAILED_ANALYSIS_LABELS: Record<string, string> = {
 export function edaFailedAnalyses(eda: EdaResult): string[] {
   const fallos = eda.failed_analyses ?? {}
   const frases: string[] = []
-  for (const [clave, sujeto] of Object.entries(EDA_FAILED_ANALYSIS_LABELS)) {
+  for (const [clave, inicio] of Object.entries(EDA_FAILED_ANALYSIS_LABELS)) {
     const causa = fallos[clave]
     if (causa === undefined) continue
-    frases.push(`${sujeto} no se pudo calcular: «${causa.trim().replace(/\.+$/, "")}»`)
+    frases.push(`${inicio}: «${causa.trim().replace(/\.+$/, "")}»`)
   }
   // Una clave que el motor gane y el front no conozca se dice igual, con su slug: callarla
   // escondería una falla.

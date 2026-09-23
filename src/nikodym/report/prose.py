@@ -1628,22 +1628,19 @@ def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
     frases: list[str] = []
     if piezas:
         frases.append(f"A continuación se reproducen {_enumerar(tuple(piezas))}.")
-    if fallos:
+    # Lo que cayó y el documento reproduciría. Las recetas de figura no cuentan: los gráficos del
+    # informe salen de las tablas, que siguen estando.
+    sin_reproducir = set(fallos) - {"figures"}
+    if sin_reproducir:
         # D-SC-20: lo que no se pudo calcular no se anuncia —no hay tabla ni figura que lo
         # reproduzca— y su causa se dijo en el contexto de la población.
-        caidos = tuple(
-            sujeto[0].lower() + sujeto[1:]
-            for clave, sujeto in _eda_failed_labels().items()
-            if clave in fallos
-        )
         frases.append(
-            f"No se {_plural(len(caidos), 'reproduce', 'reproducen')} {_enumerar(caidos)}: no se "
-            f"{_plural(len(caidos), 'pudo', 'pudieron')} calcular, y la causa consta en el "
-            "contexto de la población."
+            "Lo que no se pudo calcular no se reproduce aquí: su causa consta en el contexto de la "
+            "población."
         )
     if sin_eje != "sin_eje_temporal":
         return tuple(frases)
-    if fallos:
+    if sin_reproducir:
         # Otra parte del análisis también cayó: «el resto se hizo igual» sería falso (revisión
         # adversarial del código, pasada 1). Queda la causa de la tasa; la del resto la dice el
         # contexto de la población.

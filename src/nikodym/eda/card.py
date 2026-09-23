@@ -22,15 +22,17 @@ from pydantic import BaseModel, ConfigDict
 
 __all__ = ["FAILED_ANALYSIS_LABELS", "EdaCardSection", "failed_analysis_sentence"]
 
-#: Rótulo de cada sub-análisis que puede fallar (D-SC-20), como **sujeto** de la frase «… no
-#: se pudo calcular: <causa>» que el resumen de la etapa, el panel y el informe escriben. El
-#: orden es el del paso, y es el orden en que se listan las alertas. La preparación no tiene
-#: clave propia: si falla, falla cada uno de los tres que la leen, con la misma causa.
+#: Lo que se dice de cada sub-análisis que no se pudo calcular (D-SC-20): sujeto y predicado,
+#: concordados —las figuras van en plural—. Es el comienzo de la frase «… : <causa>» que el
+#: resumen de la etapa, el panel y el informe escriben. El orden es el del paso, y es el orden en
+#: que se listan las alertas. La preparación no tiene clave propia: si falla, falla cada uno de
+#: los tres que la leen, con la misma causa.
 FAILED_ANALYSIS_LABELS: Final[dict[str, str]] = {
-    "default_rate": "La tasa de malos en el tiempo",
-    "stability": "El deterioro de la tasa en el tiempo",
-    "univariate": "La descripción de las columnas frente al incumplimiento",
-    "quality": "La revisión de calidad del archivo",
+    "default_rate": "La tasa de malos en el tiempo no se pudo calcular",
+    "stability": "El deterioro de la tasa en el tiempo no se pudo calcular",
+    "univariate": "La descripción de las columnas frente al incumplimiento no se pudo calcular",
+    "quality": "La revisión de calidad del archivo no se pudo calcular",
+    "figures": "Las figuras del análisis exploratorio no se pudieron calcular",
 }
 
 
@@ -40,10 +42,11 @@ def failed_analysis_sentence(key: str, cause: str) -> str:
     Una sola fuente para el resumen de la etapa y el informe; el panel la replica en el front. La
     causa va **citada**: es el mensaje del motor tal cual, y como cita textual conserva su
     mayúscula inicial tras los dos puntos. Se le quita el punto final para que quien la use cierre
-    la frase una sola vez.
+    la frase una sola vez. Una clave que el motor gane sin rótulo se dice igual, con su nombre:
+    callarla escondería una falla.
     """
-    sujeto = FAILED_ANALYSIS_LABELS.get(key, key)
-    return f"{sujeto} no se pudo calcular: «{cause.strip().rstrip('.')}»"
+    inicio = FAILED_ANALYSIS_LABELS.get(key, f"{key} no se pudo calcular")
+    return f"{inicio}: «{cause.strip().rstrip('.')}»"
 
 
 class EdaCardSection(BaseModel):
@@ -87,7 +90,8 @@ class EdaCardSection(BaseModel):
     #: de publicar «agrupada por fecha de observación en 0 períodos».
     default_rate_not_evaluable_reason: Literal["sin_eje_temporal", "no_calculable"] | None = None
     #: Aditivo (D-SC-19/20): los sub-análisis que FALLARON, con su causa en palabras —claves
-    #: ``default_rate``, ``stability``, ``univariate`` y ``quality``—. Vacío en toda corrida sana.
+    #: ``default_rate``, ``stability``, ``univariate``, ``quality`` y ``figures``—. Vacío en toda
+    #: corrida sana.
     #: El análisis exploratorio nunca detiene la corrida; esto es lo que dice qué no se calculó, y
     #: lo leen el resumen de la etapa (una alerta por clave), el panel y el informe.
     failed_analyses: dict[str, str] = {}

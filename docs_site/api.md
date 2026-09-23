@@ -191,13 +191,13 @@ cohorte y la decisión `eje_eda_inferido` queda en el trail de la corrida.
 `EdaStep` **nunca detiene la corrida**: la tasa por período, la señal temporal, los perfiles y la
 calidad fallan por separado, cada uno publica su versión vacía y el paso publica siempre sus seis
 artefactos. La card trae `failed_analyses` —sub-análisis (`default_rate`, `stability`,
-`univariate`, `quality`) → causa del motor—, vacío en toda corrida sana; cada falla deja una
+`univariate`, `quality`, `figures`) → causa del motor—, vacío en toda corrida sana; cada falla deja una
 decisión `analisis_exploratorio_parcial` en el trail, y en el canal de métricas lo que no se
 calculó se **omite** en vez de publicarse como cero. Una excepción que no sea `EdaError` también
 degrada, pero su causa lleva el tipo: «error inesperado del motor (`<Tipo>`): …». Las piezas
 —`DefaultRateAnalyzer`, `UnivariateProfiler`, `DataQualityProfiler`— usadas por código siguen
-levantando su `EdaError` de siempre. Los sujetos en palabras y la frase que los redacta viven en
-`nikodym.eda.card` (`FAILED_ANALYSIS_LABELS`, `failed_analysis_sentence`).
+levantando su `EdaError` de siempre. Lo que se dice de cada uno y la frase que lo redacta viven
+en `nikodym.eda.card` (`FAILED_ANALYSIS_LABELS`, `failed_analysis_sentence`).
 
 ::: nikodym.eda.config.EdaConfig
     options:

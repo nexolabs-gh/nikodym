@@ -308,7 +308,7 @@ export interface EdaResult {
   default_rate_not_evaluable_reason: EdaDefaultRateNotEvaluableReason | null
   /**
    * Los sub-análisis que NO se pudieron calcular, con la causa del motor (D-SC-19/20): claves
-   * `default_rate`, `stability`, `univariate` y `quality`. Vacío en toda corrida sana; opcional
+   * `default_rate`, `stability`, `univariate`, `quality` y `figures`. Vacío en toda corrida sana; opcional
    * porque un payload anterior —la demo capturada— no lo trae, y se lee como vacío.
    */
   failed_analyses?: Record<string, string>

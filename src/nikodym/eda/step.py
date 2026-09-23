@@ -266,7 +266,10 @@ class EdaStep(AuditableMixin):
             stability = analizador.no_calculable()
         try:
             figures = _build_figure_specs(default_rate=default_rate, univariate=univariate)
-        except Exception:  # las figuras son una receta, no una superficie que se lea
+        except Exception as exc:  # D-SC-19: un defecto del motor no se esconde (pasada 2)
+            # Publicar «0 figuras» sin causa sería un negativo que nadie midió. Los gráficos del
+            # informe salen de las tablas y no se pierden; lo que se pierde son las recetas.
+            fallos["figures"] = _causa(exc)
             figures = ()
         # `DecisionRecord` no cambia (RUNBOOK §12.2-11): el tipo de una excepción inesperada ya
         # viaja en la causa —«error inesperado del motor (KeyError): …»—, que va al `umbral`.

@@ -13,12 +13,13 @@ Tres cosas más que un cuaderno publicado tiene que cumplir, y que un test de «
 que su flujo no se aparte del notebook mínimo que publican las guías, que no traiga una celda en
 error y que no filtre rutas de la máquina en la que se generó.
 
-🔴 Y que sus salidas **sean las de hoy** (revisión adversarial del código, pasada 1): ejecutar sin
-comparar dejaba el CI verde con cifras viejas publicadas. Cada celda se ejecuta como la ejecuta
-un kernel —si la última sentencia es una expresión, su valor es la salida— y lo impreso y lo
-devuelto se comparan con lo guardado, con las rutas relativas a la carpeta del cuaderno. Sólo se
-eximen las líneas que dependen de los extras instalados —el informe en PDF y en Word—, que cambian
-entre entornos sin que el cuaderno esté viejo, y el hash del archivo de entrada copiado.
+🔴 Y que sus salidas **sean las de hoy** (revisión adversarial del código, pasadas 1 y 2): ejecutar
+sin comparar dejaba el CI verde con cifras viejas publicadas. Cada celda se ejecuta como la ejecuta
+un kernel —si la última sentencia es una expresión, su valor es la salida— y lo impreso, el texto
+del resultado y su HTML —que es lo que se ve al abrir el cuaderno— se comparan con lo guardado,
+con las rutas relativas a la carpeta del cuaderno. Sólo se eximen las menciones del informe en PDF
+y en Word, que dependen de los extras instalados y cambian entre entornos sin que el cuaderno esté
+viejo, y el hash del archivo de entrada copiado.
 
 El cuaderno termina exportando los once libros de Excel, así que su ejecución exige `openpyxl`:
 corre en el job del CI con todos los extras y en la máquina de desarrollo, no en la matriz, que
@@ -43,9 +44,15 @@ _CUADERNO = _RAIZ / "docs_site" / "notebooks" / "primer-scorecard.ipynb"
 _GUIA = _RAIZ / "docs_site" / "getting-started.md"
 _BLOQUE = "primer-scorecard"
 _TOPE_LINEAS_DE_USUARIO = 25
-#: Líneas de salida que dependen de los extras instalados: varían entre entornos sin que el
-#: cuaderno esté viejo.
-_LINEAS_DEL_ENTORNO = ("Informe PDF:", "Informe Word:")
+#: Menciones que dependen de los extras instalados —el informe en PDF y en Word—: varían entre
+#: entornos sin que el cuaderno esté viejo. Aparecen como línea impresa, como par del `repr` del
+#: resumen final, como cadena dentro del `repr` de un resumen de etapa y como ítem del HTML.
+_MENCIONES_DEL_ENTORNO = (
+    re.compile(r"^[ \t]*Informe (?:PDF|Word):.*$", re.M),
+    re.compile(r"\('Informe (?:PDF|Word)', '[^']*'\),? ?"),
+    re.compile(r"'Informe (?:PDF|Word): [^']*',? ?"),
+    re.compile(r"<li>Informe (?:PDF|Word): .*?</li>"),
+)
 #: El nombre de la copia de entrada lleva el hash del archivo, que depende del escritor de parquet.
 _HASH_DE_ENTRADA = re.compile(r"data-[0-9a-f]{16}")
 
@@ -148,17 +155,18 @@ def _comparable(texto: str, raices: tuple[Path, ...]) -> list[str]:
     texto = _HASH_DE_ENTRADA.sub(
         "data-<hash>", texto.replace(barra + barra, "/").replace(barra, "/")
     )
-    return [
-        linea.rstrip()
-        for linea in texto.splitlines()
-        if not linea.lstrip().startswith(_LINEAS_DEL_ENTORNO)
-    ]
+    for mencion in _MENCIONES_DEL_ENTORNO:
+        texto = mencion.sub("", texto)
+    return [linea.rstrip() for linea in texto.splitlines() if linea.strip()]
 
 
 def _guardado(salidas: list[dict[str, Any]], tipo: str, formato: str = "text/plain") -> str | None:
     for salida in salidas:
-        if salida["output_type"] == tipo:
-            return "".join(salida["text"] if tipo == "stream" else salida["data"][formato])
+        if salida["output_type"] != tipo:
+            continue
+        if tipo == "stream":
+            return "".join(salida["text"])
+        return "".join(salida["data"][formato]) if formato in salida["data"] else None
     return None
 
 
@@ -169,6 +177,7 @@ def test_el_cuaderno_corre_de_punta_a_punta_y_publica_las_salidas_de_hoy(
     salida guardada es la que produce hoy."""
     pytest.importorskip("optbinning")
     pytest.importorskip("openpyxl")
+    pytest.importorskip("docx")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     raices = (tmp_path, tmp_path.resolve())
@@ -190,6 +199,15 @@ def test_el_cuaderno_corre_de_punta_a_punta_y_publica_las_salidas_de_hoy(
         assert _comparable(repr(valor), raices) == _comparable(guardado, raices), (
             f"celda {numero}: su resultado cambió; regenera el cuaderno"
         )
+        html = getattr(valor, "_repr_html_", None)
+        html_guardado = _guardado(celda["outputs"], "execute_result", "text/html")
+        assert (html_guardado is None) == (not callable(html)), (
+            f"celda {numero}: el HTML guardado no corresponde al resultado de hoy"
+        )
+        if callable(html):
+            assert _comparable(str(html()), raices) == _comparable(html_guardado or "", raices), (
+                f"celda {numero}: su HTML cambió; regenera el cuaderno"
+            )
 
     sc = espacio["sc"]
     assert sc.study.run_context.status == "done", sc.study.run_context.error

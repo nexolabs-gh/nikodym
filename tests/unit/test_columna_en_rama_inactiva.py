@@ -36,6 +36,7 @@ from nikodym.core.dataset_check import (
     check_dataset,
 )
 from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+from nikodym.eda.config import DefaultRateConfig
 
 #: Nombre que no está en ningún dataset: si el preflight lo mira, lo acusa.
 FANTASMA = "columna_que_no_existe_en_ningun_archivo"
@@ -373,14 +374,28 @@ def test_una_columna_del_eje_apagado_de_eda_no_se_acusa(
 
 
 @pytest.mark.parametrize(("campo", "apagada", "encendida"), _CASOS_EDA)
-def test_ancla_con_el_eje_activo_la_columna_de_eda_si_se_acusa(
+def test_con_el_eje_activo_la_columna_de_eda_tampoco_se_acusa(
     campo: str, apagada: dict[str, object], encendida: dict[str, object]
 ) -> None:
-    """El control que da sentido al de arriba: con su eje activo, la columna se exige."""
+    """Invertido por D-SC-19 §1.2: una columna de `eda` ausente ya no detiene la corrida.
+
+    Hasta D-SC-19 este era el control del test de arriba —con el eje activo, la columna se
+    exigía—. Desde D-SC-19 el análisis exploratorio nunca detiene la corrida: una columna suya que
+    falta cuesta la tasa en el tiempo, que sale «no se pudo calcular» con su causa, y el preflight
+    exime a la sección entera. El control de que la exención no se derrama a otras secciones vive
+    en `test_eda_nunca_detiene.py`; el del mecanismo de D-RAM-1 para `eda`, en el test siguiente.
+    """
     del apagada
-    assert _acusa(_config_eda(encendida), FANTASMA), (
-        f"{campo}: con su eje ACTIVO la tasa sí abre la columna y el preflight la exige"
+    assert not _acusa(_config_eda(encendida), FANTASMA), (
+        f"{campo}: el preflight predice un corte que D-SC-19 eliminó"
     )
+
+
+def test_la_tasa_sigue_declarando_inerte_la_columna_del_eje_que_no_usa() -> None:
+    """El mecanismo de D-RAM-1 para `eda`, medido donde vive ahora que el preflight exime a `eda`:
+    `columnas_inactivas()` nombra la columna del eje apagado y nunca la del activo."""
+    assert DefaultRateConfig(axis="period").columnas_inactivas() == frozenset({"cohort_col"})
+    assert DefaultRateConfig(axis="cohort").columnas_inactivas() == frozenset({"date_col"})
 
 
 def test_con_la_fecha_en_blanco_el_preflight_no_reclama_nada_del_eje() -> None:
@@ -390,10 +405,14 @@ def test_con_la_fecha_en_blanco_el_preflight_no_reclama_nada_del_eje() -> None:
     assert not any(m.path.startswith("eda.") for m in resultado.mismatches), resultado.mismatches
 
 
-def test_la_lista_de_columnas_a_describir_se_reclama_solo_si_trae_nombres() -> None:
-    """`columns` en blanco es «todas» y no reclama nada; con nombres, cada uno se comprueba."""
+def test_la_lista_de_columnas_a_describir_no_se_reclama_nunca() -> None:
+    """`columns` en blanco es «todas» y no reclama nada; con nombres, tampoco desde D-SC-19 §1.2.
+
+    Invertido: una columna a describir que no existe cuesta los perfiles —«no se pudo calcular»,
+    con su causa— y no la corrida, así que el preflight no la acusa.
+    """
     assert not _acusa(_config_eda({"univariate": {"columns": None}}), FANTASMA)
-    assert _acusa(_config_eda({"univariate": {"columns": ["mora", FANTASMA]}}), FANTASMA)
+    assert not _acusa(_config_eda({"univariate": {"columns": ["mora", FANTASMA]}}), FANTASMA)
 
 
 def test_el_preflight_sigue_viendo_las_columnas_de_data_con_validation_podada() -> None:

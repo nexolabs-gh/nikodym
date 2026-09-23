@@ -253,8 +253,8 @@ declaradas aquí, porque el lector de §1–§3 las encontraría distintas en el
    red; lo delata el 2, porque la causa sale «sin eje» en vez de `no_calculable`. Y se añade el
    control (g2): quitar el guard de la preparación pone rojo el 3.
 2. **La frase de un análisis caído tiene una sola fuente** en `nikodym.eda.card`:
-   `FAILED_ANALYSIS_LABELS` (el sujeto de cada clave, en el orden del paso) y
-   `failed_analysis_sentence(key, cause)` → «<sujeto> no se pudo calcular: «<causa>»». La causa va
+   `FAILED_ANALYSIS_LABELS` (sujeto y predicado de cada clave, concordados, en el orden del paso)
+   y `failed_analysis_sentence(key, cause)` → «<sujeto> no se pudo calcular: «<causa>»». La causa va
    **citada** porque es el mensaje del motor tal cual, y como cita conserva su mayúscula tras los
    dos puntos; se le quita el punto final. La leen el resumen de la etapa y el informe; el panel
    la replica en `edaFailedAnalyses` y el espejo de vocabulario ata los dos mapas.
@@ -285,6 +285,7 @@ que incluye el commit del notebook.
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
 | 1 | (a) **alto**: con la preparación caída, `_publicar` derivaba la estabilidad llamando a `assess()` sin protección —la red de las redes todavía podía levantar—; (b) sin eje temporal y con otra parte caída, el panel y el informe seguían diciendo que «el resto del análisis se hizo completo»; (c) el gate del notebook ejecutaba las celdas pero no comparaba las salidas guardadas, y su docstring prometía que sí | (a) la construcción final se protege y, si falla, la estabilidad se anota como caída con su causa; (b) la frase se dice sólo si nada más cayó; (c) cada celda se ejecuta como un kernel y lo impreso y lo devuelto se comparan con lo guardado, eximiendo sólo las líneas que dependen de los extras. De paso se midió que el gate del notebook habría fallado en los nueve jobs de la matriz, que no instalan `openpyxl`: ahora exige `openpyxl` y corre en el job con todos los extras. Cinco controles negativos más, todos rojos |
+| 2 | (a) **alto**: el gate del notebook comparaba el texto de cada resultado pero no su `text/html`, que es lo que se ve al abrir el cuaderno; (b) una falla al armar las recetas de figura se publicaba como `n_figures = 0`, sin causa ni alerta: un negativo publicado y un defecto escondido, contra la propia regla de §1.3 —la tabla de §1 decía que las figuras «no se leen», y es verdad para las superficies, no para la card— | (a) se compara también el HTML, y las menciones del informe PDF/Word —que dependen de los extras— se neutralizan en todas sus formas (línea, par del `repr`, ítem HTML); (b) clave nueva `figures` en `failed_analyses`, con su causa, su decisión en el trail y su alerta; los rótulos pasan a ser sujeto **y predicado** para que las figuras concuerden en plural, y la frase de Resultados deja de enumerar sujetos. Límite declarado: si una receta falla se pierden todas las recetas —la falla se declara—; los gráficos del informe no se pierden porque salen de las tablas. Tres controles negativos más |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 

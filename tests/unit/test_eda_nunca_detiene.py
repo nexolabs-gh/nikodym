@@ -656,3 +656,32 @@ def test_sin_eje_y_con_perfiles_caidos_nada_dice_que_el_resto_se_hizo_completo()
     assert "se hizo igual" not in resultados
     assert "el archivo no trae columna de fecha ni cohorte declarada" in resultados
     assert "no_existe" in contexto
+
+
+def test_una_falla_de_las_figuras_se_declara_y_no_se_publica_como_cero_figuras(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Pasada 2 de Codex: si las recetas de figura fallaban, la card publicaba `n_figures = 0`
+    sin causa ni alerta —un negativo publicado y un defecto del motor escondido—."""
+    from nikodym.eda import step as modulo_step
+
+    def explota(**kwargs: object) -> object:
+        raise ValueError("fallo inyectado en las figuras")
+
+    monkeypatch.setattr(modulo_step, "_build_figure_specs", explota)
+    cfg = EdaConfig(
+        default_rate=DefaultRateConfig(date_col="fecha", min_obs_per_period=1),
+        univariate=UnivariateConfig(columns=("score",)),
+    )
+    _, sink, study = _correr(_frame(), cfg)
+
+    card = study.artifacts.get("eda", "eda_card")
+    assert set(card.failed_analyses) == {"figures"}
+    assert "(ValueError)" in card.failed_analyses["figures"]
+    assert [d["valor"] for d in _decisiones_parciales(sink)] == ["figures"]
+    alertas = " ".join(_resumen(study).alerts)
+    assert "Las figuras del análisis exploratorio no se pudieron calcular" in alertas
+    contexto, resultados = _prosa_eda(study)
+    assert "Las figuras del análisis exploratorio no se pudieron calcular" in contexto
+    # Los gráficos del informe salen de las tablas, que están: nada que diga «no se reproduce».
+    assert "no se reproduce" not in resultados.lower()
