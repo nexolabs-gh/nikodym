@@ -395,3 +395,49 @@ def test_si_el_reintento_no_basta_y_subir_el_umbral_tampoco_la_unica_salida_es_e
     assert "variable_overrides" not in mensaje
     assert len(_decisiones(sink, "categoria_rara_intento_reagrupar")) == 1
     assert _decisiones(sink, "categoria_rara_reagrupada") == []
+
+
+def test_con_pesos_se_publican_operaciones_y_no_masas_ponderadas() -> None:
+    """🔴 Pasada 2 de Codex: con pesos, la tabla de OptBinning trae masas —y 0.20 las trunca: ocho
+    filas con un malo a peso 0,5 salen como `Count 3, Event 0`—. La regla decide con la misma
+    tabla que la validación de siempre (que con esos pesos también moría), pero lo que publica y
+    dice son OPERACIONES reales: 8 y 1 incumplida, no 3 y ninguna."""
+    frame, y = _cartera({**NIVELES_RESCATABLES, "RARO": (8, 1)})
+    pesos = pd.Series(0.5, index=frame.index)
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("proposito", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+
+    binner.fit(frame, y, sample_weight=pesos, audit=sink)
+
+    reagrupada = binner.rare_category_regroupings_["proposito"]
+    assert (reagrupada.n_obs, reagrupada.n_events) == (8, 1)
+    intento = _decisiones(sink, "categoria_rara_intento_reagrupar")[0]
+    assert (intento["valor"]["operaciones"], intento["valor"]["incumplidas"]) == (8, 1)
+
+
+def test_el_sumidero_vale_solo_para_su_ajuste() -> None:
+    """🔴 Pasada 2 de Codex: el sumidero quedaba guardado en el binner, así que un segundo ajuste
+    sin `audit` escribía en el trail anterior —o fallaba si ese trail ya estaba cerrado—."""
+
+    class TrailCerrable(InMemoryAuditSink):
+        cerrado = False
+
+        def emit(self, event: object) -> None:
+            if self.cerrado:
+                raise RuntimeError("trail cerrado")
+            super().emit(event)  # type: ignore[arg-type]
+
+    frame, y = _cartera(NIVELES_RESCATABLES)
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("proposito", "ingreso"), exclude_columns=())
+    primero = TrailCerrable()
+    binner.fit(frame, y, audit=primero)
+    antes = len(primero.events)
+    assert antes >= 2
+    primero.cerrado = True
+
+    binner.fit(frame, y)  # sin sumidero: no puede escribir en el anterior
+
+    assert len(primero.events) == antes
+    assert "proposito" in binner.rare_category_regroupings_

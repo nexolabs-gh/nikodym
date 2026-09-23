@@ -668,7 +668,13 @@ def _categorias_reagrupadas(reagrupadas: Mapping[str, Any]) -> tuple[str, ...]:
         filas = _int(registro.get("n_obs")) or 0
         malos = _int(registro.get("n_events")) or 0
         nivel = f"nivel {niveles[0]}" if len(niveles) == 1 else f"niveles {_enumerar(niveles)}"
-        clase = "ninguna incumplida" if malos == 0 else "todas incumplidas"
+        clase = (
+            "ninguna incumplida"
+            if malos == 0
+            else "todas incumplidas"
+            if malos == filas
+            else f"{_miles(malos)} {_plural(malos, 'incumplida', 'incumplidas')}"
+        )
         partes.append(
             f"«{variable}» ({nivel}: {_miles(filas)} "
             f"{_plural(filas, 'operación', 'operaciones')}, {clase})"

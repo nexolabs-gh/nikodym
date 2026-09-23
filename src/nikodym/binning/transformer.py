@@ -181,8 +181,6 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         binning_process_cls = _import_binning_process()
 
         _validate_runtime_config(self)
-        if audit is not None:
-            self._audit = audit
         frame = _as_dataframe(X, pd, context="fit")
         target = _as_target_series(y, frame.index, pd)
         weights = _as_weight_series(sample_weight, frame.index, pd)
@@ -276,17 +274,31 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         except Exception as exc:
             raise BinningFitError(_mensaje_de_fallo(exc, working.loc[:, process_columns])) from exc
 
-        regroupings = _regroup_isolated_rare_categories(
-            estimator=self,
-            process=process,
-            working=working,
-            target=target,
-            weights=weights,
-            process_columns=process_columns,
-            fit_params=fit_params,
-            special_codes=special_codes,
-            pd=pd,
-        )
+        # El sumidero vale sólo para ESTE ajuste (revisión adversarial del código, pasada 2):
+        # guardarlo en el binner haría que un segundo `fit` sin `audit` escribiera en el trail de
+        # la corrida anterior —o fallara si ya se cerró—. Se pone y se retira alrededor de la
+        # única parte que emite decisiones.
+        previo = self.__dict__.get("_audit")
+        if audit is not None:
+            self._audit = audit
+        try:
+            regroupings = _regroup_isolated_rare_categories(
+                estimator=self,
+                process=process,
+                working=working,
+                target=target,
+                weights=weights,
+                process_columns=process_columns,
+                fit_params=fit_params,
+                special_codes=special_codes,
+                pd=pd,
+            )
+        finally:
+            if audit is not None:
+                if previo is None:
+                    del self._audit
+                else:
+                    self._audit = previo
 
         tables, fitted_summary, binned_columns, fitted_dtypes = _collect_fitted_outputs(
             process=process,
@@ -933,8 +945,10 @@ def _regroup_isolated_rare_categories(
         degenerate = _degenerate_category_bin(table)
         if degenerate is None:
             continue
-        levels, n_obs, n_events = degenerate
-        counts = _clean_category_counts(working[column], special_codes.get(column, []), pd)
+        levels = degenerate
+        specials = special_codes.get(column, [])
+        n_obs, n_events = _filas_del_grupo(working[column], target, levels, specials)
+        counts = _clean_category_counts(working[column], specials, pd)
         n_clean = int(counts.sum())
         below = set(counts[counts < math.ceil(float(declared) * n_clean)].index)
         if len(below) != 1 or not set(levels) <= below or len(counts) < 2:
@@ -988,8 +1002,9 @@ def _regroup_isolated_rare_categories(
             new_table = optb.binning_table.build(add_totals=True)
         still = _degenerate_category_bin(new_table)
         if still is not None:
+            residual = (still, *_filas_del_grupo(working[column], target, still, specials))
             raise BinningFitError(
-                mensaje(residual=still, subir_umbral=_hay_umbral_mayor(counts, effective))
+                mensaje(residual=residual, subir_umbral=_hay_umbral_mayor(counts, effective))
             )
         process.update_binned_variable(column, optb)
         estimator.log_decision(
@@ -1008,20 +1023,36 @@ def _regroup_isolated_rare_categories(
     return regroupings
 
 
-def _degenerate_category_bin(table: DataFrame) -> tuple[tuple[str, ...], int, int] | None:
-    """El primer bin regular con observaciones y una clase en cero: niveles, filas y malos.
+def _degenerate_category_bin(table: DataFrame) -> tuple[str, ...] | None:
+    """Los niveles del primer bin regular con observaciones y una clase en cero.
 
     Los bins regulares de una categórica traen en ``Bin`` el arreglo de sus categorías; ``Special``,
-    ``Missing`` y ``Totals`` traen texto y quedan fuera: reagrupar categorías no los arregla.
+    ``Missing`` y ``Totals`` traen texto y quedan fuera: reagrupar categorías no los arregla. Las
+    clases se comparan **sin truncar**: con pesos, OptBinning acumula masas fraccionarias en
+    ``Event``/``Non-event``, y medio malo ponderado no es cero (revisión adversarial, pasada 2).
+    Es la misma comparación que la validación de siempre.
     """
     for _, row in table.iterrows():
         bin_value = row["Bin"]
         if isinstance(bin_value, str):
             continue
-        count, events, nonevents = (int(row[campo]) for campo in ("Count", "Event", "Non-event"))
+        count, events, nonevents = (float(row[campo]) for campo in ("Count", "Event", "Non-event"))
         if count > 0 and (events == 0 or nonevents == 0):
-            return tuple(str(level) for level in bin_value), count, events
+            return tuple(str(level) for level in bin_value)
     return None
+
+
+def _filas_del_grupo(
+    series: Series, target: Series, levels: tuple[str, ...], special: list[object]
+) -> tuple[int, int]:
+    """Operaciones y malos de esos niveles en las filas ajustadas, sin pesos.
+
+    Lo que se publica y se dice son **operaciones**: con pesos, la tabla de OptBinning trae masas,
+    no filas. Se cuentan sobre las mismas filas limpias a las que se aplica el corte.
+    """
+    clean = series.notna() & ~series.isin(special)
+    en_grupo = clean & series.astype(str).isin(levels)
+    return int(en_grupo.sum()), int(target[en_grupo].astype(int).sum())
 
 
 def _clean_category_counts(series: Series, special: list[object], pd: Any) -> Series:
@@ -1100,7 +1131,7 @@ def _mensaje_categoria_rara(
         if len(levels) == 1
         else "niveles " + ", ".join(f"«{level}»" for level in levels)
     )
-    clase = "ninguna incumplida" if n_events == 0 else "todas incumplidas"
+    clase = _clase_de_las_filas(n_obs, n_events)
     cortes = f"umbral {_corte_legible(declared)} → {_corte_legible(effective)}"
     if sin_reagrupacion:
         resultado = (
@@ -1130,6 +1161,19 @@ def _mensaje_categoria_rara(
         f"WoE no defendible por bin con una clase en cero: variable «{column}», {nivel} con "
         f"{n_obs} operaciones y {clase}. {resultado} {salidas}"
     )
+
+
+def _clase_de_las_filas(n_obs: int, n_events: int) -> str:
+    """«ninguna incumplida», «todas incumplidas» o cuántas, sobre operaciones reales.
+
+    Sin pesos el bin degenerado cae en uno de los dos extremos. Con pesos, OptBinning trunca las
+    masas en su tabla y un nivel con algún malo puede quedar en cero: se dice cuántos hay.
+    """
+    if n_events == 0:
+        return "ninguna incumplida"
+    if n_events == n_obs:
+        return "todas incumplidas"
+    return f"{n_events} {'incumplida' if n_events == 1 else 'incumplidas'}"
 
 
 def _hay_umbral_mayor(counts: Series, effective: float) -> bool:
