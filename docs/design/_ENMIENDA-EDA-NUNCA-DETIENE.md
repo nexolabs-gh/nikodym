@@ -64,6 +64,22 @@ pero la población es buena —el caso de las dos fechas—, `overall_rate` es l
 tampoco se puede (sin población), sale `NaN` y las superficies dicen «no disponible», **no** «sin
 operaciones elegibles», que sería falso.
 
+### 1.1 🔴 Un constructor que NO valida la población
+
+El constructor degradado de D-SC-17, `tasa_no_evaluable()`, **valida la población antes de
+construir** —frame no vacío, índice único, target presente— y levanta justo en los tres casos que
+esta enmienda tiene que rescatar (revisión adversarial, verificado: `_validar_poblacion` es su
+primera línea). Usarlo como red volvería a detener la corrida. Por eso hay **dos** constructores,
+con contratos distintos y a propósito:
+
+| Constructor | Cuándo | Valida la población | `overall_rate` |
+|---|---|---|---|
+| `tasa_no_evaluable(frame, …, reason="sin_eje_temporal")` —el de D-SC-17, **sin cambios**— | La población es buena y lo que falta es el eje | **Sí**: si no lo es, levanta, y ese error lo atrapa el paso | la tasa global, con la regla de siempre |
+| `tasa_no_calculable(frame \| None, target_col=…, axis=…)` —**nuevo**— | Cualquier otra falla de la tasa, incluida una población rota | **No**: construye siempre | la tasa global **si** el frame existe, trae la columna del target y tiene elegibles; si no, `NaN`. Nunca levanta |
+
+Los dos devuelven la tabla vacía con sus seis columnas, así que la invariante del DTO de D-SC-17
+(«con causa ⇒ tabla vacía y sus columnas») se cumple sin tocarla.
+
 **Qué excepciones se atrapan: todas.** `EdaError` es el caso esperado y su mensaje ya está redactado
 para una persona. Cualquier otra excepción —un defecto del motor— **también** degrada, porque la
 regla es «nunca la mata», pero **no se esconde**: su causa se publica como «error inesperado del
@@ -100,6 +116,7 @@ Con claves `default_rate`, `univariate` y `quality`. Vacío en toda corrida que 
 | **Panel de Resultados** | Un aviso bajo las cifras con cada sub-análisis caído y su causa, en el molde del que D-SC-18 ya pinta para la falta de eje |
 | **Informe** | `_eda_context` y `_results_eda` dicen qué no se pudo calcular y por qué, sin anunciar tablas ni figuras que no están; el builder omite la tabla de calidad vacía como ya omite la de la tasa |
 | **Guía** | La sección de la tasa en el tiempo deja de listar «lo que sigue siendo un error»: pasa a decir que el análisis exploratorio nunca detiene la corrida, y qué se ve cuando algo no se pudo calcular |
+| **Catálogo de la pantalla** (`ui/jobs.py`) | 🔴 La opción `eda.default_rate.axis = "cohort"` sigue marcada **«exige otro campo»** con el motivo «Sin ella, la corrida se detiene aquí». Con D-SC-19 eso deja de ser verdad, y el estado está definido como «hasta que lo declares el config no se construye» (D-EXI-2): es exactamente lo que D-SC-18 ya corrigió para la opción `"period"`. Pasa a **«disponible»**, retira `motivo`/`prueba`/`exige`, y el aviso —«sin la columna de cohorte, la tasa en el tiempo no se puede calcular; la corrida sigue»— se muda a su `help`. Se regeneran el fixture `jobs.json` y el ledger `option_surface_ledger.json` |
 
 ## 3. Estrategia de tests
 
@@ -119,13 +136,16 @@ degradado) se quedan como están, porque su contrato no cambia.
 | 8 | El informe completo de la corrida del test 1: la causa aparece, no aparecen «0 períodos», «un solo período» ni tablas vacías, y ningún identificador del motor en la prosa | La rama no existe |
 | 9 | Espejo bidireccional de los rótulos nuevos (`no_calculable`, `tasa_no_calculable`) y del campo `failed_analyses` en `results-types.ts` | Los rótulos no existen |
 | 10 | `ResultsTab` pinta el aviso con cada sub-análisis caído (vitest, render estático) | La rama no existe |
+| 10b | **El constructor nuevo nunca levanta**: con frame vacío, índice duplicado, sin la columna del target y con `None` devuelve la tabla vacía con sus seis columnas, y `overall_rate` es finito sólo cuando hay elegibles | El constructor no existe |
+| 10c | La opción `axis="cohort"` del catálogo es **«disponible»** sin `motivo`, `prueba` ni `exige`, con el aviso en su `help`; y un config con `axis="cohort"` sin `cohort_col` **corre** y degrada la tasa | Hoy está marcada «exige otro campo» |
 | 11 | **Bit a bit**: la proyección canónica de una corrida F1 del preset antes y después; las únicas diferencias admitidas son las claves nuevas con su valor vacío (`failed_analyses: {}`), `config_hash` `1063d6cf…` intacto | — (guardrail) |
 
 **Controles negativos (RUNBOOK §6):** (a) volver a dejar que el paso propague la excepción de la
 tasa y ver rojo el 1; (b) atrapar sólo `EdaError` y ver rojo el 5; (c) no publicar los seis
 artefactos cuando falla la preparación y ver rojo el 3; (d) rellenar la tasa global con `NaN` en el
 caso de las dos fechas y ver rojo el 6; (e) emitir la decisión también en una corrida sana y ver
-rojo el 7; (f) borrar un rótulo nuevo del espejo del front y ver rojo el 9.
+rojo el 7; (f) borrar un rótulo nuevo del espejo del front y ver rojo el 9; (g) usar
+`tasa_no_evaluable` como red —que valida— y ver rojo el 3 por la población rota.
 
 ## 4. Riesgos
 
@@ -148,6 +168,10 @@ rojo el 7; (f) borrar un rótulo nuevo del espejo del front y ver rojo el 9.
 
 Tope declarado: **tres pasadas**, con el criterio de parada de las enmiendas anteriores (se detiene
 cuando una pasada deja de tumbar premisas y sólo refina detalles).
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | (a) La opción «Por cohorte o añada» de la pantalla seguía marcada «exige otro campo» y decía que la corrida se detiene; (b) el constructor degradado de D-SC-17 **valida la población** y levanta en los tres casos que había que rescatar | (a) la opción pasa a «disponible» con el aviso en su `help` (§2, test 10c); (b) §1.1: un constructor nuevo, `tasa_no_calculable`, que nunca levanta (test 10b, control negativo g) |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
