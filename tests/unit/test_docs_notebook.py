@@ -4,10 +4,10 @@ Decisión de Cami del 2026-09-23 (interactiva): el notebook del criterio de comp
 vive en `docs_site/notebooks/`, se publica en docs.nikodym.cl y **se ejecuta en CI**, para que sus
 salidas no puedan quedar viejas sin que nada lo acuse.
 
-Se ejecuta **sin jupyter**: el `.ipynb` es JSON, sus celdas de código son Python plano y se corren en
-orden en un mismo espacio de nombres —que es lo que hace un kernel—, con el directorio de trabajo
-dentro de `tmp_path`. Así el gate no añade `nbclient`, `nbformat` ni `ipykernel` a las dependencias
-de desarrollo y mide lo mismo: que el cuaderno llega hasta el final.
+Se ejecuta **sin jupyter**: el `.ipynb` es JSON, sus celdas de código son Python plano y se
+corren en orden en un mismo espacio de nombres —que es lo que hace un kernel—, con el directorio de
+trabajo dentro de `tmp_path`. Así el gate no añade `nbclient`, `nbformat` ni `ipykernel` a las
+dependencias de desarrollo y mide lo mismo: que el cuaderno llega hasta el final.
 
 Tres cosas más que un cuaderno publicado tiene que cumplir, y que un test de «corre» no vería:
 que su flujo no se aparte del notebook mínimo que publican las guías, que no traiga una celda en
@@ -37,9 +37,7 @@ def _cuaderno() -> dict[str, Any]:
 
 def _celdas_de_codigo() -> list[str]:
     return [
-        "".join(celda["source"])
-        for celda in _cuaderno()["cells"]
-        if celda["cell_type"] == "code"
+        "".join(celda["source"]) for celda in _cuaderno()["cells"] if celda["cell_type"] == "code"
     ]
 
 
@@ -75,7 +73,7 @@ def test_el_cuaderno_es_un_notebook_valido_con_salidas_y_sin_errores() -> None:
 
 
 def test_el_cuaderno_no_filtra_rutas_de_la_maquina_que_lo_genero() -> None:
-    """El repo es público: ni el nombre de usuario ni la estructura de carpetas de quien lo generó."""
+    """El repo es público: ni el usuario ni las carpetas de la máquina de quien lo generó."""
     texto = _CUADERNO.read_text(encoding="utf-8")
     barra = chr(92)
     for rastro in (f"Users{barra}", "Users/", "AppData", "OneDrive", "/home/", "/tmp/"):
@@ -102,7 +100,9 @@ def test_el_cuaderno_cabe_en_el_tope_de_lineas_de_usuario() -> None:
     assert len(lineas) <= _TOPE_LINEAS_DE_USUARIO, len(lineas)
 
 
-def test_el_cuaderno_corre_de_punta_a_punta(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_el_cuaderno_corre_de_punta_a_punta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """🔴 El gate que Cami pidió: el cuaderno publicado se ejecuta entero, celda por celda."""
     pytest.importorskip("optbinning")
     monkeypatch.chdir(tmp_path)

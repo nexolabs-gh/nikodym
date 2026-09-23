@@ -236,6 +236,10 @@ convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 # Los tests no exigen docstrings por función (convención de SDD-24; el contenido es el contrato).
 "tests/**" = ["D"]
+[tool.ruff.format]
+# El cuaderno publicado copia el bloque `primer-scorecard` de las guías, con sus comentarios
+# alineados; formatearlo lo apartaría de su fuente y reescribiría su JSON. El lint sí lo recorre.
+exclude = ["docs_site/notebooks/*.ipynb"]
 
 [tool.mypy]
 python_version = "3.12"                      # 3.12 (no 3.11) por los stubs de numpy 2.x: usan PEP 695
