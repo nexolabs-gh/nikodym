@@ -209,6 +209,26 @@ restaurar byte a byte.
    guardada con la de hoy.
 6. **Los mensajes de D-RAR nombran cómo excluir**: «`exclude()` en la puerta guiada o
    `binning.exclude_columns` en el config completo».
+7. **Con pesos, la clase ausente y la existencia del bin se miden en sus filas**, con las masas
+   sin truncar: OptBinning 0.20 publica las masas ponderadas truncadas a entero, así que la tabla
+   no sirve para decidir (pasadas 2 y 3 de la revisión del código).
+
+**Revisión adversarial del código.** Tope declarado: tres pasadas.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | **medio**: una columna inexistente nombrada a la vez en `exclude_columns` y en `variable_overrides` quedaba «en suspenso» y la corrida terminaba, escondiendo un error de config | Sólo se suspende el override de una variable excluida que existe en el archivo; test y control negativo |
+| 2 | **alto**: con dos malos de peso 0,1 entre los faltantes, la tabla truncada decía `Event=0` y la regla asignaba el WoE del peor tramo a un bin con las dos clases | La clase ausente se juzga con la masa de las filas del bin; dos tests (masa pequeña no se asigna; masa cero con pesos sí) y control negativo |
+| 3 | **alto**: dos faltantes buenos de peso 0,1 suman masa 0,2, la tabla publica `Count=0` y la guarda sobre el conteo dejaba el bin sin asignar, con WoE 0 y sin declarar | La existencia del bin también se mide en sus filas; test con tabla, transformación, card y trail, y control negativo |
+
+**Tope alcanzado.** Las tres pasadas trajeron un hallazgo real cada una; la segunda y la tercera,
+sobre el mismo mecanismo —las masas ponderadas truncadas—, ya dentro del alcance de D-FAL.
+
+**Defecto previo, registrado aparte y no tocado aquí:** con pesos fraccionarios, la validación de
+siempre y el soporte del bundle leen la tabla truncada de OptBinning. Un bin **regular** con una
+clase de masa menor que uno detiene la corrida aunque la clase exista, y el bundle declara «sin
+soporte» —y no puntúa— un bin de faltantes de masa menor que uno que la corrida sí puntúa. Es
+anterior a esta enmienda: existe con cualquier bin, asignado o no.
 
 **Medido.** El dataset SBA crudo, con sus faltantes, termina `done` por la puerta guiada con
 `date="fecha_aprobacion"` y `oot_from="2008-01-01"` en 20,7 s, con el mismo `config_hash`

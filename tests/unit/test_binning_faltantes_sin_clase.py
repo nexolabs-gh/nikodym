@@ -258,6 +258,36 @@ def test_con_pesos_una_clase_de_masa_cero_si_se_asigna() -> None:
     assert (asignado.bin, asignado.n_obs, asignado.n_events) == ("Missing", 10, 0)
 
 
+def test_con_pesos_un_bin_de_masa_menor_que_uno_tambien_se_asigna() -> None:
+    """🔴 Pasada 3 de Codex: dos faltantes buenos de peso 0,1 suman masa 0,2 y la tabla de
+    OptBinning publica `Count=0`. El bin tiene operaciones y le falta una clase: recibe el WoE del
+    peor tramo en la tabla y en la transformación, y queda en la card y en el trail."""
+    frame, y, _ = _cartera(faltantes_buenos=2)
+    pesos = pd.Series(1.0, index=frame.index)
+    faltan = frame["antiguedad"].isna()
+    pesos[faltan] = 0.1
+    binner, sink = _ajustar_con_pesos(frame, y, pesos)
+
+    tabla = binner.tables_["antiguedad"]
+    _, woe_peor = _peor_tramo(tabla)
+    assert int(_fila(tabla, "Missing")["Count"]) == 0  # la masa truncada que engañaba a la regla
+    assert float(_fila(tabla, "Missing")["WoE"]) == woe_peor
+    assert set(binner.transform(frame)["antiguedad__woe"][faltan]) == {woe_peor}
+    (asignado,) = binner.assigned_bins_
+    assert (asignado.bin, asignado.n_obs, asignado.n_events) == ("Missing", 2, 0)
+    assert len(_decisiones(sink, "bin_sin_clase_asignado")) == 1
+
+
+def _ajustar_con_pesos(
+    frame: pd.DataFrame, y: pd.Series, pesos: pd.Series
+) -> tuple[WoEBinner, InMemoryAuditSink]:
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("antiguedad", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+    binner.fit(frame, y, sample_weight=pesos, audit=sink)
+    return binner, sink
+
+
 def test_ante_un_empate_la_referencia_es_la_primera_fila_regular() -> None:
     """🔴 Test 8f: dos tramos con el mismo WoE mínimo; la referencia es el primero, que es el
     que usa la búsqueda de puntos del escalador."""

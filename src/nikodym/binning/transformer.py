@@ -1380,7 +1380,9 @@ def _assign_classless_bins(
     Que al bin le falte una clase se juzga con las **masas de sus filas** —ponderadas si hay
     pesos—, no con la tabla: OptBinning publica las masas ponderadas truncadas a entero, y dos
     malos de peso 0,1 aparecen como cero aunque existan (revisión adversarial del código, pasada
-    2). Ese bin conserva su WoE empírico.
+    2). Ese bin conserva su WoE empírico. Por lo mismo, que el bin **tenga** operaciones se mide en
+    sus filas: dos faltantes de peso 0,1 suman menos de uno y la tabla publica ``Count=0``
+    (pasada 3).
     """
     from nikodym.binning.results import AssignedBin
 
@@ -1411,9 +1413,7 @@ def _assign_classless_bins(
     auxiliares = [i for i, label in enumerate(labels) if label in _SPECIAL_BIN_LABELS]
     regulares = [i for i in range(len(labels)) if not is_totals[i] and i not in auxiliares]
     degenerados = [
-        i
-        for i in auxiliares
-        if counts[i] > 0 and empirical[str(labels[i])] and falta_una_clase(str(labels[i]))
+        i for i in auxiliares if empirical[str(labels[i])] and falta_una_clase(str(labels[i]))
     ]
     if not degenerados or not regulares or any(sin_una_clase(i) for i in regulares):
         return table, frozenset()
