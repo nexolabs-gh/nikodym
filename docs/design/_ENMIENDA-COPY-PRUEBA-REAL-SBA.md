@@ -38,17 +38,25 @@ Fuera de tiempo (OOT)  5.725 1.246       21,76 %
 ```
 
 El código interno llega crudo porque `report/prose.py` `_PARTITION_LABELS` sólo conoce tres
-particiones. Además, «0 malos» es falso: esas filas no tienen desenlace, así que sus malos son
-desconocidos, no cero.
+particiones. Además, en el SBA «0 malos» es falso: esas filas no tienen desenlace, así que sus malos
+son desconocidos, no cero.
 
-**Dirá:** «Fuera del ajuste», con Malos «—». Se usa «Fuera del ajuste» y no «Sin desenlace»
-porque la partición también reúne a los **excluidos** por una regla, que pueden tener desenlace. Es
-el mismo rótulo que ya usa la línea del resumen («Fuera del ajuste: N indeterminadas y M
-excluidas»).
+**Dirá:** «Fuera del ajuste». Se usa este rótulo y no «Sin desenlace» porque la partición también
+reúne a los **excluidos** por una regla y a las filas **con desenlace** que la división por columna
+no asignó a ninguna muestra (`_split_from_column`).
 
-- **Una sola fuente:** la entrada nueva en `_PARTITION_LABELS`, que leen el resumen, la página
-  ejecutiva y la tabla `data.partitions` del informe. Hoy esa tabla pinta las cuatro claves crudas;
-  se ve en `web/src/fixtures/demo/report-ifrs9.html`.
+- **Malos y tasa.** Si ninguna fila fuera del ajuste tiene target 0/1, Malos y Tasa de malos dicen
+  «—». Si algunas lo tienen, se conserva el conteo de malos y la tasa se calcula sobre ellas, con
+  el denominador declarado en la línea, p. ej. «tasa sobre 412 con desenlace». Nunca se borra un
+  incumplimiento conocido (revisión adversarial, pasada 1).
+- **La línea del resumen** hoy dice «N indeterminadas y M excluidas». Nombra también el tercer
+  grupo cuando existe: «y K con desenlace fuera de las muestras declaradas».
+- **Resumen y página ejecutiva:** leen la entrada nueva de `_PARTITION_LABELS`.
+- **Informe.** La tabla `data.partitions` **no** pasa por ese mapa. `ReportBuilder` copia
+  `str(partition)`, y el renderer sólo aplica rótulos a las tablas `validation.*`. Se añade
+  `"data.partitions": {"partition": _PARTITION_LABELS}` al mapa por tabla del renderer, probado
+  en HTML y Word. El export crudo conserva el identificador, como el de las demás tablas. Hoy la
+  tabla pinta las cuatro claves crudas; se ve en `web/src/fixtures/demo/report-ifrs9.html`.
 - **La pantalla** tiene su propio `partitionLabel` (`web/src/lib/results-format.ts`), que tampoco
   conoce `fuera_de_modelo` y dice «OOT» donde Python dice «Fuera de tiempo (OOT)». Se alinea con
   el mapa de Python.
@@ -120,8 +128,16 @@ cuatro decimales.
 
 **Dirá:**
 - **Rangos:** con la forma que Cami elija en §7.1. La recomendada es «< 50.450», «≥ 50.450 y
-  < 102.230,5» y «≥ 102.230,5»: punto de miles, coma decimal, sin ceros de relleno y con los
-  bordes exactos de OptBinning (cerrado a la izquierda, abierto a la derecha).
+  < 102.230,5» y «≥ 102.230,5»: punto de miles, coma decimal y sin ceros de relleno, cerrado a la
+  izquierda y abierto a la derecha como OptBinning.
+- **Los bordes salen de los cortes efectivos, no de la etiqueta.** La etiqueta `Bin` de OptBinning
+  está **redondeada** a dos decimales (`show_digits=2`), y un corte puede tener más:
+  - `merge_bins` toma los cortes de `process_.splits`;
+  - `set_bins` admite decimales largos.
+
+  Escribir un comparador desde la etiqueta redondeada podría afirmar que una operación junto al
+  borde cae en el tramo equivocado. El comparador se escribe con el corte efectivo y todos sus
+  decimales significativos (revisión adversarial, pasada 1).
 - **p-valores:** un tipo de celda `"pvalor"` en `TablaDeEtapa` con la regla que las frases ya
   usan (`_pvalor`): «< 0,001» por debajo de ese umbral y tres decimales por encima. Se aplica al
   modelo y a la validación.
@@ -129,8 +145,9 @@ cuatro decimales.
 Como en §3, el cambio es sólo al pintar: `binning.tables` conserva la etiqueta de OptBinning, que
 es la que leen el bundle y los cortes fijados.
 
-**Gate:** tests del formateador con bordes infinitos, decimales, miles y enteros. La pantalla
-tiene sus anclas con punto en `results-format.test.ts`: se alinea con la misma regla y se mueven.
+**Gate:** tests del formateador con bordes infinitos, decimales, miles y enteros, y **un corte con
+más de dos decimales** con valores a ambos lados del borde. La pantalla tiene sus anclas con punto
+en `results-format.test.ts`: se alinea con la misma regla y esas anclas se mueven.
 
 ## 5. D-CPY-5 — el sitio escribe los decimales con coma (hallazgo 9)
 
@@ -149,9 +166,20 @@ tiene sus anclas con punto en `results-format.test.ts`: se alinea con la misma r
 **Dirá:** coma decimal en toda la prosa, tablas incluidas. El código, sus salidas y los nombres de
 parámetros (`target_pd = 0.20`) conservan el punto, porque así los escribe Python.
 
-**Gate:** `test_docs_site_cifras.py` no exige un separador; sus anclas citan el punto en
-`tutorial.md` y `modelo-calibracion.md` y se mueven a la coma. Se añade un test que cuenta las
-cifras con punto decimal fuera del código y exige cero, con su control negativo.
+**Gate:**
+
+- `test_docs_site_cifras.py` no exige un separador. Sus anclas citan el punto en `tutorial.md` y
+  `modelo-calibracion.md`, y se mueven a la coma.
+- Se añade un test que cuenta las cifras con punto decimal en el **texto visible** y exige cero,
+  con su control negativo.
+- El test usa un extractor probado aparte, que excluye tres cosas:
+  - los bloques de código;
+  - el **código en línea** (`min_iv = 0.02` va entre comillas invertidas en una tabla de
+    `tutorial.md`);
+  - las **versiones** (`0.20.0`, `3.11`).
+
+  Sin ese extractor, el gate nacería rojo por literales que esta misma enmienda ordena conservar
+  (revisión adversarial, pasada 1).
 
 ## 6. D-CPY-6 — Hosmer-Lemeshow dice la brecha que midió (hallazgo 7, la parte de copy)
 
@@ -165,13 +193,21 @@ cuán grande es la que hay. Medido:
 | Holdout | 7.733 | 23,82 % | 24,14 % | < 0,001 |
 | Fuera de tiempo (OOT) | 5.725 | 27,15 % | 21,76 % | < 0,001 |
 
-En Desarrollo y Holdout la media casi no se mueve, y el rechazo es la potencia del test sobre la
-forma por grupo. En OOT la brecha es real: el modelo espera 5,4 puntos más de lo que ocurrió.
+**Lo que esa tabla no dice.** Hosmer-Lemeshow suma las desviaciones entre observado y esperado
+**por grupo de PD**. `expected_pd` y `observed_dr` son **medias de toda la muestra**, y pueden
+coincidir aunque varios grupos estén descalibrados en sentidos opuestos. Que la media de Desarrollo
+calce exactamente (el calibrador la ancla ahí) **no** prueba que el rechazo sea sólo potencia del
+test (revisión adversarial, pasada 1). En OOT la brecha media ya es material: el modelo espera 5,4
+puntos más de lo que ocurrió.
 
-**Dirá:** la línea de cada Hosmer-Lemeshow que falla suma la brecha que el motor ya publica
-(`expected_pd` y `observed_dr` de `validation.calibration`): «Hosmer-Lemeshow en Fuera de tiempo
-(OOT) (p-valor < 0,001; PD media 27,2 % frente a 21,8 % observada)». **El veredicto no cambia**:
-decidir que un rechazo con muestra grande no cuenta es metodología y va en §8.1.
+**Dirá:** la línea de cada Hosmer-Lemeshow que falla suma la **brecha media agregada** que el motor
+ya publica, sin atribuirle una causa: «Hosmer-Lemeshow en Fuera de tiempo (OOT) (p-valor < 0,001;
+PD media agregada 27,2 % frente a 21,8 % observada)».
+
+- **El veredicto no cambia.** Decidir que un rechazo con muestra grande no cuenta es metodología y
+  va en §8.1.
+- **Mostrar la desviación por grupo** exige publicar la tabla por grupo del test, y también va en
+  §8.1.
 
 ## 7. Lo que Cami decide
 
@@ -183,7 +219,7 @@ decidir que un rechazo con muestra grande no cuenta es metodología y va en §8.
 
 | # | Hallazgo | Por qué no cabe aquí | Propuesta |
 |---|---|---|---|
-| 8.1 | **Hosmer-Lemeshow «Falla» con muestras grandes** (7) | Decidir que el rechazo no cuenta, o sumar un criterio de brecha absoluta, cambia el veredicto de validación: es metodología (D-VAL-13…18) | Enmienda propia de validación: un criterio de materialidad (brecha absoluta o relativa) junto al p-valor, con cotejo contra fuentes |
+| 8.1 | **Hosmer-Lemeshow «Falla» con muestras grandes** (7) | Decidir que el rechazo no cuenta, o sumar un criterio de brecha absoluta, cambia el veredicto de validación: es metodología (D-VAL-13…18). Mostrar la desviación por grupo exige publicar la tabla por grupo del test | Enmienda propia de validación: la tabla por grupo del test y un criterio de materialidad junto al p-valor, con cotejo contra fuentes |
 | 8.2 | **Las decisiones humanas con motivo no viajan en el YAML** (5) | `to_yaml()` vuelca sólo el config. El motivo vive en el preámbulo del trail. La pantalla corre `nikodym.run` sin preámbulo y muestra «Sin decisiones». Que viajen exige un campo nuevo, en `governance` (INFRA, fuera del `config_hash`) o en otro lado: es un cambio de schema | Enmienda propia: las decisiones con motivo viajan en el YAML y la pantalla las muestra y las registra |
 | 8.3 | **`anio_fiscal` entra como predictora sin aviso con partición por fecha** (6) | Detectar una columna derivada de la fecha es una regla nueva. Además comparte causa con el defecto previo de la enmienda TTD §7: la categoría 2009 no existe en Desarrollo, el motor le da WoE neutro en silencio y el bundle la rechaza | Enmienda propia que junte las dos cosas: una regla declarada para categorías no vistas en Desarrollo (motor y bundle iguales) y un aviso cuando una predictora cambia de dominio entre Desarrollo y OOT |
 
@@ -198,9 +234,23 @@ Un test nacido rojo por cada D-CPY (los de §1–§6) y un control negativo por 
 - inyectar una cifra con punto en una guía (D-CPY-5);
 - omitir la brecha (D-CPY-6).
 
-Guardrails: el bit a bit del preset F1 **sin ninguna diferencia**, porque ningún artefacto cambia,
-y el `config_hash` `1063d6cf…` intacto. Los goldens del informe y de la pantalla que pinten estas
-tablas se mueven y se revisan uno por uno.
+Guardrails:
+
+- **Bit a bit sin ninguna diferencia**, sobre el preset F1, en los **artefactos computacionales**
+  (la proyección canónica), el config, el `config_hash` `1063d6cf…` y los **exports crudos** del
+  informe (CSV/Parquet). Ninguno de ellos cambia.
+- **Lo que sí cambia, declarado:** el HTML, PDF y Word renderizados, los resúmenes y la pantalla.
+  El informe de F1 pinta `binning.tables`, `scorecard.scorecard` y `data.partitions`, así que sus
+  goldens se mueven. Se revisa cada diferencia, una por una, contra lo que esta enmienda promete, y
+  cualquier otra diferencia es un defecto (revisión adversarial, pasada 1).
+
+## 10. La revisión adversarial de este documento
+
+Tope declarado: **dos pasadas**, porque es una enmienda de presentación.
+
+| Pasada | Hallazgo | Qué cambió |
+|---|---|---|
+| 1 | (a) **alto**: «Malos —» borraba los incumplimientos conocidos de las filas con desenlace que la división por columna aparta. (b) **alto**: la etiqueta de OptBinning está redondeada a dos decimales, y un comparador escrito desde ella podía afirmar un borde falso. (c) **alto**: la brecha media no es lo que mide Hosmer-Lemeshow, y atribuir el rechazo a la potencia del test podía minimizar una falla real. (d) **medio**: `data.partitions` del informe no pasa por `_PARTITION_LABELS`. (e) **medio**: un gate de «cero puntos decimales fuera de los bloques» nacería rojo por el código en línea y las versiones. (f) **medio**: «F1 sin ninguna diferencia» chocaba con los goldens del informe que sí se mueven | (a) §1: «—» sólo sin target, y denominador declarado. (b) §4: comparadores desde los cortes efectivos, con un test junto al borde. (c) §6: «brecha media agregada», sin causa atribuida, y la tabla por grupo en §8.1. (d) §1: mapa por tabla en el renderer, probado en HTML y Word. (e) §5: extractor de texto visible, probado aparte. (f) §9: el bit a bit se limita a los artefactos computacionales, el config y los exports crudos; el render se revisa diferencia por diferencia |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
