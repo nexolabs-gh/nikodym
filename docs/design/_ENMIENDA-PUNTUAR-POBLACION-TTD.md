@@ -118,14 +118,23 @@ para el que D-DATA-5 creó el rol `ttd`, porque sirve para medir representativid
   |---|---|
   | `model` | `("binning", "out_of_model_woe_frame")` |
   | `scorecard` | `("binning", "out_of_model_woe_frame")`, `("model", "out_of_model_pd_frame")` |
-  | `calibration` | `("model", "out_of_model_pd_frame")` |
-  | `stability`, con §5.1 (a) | `("scorecard", "out_of_model_score")` |
+  | `calibration` | `("model", "out_of_model_pd_frame")`, `("scorecard", "out_of_model_score")` |
+  | `stability`, con §5.1 (a) | `("scorecard", "out_of_model_score")`, `("calibration", "out_of_model_calibrated_pd_frame")` |
 
   Un trabajo con artefactos inyectados —«Validar un modelo existente» y los demás que no corren
   `binning`— sigue funcionando igual. Si la clave de entrada falta, el paso publica la suya
   **vacía**, sin alerta, porque no había nada que puntuar. Si la entrada existe pero es
   inconsistente —columnas WoE finales ausentes, índice distinto entre el par—, rige §1.6: clave
   vacía, `ttd_no_puntuada` y alerta.
+- **Una cadena, no cuatro claves sueltas.** Cada paso publica filas sólo si **todas** sus entradas
+  nuevas tienen filas y el mismo índice. Si una etapa anterior quedó vacía por una falla, la
+  siguiente publica vacío sin volver a alertar: la alerta ya la dio la etapa que falló.
+  - Si el modelo produjo la PD y la tarjeta falló, la calibración no publica PD para filas sin
+    puntaje.
+  - Si la calibración falló, la estabilidad no mide la representatividad con una PD que no
+    existe.
+
+  Así las cuatro claves comparten índice o están vacías desde el punto de la falla.
 - **Los artefactos existentes no cambian**: `woe_frame`, `raw_pd_frame`, `score` y
   `calibrated_pd_frame` conservan sus filas, su índice y sus invariantes. El chequeo de índice
   idéntico entre `score` y `raw_pd_frame` sigue intacto, y el par nuevo tiene el suyo.
@@ -219,8 +228,12 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
 - **Quién cuenta.** `binning` cuenta por variable y por muestra —Holdout, OOT y fuera del ajuste—
   con la **misma función pura** `_count_unknown_categories` sobre las filas de cada muestra.
   Desarrollo no aparece: por construcción, todo lo que tiene lo vio.
-- **Sin tocar lo auditado.** El evento `categoria_no_vista` y el estado publicado del `process`
-  quedan **exactamente como hoy**. El orden es fijo:
+- **Sin tocar lo auditado, salvo un registro falso.** El estado publicado del `process` queda
+  **exactamente como hoy**, y el evento `categoria_no_vista` también **con el default**
+  (`cat_unknown=None`). Con un valor declarado, hoy el evento dice `accion="asignar_woe_neutral"`
+  aunque OptBinning aplicó ese valor. Ese registro miente. Pasa a
+  `accion="asignar_woe_declarado"`, con el valor en `umbral` (revisión adversarial, pasada 3).
+  El orden es fijo:
   1. la transformación de las modelables;
   2. su registro, igual que hoy;
   3. la transformación de las filas fuera del ajuste;
@@ -240,8 +253,8 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
     (−0,5)».
 
   La página ejecutiva y la pantalla la leen de la misma fuente.
-- **Qué no cambia.** Ningún WoE, puntaje ni PD, ningún evento del trail y ningún campo de card. Se
-  dice en pantalla lo que hoy sólo registra el trail.
+- **Qué no cambia.** Ningún WoE, puntaje ni PD y ningún campo de card. Ningún evento del trail
+  cambia con el default. Se dice en pantalla lo que hoy sólo registra el trail.
 
 ## 6. Estrategia de tests
 
@@ -255,6 +268,7 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
 | 4b | **División por columna con un valor no mapeado que trae desenlace**: esas filas se puntúan, la composición las nombra «con desenlace» y la tasa observada de la fila «Fuera del ajuste (TTD)» se calcula sobre ellas | La regla no existe |
 | 5 | Sin filas fuera del ajuste: las cuatro claves se publican vacías con su esquema, no hay decisión ni línea de resumen, y el informe no gana adjuntos | Las claves no existen |
 | 6 | **Nunca detiene**: una falla inyectada en la transformación de esas filas deja la corrida `done`, las claves vacías, `ttd_no_puntuada` en el trail y la alerta en el resumen | La regla no existe |
+| 6a | **La falla se propaga por la cadena**: una falla inyectada en `PointsScaler.transform` deja vacías la tarjeta, la calibración y la representatividad aunque el modelo haya producido PD; una sola alerta, la de la tarjeta | La cadena no existe |
 | 6b | **Entradas inyectadas**: un trabajo que no corre `binning` (p. ej. «Validar un modelo existente») sigue igual; `model`, `scorecard` y `calibration` publican vacío sin alerta. Con `run(until="binning")` sólo existe la clave de `binning` | Las dependencias no existen |
 | 7 | Una decisión `puntuar_ttd_fuera_de_modelo` con sus conteos por grupo | No se emite |
 | 8 | El resumen de datos, el de la tarjeta y la tabla de calibración dicen lo de §3, sin identificadores del motor; la línea de datos ya no dice «ni reciben puntaje» | No lo dicen |
@@ -263,7 +277,7 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
 | 10a | Con §5.1 (a) y los dos cortes de estabilidad cambiados (p. ej. 0,05 y 0,15): la banda y la alerta siguen a los cortes efectivos | No existe |
 | 10b | Con §5.2 (a): `("binning", "unseen_categories")` del SBA da `anio_fiscal` con 2.620 en OOT y 370 fuera del ajuste, y la alerta lo dice; ningún WoE cambia | No existe |
 | 10c | Con §5.2 (a): el evento `categoria_no_vista` y `binning.process.unknown_categories_` quedan idénticos a los de hoy **con** filas fuera del ajuste | La transformación nueva los reemplazaría |
-| 10d | Con §5.2 (a) y un `cat_unknown` numérico declarado: la alerta dice ese valor, no «el riesgo promedio» | No existe |
+| 10d | Con §5.2 (a) y un `cat_unknown` numérico declarado: el WoE aplicado, la alerta y el evento del trail dicen el mismo valor (`asignar_woe_declarado`), no «neutral» ni «el riesgo promedio»; con el default, el evento es el de hoy | Hoy el trail dice «neutral» |
 | 11 | **Bit a bit** sobre el preset F1, que no tiene filas fuera de modelo: las únicas diferencias en los artefactos son las claves nuevas (vacías, si F1 no trae categorías no vistas; se mide); ningún campo de card ni evento del trail cambia. **El informe renderizado y sus exports quedan idénticos**, comparados antes y después. El `config_hash` `1063d6cf…` y las cinco cifras quedan intactos | — (guardrail) |
 
 **Controles negativos:**
@@ -273,6 +287,7 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
 - reajustar el calibrador con las filas nuevas (2);
 - llamar a `PDCalibrator.transform` en vez del estado (2b);
 - dejar que la falla de §1.6 levante (6);
+- que la calibración lea sólo la PD del modelo (6a);
 - declarar `requires` en vez de `optional_requires` (6b);
 - no registrar el export (9);
 - dejar pasar una clave vacía al informe (5, 11);
@@ -280,7 +295,7 @@ el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee 
 - escribir los cortes 0,10/0,25 en el código (10a);
 - no contar la categoría no vista (10b);
 - no restaurar `unknown_categories_` tras la transformación fuera del ajuste (10c);
-- redactar la alerta sin mirar `cat_unknown` (10d);
+- redactar la alerta o el evento sin mirar `cat_unknown` (10d);
 - poner el conteo en la card (11).
 
 ## 7. Defecto previo medido: una categoría que no se vio en Desarrollo (la regla se eleva aparte)
@@ -316,6 +331,12 @@ contractual no se programa: se eleva.
 |---|---|---|
 | 1 | (a) **alto**: con `ttd_includes_excluded=False`, `_ttd_mask` pone `ttd=False` en **todas** las fuera de modelo, también en las indeterminadas; el test 4 pedía lo imposible. (b) **alto**: `fuera_de_modelo` también reúne filas con desenlace conocido que la división por columna no mapeó; «Sin desenlace» las falseaba. (c) **alto**: `PDCalibrator.transform` filtra a las modelables y devolvería vacío; además la calibración publica ocho columnas, no seis. (d) **alto**: faltaba cómo llega el frame nuevo a `model` (que consume `selection`), qué pasa con artefactos inyectados y con `run(until=)`. (e) **alto**: el test de paridad con el bundle excluía justo las 370 filas problemáticas del caso de aceptación. (f) **medio**: publicar claves vacías y registrarlas como exports rompía la promesa bit a bit del informe en F1 | (a) §1.1 y test 4: con `False` no se puntúa ninguna, sin tocar D-DATA-5. (b) §1.2, §3 y test 4b: rótulo «Fuera del ajuste», composición en tres grupos y tasa observada sobre los que tienen target. (c) §1.3, §2 y test 2b: el paso aplica el estado ajustado con `_transform_with_state`, sin cambiar la API pública; las ocho columnas. (d) §2: `optional_requires` por paso, clave vacía sin alerta si falta la entrada, publicación sólo de los pasos que corren, y test 6b. (e) §5.2, D-TTD-5, §7 y tests 2, 3 y 10b: la paridad con la transformación cubre todas las filas, el desacuerdo con el bundle queda fijado y las categorías no vistas se declaran. (f) §2 y tests 5 y 11: una clave vacía no llega al informe, y el guardrail compara también el informe |
 | 2 | (a) **alto**: `unseen_categories = {}` en la card de `binning` cambiaba el informe de F1, porque el builder vuelca toda la card al anexo. (b) **alto**: la premisa de §7 era falsa, porque el trail **ya** registra `categoria_no_vista` (`asignar_woe_neutral`). Además, cada `WoEBinner.transform` reemplaza `unknown_categories_`, así que la transformación nueva podía alterar el evento auditado o el estado publicado del `process`. (c) **medio**: la alerta prometía «el riesgo promedio» aunque `binning.cat_unknown` es configurable. (d) **medio**: las bandas de representatividad fijaban 0,10/0,25 aunque los cortes de estabilidad son configurables | (a) D-TTD-5 publica en una clave propia, `("binning", "unseen_categories")`, que no es campo de card ni tabla del informe; el test 11 compara el informe renderizado. (b) §7 y D-TTD-5 corregidos: lo que falta es decirlo fuera del trail, por muestra. El orden queda fijo —modelables, su registro, fuera del ajuste y restauración de `unknown_categories_`—, con el test 10c. (c) La alerta se redacta desde `cat_unknown` efectivo (test 10d). (d) §4 deriva banda y alerta de los cortes efectivos (test 10a) |
+| 3 | (a) **alto**: `calibration` leía sólo la PD del modelo, así que con una falla en la tarjeta publicaría PD para filas sin puntaje; lo mismo la estabilidad si fallaba la calibración. (b) **medio**: con `cat_unknown` declarado, el evento `categoria_no_vista` dice `asignar_woe_neutral` aunque se aplicó otro valor. Es un registro falso previo, y la alerta nueva lo contradiría | (a) §2: `calibration` y `stability` dependen también de la etapa anterior, y cada paso publica sólo si todas sus entradas tienen filas con el mismo índice (test 6a). (b) D-TTD-5: el evento dice el tratamiento efectivo cuando `cat_unknown` está declarado y queda igual con el default (test 10d) |
+
+**Tope alcanzado.** La pasada 1 tumbó seis premisas (población, calibración, dependencias, informe)
+y la 2 dos más (la card y la auditoría existente). La 3 ya sólo encontró bordes: una propagación y
+un registro previo. Es el criterio de parada declarado. La implementación abre con su propia
+pasada sobre el código.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
