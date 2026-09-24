@@ -182,9 +182,15 @@ del ajuste puntuadas:
 - **Se compara contra lo que quedó fuera, no contra la TTD completa.** La TTD contiene al propio
   Desarrollo (61 % en el SBA), y el PSI contra ella sale casi cero aunque lo de fuera difiera
   mucho: 0,004 frente a 0,175, medido.
-- **Rótulo propio.** Los umbrales son los de estabilidad ya configurados, pero la lectura es de
-  representatividad, no de deriva: «se parecen» (< 0,10), «difieren moderadamente» (0,10–0,25) y
-  «difieren» (≥ 0,25). No se dice «Redesarrollar», porque no hay nada que redesarrollar.
+- **Rótulo propio.** Los cortes son los **efectivos** de la corrida,
+  `stability.psi_stable_threshold` y `stability.psi_review_threshold` (0,10 y 0,25 por defecto),
+  pero la lectura es de representatividad, no de deriva:
+  - «se parecen», por debajo del corte estable;
+  - «difieren moderadamente», entre los dos cortes;
+  - «difieren», desde el corte de revisión.
+
+  No se dice «Redesarrollar», porque no hay nada que redesarrollar. La banda y la alerta se derivan
+  de esos dos valores, nunca de cifras escritas en el código.
 - **Fuera del veredicto.** No entra a `validation` ni al estado técnico. El resumen de estabilidad
   gana una línea: «Fuera del ajuste frente a Desarrollo: PSI 0,175 — difieren moderadamente: el
   modelo las ve con menor riesgo (PD calibrada media 15,0 % frente a 23,8 %)». Sólo «difieren»
@@ -195,22 +201,47 @@ del ajuste puntuadas:
 | # | Decisión | Opciones | Recomendación |
 |---|---|---|---|
 | 5.1 | ¿Entra la representatividad (§4) en esta enmienda? | (a) **sí**: puntuar y además medir si lo que quedó fuera se parece a la muestra de ajuste; (b) no: sólo puntuar, y la representatividad va en otra enmienda | **(a)**: puntuar sin comparar deja una columna sin lectura. D-DATA-5 creó el rol `ttd` para medir representatividad, y el SBA muestra que la diferencia existe (PSI 0,175). Cuesta una clave aditiva y una línea |
-| 5.2 | Las 370 filas fuera del ajuste con una categoría que no existía en Desarrollo (§7) | (a) **puntuar ahora con el tratamiento de hoy** —el mismo que reciben 2.620 filas OOT—, y **contarlo y decirlo en todas las muestras** (D-TTD-5), sin cambiar ningún número; la regla para esas categorías va en su propia enmienda; (b) no puntuar fuera del ajuste hasta que esa regla exista | **(a)**: hoy OOT ya recibe ese tratamiento sin que nadie lo sepa. Con (a) deja de ser silencioso en todas las muestras a la vez y la regla se corrige una sola vez para todas. Con (b) la TTD espera a una enmienda que puede cambiar números de OOT, y eso en 1.x exige su propia decisión |
+| 5.2 | Las 370 filas fuera del ajuste con una categoría que no existía en Desarrollo (§7) | (a) **puntuar ahora con el tratamiento de hoy** —el mismo que reciben 2.620 filas OOT—, y **contarlo y decirlo en todas las muestras** (D-TTD-5), sin cambiar ningún número; la regla para esas categorías va en su propia enmienda; (b) no puntuar fuera del ajuste hasta que esa regla exista | **(a)**: hoy OOT ya recibe ese tratamiento y sólo el trail lo registra; el modelador no lo ve. Con (a) deja de ser silencioso en todas las muestras a la vez y la regla se corrige una sola vez para todas. Con (b) la TTD espera a una enmienda que puede cambiar números de OOT, y eso en 1.x exige su propia decisión |
 
 Lo demás no se pregunta porque tiene una respuesta de principio: las filas son las de la TTD ya
 declarada, el tratamiento es el de Holdout/OOT y nada es configurable (§13).
 
-### 5.2 (a) en detalle: D-TTD-5 — las categorías no vistas se cuentan y se dicen
+### 5.2 (a) en detalle: D-TTD-5 — las categorías no vistas se cuentan por muestra y se dicen
 
-- **Quién cuenta.** `binning`, al transformar, cuenta por variable categórica y por muestra —Holdout,
-  OOT y fuera del ajuste— las filas cuyo valor no es faltante ni especial y no pertenece a ningún
-  tramo ajustado. Desarrollo no aparece: por construcción, todo lo que tiene lo vio.
-- **Dónde queda.** En un campo aditivo de la card de `binning`, `unseen_categories`, con la forma
-  `{variable: {muestra: filas}}` y vacío si no hay ninguna.
-- **Qué dice el resumen de «Tramos y WoE».** Una **alerta** por variable, p. ej.: «anio_fiscal:
-  2.620 operaciones de Fuera de tiempo (OOT) y 370 fuera del ajuste traen una categoría que no
-  existía en Desarrollo; reciben el riesgo promedio en esa variable».
-- **Qué no cambia.** Ningún WoE, puntaje ni PD. Se declara lo que hoy ya pasa.
+**Lo que ya existe.** `WoEBinner.transform` cuenta los niveles categóricos no vistos en el ajuste
+(`_count_unknown_categories`, en `unknown_categories_`), y `BinningStep._log_unknown_categories`
+emite `categoria_no_vista` con `accion="asignar_woe_neutral"`. En el SBA registra `anio_fiscal`
+2.620, `programa` 58 y `estado_del_proyecto` 1. Pero el conteo junta Holdout y OOT y **sólo vive en
+el trail**: ningún resumen, pantalla ni informe lo dice, y el modelador no lee el trail.
+
+**Lo que se añade:**
+
+- **Quién cuenta.** `binning` cuenta por variable y por muestra —Holdout, OOT y fuera del ajuste—
+  con la **misma función pura** `_count_unknown_categories` sobre las filas de cada muestra.
+  Desarrollo no aparece: por construcción, todo lo que tiene lo vio.
+- **Sin tocar lo auditado.** El evento `categoria_no_vista` y el estado publicado del `process`
+  quedan **exactamente como hoy**. El orden es fijo:
+  1. la transformación de las modelables;
+  2. su registro, igual que hoy;
+  3. la transformación de las filas fuera del ajuste;
+  4. `unknown_categories_` vuelve al valor de las modelables, porque cada `transform` lo reemplaza.
+
+  Sin filas fuera del ajuste no se llama a `transform`.
+- **Dónde queda.** En una clave aditiva propia, `("binning", "unseen_categories")`, un frame con
+  columnas `variable`, `muestra` y `filas`, vacío si no hay ninguna. **No es un campo de la card**:
+  el `ReportBuilder` vuelca toda la card de `binning` al anexo, y un campo nuevo, aunque vacío,
+  cambiaría el informe de toda corrida. La clave no se registra como tabla del informe.
+- **Qué dice el resumen de «Tramos y WoE».** Una **alerta** por variable, redactada desde el
+  tratamiento **efectivo** de `binning.cat_unknown`:
+  - con el default (`None`, WoE 0): «anio_fiscal: 2.620 operaciones de Fuera de tiempo (OOT) y 370
+    fuera del ajuste traen una categoría que no existía en Desarrollo; en esa variable reciben WoE
+    0, el riesgo promedio»;
+  - con un valor declarado, dice ese valor: «reciben el WoE declarado para categorías no vistas
+    (−0,5)».
+
+  La página ejecutiva y la pantalla la leen de la misma fuente.
+- **Qué no cambia.** Ningún WoE, puntaje ni PD, ningún evento del trail y ningún campo de card. Se
+  dice en pantalla lo que hoy sólo registra el trail.
 
 ## 6. Estrategia de tests
 
@@ -229,8 +260,11 @@ declarada, el tratamiento es el de Holdout/OOT y nada es configurable (§13).
 | 8 | El resumen de datos, el de la tarjeta y la tabla de calibración dicen lo de §3, sin identificadores del motor; la línea de datos ya no dice «ni reciben puntaje» | No lo dicen |
 | 9 | Los dos exports por observación salen con su título cuando tienen filas | No están registrados |
 | 10 | Con §5.1 (a): el PSI de representatividad del SBA, su rótulo y su línea; la clave vacía sin filas; `validation` no la lee | No existe |
-| 10b | Con §5.2 (a): `unseen_categories` del SBA da `anio_fiscal` con 2.620 en OOT y 370 fuera del ajuste, y la alerta lo dice; ningún WoE cambia | No existe |
-| 11 | **Bit a bit** sobre el preset F1, que no tiene filas fuera de modelo: las únicas diferencias en los artefactos son las claves nuevas vacías y, con §5.2 (a), `unseen_categories = {}`. **El informe y sus exports quedan idénticos.** El `config_hash` `1063d6cf…` y las cinco cifras quedan intactos | — (guardrail) |
+| 10a | Con §5.1 (a) y los dos cortes de estabilidad cambiados (p. ej. 0,05 y 0,15): la banda y la alerta siguen a los cortes efectivos | No existe |
+| 10b | Con §5.2 (a): `("binning", "unseen_categories")` del SBA da `anio_fiscal` con 2.620 en OOT y 370 fuera del ajuste, y la alerta lo dice; ningún WoE cambia | No existe |
+| 10c | Con §5.2 (a): el evento `categoria_no_vista` y `binning.process.unknown_categories_` quedan idénticos a los de hoy **con** filas fuera del ajuste | La transformación nueva los reemplazaría |
+| 10d | Con §5.2 (a) y un `cat_unknown` numérico declarado: la alerta dice ese valor, no «el riesgo promedio» | No existe |
+| 11 | **Bit a bit** sobre el preset F1, que no tiene filas fuera de modelo: las únicas diferencias en los artefactos son las claves nuevas (vacías, si F1 no trae categorías no vistas; se mide); ningún campo de card ni evento del trail cambia. **El informe renderizado y sus exports quedan idénticos**, comparados antes y después. El `config_hash` `1063d6cf…` y las cinco cifras quedan intactos | — (guardrail) |
 
 **Controles negativos:**
 
@@ -243,7 +277,11 @@ declarada, el tratamiento es el de Holdout/OOT y nada es configurable (§13).
 - no registrar el export (9);
 - dejar pasar una clave vacía al informe (5, 11);
 - comparar contra la TTD completa (10);
-- no contar la categoría no vista (10b).
+- escribir los cortes 0,10/0,25 en el código (10a);
+- no contar la categoría no vista (10b);
+- no restaurar `unknown_categories_` tras la transformación fuera del ajuste (10c);
+- redactar la alerta sin mirar `cat_unknown` (10d);
+- poner el conteo en la card (11).
 
 ## 7. Defecto previo medido: una categoría que no se vio en Desarrollo (la regla se eleva aparte)
 
@@ -254,9 +292,9 @@ Al medir el §0 apareció un defecto anterior a esta enmienda, que también afec
   año fiscal 2009 empieza el 1-oct-2008.
 - **El motor** transforma esa categoría no vista con WoE ≈ 0 (`2,2e-16`), que el escalador
   normaliza al WoE 0 de los tramos `Special`/`Missing` vacíos. Resultado: el riesgo promedio, 74
-  puntos, a las **2.620** operaciones OOT de 2009. **No lo declara en ningún lado**: el escalador
-  sólo registra `bin_no_visto` cuando el WoE no está en su tabla, y aquí sí está. Es el mismo cero
-  que D-FAL-1 rechazó como «no es una estimación».
+  puntos, a las **2.620** operaciones OOT de 2009. Es el default de `binning.cat_unknown` (`None`,
+  WoE neutral) y **sólo lo declara el trail** (`categoria_no_vista`, con Holdout y OOT juntos).
+  Ningún resumen ni pantalla lo dice.
 - **El bundle** no las puntúa: `categoria_no_observada_en_fit` en 2.620 filas OOT (más una por
   `estado_del_proyecto`) y en 370 de las 6.225 fuera del ajuste. **La corrida y el bundle
   discrepan hoy** en esas filas, y el test que ancla la paridad corre sobre datos sin categorías
@@ -277,6 +315,7 @@ contractual no se programa: se eleva.
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
 | 1 | (a) **alto**: con `ttd_includes_excluded=False`, `_ttd_mask` pone `ttd=False` en **todas** las fuera de modelo, también en las indeterminadas; el test 4 pedía lo imposible. (b) **alto**: `fuera_de_modelo` también reúne filas con desenlace conocido que la división por columna no mapeó; «Sin desenlace» las falseaba. (c) **alto**: `PDCalibrator.transform` filtra a las modelables y devolvería vacío; además la calibración publica ocho columnas, no seis. (d) **alto**: faltaba cómo llega el frame nuevo a `model` (que consume `selection`), qué pasa con artefactos inyectados y con `run(until=)`. (e) **alto**: el test de paridad con el bundle excluía justo las 370 filas problemáticas del caso de aceptación. (f) **medio**: publicar claves vacías y registrarlas como exports rompía la promesa bit a bit del informe en F1 | (a) §1.1 y test 4: con `False` no se puntúa ninguna, sin tocar D-DATA-5. (b) §1.2, §3 y test 4b: rótulo «Fuera del ajuste», composición en tres grupos y tasa observada sobre los que tienen target. (c) §1.3, §2 y test 2b: el paso aplica el estado ajustado con `_transform_with_state`, sin cambiar la API pública; las ocho columnas. (d) §2: `optional_requires` por paso, clave vacía sin alerta si falta la entrada, publicación sólo de los pasos que corren, y test 6b. (e) §5.2, D-TTD-5, §7 y tests 2, 3 y 10b: la paridad con la transformación cubre todas las filas, el desacuerdo con el bundle queda fijado y las categorías no vistas se declaran. (f) §2 y tests 5 y 11: una clave vacía no llega al informe, y el guardrail compara también el informe |
+| 2 | (a) **alto**: `unseen_categories = {}` en la card de `binning` cambiaba el informe de F1, porque el builder vuelca toda la card al anexo. (b) **alto**: la premisa de §7 era falsa, porque el trail **ya** registra `categoria_no_vista` (`asignar_woe_neutral`). Además, cada `WoEBinner.transform` reemplaza `unknown_categories_`, así que la transformación nueva podía alterar el evento auditado o el estado publicado del `process`. (c) **medio**: la alerta prometía «el riesgo promedio» aunque `binning.cat_unknown` es configurable. (d) **medio**: las bandas de representatividad fijaban 0,10/0,25 aunque los cortes de estabilidad son configurables | (a) D-TTD-5 publica en una clave propia, `("binning", "unseen_categories")`, que no es campo de card ni tabla del informe; el test 11 compara el informe renderizado. (b) §7 y D-TTD-5 corregidos: lo que falta es decirlo fuera del trail, por muestra. El orden queda fijo —modelables, su registro, fuera del ajuste y restauración de `unknown_categories_`—, con el test 10c. (c) La alerta se redacta desde `cat_unknown` efectivo (test 10d). (d) §4 deriva banda y alerta de los cortes efectivos (test 10a) |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
