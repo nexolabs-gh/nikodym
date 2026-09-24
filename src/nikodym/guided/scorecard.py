@@ -881,7 +881,7 @@ class Scorecard:
             lineas.append(
                 f"Resultado vacío en {_miles(n_vacios_target)} "
                 f"{_plural(n_vacios_target, 'fila', 'filas')} ({', '.join(columnas_target)}): "
-                "quedan indeterminadas, se puntúan y no entran al ajuste"
+                "quedan indeterminadas: no entran al ajuste ni reciben puntaje"
             )
         return tuple(lineas)
 
@@ -949,9 +949,15 @@ class Scorecard:
 
     @property
     def results(self) -> dict[str, pd.DataFrame]:
-        """La tabla de decisión de cada etapa que ya corrió (con sus rótulos en español)."""
+        """La tabla de decisión de cada etapa que ya corrió (con sus rótulos en español).
+
+        Cada una es un ``DataFrame`` con los números intactos que se muestra como la lee una
+        persona —coma decimal, miles, porcentajes—, con la misma regla del resumen de su etapa.
+        """
+        from nikodym.guided.summaries import TablaDeEtapa
+
         return {
-            etapa: resumen.table
+            etapa: TablaDeEtapa.de(resumen.table, resumen.formats)
             for etapa, resumen in self._stage_summaries.items()
             if resumen.table is not None
         }
@@ -1177,7 +1183,12 @@ class Scorecard:
                     "WoE": float(fila.get("WoE", float("nan"))),
                 }
             )
-        return pd.DataFrame(filas)
+        from nikodym.guided.summaries import TablaDeEtapa
+
+        return TablaDeEtapa.de(
+            pd.DataFrame(filas),
+            {"Tramo": "int", "Filas": "int", "Malos": "int", "Tasa de malos": "pct", "WoE": "num3"},
+        )
 
     def merge_bins(self, column: str, bins: Sequence[int], *, reason: str) -> Scorecard:
         """Junta dos tramos **adyacentes** de una variable numérica, con motivo.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 import subprocess
 import sys
 import textwrap
@@ -144,7 +145,7 @@ def test_los_resultados_vacios_del_target_quedan_indeterminados_y_fuera_del_ajus
 ) -> None:
     """Pasada de cierre de Codex sobre la capa A: con `good_rule` vacía el motor toma por bueno
     todo lo que no es malo, también los resultados vacíos (operaciones sin desempeño maduro). La
-    puerta arma las tres reglas y los vacíos quedan indeterminados: se puntúan, no se ajustan."""
+    puerta arma las tres reglas y los vacíos quedan indeterminados: no se ajustan ni se puntúan."""
     from nikodym.guided.summaries import _card
 
     frame = pd.read_parquet(fuente)
@@ -166,6 +167,10 @@ def test_los_resultados_vacios_del_target_quedan_indeterminados_y_fuera_del_ajus
     texto = sc.summary("data").text()
     assert "40 indeterminadas" in texto
     assert "Resultado vacío en 40 filas (bad_flag)" in texto
+    # 🔴 Con el SBA real (2026-09-24): el contrato del scorecard no puntúa lo que queda fuera de
+    # modelo (SDD-09), y el texto decía «se puntúan». Ahora dice lo que pasa.
+    assert "se puntúan" not in texto
+    assert "no entran al ajuste ni reciben puntaje" in texto
 
     # Con una regla, la columna de la regla vacía también es desconocida, no «bueno».
     con_huecos = frame.assign(score=frame["score"].mask(frame.index.isin(frame.index[:10])))
@@ -482,6 +487,15 @@ def test_run_completo_cuenta_cada_etapa_y_declara_su_procedencia_al_trail(
     assert final.decisions == ()
     assert dict(final.files)["Informe HTML"].endswith("scorecard_report.html")
     assert set(sc.results) >= {"data", "binning", "selection", "model", "scorecard"}
+    # 🔴 Pedido de Cami (2026-09-24): la tabla de una etapa se ve como la lee una persona —coma
+    # decimal, sin `None` ni `NaN` crudos— y sus números siguen siendo números para calcular.
+    seleccion = sc.results["selection"]
+    assert isinstance(seleccion, pd.DataFrame)
+    assert pd.api.types.is_float_dtype(seleccion["IV"])
+    vista = seleccion._repr_html_()
+    assert "None" not in vista and "NaN" not in vista
+    assert re.search(r"<td>\d+,\d{3}</td>", vista), vista[:500]
+    assert "," in repr(seleccion) and "None" not in repr(seleccion)
 
 
 def test_run_until_corre_el_prefijo_con_su_propio_hash(fuente: Path, tmp_path: Path) -> None:

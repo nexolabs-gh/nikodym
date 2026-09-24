@@ -18,7 +18,7 @@ import html
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal
 
 import numpy as np
 import pandas as pd
@@ -74,6 +74,7 @@ __all__ = [
     "FinalSummary",
     "StageSummary",
     "SummaryContext",
+    "TablaDeEtapa",
     "build_final_summary",
     "build_stage_summaries",
     "build_stage_summary",
@@ -177,6 +178,44 @@ class SummaryContext:
     #: de Codex sobre C1). Con ellas el resumen no afirma que el informe cierra la corrida ni que
     #: una validación que viene después «no está en el config».
     pending_stages: tuple[str, ...] = ()
+
+
+class TablaDeEtapa(pd.DataFrame):
+    """Una tabla de decisión: números intactos para calcular, escritos como se leen al mostrarse.
+
+    Es un ``DataFrame`` de verdad —filtrar, ordenar o exportar lo trata como a cualquier otro, y
+    sus columnas numéricas siguen siendo números—, pero en el notebook y en la consola se ve con la
+    misma regla del resumen de la etapa y de la pantalla (:func:`_formatear`): coma decimal, miles,
+    porcentajes y «—» en las ausencias, sin el índice. Antes se veía cruda —``0.547746``, ``None``,
+    ``NaN``— junto a un resumen que decía ``0,548`` (pedido de Cami, 2026-09-24).
+    """
+
+    _metadata: ClassVar[list[str]] = ["formats"]
+    formats: dict[str, _Kind]
+
+    @property
+    def _constructor(self) -> type[TablaDeEtapa]:
+        return TablaDeEtapa
+
+    @classmethod
+    def de(cls, tabla: pd.DataFrame, formats: Mapping[str, _Kind]) -> TablaDeEtapa:
+        """La tabla, copiada, con la regla de formato de sus columnas."""
+        salida = cls(tabla.copy())
+        salida.formats = dict(formats)
+        return salida
+
+    def _vista(self) -> pd.DataFrame:
+        return _formatear(pd.DataFrame(self), getattr(self, "formats", None) or {})
+
+    def __repr__(self) -> str:
+        """La tabla como se lee en la consola."""
+        return self._vista().to_string(index=False, max_rows=pd.get_option("display.max_rows"))
+
+    def _repr_html_(self) -> str:
+        """La tabla como se lee en el notebook."""
+        return self._vista().to_html(
+            index=False, border=0, max_rows=pd.get_option("display.max_rows")
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -483,8 +522,8 @@ def _resumen_data(study: Study, context: SummaryContext) -> StageSummary:
         if fuera or indeterminados or excluidos:
             lines.append(
                 f"Fuera del ajuste: {_miles(indeterminados)} indeterminadas y "
-                f"{_miles(excluidos)} excluidas ({_miles(fuera)} fuera de modelo); se puntúan, "
-                "no se ajustan"
+                f"{_miles(excluidos)} excluidas ({_miles(fuera)} fuera de modelo); no entran al "
+                "ajuste ni reciben puntaje, y siguen contando en la población total (TTD)"
             )
         table = _tabla_muestras(study)
     lines.extend(context.inference_lines)

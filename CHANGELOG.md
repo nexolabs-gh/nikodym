@@ -23,6 +23,14 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- **Las tablas de `sc.results[...]` y `sc.bins(...)` se ven como las lee una persona.** En el
+  notebook y en la consola salían crudas —`0.547746`, `None`, `NaN`, punto decimal— al lado de un
+  resumen que decía `0,548`. Ahora son un `DataFrame` con los números intactos para calcular que
+  se muestra con la misma regla del resumen de su etapa y de la pantalla: coma decimal, miles,
+  porcentajes y «—» en las ausencias, sin el índice.
+- **El resumen de datos ya no dice que los indeterminados se puntúan.** Decía «se puntúan, no se
+  ajustan», pero la corrida no puntúa lo que queda fuera de modelo; ahora dice que no entran al
+  ajuste ni reciben puntaje y que siguen contando en la población total (TTD).
 - **Un bin de faltantes sin incumplimientos ya no mata la corrida** (D-FAL-1/2). Con una muestra
   pública de préstamos 7(a) de la SBA partida por fecha, ocho préstamos no declaraban la
   antigüedad de la empresa y en desarrollo su bin de faltantes quedaba con 4 operaciones y
