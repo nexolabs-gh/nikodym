@@ -570,7 +570,8 @@ def test_un_override_de_una_variable_que_no_existe_sigue_siendo_un_error() -> No
             VariableBinningConfig(name="no_existe", user_splits=(1.0,)),
         ),
     )
-    activos, suspendidos = _active_overrides(config, ("antiguedad",))
+    columnas = ("antiguedad", "ingreso")
+    activos, suspendidos = _active_overrides(config, ("antiguedad",), columnas)
     assert [o.name for o in activos] == ["no_existe"]
     assert [o.name for o in suspendidos] == ["ingreso"]
     frame, y, _ = _cartera()
@@ -580,3 +581,16 @@ def test_un_override_de_una_variable_que_no_existe_sigue_siendo_un_error() -> No
     )
     with pytest.raises(BinningFitError, match="no serán binneadas"):
         binner.fit(frame, y)
+
+
+def test_un_override_inexistente_no_se_suspende_aunque_este_excluido() -> None:
+    """🔴 Pasada 1 de Codex: una columna que no existe, nombrada a la vez en `exclude_columns` y
+    en `variable_overrides`, no puede quedar «en suspenso»: el override sigue activo y el binner lo
+    rechaza como siempre."""
+    config = BinningConfig(
+        exclude_columns=("fantasma",),
+        variable_overrides=(VariableBinningConfig(name="fantasma", user_splits=(1.0,)),),
+    )
+    activos, suspendidos = _active_overrides(config, ("antiguedad",), ("antiguedad", "ingreso"))
+    assert [o.name for o in activos] == ["fantasma"]
+    assert suspendidos == ()

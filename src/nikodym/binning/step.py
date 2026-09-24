@@ -140,7 +140,9 @@ class BinningStep(AuditableMixin):
         x_transform = frame.loc[eligible_mask, list(feature_columns)].copy(deep=True)
 
         self._log_special_policy(special=special, feature_columns=feature_columns)
-        overrides, suspendidos = _active_overrides(self.config, feature_columns)
+        overrides, suspendidos = _active_overrides(
+            self.config, feature_columns, tuple(str(column) for column in frame.columns)
+        )
         self._log_suspended_overrides(suspendidos)
         binner = _build_binner(self.config, feature_columns)
         binner.set_params(variable_overrides=overrides)
@@ -704,15 +706,19 @@ def _validate_training_target(y_train: Series) -> None:
 
 
 def _active_overrides(
-    config: BinningConfig, feature_columns: tuple[str, ...]
+    config: BinningConfig,
+    feature_columns: tuple[str, ...],
+    frame_columns: tuple[str, ...],
 ) -> tuple[tuple[VariableBinningConfig, ...], tuple[VariableBinningConfig, ...]]:
     """Separa los overrides que se aplican de los que quedan en suspenso (D-EXC-1).
 
     Un override de una variable que el config excluye —``exclude()`` después de ``set_bins()`` o
     ``merge_bins()``— queda en suspenso en vez de detener la corrida; sigue en el config, así que
-    ``keep()`` lo reactiva. Un override de una variable que no existe sigue siendo un error.
+    ``keep()`` lo reactiva. Un override de una variable que **no existe en el archivo** sigue
+    siendo un error aunque también figure en ``exclude_columns``: suspenderlo escondería un error
+    de config o un cambio de esquema (revisión adversarial del código, pasada 1).
     """
-    excluidas = set(config.exclude_columns) - set(feature_columns)
+    excluidas = (set(config.exclude_columns) & set(frame_columns)) - set(feature_columns)
     activos = tuple(o for o in config.variable_overrides if o.name not in excluidas)
     suspendidos = tuple(o for o in config.variable_overrides if o.name in excluidas)
     return activos, suspendidos
