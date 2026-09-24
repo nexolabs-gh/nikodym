@@ -313,6 +313,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                     estimator=self,
                     working=working,
                     target=target,
+                    weights=weights,
                     special_codes=special_codes,
                     out=asignados,
                 ),
@@ -1363,6 +1364,7 @@ def _assign_classless_bins(
     estimator: WoEBinner,
     working: DataFrame,
     target: Series,
+    weights: Series | None,
     special_codes: dict[str, list[object]],
     out: list[AssignedBin],
 ) -> tuple[DataFrame, frozenset[str]]:
@@ -1374,6 +1376,11 @@ def _assign_classless_bins(
     es el del tramo regular de mayor tasa de malos observada —el de menor WoE—, y ante un empate
     el de la primera fila, que es el que usa la búsqueda de puntos del escalador. El IV de la fila
     queda en 0, que es lo que OptBinning ya le calcula: el bin no aporta evidencia.
+
+    Que al bin le falte una clase se juzga con las **masas de sus filas** —ponderadas si hay
+    pesos—, no con la tabla: OptBinning publica las masas ponderadas truncadas a entero, y dos
+    malos de peso 0,1 aparecen como cero aunque existan (revisión adversarial del código, pasada
+    2). Ese bin conserva su WoE empírico.
     """
     from nikodym.binning.results import AssignedBin
 
@@ -1390,9 +1397,24 @@ def _assign_classless_bins(
     def sin_una_clase(i: int) -> bool:
         return counts[i] > 0 and (events[i] == 0 or nonevents[i] == 0)
 
+    series = working[column]
+    especiales = special_codes.get(column, [])
+    en_bin = {"Missing": series.isna(), "Special": series.notna() & series.isin(especiales)}
+
+    def falta_una_clase(label: str) -> bool:
+        filas = en_bin[label]
+        clase = target[filas].astype(int)
+        masa = weights[filas] if weights is not None else clase * 0 + 1
+        malos, buenos = float(masa[clase == 1].sum()), float(masa[clase == 0].sum())
+        return bool(filas.any()) and (malos == 0.0 or buenos == 0.0)
+
     auxiliares = [i for i, label in enumerate(labels) if label in _SPECIAL_BIN_LABELS]
     regulares = [i for i in range(len(labels)) if not is_totals[i] and i not in auxiliares]
-    degenerados = [i for i in auxiliares if sin_una_clase(i) and empirical[str(labels[i])]]
+    degenerados = [
+        i
+        for i in auxiliares
+        if counts[i] > 0 and empirical[str(labels[i])] and falta_una_clase(str(labels[i]))
+    ]
     if not degenerados or not regulares or any(sin_una_clase(i) for i in regulares):
         return table, frozenset()
 
@@ -1401,9 +1423,6 @@ def _assign_classless_bins(
     referencia = next(i for i, woe in woe_regulares if woe == woe_asignado)
     tramo = str(table["Bin"].iloc[referencia])
 
-    series = working[column]
-    especiales = special_codes.get(column, [])
-    en_bin = {"Missing": series.isna(), "Special": series.notna() & series.isin(especiales)}
     patched = table.copy(deep=True)
     asignados: set[str] = set()
     for i in degenerados:

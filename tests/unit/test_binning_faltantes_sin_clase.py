@@ -227,6 +227,37 @@ def test_sin_bins_degenerados_no_hay_decision_ni_asignacion() -> None:
     assert _decisiones(sink, "bin_sin_clase_asignado") == []
 
 
+def test_con_pesos_una_clase_de_masa_pequena_no_se_toma_por_ausente() -> None:
+    """🔴 Pasada 2 de Codex: OptBinning publica las masas ponderadas truncadas a entero. Con dos
+    malos de peso 0,1 entre los faltantes, la tabla dice `Event=0`, pero la clase existe: el bin
+    conserva su WoE empírico, no hay asignación ni decisión, y la corrida se comporta como antes
+    —la validación de siempre sigue leyendo la tabla y la detiene—."""
+    frame, y, _ = _cartera()
+    malos = np.where(y.to_numpy() == 1)[0][:2]
+    frame.iloc[malos, frame.columns.get_loc("antiguedad")] = np.nan
+    pesos = pd.Series(1.0, index=frame.index)
+    pesos.iloc[malos] = 0.1
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("antiguedad", "ingreso"), exclude_columns=())
+    sink = InMemoryAuditSink()
+
+    with pytest.raises(BinningFitError, match="una clase en cero"):
+        binner.fit(frame, y, sample_weight=pesos, audit=sink)
+    assert _decisiones(sink, "bin_sin_clase_asignado") == []
+
+
+def test_con_pesos_una_clase_de_masa_cero_si_se_asigna() -> None:
+    """Con pesos, lo que falta es MASA: sin ningún malo entre los faltantes, la regla entra igual
+    que sin pesos, y los conteos publicados son operaciones."""
+    frame, y, _ = _cartera()
+    pesos = pd.Series(2.0, index=frame.index)
+    binner = WoEBinner.from_config(BinningConfig())
+    binner.set_params(feature_columns=("antiguedad", "ingreso"), exclude_columns=())
+    binner.fit(frame, y, sample_weight=pesos)
+    (asignado,) = binner.assigned_bins_
+    assert (asignado.bin, asignado.n_obs, asignado.n_events) == ("Missing", 10, 0)
+
+
 def test_ante_un_empate_la_referencia_es_la_primera_fila_regular() -> None:
     """🔴 Test 8f: dos tramos con el mismo WoE mínimo; la referencia es el primero, que es el
     que usa la búsqueda de puntos del escalador."""
@@ -251,6 +282,7 @@ def test_ante_un_empate_la_referencia_es_la_primera_fila_regular() -> None:
         estimator=WoEBinner(),
         working=working,
         target=target,
+        weights=None,
         special_codes={},
         out=salida,
     )
