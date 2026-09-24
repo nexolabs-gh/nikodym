@@ -2,13 +2,13 @@
 
 | Campo | Valor |
 |---|---|
-| **Tipo** | Enmienda de **copy y presentación** sobre la puerta guiada, la pantalla, el informe y el sitio. No toca el motor, el config ni ningún artefacto publicado |
+| **Tipo** | Enmienda de **copy y presentación** sobre la puerta guiada, la pantalla, el informe y el sitio, **más dos requisitos aditivos del motor** que exigen los rótulos de tramo (§3): el casamiento de `point_overrides` y una clave con los bordes efectivos. No toca el config ni cambia ningún artefacto existente |
 | **Decisiones** | **D-CPY-1…6** (qué se corrige y cómo) y tres **elevaciones** que no son copy (§8) |
 | **Módulos** | `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (`prose`, `renderer`), `web/src/lib/results-format.ts`, `docs_site/` |
 | **Fase** | F1 |
 | **Estado** | **Propuesta** el 2026-09-24 (S22). Sin código |
 | **Depende de** | D-FLU (resúmenes por etapa, `TablaDeEtapa`), D-VAL-13…18 (líneas de validación) |
-| **Release** | Sólo presentación: ningún número, `config_hash` ni artefacto cambia ⇒ **patch** (entra con la minor que corresponda) |
+| **Release** | Ningún número, `config_hash` ni artefacto existente cambia; §3 añade una clave y una alerta ⇒ **minor** (entra con la que corresponda) |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-24 |
 
 ---
@@ -53,9 +53,11 @@ no asignó a ninguna muestra (`_split_from_column`).
   grupo cuando existe: «y K con desenlace fuera de las muestras declaradas».
 - **Resumen y página ejecutiva:** leen la entrada nueva de `_PARTITION_LABELS`.
 - **Informe.** La tabla `data.partitions` **no** pasa por ese mapa. `ReportBuilder` copia
-  `str(partition)`, y el renderer sólo aplica rótulos a las tablas `validation.*`. Se añade
-  `"data.partitions": {"partition": _PARTITION_LABELS}` al mapa por tabla del renderer, probado
-  en HTML y Word. El export crudo conserva el identificador, como el de las demás tablas. Hoy la
+  `str(partition)` en la columna **`Partición`**, y el renderer sólo aplica rótulos a las tablas
+  `validation.*`. Se añade `"data.partitions": {"Partición": _PARTITION_LABELS}` al mapa por tabla
+  del renderer —la clave es el nombre exacto de la columna, que es como la busca `_table_view`
+  (revisión adversarial, pasada 2)—. Un test ancla en HTML y Word que ninguna fila de
+  `data.partitions` muestre un identificador crudo. El export crudo conserva el identificador, como el de las demás tablas. Hoy la
   tabla pinta las cuatro claves crudas; se ve en `web/src/fixtures/demo/report-ifrs9.html`.
 - **La pantalla** tiene su propio `partitionLabel` (`web/src/lib/results-format.ts`), que tampoco
   conoce `fuera_de_modelo` y dice «OOT» donde Python dice «Fuera de tiempo (OOT)». Se alinea con
@@ -88,66 +90,105 @@ para la línea y la tabla.
 **Gate:** una prueba ancla la frase con un CSI de dos variables y el eje temporal, y el filtro de
 identificadores internos se extiende a los valores sin guion bajo (`period`, `cohort`).
 
-## 3. D-CPY-3 — los tramos categóricos se leen como texto (hallazgo 4)
+## 3. D-CPY-3 — los tramos se leen como texto (hallazgos 4 y 8): presentación con dos requisitos del motor
 
-**Hoy** la tabla de la tarjeta dice:
+**Hoy** la tabla de la tarjeta y la de tramos dicen:
 
 ```text
 anio_fiscal               ['2001' '2000']
 antiguedad_de_la_empresa  ['5 años o más' '2 a 3 años' '4 a 5 años']
-```
 
-Es la representación de un arreglo de numpy: `scorecard/scaler.py` hace `str(row["Bin"])` sobre
-el arreglo de categorías de OptBinning. Llega igual a `sc.results`, a la pantalla y al informe.
-
-**Dirá:** «2001, 2000» y «5 años o más, 2 a 3 años, 4 a 5 años»: las categorías unidas con «, »,
-en el orden de OptBinning. Es la regla que la pantalla ya aplica con `normalizeBinLabel`, así que
-ambas lecturas quedan iguales.
-
-- **Sólo en la presentación.** `bin_label` es también la clave con que se casan los puntos
-  fijados a mano (`scorecard.point_overrides`), así que el artefacto `scorecard.scorecard` y su
-  `bin_label` **no cambian**. Se formatea al pintar: `TablaDeEtapa`, el informe y `sc.bins()`.
-- **Gate:** una función `rotulo_de_tramo` con su test, usada por las tres superficies. Un test
-  confirma que `bin_label` en el artefacto sigue igual, así que el ajuste manual de puntos no se
-  entera. `test_diagnosticos_por_muestra.py` sigue verde: fija la forma del `bin_frame` de
-  entrada, no la de una superficie.
-
-## 4. D-CPY-4 — los rangos y los p-valores se escriben en es-CL (hallazgo 8)
-
-**Hoy:**
-
-```text
 Tramo                 Rango  Filas Malos Tasa de malos    WoE
     1      (-inf, 50450.00) 15.001 4.109       27,39 % -0,189
     2 [50450.00, 102230.50)  4.707 1.111       23,60 %  0,011
 ```
 
-y la tabla del modelo dice «p-valor 0,0000» en las ocho filas. El rango es la etiqueta de
-OptBinning (`.2f`, punto decimal), que pasa tal cual. El p-valor usa el tipo de celda `"num"`, con
-cuatro decimales.
+- **Los tramos categóricos** muestran la representación de un arreglo de numpy:
+  `scorecard/scaler.py` hace `str(row["Bin"])` sobre el arreglo de categorías de OptBinning.
+- **Los rangos** son la etiqueta de OptBinning, **redondeada a dos decimales** (`show_digits=2`) y
+  con punto decimal.
+
+Los dos llegan igual a `sc.results`, a la pantalla y al informe.
 
 **Dirá:**
+
+- **Categóricos:** «2001, 2000» y «5 años o más, 2 a 3 años, 4 a 5 años», es decir, las
+  categorías unidas con «, » en el orden de OptBinning. Es la regla que la pantalla ya aplica con
+  `normalizeBinLabel`.
 - **Rangos:** con la forma que Cami elija en §7.1. La recomendada es «< 50.450», «≥ 50.450 y
   < 102.230,5» y «≥ 102.230,5»: punto de miles, coma decimal y sin ceros de relleno, cerrado a la
   izquierda y abierto a la derecha como OptBinning.
-- **Los bordes salen de los cortes efectivos, no de la etiqueta.** La etiqueta `Bin` de OptBinning
-  está **redondeada** a dos decimales (`show_digits=2`), y un corte puede tener más:
-  - `merge_bins` toma los cortes de `process_.splits`;
-  - `set_bins` admite decimales largos.
 
-  Escribir un comparador desde la etiqueta redondeada podría afirmar que una operación junto al
-  borde cae en el tramo equivocado. El comparador se escribe con el corte efectivo y todos sus
-  decimales significativos (revisión adversarial, pasada 1).
-- **p-valores:** un tipo de celda `"pvalor"` en `TablaDeEtapa` con la regla que las frases ya
-  usan (`_pvalor`): «< 0,001» por debajo de ese umbral y tres decimales por encima. Se aplica al
-  modelo y a la validación.
+Una sola función, `rotulo_de_tramo`, escribe el rótulo para `TablaDeEtapa`, `sc.bins()`, el
+informe y el payload de la pantalla.
 
-Como en §3, el cambio es sólo al pintar: `binning.tables` conserva la etiqueta de OptBinning, que
-es la que leen el bundle y los cortes fijados.
+**Por qué no basta con cambiar el texto (revisión adversarial, pasada 2).** Dos cosas del motor
+dependen de la etiqueta que hoy se ve, y la enmienda las resuelve de forma **aditiva**:
 
-**Gate:** tests del formateador con bordes infinitos, decimales, miles y enteros, y **un corte con
-más de dos decimales** con valores a ambos lados del borde. La pantalla tiene sus anclas con punto
-en `results-format.test.ts`: se alinea con la misma regla y esas anclas se mueven.
+1. **El casamiento de los puntos fijados a mano.**
+   - Hoy: `scorecard.point_overrides[].bin_label` se casa con `str(row["Bin"])`, y su ayuda dice
+     «etiqueta exacta del bin, tal como aparece en la tabla de binning; si no calza exactamente,
+     el override no se aplica». El override que no casa **se ignora en silencio**: es un defecto
+     previo.
+   - Problema: si la tabla muestra «2001, 2000» y el modelador copia eso, el ajuste no se
+     aplicaría y nadie lo sabría.
+   - **Regla:**
+     - el escalador casa `bin_label` con la etiqueta del motor **o** con el rótulo legible de
+       `rotulo_de_tramo`; los dos se calculan del mismo `Bin` y son únicos dentro de una variable;
+     - un override que no casa con ninguno de los dos queda **declarado**: una decisión
+       `point_override_sin_casar` en el trail y una **alerta** en el resumen de la tarjeta, con la
+       variable y la etiqueta escrita;
+     - no es un error, para no detener corridas que hoy terminan.
+   - Las etiquetas del motor que hoy casan siguen casando igual, así que ningún número de una
+     corrida que hoy aplica sus overrides cambia.
+   - Único cambio de número posible: un override escrito ya con el rótulo legible, que hoy se
+     ignoraba en silencio y pasa a aplicarse. Se declara.
+   - La ayuda del campo pasa a decir «la etiqueta del motor o el rótulo de la tabla».
+2. **Los bordes efectivos de los rangos.**
+   - La etiqueta `Bin` está redondeada, y un corte puede tener más decimales:
+     - `merge_bins` toma los cortes de `process_.splits`;
+     - `set_bins` admite decimales largos.
+   - El informe (`ReportBuilder` recolecta `binning.tables`, no `binning.process`) y la pantalla
+     (el serializer envía sólo las tablas) no tienen el corte. Escribir un comparador desde la
+     etiqueta redondeada podría afirmar que una operación junto al borde cae en el tramo
+     equivocado.
+   - **Regla:**
+     - `binning` publica una **clave aditiva** `("binning", "bin_edges")`: un frame con
+       `variable`, `bin_index`, `lower` y `upper` a precisión completa, para los tramos regulares
+       de las variables numéricas;
+     - el resumen, el informe (que la recolecta sin registrarla como tabla) y el payload de la
+       pantalla leen los bordes de ahí;
+     - sin esa clave (artefactos inyectados de una corrida anterior) el rango se muestra con la
+       etiqueta del motor tal cual, sin inventar un borde.
+
+`binning.tables` y `scorecard.scorecard` no cambian: `Bin` y `bin_label` conservan la etiqueta del
+motor, que es la que leen el bundle y los cortes fijados.
+
+**Gate:**
+
+- `rotulo_de_tramo`, con tests de bordes infinitos, decimales, miles y enteros;
+- un override escrito con el rótulo legible se aplica;
+- uno con la etiqueta del motor se aplica igual que hoy;
+- uno que no casa deja la decisión y la alerta;
+- un corte con **más de dos decimales** y valores a ambos lados del borde: el rango de HTML, Word
+  y pantalla dice el borde exacto;
+- sin `bin_edges`, se muestra la etiqueta del motor.
+
+La pantalla tiene sus anclas con punto en `results-format.test.ts`: se alinea con la misma regla y
+esas anclas se mueven. `test_diagnosticos_por_muestra.py` sigue verde: fija la forma del
+`bin_frame` de entrada, no la de una superficie.
+
+## 4. D-CPY-4 — los p-valores se escriben en es-CL (hallazgo 8)
+
+**Hoy** la tabla del modelo dice «p-valor 0,0000» en las ocho filas: usa el tipo de celda `"num"`,
+con cuatro decimales.
+
+**Dirá:** un tipo de celda `"pvalor"` en `TablaDeEtapa`, con la regla que las frases ya usan
+(`_pvalor`): «< 0,001» por debajo de ese umbral y tres decimales por encima. Se aplica al modelo y a
+la validación.
+
+**Gate:** tests del tipo de celda en los dos umbrales, y las tablas del modelo y de la validación
+sin «0,0000».
 
 ## 5. D-CPY-5 — el sitio escribe los decimales con coma (hallazgo 9)
 
@@ -230,7 +271,10 @@ Un test nacido rojo por cada D-CPY (los de §1–§6) y un control negativo por 
 - quitar `fuera_de_modelo` del mapa (D-CPY-1);
 - volver a `_COMPARISON_LABELS` solo (D-CPY-2);
 - pintar con `str()` (D-CPY-3);
-- devolver la etiqueta de OptBinning (D-CPY-4);
+- casar el override sólo con la etiqueta del motor (D-CPY-3);
+- no declarar el override sin casar (D-CPY-3);
+- escribir el rango desde la etiqueta redondeada en vez de `bin_edges` (D-CPY-3);
+- pintar el p-valor con `"num"` (D-CPY-4);
 - inyectar una cifra con punto en una guía (D-CPY-5);
 - omitir la brecha (D-CPY-6).
 
@@ -238,7 +282,8 @@ Guardrails:
 
 - **Bit a bit sin ninguna diferencia**, sobre el preset F1, en los **artefactos computacionales**
   (la proyección canónica), el config, el `config_hash` `1063d6cf…` y los **exports crudos** del
-  informe (CSV/Parquet). Ninguno de ellos cambia.
+  informe (CSV/Parquet). Ninguno de ellos cambia, salvo la clave aditiva
+  `("binning", "bin_edges")`.
 - **Lo que sí cambia, declarado:** el HTML, PDF y Word renderizados, los resúmenes y la pantalla.
   El informe de F1 pinta `binning.tables`, `scorecard.scorecard` y `data.partitions`, así que sus
   goldens se mueven. Se revisa cada diferencia, una por una, contra lo que esta enmienda promete, y
@@ -250,7 +295,12 @@ Tope declarado: **dos pasadas**, porque es una enmienda de presentación.
 
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
-| 1 | (a) **alto**: «Malos —» borraba los incumplimientos conocidos de las filas con desenlace que la división por columna aparta. (b) **alto**: la etiqueta de OptBinning está redondeada a dos decimales, y un comparador escrito desde ella podía afirmar un borde falso. (c) **alto**: la brecha media no es lo que mide Hosmer-Lemeshow, y atribuir el rechazo a la potencia del test podía minimizar una falla real. (d) **medio**: `data.partitions` del informe no pasa por `_PARTITION_LABELS`. (e) **medio**: un gate de «cero puntos decimales fuera de los bloques» nacería rojo por el código en línea y las versiones. (f) **medio**: «F1 sin ninguna diferencia» chocaba con los goldens del informe que sí se mueven | (a) §1: «—» sólo sin target, y denominador declarado. (b) §4: comparadores desde los cortes efectivos, con un test junto al borde. (c) §6: «brecha media agregada», sin causa atribuida, y la tabla por grupo en §8.1. (d) §1: mapa por tabla en el renderer, probado en HTML y Word. (e) §5: extractor de texto visible, probado aparte. (f) §9: el bit a bit se limita a los artefactos computacionales, el config y los exports crudos; el render se revisa diferencia por diferencia |
+| 1 | (a) **alto**: «Malos —» borraba los incumplimientos conocidos de las filas con desenlace que la división por columna aparta. (b) **alto**: la etiqueta de OptBinning está redondeada a dos decimales, y un comparador escrito desde ella podía afirmar un borde falso. (c) **alto**: la brecha media no es lo que mide Hosmer-Lemeshow, y atribuir el rechazo a la potencia del test podía minimizar una falla real. (d) **medio**: `data.partitions` del informe no pasa por `_PARTITION_LABELS`. (e) **medio**: un gate de «cero puntos decimales fuera de los bloques» nacería rojo por el código en línea y las versiones. (f) **medio**: «F1 sin ninguna diferencia» chocaba con los goldens del informe que sí se mueven | (a) §1: «—» sólo sin target, y denominador declarado. (b) §3: comparadores desde los cortes efectivos, con un test junto al borde. (c) §6: «brecha media agregada», sin causa atribuida, y la tabla por grupo en §8.1. (d) §1: mapa por tabla en el renderer, probado en HTML y Word. (e) §5: extractor de texto visible, probado aparte. (f) §9: el bit a bit se limita a los artefactos computacionales, el config y los exports crudos; el render se revisa diferencia por diferencia |
+| 2 | (a) **alto**: el rótulo legible dejaba de servir para `point_overrides.bin_label`, que casa con la etiqueta cruda y se ignora en silencio si no calza: el modelador que copiara la tabla perdería su ajuste sin saberlo. (b) **alto**: los cortes efectivos no llegan al informe ni a la pantalla, que sólo reciben `binning.tables`, con etiquetas redondeadas. (c) **medio**: la tabla `data.partitions` usa la columna `Partición`, no `partition` | (a) y (b) §3 se reescribió: ya **no es sólo presentación**. Casa las dos etiquetas y declara el override sin casar (defecto previo). Publica los bordes en una clave aditiva `("binning", "bin_edges")`. (c) §1: la clave del mapa es `Partición`, con un test en HTML y Word |
+
+**Tope.** La pasada 2 tumbó la premisa de «sólo presentación» de §3, así que el criterio de parada
+no se cumplió dentro del tope de dos. La reestructuración de §3 queda **sin revisar por Codex**. Se
+eleva así a Cami y la implementación abre con una pasada sobre el código de §3 antes que nada.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
@@ -258,5 +308,6 @@ Tope declarado: **dos pasadas**, porque es una enmienda de presentación.
 - **Qué NO se configura:** el formato de los números (es-CL, fijo), la forma de los rangos (la que
   elija Cami, fija) y los rótulos.
 - **Presupuesto de perillas: CERO.**
-- **Resumen por etapa:** mismas líneas, mejor escritas; la de Hosmer-Lemeshow suma la brecha.
+- **Resumen por etapa:** mismas líneas, mejor escritas; la de Hosmer-Lemeshow suma la brecha
+  media agregada, y la tarjeta gana una alerta condicional por override sin casar.
 - **Las cinco cifras:** idénticas.
