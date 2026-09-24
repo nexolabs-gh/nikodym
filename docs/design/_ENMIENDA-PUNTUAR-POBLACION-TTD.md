@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Tipo** | Enmienda a [`09-scorecard.md`](09-scorecard.md) §6 («Poblaciones»: `fuera_de_modelo` «no recibe `score`»), a [`06-binning.md`](06-binning.md) §6 (el `transform_out_of_model` que anunciaba «en una versión futura»), a [`08-model.md`](08-model.md) y [`10-calibration.md`](10-calibration.md) (sus poblaciones) y, si Cami aprueba §5.1, a [`11-performance-stability.md`](11-performance-stability.md). Cumple lo que [`31-simplicidad-y-flujo-guiado.md`](31-simplicidad-y-flujo-guiado.md) §8 y [`_ENMIENDA-FLUJO-GUIADO-SCORECARD.md`](_ENMIENDA-FLUJO-GUIADO-SCORECARD.md) ya aprobaron («target con nulos: se puntúan, no se ajustan») y el motor nunca implementó |
-| **Decisiones** | **D-TTD-1** (qué filas se puntúan y cómo), **D-TTD-2** (los artefactos), **D-TTD-3** (qué dicen las superficies) y **D-TTD-4** (representatividad, sujeta a §5.1) |
+| **Decisiones** | **D-TTD-1** (qué filas se puntúan y cómo), **D-TTD-2** (los artefactos y sus dependencias), **D-TTD-3** (qué dicen las superficies), **D-TTD-4** (representatividad, sujeta a §5.1) y **D-TTD-5** (las categorías que no existían en Desarrollo se cuentan y se dicen, sujeta a §5.2) |
 | **Módulos** | `nikodym.binning`, `nikodym.model`, `nikodym.scorecard`, `nikodym.calibration` (`step`), `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (exports); con §5.1 (a), `nikodym.stability` |
 | **Fase** | F1 |
 | **Estado** | **Propuesta** el 2026-09-24 (S22). Sin código |
@@ -43,7 +43,7 @@ medir):**
 | Desarrollo | 30.316 | 539,4 | 550 | 23,8 % |
 | Holdout | 7.733 | 539,0 | 549 | 23,8 % |
 | Fuera de tiempo (OOT) | 5.725 | 527,2 | 536 | 27,2 % |
-| **Sin desenlace (TTD)** | 6.225 (5.855 con el bundle, ver §7) | **554,9** | **561** | **15,0 %** |
+| **Sin desenlace** | 6.225 (5.855 con el bundle, ver §5.2 y §7) | **554,9** | **561** | **15,0 %** |
 
 Los préstamos que quedaron sin desenlace **no se parecen** a la muestra de ajuste: el modelo los
 ve menos riesgosos. PSI del puntaje, con los deciles de Desarrollo: **0,175** entre Desarrollo y
@@ -54,138 +54,220 @@ para el que D-DATA-5 creó el rol `ttd`, porque sirve para medir representativid
 ## 1. D-TTD-1 — qué filas se puntúan y cómo
 
 1. **Filas:** las que tienen `partition == "fuera_de_modelo"` **y** `ttd == True`. Se respeta la TTD
-   ya declarada: con `data.partition.ttd_includes_excluded=True` (el default y lo que usa la
-   puerta guiada) entran los indeterminados y los excluidos; con `False`, sólo los que la TTD
-   declara. No se inventa una población nueva.
-2. **Cómo:** con **la misma transformación que ya reciben Holdout y OOT**, paso por paso y con los
-   objetos ya ajustados. `binning` aplica su `WoEBinner` ajustado, con los WoE asignados de D-FAL-1
-   y los reagrupamientos de D-RAR-1. `model` aplica su estimador sobre las columnas WoE finales.
-   `scorecard` aplica su escalador y `calibration` su calibrador. Ningún paso reajusta nada.
-3. **Qué no hacen estas filas:** no entran a ningún ajuste —binning, selección, modelo, escala ni
+   ya declarada, sin cambiar D-DATA-5 (`data/partition.py`, `_ttd_mask`):
+   - con `data.partition.ttd_includes_excluded=True` —el default y lo que usa la puerta guiada—
+     `ttd` vale `True` en todas las filas, así que se puntúan **todas** las fuera de modelo;
+   - con `False`, `ttd` vale `False` en **todas** las fuera de modelo: la TTD declarada son sólo
+     las modelables, que ya tienen puntaje, y **no se puntúa ninguna fila nueva**.
+2. **Qué hay en esa partición.** No son sólo indeterminados. `fuera_de_modelo` reúne tres grupos:
+   - las filas **indeterminadas** (`label_status="indeterminado"`: target vacío o sin regla que
+     las clasifique);
+   - las **excluidas** por una regla de exclusión (`label_status="excluido"`, target vacío);
+   - las filas con **desenlace conocido que la partición apartó**, porque su valor no se mapeó a
+     ninguna muestra en la división por columna (`data/partition.py`, `_split_from_column`). Esas
+     tienen target 0/1.
+
+   Por eso el rótulo es **«Fuera del ajuste»**, no «Sin desenlace», y las superficies dicen la
+   composición (§3).
+3. **Cómo:** con **la misma transformación que ya reciben Holdout y OOT**, con los objetos ya
+   ajustados y sin reajustar nada, paso por paso:
+   - `binning`: `WoEBinner.transform` sobre las columnas predictoras, con los WoE asignados de
+     D-FAL-1 y los reagrupamientos de D-RAR-1;
+   - `model`: las columnas WoE finales (`estimator.final_woe_columns_`), con el mismo chequeo de
+     WoE finita que `FeatureSelector.transform` le hace a las modelables, y
+     `decision_function`/`predict_pd` del estimador ajustado;
+   - `scorecard`: `PointsScaler.transform`;
+   - `calibration`: los **parámetros ajustados** del calibrador. `PDCalibrator.transform` filtra
+     a Desarrollo, Holdout y OOT (`_validate_raw_contract`), así que con estas filas devolvería
+     un frame vacío. El paso aplica el mismo estado con la función interna que `transform` usa
+     después de filtrar (`_transform_with_state`). La API pública de `transform` no cambia.
+     Vale para los tres métodos (`intercept_offset`, `platt_scaling`, `isotonic`).
+4. **Qué no hacen estas filas:** no entran a ningún ajuste —binning, selección, modelo, escala ni
    calibración— y no tocan ninguna métrica existente: AUC, KS, PSI, calibración, validación y
-   desempeño se calculan exactamente sobre las mismas filas que hoy. No tienen desenlace, así que
-   no hay métrica de discriminación que calcular sobre ellas.
-4. **No es inferencia de rechazados.** No se les imputa un desenlace ni se reajusta el modelo con
+   desempeño se calculan exactamente sobre las mismas filas que hoy. La mayoría no tiene desenlace.
+   Las que sí lo tienen fueron apartadas por la partición, y tampoco entran a las métricas de
+   discriminación.
+5. **No es inferencia de rechazados.** No se les imputa un desenlace ni se reajusta el modelo con
    ellas; eso sigue siendo de la sub-fase de originación (SDD-02, «Decisiones abiertas»).
-5. **Puntuarlas nunca detiene la corrida** (el patrón de D-SC-19). Si la transformación de estas
-   filas falla en cualquier paso, el paso publica su artefacto vacío con la causa y la corrida
-   sigue. El trail registra `ttd_no_puntuada` con la causa, el resumen de la etapa lo dice como
-   **alerta** y los pasos siguientes publican vacío sin volver a fallar. Una corrida que hoy
-   termina `done` sigue terminando `done`.
+6. **Puntuarlas nunca detiene la corrida** (el patrón de D-SC-19). Si la transformación de estas
+   filas falla en cualquier paso, ese paso publica su clave vacía y la corrida sigue:
+   - el trail registra `ttd_no_puntuada` con la causa y el paso;
+   - el resumen de la etapa lo dice como **alerta**;
+   - los pasos siguientes publican vacío sin volver a fallar.
 
-## 2. D-TTD-2 — los artefactos: cuatro claves aditivas, espejo de las modelables
+   Una corrida que hoy termina `done` sigue terminando `done`.
 
-| Clave nueva | Espejo de | Contenido |
+## 2. D-TTD-2 — los artefactos, sus dependencias y los exports
+
+| Clave nueva | Espejo de | Columnas |
 |---|---|---|
-| `("binning", "out_of_model_woe_frame")` | `("binning", "woe_frame")` | Mismas columnas: estructurales y `<feature>__woe` |
+| `("binning", "out_of_model_woe_frame")` | `("binning", "woe_frame")` | Las mismas: estructurales (`target`, `label_status`, `partition`, `ttd`, según `keep_structural_columns`) y `<feature>__woe` |
 | `("model", "out_of_model_pd_frame")` | `("model", "raw_pd_frame")` | `partition`, `target`, `linear_predictor`, `pd_raw` |
-| `("scorecard", "out_of_model_score")` | `("scorecard", "score")` | `<feature>__points` y `score`, con las columnas estructurales |
-| `("calibration", "out_of_model_calibrated_pd_frame")` | `("calibration", "calibrated_pd_frame")` | Las seis columnas del frame calibrado |
+| `("scorecard", "out_of_model_score")` | `("scorecard", "score")` | Las del `score`: estructurales, `<feature>__points` y `score` |
+| `("calibration", "out_of_model_calibrated_pd_frame")` | `("calibration", "calibrated_pd_frame")` | Las **ocho** de `_OUTPUT_COLUMNS`: `partition`, `target`, `linear_predictor`, `pd_raw`, `linear_predictor_calibrated`, `pd_calibrated`, `calibration_method`, `anchor_kind` |
 
-- El índice es el de las filas en `("data", "frame")`, igual en las cuatro claves y **disjunto**
-  del de las modelables. Se publican **siempre**, vacías y con su esquema cuando no hay filas.
-  Consumir la clave no exige preguntar si existe.
+- **Índice:** el de esas filas en `("data", "frame")`, igual en las cuatro claves y **disjunto**
+  del de las modelables.
+- **Cuándo se publican:** cada paso que **corre** publica su clave, vacía y con su esquema si no
+  hay filas. Con `run(until="binning")` sólo existe la de `binning`; las demás, como cualquier
+  artefacto de un paso que no corrió, no existen.
+- **Dependencias:** cada clave nueva entra en el `optional_requires` del paso siguiente, nunca en
+  `requires`:
+
+  | Paso | `optional_requires` nuevo |
+  |---|---|
+  | `model` | `("binning", "out_of_model_woe_frame")` |
+  | `scorecard` | `("binning", "out_of_model_woe_frame")`, `("model", "out_of_model_pd_frame")` |
+  | `calibration` | `("model", "out_of_model_pd_frame")` |
+  | `stability`, con §5.1 (a) | `("scorecard", "out_of_model_score")` |
+
+  Un trabajo con artefactos inyectados —«Validar un modelo existente» y los demás que no corren
+  `binning`— sigue funcionando igual. Si la clave de entrada falta, el paso publica la suya
+  **vacía**, sin alerta, porque no había nada que puntuar. Si la entrada existe pero es
+  inconsistente —columnas WoE finales ausentes, índice distinto entre el par—, rige §1.6: clave
+  vacía, `ttd_no_puntuada` y alerta.
 - **Los artefactos existentes no cambian**: `woe_frame`, `raw_pd_frame`, `score` y
   `calibrated_pd_frame` conservan sus filas, su índice y sus invariantes. El chequeo de índice
   idéntico entre `score` y `raw_pd_frame` sigue intacto, y el par nuevo tiene el suyo.
-- `selection` no cambia: `model` toma las columnas WoE finales del frame de `binning`.
-- **Nombre:** `out_of_model_*` porque son las filas de la partición `fuera_de_modelo`, filtradas
-  por la TTD declarada. No se llama `ttd_*`: la TTD completa también incluye Desarrollo, Holdout y
+- **`selection` no cambia.** `FeatureSelector.transform` sólo recorta columnas y verifica que el
+  WoE sea finito; `model` hace lo mismo con las columnas finales del estimador.
+- **Nombre:** `out_of_model_*` porque son las filas de la partición `fuera_de_modelo` que la TTD
+  declarada incluye. No se llama `ttd_*`: la TTD completa también incluye Desarrollo, Holdout y
   OOT, que siguen en sus artefactos de siempre.
-- **Exports:** `scorecard.out_of_model_score` y `calibration.out_of_model_calibrated_pd_frame` se
+- **Exports.** `scorecard.out_of_model_score` y `calibration.out_of_model_calibrated_pd_frame` se
   registran como tablas **por observación**, junto a `scorecard.score` y
-  `calibration.calibrated_pd_frame`. Así salen completas como exports de datos, no dentro del
-  documento. Títulos: «Puntaje de la población sin desenlace (TTD)» y «PD calibrada de la
-  población sin desenlace (TTD)». Los dos frames intermedios no se exportan.
-- **Trail:** una decisión en `scorecard`, `regla="puntuar_ttd_fuera_de_modelo"`,
-  `valor={filas, indeterminadas, excluidas}`, `accion="puntuar_sin_ajustar"`. Las decisiones que
-  hoy dicen `no_puntuar`/`no_calibrar` sobre `fuera_de_modelo` (`model`, `scorecard`,
-  `calibration`) nunca se disparan, porque `binning` ya filtra antes; no cambian.
+  `calibration.calibrated_pd_frame`:
+  - salen completas como exports de datos, no dentro del documento, con los títulos «Puntaje de
+    las operaciones fuera del ajuste (TTD)» y «PD calibrada de las operaciones fuera del ajuste
+    (TTD)»;
+  - **una clave nueva vacía no llega al informe**: el `ReportBuilder` no la recolecta, así que no
+    hay adjunto de cero filas, ni referencia en el anexo, ni hoja vacía en el Excel. Hoy el
+    builder recolecta los `DataFrame` vacíos y `data_export_refs` no los filtra; el filtro es sólo
+    para estas claves;
+  - los dos frames intermedios no se exportan.
+- **Trail.** Una decisión en `scorecard`: `regla="puntuar_ttd_fuera_de_modelo"`,
+  `valor={filas, indeterminadas, excluidas, con_desenlace}` y `accion="puntuar_sin_ajustar"`.
+  - Las decisiones que hoy dicen `no_puntuar`/`no_calibrar` sobre `fuera_de_modelo` (en `model`,
+    `scorecard` y `calibration`) nunca se disparan, porque `binning` ya filtra antes, y no cambian.
 
 ## 3. D-TTD-3 — qué dicen las superficies
 
 | Superficie | Qué dice |
 |---|---|
-| **Resumen de datos** | La línea de `d2839d8` pasa de «no entran al ajuste ni reciben puntaje» a «no entran al ajuste; la tarjeta los puntúa aparte, como parte de la población total (TTD)». Lo dice en futuro porque la etapa de datos no sabe si la corrida llegará a la tarjeta (`run(until=…)`) |
-| **Inferencia de la puerta** | El motivo «se puntúa y no entra al ajuste» pasa a ser verdad; no cambia. Sí se precisa su docstring |
-| **Resumen de la tarjeta** | Una línea condicional, p. ej. «Población sin desenlace (TTD): 6.225 operaciones puntuadas, puntaje medio 555 (Desarrollo 539)» (cifras ilustrativas: las del §0 salen del bundle, sobre 5.855 filas) |
-| **Resumen de calibración** | La tabla «PD por muestra» gana la fila «Sin desenlace (TTD)», con PD media cruda y calibrada y la tasa observada vacía (—). Suma una línea, p. ej. «PD calibrada media de toda la población que pidió crédito (TTD, 49.999 operaciones): 23,1 %» (ilustrativa: medida sobre 49.629 filas, §7) |
+| **Resumen de datos** | La línea de `d2839d8` pasa de «no entran al ajuste ni reciben puntaje» a «no entran al ajuste; la tarjeta las puntúa aparte, como parte de la población total (TTD)». Lo dice en futuro porque la etapa de datos no sabe si la corrida llegará a la tarjeta (`run(until=…)`). Con `ttd_includes_excluded=False` dice lo que pasa: «no entran al ajuste ni a la población total (TTD), así que no se puntúan» |
+| **Inferencia de la puerta** | El motivo «se puntúa y no entra al ajuste» pasa a ser verdad y no cambia. Se precisa su docstring |
+| **Resumen de la tarjeta** | Una línea condicional con la composición, p. ej. «Fuera del ajuste (TTD): 6.225 operaciones puntuadas —6.225 indeterminadas—, puntaje medio 555 (Desarrollo 539)». Nombra sólo los grupos con filas |
+| **Resumen de calibración** | La tabla «PD por muestra» gana la fila «Fuera del ajuste (TTD)» con la PD media cruda y la calibrada. La tasa observada se calcula sobre las filas con target 0/1, si las hay, y si no queda vacía (—). Suma una línea, p. ej. «PD calibrada media de toda la población que pidió crédito (TTD, 49.999 operaciones): 23,1 %». Las cifras de los ejemplos son ilustrativas: las del §0 salen del bundle, sobre 5.855 filas |
 | **Pantalla, informe (página ejecutiva) y `sc.results`** | Leen la misma fuente que `summary()`: las líneas y la fila llegan solas |
-| **Informe y Excel** | Los dos exports por observación de §2. El Excel por etapa los incluye si el informe los publica para el dominio; se mide al implementar |
+| **Informe y Excel** | Los dos exports por observación de §2, sólo cuando tienen filas. El Excel por etapa los incluye si el informe los publica para el dominio; se mide al implementar |
 | **SDD-09 §6, SDD-06 §6, SDD-08, SDD-10, SDD-31 §8** | Se anotan con un puntero a esta enmienda cuando se implemente |
 
-Todo lo que se lee sale de los mapas de rótulos existentes. El rótulo de la partición
-`fuera_de_modelo` —«Sin desenlace (TTD)»— es el mismo que pide el hallazgo 2 de la enmienda de
-copy de esta sesión, y los dos cambios comparten la entrada en `report/prose.py`.
+Todo lo que se lee sale de los mapas de rótulos existentes. El rótulo «Fuera del ajuste» de la
+partición `fuera_de_modelo` es el mismo que fija D-CPY-1 en
+[`_ENMIENDA-COPY-PRUEBA-REAL-SBA.md`](_ENMIENDA-COPY-PRUEBA-REAL-SBA.md), y las dos enmiendas
+comparten esa entrada de `report/prose.py`. Aquí se le añade «(TTD)» porque, puntuadas, son la
+parte de la población total que no entró al ajuste.
 
-## 4. D-TTD-4 — representatividad: los sin desenlace frente a Desarrollo (sujeta a §5.1)
+## 4. D-TTD-4 — representatividad: lo que quedó fuera del ajuste frente a Desarrollo (sujeta a §5.1)
 
-Si Cami la aprueba, `stability` publica un PSI del puntaje entre Desarrollo y los sin desenlace:
+Si Cami la aprueba, `stability` publica un PSI del puntaje entre Desarrollo y las filas fuera
+del ajuste puntuadas:
 
 - **Clave aditiva** `("stability", "out_of_model_psi")`, con el mismo esquema por tramo que
   `psi_table` y los mismos tramos del puntaje que usa la comparación Desarrollo vs. OOT. El motor
   PSI es el de siempre (`_psi_from_counts`); no se escribe otro.
 - **No es una comparación configurable**: no se añade `dev_vs_ttd` a `stability.comparisons`, y por
-  eso el `config_hash` de ningún preset se mueve. Se calcula cuando hay filas sin desenlace
-  puntuadas y, si no las hay, la clave queda vacía.
-- **Se compara contra los sin desenlace, no contra la TTD completa.** La TTD contiene al propio
-  Desarrollo (61 % en el SBA) y el PSI contra ella sale casi cero aunque los sin desenlace difieran
+  eso el `config_hash` de ningún preset se mueve. Se calcula cuando hay filas fuera del ajuste
+  puntuadas; si no las hay, la clave queda vacía y, como en §2, no llega al informe.
+- **Se compara contra lo que quedó fuera, no contra la TTD completa.** La TTD contiene al propio
+  Desarrollo (61 % en el SBA), y el PSI contra ella sale casi cero aunque lo de fuera difiera
   mucho: 0,004 frente a 0,175, medido.
 - **Rótulo propio.** Los umbrales son los de estabilidad ya configurados, pero la lectura es de
   representatividad, no de deriva: «se parecen» (< 0,10), «difieren moderadamente» (0,10–0,25) y
   «difieren» (≥ 0,25). No se dice «Redesarrollar», porque no hay nada que redesarrollar.
-- **Fuera del veredicto.** No entra a `validation` ni al estado técnico. Una línea en el resumen de
-  estabilidad: «Sin desenlace frente a Desarrollo: PSI 0,175 — difieren moderadamente: el modelo
-  los ve con menor riesgo (PD calibrada media 15,0 % frente a 23,8 %)». Sólo «difieren» sube como
-  alerta a «Qué revisar».
+- **Fuera del veredicto.** No entra a `validation` ni al estado técnico. El resumen de estabilidad
+  gana una línea: «Fuera del ajuste frente a Desarrollo: PSI 0,175 — difieren moderadamente: el
+  modelo las ve con menor riesgo (PD calibrada media 15,0 % frente a 23,8 %)». Sólo «difieren»
+  sube como alerta a «Qué revisar».
 
 ## 5. Lo que Cami decide
 
 | # | Decisión | Opciones | Recomendación |
 |---|---|---|---|
-| 5.1 | ¿Entra la representatividad (§4) en esta enmienda? | (a) **sí**: puntuar y además medir si los sin desenlace se parecen a la muestra de ajuste; (b) no: sólo puntuar, y la representatividad va en otra enmienda | **(a)**: puntuar sin comparar deja una columna sin lectura. D-DATA-5 creó el rol `ttd` para medir representatividad, y el SBA muestra que la diferencia existe (PSI 0,175). Cuesta una clave aditiva y una línea |
+| 5.1 | ¿Entra la representatividad (§4) en esta enmienda? | (a) **sí**: puntuar y además medir si lo que quedó fuera se parece a la muestra de ajuste; (b) no: sólo puntuar, y la representatividad va en otra enmienda | **(a)**: puntuar sin comparar deja una columna sin lectura. D-DATA-5 creó el rol `ttd` para medir representatividad, y el SBA muestra que la diferencia existe (PSI 0,175). Cuesta una clave aditiva y una línea |
+| 5.2 | Las 370 filas fuera del ajuste con una categoría que no existía en Desarrollo (§7) | (a) **puntuar ahora con el tratamiento de hoy** —el mismo que reciben 2.620 filas OOT—, y **contarlo y decirlo en todas las muestras** (D-TTD-5), sin cambiar ningún número; la regla para esas categorías va en su propia enmienda; (b) no puntuar fuera del ajuste hasta que esa regla exista | **(a)**: hoy OOT ya recibe ese tratamiento sin que nadie lo sepa. Con (a) deja de ser silencioso en todas las muestras a la vez y la regla se corrige una sola vez para todas. Con (b) la TTD espera a una enmienda que puede cambiar números de OOT, y eso en 1.x exige su propia decisión |
 
 Lo demás no se pregunta porque tiene una respuesta de principio: las filas son las de la TTD ya
 declarada, el tratamiento es el de Holdout/OOT y nada es configurable (§13).
+
+### 5.2 (a) en detalle: D-TTD-5 — las categorías no vistas se cuentan y se dicen
+
+- **Quién cuenta.** `binning`, al transformar, cuenta por variable categórica y por muestra —Holdout,
+  OOT y fuera del ajuste— las filas cuyo valor no es faltante ni especial y no pertenece a ningún
+  tramo ajustado. Desarrollo no aparece: por construcción, todo lo que tiene lo vio.
+- **Dónde queda.** En un campo aditivo de la card de `binning`, `unseen_categories`, con la forma
+  `{variable: {muestra: filas}}` y vacío si no hay ninguna.
+- **Qué dice el resumen de «Tramos y WoE».** Una **alerta** por variable, p. ej.: «anio_fiscal:
+  2.620 operaciones de Fuera de tiempo (OOT) y 370 fuera del ajuste traen una categoría que no
+  existía en Desarrollo; reciben el riesgo promedio en esa variable».
+- **Qué no cambia.** Ningún WoE, puntaje ni PD. Se declara lo que hoy ya pasa.
 
 ## 6. Estrategia de tests
 
 | # | Test | Nace rojo porque |
 |---|---|---|
 | 1 | **Gate de aceptación**: el SBA termina `done` con las cuatro claves de §2, 6.225 filas cada una, y el índice de esas filas es disjunto del de las modelables | Las claves no existen |
-| 2 | **Paridad con la transformación de Holdout**: en un fixture, las filas puntuadas como sin desenlace reciben el mismo WoE, predictor lineal, puntaje y PD calibrada que recibirían con los mismos valores en Holdout. Se compara contra `binner.transform`, el estimador, el escalador y el calibrador ajustados, aplicados a mano | La regla no existe |
-| 3 | **Paridad con el bundle**: `FittedScorecardBundle.apply` sobre esas filas da el mismo `score` y la misma `pd_calibrated` que los artefactos nuevos, **en las filas que el bundle puede puntuar** (§7) | La regla no existe |
-| 4 | Con `ttd_includes_excluded=False` no se puntúan los excluidos, y sí los indeterminados | La regla no existe |
-| 5 | Sin filas sin desenlace: las cuatro claves se publican vacías con su esquema y no hay decisión ni línea de resumen | Las claves no existen |
+| 2 | **Paridad con la transformación de Holdout**, en un fixture, **en todas las filas fuera del ajuste** (incluidas las que traen una categoría no vista): cada fila recibe el mismo WoE, predictor lineal, puntaje y PD calibrada que da aplicar a mano `binner.transform`, el estimador, el escalador y el estado del calibrador ajustados | La regla no existe |
+| 2b | Lo mismo con cada método de calibración: `intercept_offset`, `platt_scaling` e `isotonic` | La calibración devuelve vacío |
+| 3 | **Paridad con el bundle** en las filas que el bundle puntúa: el `FittedScorecardBundle.apply` da el mismo `score` y la misma `pd_calibrated`. En las que no puntúa, el test **fija el desacuerdo conocido**: el motor les da el riesgo promedio y el bundle `categoria_no_observada_en_fit` (§7). Si una enmienda futura lo corrige, este test cambia a propósito | La regla no existe |
+| 4 | Con `ttd_includes_excluded=False` las cuatro claves quedan vacías, no hay decisión y la línea de datos dice que no se puntúan | Hoy la línea no lo dice |
+| 4b | **División por columna con un valor no mapeado que trae desenlace**: esas filas se puntúan, la composición las nombra «con desenlace» y la tasa observada de la fila «Fuera del ajuste (TTD)» se calcula sobre ellas | La regla no existe |
+| 5 | Sin filas fuera del ajuste: las cuatro claves se publican vacías con su esquema, no hay decisión ni línea de resumen, y el informe no gana adjuntos | Las claves no existen |
 | 6 | **Nunca detiene**: una falla inyectada en la transformación de esas filas deja la corrida `done`, las claves vacías, `ttd_no_puntuada` en el trail y la alerta en el resumen | La regla no existe |
-| 7 | Una decisión `puntuar_ttd_fuera_de_modelo` con sus conteos | No se emite |
+| 6b | **Entradas inyectadas**: un trabajo que no corre `binning` (p. ej. «Validar un modelo existente») sigue igual; `model`, `scorecard` y `calibration` publican vacío sin alerta. Con `run(until="binning")` sólo existe la clave de `binning` | Las dependencias no existen |
+| 7 | Una decisión `puntuar_ttd_fuera_de_modelo` con sus conteos por grupo | No se emite |
 | 8 | El resumen de datos, el de la tarjeta y la tabla de calibración dicen lo de §3, sin identificadores del motor; la línea de datos ya no dice «ni reciben puntaje» | No lo dicen |
-| 9 | Los dos exports por observación salen con su título | No están registrados |
+| 9 | Los dos exports por observación salen con su título cuando tienen filas | No están registrados |
 | 10 | Con §5.1 (a): el PSI de representatividad del SBA, su rótulo y su línea; la clave vacía sin filas; `validation` no la lee | No existe |
-| 11 | **Bit a bit** sobre el preset F1, que no tiene filas fuera de modelo: las únicas diferencias son las claves nuevas vacías; el `config_hash` `1063d6cf…` y las cinco cifras quedan intactos | — (guardrail) |
+| 10b | Con §5.2 (a): `unseen_categories` del SBA da `anio_fiscal` con 2.620 en OOT y 370 fuera del ajuste, y la alerta lo dice; ningún WoE cambia | No existe |
+| 11 | **Bit a bit** sobre el preset F1, que no tiene filas fuera de modelo: las únicas diferencias en los artefactos son las claves nuevas vacías y, con §5.2 (a), `unseen_categories = {}`. **El informe y sus exports quedan idénticos.** El `config_hash` `1063d6cf…` y las cinco cifras quedan intactos | — (guardrail) |
 
-**Controles negativos:** no filtrar por `ttd` (4); puntuar también las modelables en la clave nueva
-(1); reajustar el calibrador con las filas nuevas (2); dejar que la falla de §1.5 levante (6); no
-registrar el export (9); comparar contra la TTD completa en vez de los sin desenlace (10).
+**Controles negativos:**
 
-## 7. Defecto previo medido: una categoría que no se vio en Desarrollo (registrado aparte, no se toca aquí)
+- no filtrar por `ttd` (4);
+- puntuar también las modelables en la clave nueva (1);
+- reajustar el calibrador con las filas nuevas (2);
+- llamar a `PDCalibrator.transform` en vez del estado (2b);
+- dejar que la falla de §1.6 levante (6);
+- declarar `requires` en vez de `optional_requires` (6b);
+- no registrar el export (9);
+- dejar pasar una clave vacía al informe (5, 11);
+- comparar contra la TTD completa (10);
+- no contar la categoría no vista (10b).
+
+## 7. Defecto previo medido: una categoría que no se vio en Desarrollo (la regla se eleva aparte)
 
 Al medir el §0 apareció un defecto anterior a esta enmienda, que también afecta a Holdout y OOT:
 
 - En el SBA, `anio_fiscal` entra como predictora (es el hallazgo 6 de la enmienda de copy). El año
   fiscal 2009 **no existe en Desarrollo** por construcción: la frontera OOT es 2008-01-01 y el
   año fiscal 2009 empieza el 1-oct-2008.
-- **El motor** transforma esa categoría no vista con WoE ≈ 0 (`2,2e-16`), es decir, con el riesgo
-  promedio. Le da 74 puntos a las **2.620** operaciones OOT de 2009, **sin declararlo en ningún
-  lado**. Es el mismo cero que D-FAL-1 rechazó como «no es una estimación».
+- **El motor** transforma esa categoría no vista con WoE ≈ 0 (`2,2e-16`), que el escalador
+  normaliza al WoE 0 de los tramos `Special`/`Missing` vacíos. Resultado: el riesgo promedio, 74
+  puntos, a las **2.620** operaciones OOT de 2009. **No lo declara en ningún lado**: el escalador
+  sólo registra `bin_no_visto` cuando el WoE no está en su tabla, y aquí sí está. Es el mismo cero
+  que D-FAL-1 rechazó como «no es una estimación».
 - **El bundle** no las puntúa: `categoria_no_observada_en_fit` en 2.620 filas OOT (más una por
-  `estado_del_proyecto`) y en 370 de las 6.225 sin desenlace. **La corrida y el bundle discrepan
-  hoy** en esas filas. El test que ancla la paridad corre sobre datos sin categorías nuevas.
+  `estado_del_proyecto`) y en 370 de las 6.225 fuera del ajuste. **La corrida y el bundle
+  discrepan hoy** en esas filas, y el test que ancla la paridad corre sobre datos sin categorías
+  nuevas.
 
-Esta enmienda no lo corrige, porque corregirlo cambiaría números de corridas que hoy terminan.
-Las filas sin desenlace reciben lo mismo que OOT, que es la promesa de §1.2, y el test 3 compara
-sólo las filas que el bundle puntúa. Queda **elevado a Cami** como enmienda propia: una regla
-declarada para categorías no vistas, que el motor y el bundle apliquen igual.
+**Esta enmienda no corrige la regla.** Asignar otro WoE cambiaría números de corridas que hoy
+terminan, y en 1.x eso exige su propia enmienda y decisión. Lo que sí hace, con §5.2 (a), es
+**decirlo** en todas las muestras (D-TTD-5) y **fijar el desacuerdo** con el bundle en un test
+(test 3). Queda **elevado a Cami** como enmienda propia: una regla declarada para categorías no
+vistas, que el motor y el bundle apliquen igual, junto con el aviso de una predictora que cambia
+de dominio entre Desarrollo y OOT (hallazgo 6).
 
 ## 8. La revisión adversarial de este documento
 
@@ -194,7 +276,7 @@ contractual no se programa: se eleva.
 
 | Pasada | Hallazgo | Qué cambió |
 |---|---|---|
-| 1 | — | — |
+| 1 | (a) **alto**: con `ttd_includes_excluded=False`, `_ttd_mask` pone `ttd=False` en **todas** las fuera de modelo, también en las indeterminadas; el test 4 pedía lo imposible. (b) **alto**: `fuera_de_modelo` también reúne filas con desenlace conocido que la división por columna no mapeó; «Sin desenlace» las falseaba. (c) **alto**: `PDCalibrator.transform` filtra a las modelables y devolvería vacío; además la calibración publica ocho columnas, no seis. (d) **alto**: faltaba cómo llega el frame nuevo a `model` (que consume `selection`), qué pasa con artefactos inyectados y con `run(until=)`. (e) **alto**: el test de paridad con el bundle excluía justo las 370 filas problemáticas del caso de aceptación. (f) **medio**: publicar claves vacías y registrarlas como exports rompía la promesa bit a bit del informe en F1 | (a) §1.1 y test 4: con `False` no se puntúa ninguna, sin tocar D-DATA-5. (b) §1.2, §3 y test 4b: rótulo «Fuera del ajuste», composición en tres grupos y tasa observada sobre los que tienen target. (c) §1.3, §2 y test 2b: el paso aplica el estado ajustado con `_transform_with_state`, sin cambiar la API pública; las ocho columnas. (d) §2: `optional_requires` por paso, clave vacía sin alerta si falta la entrada, publicación sólo de los pasos que corren, y test 6b. (e) §5.2, D-TTD-5, §7 y tests 2, 3 y 10b: la paridad con la transformación cubre todas las filas, el desacuerdo con el bundle queda fijado y las categorías no vistas se declaran. (f) §2 y tests 5 y 11: una clave vacía no llega al informe, y el guardrail compara también el informe |
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
@@ -205,12 +287,16 @@ contractual no se programa: se eleva.
   - qué filas (las de la TTD ya declarada con `ttd_includes_excluded`);
   - con qué transformación (la de Holdout/OOT);
   - con §5.1 (a), la comparación de representatividad (siempre, con los umbrales de estabilidad
-    ya configurados).
+    ya configurados);
+  - con §5.2 (a), el conteo de categorías no vistas (siempre).
 
   El `transform_out_of_model=True` que SDD-06 §6 anunciaba «en una versión futura» **no se
   crea**.
 - **Presupuesto de perillas: CERO.** Todo lo nuevo es resultado.
-- **Resumen por etapa:** la tarjeta gana una línea condicional; la calibración, una fila y una
-  línea; con §5.1 (a), la estabilidad gana una línea.
+- **Resumen por etapa:**
+  - la tarjeta gana una línea condicional;
+  - la calibración, una fila y una línea;
+  - con §5.1 (a), la estabilidad gana una línea;
+  - con §5.2 (a), «Tramos y WoE» gana una alerta por variable con categorías no vistas.
 - **Las cinco cifras:** idénticas en toda corrida, porque las métricas se calculan sobre las
   mismas filas que hoy.
