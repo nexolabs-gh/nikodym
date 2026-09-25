@@ -9,6 +9,18 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **La corrida puntúa a la población through-the-door que no entra al ajuste** (D-TTD-1…5). Las
+  operaciones fuera del ajuste —indeterminadas, excluidas o con desenlace que la partición dejó
+  fuera— reciben puntaje y PD con la tarjeta y la calibración ya ajustadas, sin reajustar nada,
+  siempre que la población total (TTD) las incluya. Viajan en cuatro claves nuevas
+  (`out_of_model_*` en `binning`, `model`, `scorecard` y `calibration`), que el informe entrega
+  como adjuntos cuando tienen filas. El resumen de la tarjeta dice cuántas son y su puntaje medio;
+  el de calibración, su PD media y la de toda la población que pidió crédito; el de estabilidad,
+  un **PSI de representatividad** frente a Desarrollo, con los cortes de la corrida y fuera del
+  veredicto. Las categorías que no existían en Desarrollo se cuentan por muestra y «Tramos y WoE»
+  lo avisa. Puntuar esas filas **nunca detiene la corrida**. Ningún número existente cambia ni se
+  agrega una opción. Con la muestra SBA: 6.225 préstamos sin desenlace puntuados, que el modelo ve
+  con menor riesgo que Desarrollo (PSI 0,162).
 - **El notebook mínimo, como cuaderno de verdad**: `docs_site/notebooks/primer-scorecard.ipynb`,
   enlazado desde «Instalación y primeros pasos» y descargable desde docs.nikodym.cl. Es el
   mismo flujo de las guías —datos, corrida completa, una etapa por dentro, una decisión humana
@@ -28,9 +40,20 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   resumen que decía `0,548`. Ahora son un `DataFrame` con los números intactos para calcular que
   se muestra con la misma regla del resumen de su etapa y de la pantalla: coma decimal, miles,
   porcentajes y «—» en las ausencias, sin el índice.
-- **El resumen de datos ya no dice que los indeterminados se puntúan.** Decía «se puntúan, no se
-  ajustan», pero la corrida no puntúa lo que queda fuera de modelo; ahora dice que no entran al
-  ajuste ni reciben puntaje y que siguen contando en la población total (TTD).
+- **El resumen de datos dice qué pasa con lo que queda fuera del ajuste.** Nombra sus tres
+  grupos y, desde D-TTD, que la tarjeta los puntúa aparte; con la TTD sin excluidos, que no se
+  puntúan.
+- **Lo que la prueba real con el SBA mostró mal escrito** (D-CPY-1…6). La partición
+  `fuera_de_modelo` se lee «Fuera del ajuste» —también en la tabla de particiones del informe— y
+  sus malos son «—» cuando no hay desenlace conocido, no cero. La línea de validación nombra la
+  variable de cada CSI y el eje temporal («PSI temporal por período»), y cada Hosmer-Lemeshow que
+  falla suma la **brecha media agregada** (sin cambiar el veredicto). Los tramos categóricos se
+  leen «2001, 2000», no `['2001' '2000']`, y los rangos con comparadores en es-CL desde los
+  **bordes efectivos** del motor (`≥ 50.450 y < 102.230,5`), exactos: la etiqueta de OptBinning
+  los redondeaba a dos decimales. Un ajuste manual de puntos casa con la etiqueta del motor o con
+  ese rótulo; uno que no casa ya no se ignora en silencio: lo avisan el trail y el resumen. Los
+  p-valores de las tablas dicen «< 0,001» y las guías del sitio escriben los decimales con coma.
+  El cuaderno publicado se regeneró; las cifras del modelo no cambian.
 - **Un bin de faltantes sin incumplimientos ya no mata la corrida** (D-FAL-1/2). Con una muestra
   pública de préstamos 7(a) de la SBA partida por fecha, ocho préstamos no declaraban la
   antigüedad de la empresa y en desarrollo su bin de faltantes quedaba con 4 operaciones y

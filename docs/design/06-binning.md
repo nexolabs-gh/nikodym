@@ -348,6 +348,7 @@ class BinningConfig(NikodymBaseConfig):
 **Poblaciones.**
 - **Fit:** filas con `partition == "desarrollo"` y `target ∈ {0,1}`.
 - **Transform:** filas con `partition ∈ {"desarrollo", "holdout", "oot"}`. `fuera_de_modelo` no se transforma para modelado; puede quedar fuera del `woe_frame` o conservarse solo si `keep_structural_columns=True` y `transform_out_of_model=True` se agrega en una versión futura.
+  > **Enmendado (2026-09-25, D-TTD-1…5):** no se crea esa perilla. Las filas `fuera_de_modelo` que la TTD declarada incluye se transforman siempre, aparte, en la clave aditiva `("binning", "out_of_model_woe_frame")`; `woe_frame` sigue siendo sólo de las modelables. `binning` publica además `("binning", "unseen_categories")` y `("binning", "bin_edges")` (D-CPY-3). Ver [`_ENMIENDA-PUNTUAR-POBLACION-TTD.md`](_ENMIENDA-PUNTUAR-POBLACION-TTD.md) y [`_ENMIENDA-COPY-PRUEBA-REAL-SBA.md`](_ENMIENDA-COPY-PRUEBA-REAL-SBA.md).
 - **Target degenerado:** si Desarrollo no tiene al menos un bueno y un malo, se levanta `BinningFitError`.
 
 **Output `woe_frame`.** `pandas.DataFrame` con el mismo índice de las filas transformadas y:

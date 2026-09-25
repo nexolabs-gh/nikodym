@@ -1080,7 +1080,7 @@ por módulo bajo SDD-31, la primera
 
 > **La corrida puntúa a la población through-the-door que no entra al ajuste (2026-09-24;
 > **APROBADA por Cami el 2026-09-24/25** con la representatividad y con las categorías no vistas
-> declaradas; nace de la prueba de Cami con la muestra SBA).**
+> declaradas, e **implementada el 2026-09-25**; nace de la prueba de Cami con la muestra SBA).**
 > [`_ENMIENDA-PUNTUAR-POBLACION-TTD.md`](_ENMIENDA-PUNTUAR-POBLACION-TTD.md), D-TTD-1…5, enmienda a
 > [`09-scorecard.md`](09-scorecard.md) §6, [`06-binning.md`](06-binning.md) §6,
 > [`08-model.md`](08-model.md), [`10-calibration.md`](10-calibration.md) y
@@ -1091,7 +1091,7 @@ por módulo bajo SDD-31, la primera
 > por muestra y se dicen. Cero perillas; ningún número existente cambia.
 
 > **Enmienda corta de copy de la prueba real con el SBA (2026-09-24; **APROBADA por Cami el
-> 2026-09-24/25** con los rangos escritos con comparadores).**
+> 2026-09-24/25** con los rangos escritos con comparadores, e **implementada el 2026-09-25**).**
 > [`_ENMIENDA-COPY-PRUEBA-REAL-SBA.md`](_ENMIENDA-COPY-PRUEBA-REAL-SBA.md), D-CPY-1…6: «Fuera del
 > ajuste» en la tabla de muestras y en el informe, la variable del CSI y el eje temporal en la
 > línea de validación, tramos legibles con los bordes efectivos (`("binning", "bin_edges")`) y

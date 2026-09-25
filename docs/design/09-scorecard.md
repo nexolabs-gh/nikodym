@@ -364,6 +364,7 @@ Desde `binning`:
 - `fit`: no mira target ni particiones para aprender; deriva puntos solo desde coeficientes y tablas WoE. Por anti-leakage, **no usa Holdout/OOT para decidir nada**.
 - `transform`: aplica puntos sobre filas modelables presentes en `binning.woe_frame` (`desarrollo`, `holdout`, `oot`) y alinea con `model.raw_pd_frame` cuando ambos comparten índice.
 - `fuera_de_modelo`: no recibe `score` por defecto. Si aparece en el `woe_frame`, se filtra y se registra `log_decision(regla="scorecard_fuera_de_modelo", accion="no_puntuar")`.
+  > **Enmendado (2026-09-25, D-TTD-1…5):** las filas `fuera_de_modelo` que la TTD declarada incluye se puntúan **aparte**, con el escalador ya ajustado y sin tocar `score`, en la clave aditiva `("scorecard", "out_of_model_score")`. Ver [`_ENMIENDA-PUNTUAR-POBLACION-TTD.md`](_ENMIENDA-PUNTUAR-POBLACION-TTD.md).
 
 **Output `scorecard`.** `pandas.DataFrame`, una fila por feature/bin:
 

@@ -276,7 +276,7 @@ scorecard (la primera aplicación los mide y los fija; §12.2 decide N):
 - **Frontera OOT ausente con `date`/`cohort`:** la puerta se detiene antes de correr, con el rango
   del archivo y el valor que usaría (D-OBL-5).
 - **Sin identificador:** se usa el índice del archivo y se declara en el trail.
-- **Target con nulos:** son solicitudes recientes sin desempeño (TTD); se puntúan, no se ajustan;
+- **Target con nulos:** son solicitudes recientes sin desempeño (TTD); se puntúan, no se ajustan (implementado el 2026-09-25 por [`_ENMIENDA-PUNTUAR-POBLACION-TTD.md`](_ENMIENDA-PUNTUAR-POBLACION-TTD.md));
   el resumen de datos lo cuenta.
 - **Decisión humana que deja el modelo sin variables:** la etapa siguiente falla con el mensaje del
   motor y el resumen anterior sigue disponible; nada se pierde.

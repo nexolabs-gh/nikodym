@@ -6,7 +6,7 @@
 | **Decisiones** | **D-TTD-1** (qué filas se puntúan y cómo), **D-TTD-2** (los artefactos y sus dependencias), **D-TTD-3** (qué dicen las superficies), **D-TTD-4** (representatividad, sujeta a §5.1) y **D-TTD-5** (las categorías que no existían en Desarrollo se cuentan y se dicen, sujeta a §5.2) |
 | **Módulos** | `nikodym.binning`, `nikodym.model`, `nikodym.scorecard`, `nikodym.calibration` (`step`), `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (exports); con §5.1 (a), `nikodym.stability` |
 | **Fase** | F1 |
-| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): con la representatividad (§5.1 a) y con las categorías no vistas puntuadas como hoy y declaradas en todas las muestras (§5.2 a). La release espera a esta enmienda y a la de copy |
+| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): con la representatividad (§5.1 a) y con las categorías no vistas puntuadas como hoy y declaradas en todas las muestras (§5.2 a). **Implementada el 2026-09-25** (S22; lo que el código precisó, en §9). La release espera a esta enmienda y a la de copy |
 | **Depende de** | D-DATA-5 (TTD es un rol booleano superpuesto a la partición), D-FAL-1 y D-RAR-1 (la transformación que reciben estas filas), D-SC-19 (el patrón: lo accesorio no detiene la corrida) |
 | **Release** | Aditiva: artefactos nuevos con clave propia, ningún campo de config, ningún número existente cambia ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-24 |
@@ -337,6 +337,65 @@ contractual no se programa: se eleva.
 y la 2 dos más (la card y la auditoría existente). La 3 ya sólo encontró bordes: una propagación y
 un registro previo. Es el criterio de parada declarado. La implementación abre con su propia
 pasada sobre el código.
+
+## 9. Implementación (2026-09-25): lo que el código precisó
+
+Implementada en S22 (`a5f9b8f`, con los fixes de la revisión en `9ccf028` y `9f10d57`). Veintidós
+tests nuevos con OptBinning real (`tests/unit/test_puntuar_poblacion_ttd.py`), uno por fila de §6,
+los tres métodos de calibración y los casos de la revisión; un control negativo por gate, rojo con
+el defecto y verde tras restaurar byte a byte.
+
+1. **Un solo helper para la cadena**, `nikodym.core.steps.entradas_fuera_del_ajuste`, y una sola
+   regla del trail, `REGLA_TTD_NO_PUNTUADA`. Cada paso lo usa igual: si una entrada falta o viene
+   vacía, publica vacío sin alerta; si su transformación falla, publica vacío y registra la falla.
+2. **La alerta de una falla se deduce de las claves, no del trail.** Los resúmenes no leen el trail:
+   la etapa que pasa de tener filas a quedar vacía es la que falló, y sólo ella lo dice. La causa
+   exacta queda en el registro de auditoría.
+3. **La calibración** aplica el estado ajustado con una función interna,
+   `_transformar_fuera_del_ajuste`, que valida lo mismo que `PDCalibrator.transform` —columnas,
+   índice único, `pd_raw` en (0, 1) y consistente con `sigmoid(linear_predictor)`— sin su filtro de
+   particiones. La API pública no cambia.
+4. **El escalador** conserva su conteo de bins no vistos de las modelables: la segunda
+   transformación lo reemplazaba y se restaura. Las decisiones que registra al transformar las
+   filas fuera del ajuste —`bin_no_visto`, `score_clip`— se retienen y se registran sólo si el
+   puntaje se publica, con `poblacion = "fuera_del_ajuste"` en su valor, para no mezclarse con las
+   de las muestras (revisión del código, pasada 3).
+5. **Las categorías no vistas** se cuentan con una función pura nueva,
+   `_contar_categorias_no_vistas`, con la misma preparación que `WoEBinner.transform`, y el
+   `unknown_categories_` del binner se restaura tras transformar las filas fuera del ajuste.
+6. **El evento `categoria_no_vista` con un `cat_unknown` declarado** no es alcanzable de punta a
+   punta hoy: con un valor numérico, la corrida muere en `transform_bins`, porque OptBinning exige
+   texto para la métrica de bins. Es un **defecto previo** (§7), se fija el evento a nivel de
+   unidad y queda elevado con la regla de categorías no vistas.
+7. **La línea de datos** dice la composición en sus tres grupos y, con
+   `ttd_includes_excluded=False`, que no se puntúan; la inferencia de la puerta («quedan
+   indeterminadas») dice que la tarjeta las puntúa aparte.
+8. **Los diagnósticos aditivos de `binning`** (el conteo de categorías no vistas y los bordes
+   efectivos) no pueden detener la corrida: si fallan se publican vacíos y la causa queda en el
+   trail. **La representatividad** exige que el puntaje y la PD calibrada sean de las mismas filas
+   (revisión del código, pasada 1).
+
+**Revisión adversarial del código.** Tope: tres pasadas. La 1 trajo dos hallazgos de D-TTD —el
+conteo accesorio fuera de toda captura y la representatividad sin cotejar índices— y dos de
+D-CPY; la 2, dos de D-CPY; la 3, uno de D-TTD —las decisiones del escalador sin población— que ya
+no tumba ninguna premisa. **Tope alcanzado.**
+
+**Medido.**
+
+- SBA crudo (`config_hash` `a27e678f…`): 6.225 filas en cada clave, índice disjunto, puntaje medio
+  554 frente a 539 en Desarrollo, PD calibrada media 15,26 % frente a 23,80 %, PSI de
+  representatividad 0,1620 («difieren moderadamente»).
+- Categorías no vistas: `anio_fiscal` 2.620 en OOT y 370 fuera del ajuste, `programa` 58 y 8,
+  `estado_del_proyecto` 1 en Holdout.
+- El YAML de la prueba de Cami (`08cf3076…`) da las mismas cinco cifras que antes.
+- **Bit a bit sobre el preset F1**: `config_hash` `1063d6cf…` intacto y siete diferencias, todas
+  claves aditivas «sólo en la segunda»; ningún artefacto existente cambia.
+
+**Defecto previo nuevo, medido al implementar y registrado aparte.** El escalador registra
+`bin_no_visto` —puntos por fórmula en vez de tabla— para casi todas las filas modelables del SBA,
+también en `main`: el WoE que devuelve la transformación no calza exacto, en coma flotante, con el
+de la tabla. Los puntos coinciden porque la fórmula es la misma, pero un ajuste manual de puntos
+casa por WoE exacto y no llegaría a esas filas. Queda elevado.
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 

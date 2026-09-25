@@ -6,7 +6,7 @@
 | **Decisiones** | **D-CPY-1…6** (qué se corrige y cómo) y tres **elevaciones** que no son copy (§8) |
 | **Módulos** | `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (`prose`, `renderer`), `web/src/lib/results-format.ts`, `docs_site/` |
 | **Fase** | F1 |
-| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): rangos **con comparadores** (§7.1 a). La reestructuración de §3 tras la pasada 2 abre la implementación con una pasada de Codex sobre su código |
+| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): rangos **con comparadores** (§7.1 a). **Implementada el 2026-09-25** (S22; lo que el código precisó, en §11) |
 | **Depende de** | D-FLU (resúmenes por etapa, `TablaDeEtapa`), D-VAL-13…18 (líneas de validación) |
 | **Release** | Ningún número, `config_hash` ni artefacto existente cambia; §3 añade una clave y una alerta ⇒ **minor** (entra con la que corresponda) |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-24 |
@@ -301,6 +301,48 @@ Tope declarado: **dos pasadas**, porque es una enmienda de presentación.
 **Tope.** La pasada 2 tumbó la premisa de «sólo presentación» de §3, así que el criterio de parada
 no se cumplió dentro del tope de dos. La reestructuración de §3 queda **sin revisar por Codex**. Se
 eleva así a Cami y la implementación abre con una pasada sobre el código de §3 antes que nada.
+
+## 11. Implementación (2026-09-25): lo que el código precisó
+
+Implementada en S22 (`7cf0636`, con los fixes de la revisión en `9ccf028` y `931c445`).
+Veintitrés tests nuevos (`tests/unit/test_copy_prueba_real_sba.py`, con una corrida de OptBinning
+real) y el gate del sitio (`tests/unit/test_docs_site_coma_decimal.py`), cada uno con su control
+negativo.
+
+1. **El rótulo vive en `nikodym.core.tramos`, no en `binning`.** La capa `ui` no importa dominios
+   (D-HASH-5) y el serializer del panel lo necesita; el módulo no importa pandas.
+2. **Los bordes se escriben exactos, como aprobó la enmienda.** Los cortes de OptBinning son
+   puntos medios entre valores en float32 y se ven largos (`242.795,8828125`). Se probó escribirlos
+   con la precisión de float32 (`242.795,88`) y la revisión del código (pasada 2) lo tumbó: el motor
+   compara en float64, y una operación de `242.795,881` queda **bajo** el corte efectivo aunque
+   `≥ 242.795,88` la ubique arriba. El borde es la representación decimal más corta que vuelve al
+   mismo `float`. Un corte declarado a mano sale tal cual. Que se vean más cortos exigiría redondear
+   los cortes al ajustar, lo que cambia números: queda como posible mejora, con su propia decisión.
+3. **Los rótulos viajan por posición de fila**, no por la etiqueta del motor: dos cortes que se
+   redondean igual daban la misma etiqueta a dos tramos. Y **el casamiento de un ajuste manual da
+   prioridad global a la etiqueta del motor**: sólo un rótulo legible único, que no sea a la vez
+   la etiqueta del motor de otro tramo, casa; con dos ajustes para el mismo tramo gana el del
+   motor en cualquier orden (pasadas 1 y 2).
+4. **El informe** recibe los rótulos en un campo aditivo del bundle, `bin_labels` (por variable,
+   en el orden de las filas), y el renderer los aplica a `Bin` de `binning.tables.*` y a `bin_label` de `scorecard.scorecard`; el valor de
+   la tabla sigue siendo la etiqueta del motor. **El panel** los recibe en
+   `binning.bin_labels_by_variable`, por posición de fila; sin ellos —la demo capturada— muestra
+   la etiqueta de siempre.
+5. **`Faltantes` y `Valores especiales`** también se leen en palabras en las tablas, y un ajuste
+   manual escrito así casa.
+6. **El sitio**: tres páginas pasaron a coma (`tutorial.md`, `guias/binning-seleccion.md`,
+   `guias/modelo-calibracion.md`). Los rangos del motor de la tabla de ejemplo quedaron como
+   código y las versiones se dicen como versión (`una versión 2.0`), también en `api.md` y
+   `guias/provision-sin-norma-local.md`. El extractor excluye los miles es-CL con coma decimal
+   (`102.230,5`).
+7. **El cuaderno publicado se regeneró**: tramos legibles, la brecha de Hosmer-Lemeshow y el tipo
+   de celda de los p-valores; las cifras del modelo no cambian.
+
+**Revisión adversarial del código.** Tope: tres pasadas, compartidas con D-TTD. La 1 trajo dos
+hallazgos altos de D-CPY —un ajuste viejo podía aplicarse también a una categoría llamada
+«Missing», y dos tramos con la misma etiqueta redondeada colapsaban—; la 2, dos —la precedencia
+entre dos ajustes del mismo tramo y los bordes aproximados—; la 3, ninguno de D-CPY. **Tope
+alcanzado.**
 
 ## 13. Simplicidad (SDD-31) — obligatoria
 
