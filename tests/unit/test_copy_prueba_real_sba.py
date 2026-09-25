@@ -188,11 +188,14 @@ def test_el_borde_se_escribe_en_es_cl_sin_ceros_de_relleno() -> None:
     assert formatear_borde(7.123456) == "7,123456"
     assert formatear_borde(-0.25) == "-0,25"
     assert formatear_borde(-0.0) == "0"
-    # Los cortes de OptBinning son puntos medios en float32: se escriben con los decimales que el
-    # motor distingue (medio ulp de float32), no con su expansión binaria ni con dos fijos.
-    assert formatear_borde(242795.8828125) == "242.795,88"
-    assert formatear_borde(0.37409999966621399) == "0,3741"
+    # Los cortes de OptBinning son puntos medios en float32 y el borde se escribe EXACTO: una
+    # operación de 242.795,881 está por debajo del corte efectivo y «≥ 242.795,88» la pondría arriba
+    # (revisión adversarial del código, pasada 2).
+    assert formatear_borde(242795.8828125) == "242.795,8828125"
+    assert 242795.881 < 242795.8828125
+    assert formatear_borde(0.37409999966621399) == "0,374099999666214"
     assert formatear_borde(7.12345) == "7,12345"
+    assert formatear_borde(1e-9) == "0,000000001"
 
 
 def test_el_rango_se_escribe_con_comparadores() -> None:
@@ -480,3 +483,47 @@ def test_el_escalador_aplica_un_ajuste_viejo_solo_donde_casaba_antes() -> None:
     assert tarjeta.loc[2, "points"] == 99
     assert tarjeta.loc[0, "points"] != 99
     assert not [e for e in sink.events if e.payload.get("regla") == "point_override_sin_casar"]
+
+
+@pytest.mark.parametrize("legible_primero", [True, False])
+def test_con_dos_ajustes_para_el_mismo_tramo_gana_el_de_la_etiqueta_del_motor(
+    legible_primero: bool,
+) -> None:
+    """Revisión adversarial del código, pasada 2: un config con un ajuste por la etiqueta del motor
+    y otro por el rótulo legible del MISMO tramo aplicaba el primero de la lista; antes de D-CPY-3
+    el legible se ignoraba. Gana el del motor en los dos órdenes y el otro se declara sin casar."""
+    from nikodym.core.audit import InMemoryAuditSink
+    from nikodym.scorecard.config import ScorecardConfig
+    from nikodym.scorecard.scaler import PointsScaler
+
+    tabla = pd.DataFrame(
+        {
+            "Bin": [np.array(["norte"], dtype=object), np.array(["sur"], dtype=object)],
+            "WoE": [0.4, -0.3],
+        }
+    )
+    coeficientes = pd.DataFrame(
+        [
+            {"feature": "intercept", "woe_column": "const", "beta": -0.5},
+            {"feature": "seg", "woe_column": "seg__woe", "beta": -0.9},
+        ]
+    )
+    del_motor = PointOverrideConfig(feature="seg", bin_label="['norte']", points=11, reason="a")
+    legible = PointOverrideConfig(feature="seg", bin_label="norte", points=22, reason="b")
+    ajustes = (legible, del_motor) if legible_primero else (del_motor, legible)
+    escalador = PointsScaler.from_config(ScorecardConfig(point_overrides=ajustes))
+    sink = InMemoryAuditSink()
+    escalador.fit(
+        coefficients=coeficientes,
+        final_features=("seg",),
+        final_woe_columns=("seg__woe",),
+        binning_tables={"seg": tabla},
+        woe_column_map={"seg": "seg__woe"},
+        audit=sink,
+    )
+    tarjeta = escalador.scorecard_.set_index("bin_index")
+    assert tarjeta.loc[0, "points"] == 11
+    (sin_casar,) = [
+        e.payload for e in sink.events if e.payload.get("regla") == "point_override_sin_casar"
+    ]
+    assert sin_casar["valor"] == {"feature": "seg", "bin_label": "norte"}

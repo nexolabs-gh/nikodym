@@ -15,7 +15,8 @@ importa ``pandas``: opera sobre los ``DataFrame`` que recibe.
 from __future__ import annotations
 
 import math
-from typing import Any, Final
+from decimal import Decimal
+from typing import Any
 
 __all__ = [
     "AUX_BIN_LABELS",
@@ -38,33 +39,27 @@ AUX_BIN_LABELS: dict[str, str] = {
 BIN_EDGES_COLUMNS: tuple[str, ...] = ("variable", "bin_index", "lower", "upper")
 
 
-#: El máximo de decimales con que se escribe un borde; basta para cualquier corte en float32.
-_MAX_DECIMALES: Final = 12
-
-
 def formatear_borde(valor: float) -> str:
-    """Un borde de tramo en es-CL, con los decimales que el motor distingue y ni uno más.
+    """Un borde de tramo en es-CL, **exacto**: todos sus decimales significativos y ni uno más.
 
-    Los cortes de OptBinning son puntos medios entre valores en float32 —``242795.8828125``,
-    ``0.37409999966…``— y su etiqueta los redondea a dos decimales, lo que puede afirmar un borde
-    falso (``7.12`` para un corte en ``7.12345``). Se escribe con la **menor cantidad de decimales
-    que queda dentro de medio ulp de float32** del corte efectivo: a esa precisión trabaja el
-    motor, y ningún dato en float32 cae entre el borde escrito y el real. ``242.795,88``,
-    ``0,3741``, ``7,12345``; un corte declarado a mano (``50450``, ``7,5``) sale tal como se
-    escribió. Punto de miles, coma decimal y sin ceros de relleno.
+    Es la representación decimal más corta que vuelve al mismo ``float`` (``repr``), escrita con
+    punto de miles y coma decimal. Los cortes de OptBinning son puntos medios entre valores en
+    float32 y pueden verse largos (``242.795,8828125``), pero son el borde con que el motor compara:
+    redondearlo —la etiqueta de OptBinning usa dos decimales— puede afirmar que una operación junto
+    al borde cae en el otro tramo (``242.795,881`` está por debajo de ``242.795,8828125``; por
+    encima de ``242.795,88``). Revisión adversarial del código, pasada 2. Un corte declarado a mano
+    (``50450``, ``7,5``) sale tal como se escribió.
     """
     if math.isinf(valor):
         return "-∞" if valor < 0 else "∞"
     if valor == 0:
         return "0"
-    tolerancia = 2.0 ** (math.floor(math.log2(abs(valor))) - 24)
-    decimales = 0
-    while decimales < _MAX_DECIMALES and abs(round(valor, decimales) - valor) >= tolerancia:
-        decimales += 1
-    texto = f"{round(valor, decimales):,.{decimales}f}"
-    if texto.startswith("-") and float(texto.replace(",", "")) == 0:
-        texto = texto[1:]
-    return texto.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    texto = format(Decimal(repr(float(valor))), "f")
+    signo = "-" if texto.startswith("-") else ""
+    entero, _, decimales = texto.lstrip("-").partition(".")
+    decimales = decimales.rstrip("0")
+    miles = f"{int(entero):,}".replace(",", ".")
+    return f"{signo}{miles},{decimales}" if decimales else f"{signo}{miles}"
 
 
 def rotulo_de_rango(lower: float, upper: float) -> str:

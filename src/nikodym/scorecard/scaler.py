@@ -515,13 +515,18 @@ def _scorecard_rows(
         for feature in features
         if feature in tables
     }
+    # Primero TODAS las etiquetas del motor, después los rótulos legibles: un tramo que ya tiene
+    # su ajuste por la etiqueta del motor lo conserva, como antes, aunque otro ajuste lo nombre por
+    # su rótulo; ése queda sin casar y se declara (revisión adversarial del código, pasada 2).
     destino: dict[tuple[str, int], tuple[str, str]] = {}
-    for clave in overrides:
-        feature, etiqueta = clave
-        for posicion in filas_que_casan(
-            etiqueta, crudas.get(feature, []), list(legibles.get(feature, []))
-        ):
-            destino.setdefault((feature, posicion), clave)
+    for por_etiqueta_del_motor in (True, False):
+        for clave in overrides:
+            feature, etiqueta = clave
+            propias = crudas.get(feature, [])
+            if (etiqueta in propias) is not por_etiqueta_del_motor:
+                continue
+            for posicion in filas_que_casan(etiqueta, propias, list(legibles.get(feature, []))):
+                destino.setdefault((feature, posicion), clave)
 
     def _override_de(feature: str, posicion: int) -> PointOverrideConfig | None:
         clave = destino.get((feature, posicion))
