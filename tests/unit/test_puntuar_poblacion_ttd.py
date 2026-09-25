@@ -460,6 +460,52 @@ def test_la_representatividad_exige_una_sola_poblacion() -> None:
     assert not step._psi_fuera_del_ajuste(study, StabilityConfig()).empty  # type: ignore[arg-type]
 
 
+def test_las_decisiones_del_escalador_fuera_del_ajuste_dicen_su_poblacion(
+    _corrida: tuple[nikodym.Scorecard, pd.DataFrame],
+) -> None:
+    """Revisión adversarial del código, pasada 3: `bin_no_visto` de la segunda transformación
+    se mezclaba con el de las muestras. Ahora lleva `poblacion`, y el de las muestras no."""
+    sc, datos = _corrida
+    eventos = _decisiones(Path(sc.project_dir), "bin_no_visto")
+    fuera = [e for e in eventos if e["valor"].get("poblacion") == "fuera_del_ajuste"]
+    muestras = [e for e in eventos if "poblacion" not in e["valor"]]
+    assert len(eventos) == len(fuera) + len(muestras)
+    # Un conteo marcado como de fuera del ajuste no puede exceder esas filas.
+    assert all(e["valor"]["conteo"] <= len(_fuera(datos)) for e in fuera)
+
+
+def test_si_el_puntaje_fuera_del_ajuste_falla_no_quedan_sus_decisiones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Revisión adversarial del código, pasada 3: si el ensamblado falla tras transformar, las
+    decisiones de esa transformación no quedan en el trail; queda sólo la falla."""
+    original = scorecard_step._assemble_score_frame
+
+    def falla_fuera(**kwargs: Any) -> Any:
+        if kwargs["raw_pd_frame"]["partition"].astype(str).eq("fuera_de_modelo").any():
+            raise RuntimeError("falla inyectada")
+        return original(**kwargs)
+
+    monkeypatch.setattr(scorecard_step, "_assemble_score_frame", falla_fuera)
+    datos = _cartera()
+    sc = _puerta(_guardar(datos, tmp_path, "sin_eventos"), tmp_path, "sin_eventos")
+    sc.run()
+    assert sc.study.run_context.status == "done", sc.study.run_context.error
+    todas = [
+        json.loads(linea)["payload"]
+        for linea in (Path(sc.project_dir) / "run" / "audit_trail.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if json.loads(linea)["kind"] == "decision"
+    ]
+    assert not [
+        d
+        for d in todas
+        if isinstance(d.get("valor"), dict) and d["valor"].get("poblacion") == "fuera_del_ajuste"
+    ]
+    assert len([d for d in todas if d.get("regla") == "ttd_no_puntuada"]) == 1
+
+
 def test_run_until_binning_publica_solo_la_clave_de_binning(tmp_path: Path) -> None:
     """🔴 Test 6b: cada paso que corre publica su clave; las de los pasos que no corrieron no
     existen."""

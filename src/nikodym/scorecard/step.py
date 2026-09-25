@@ -250,6 +250,14 @@ class ScorecardStep(AuditableMixin):
             return vacio
         woe_frame, pd_frame = entradas
         no_vistos = dict(scaler.unseen_bins_)
+        # Las decisiones que el escalador registra al transformar —`bin_no_visto`, `score_clip`—
+        # se retienen aparte: se registran sólo si el puntaje se publica y dicen su población, para
+        # no mezclarse con las de las muestras (revisión adversarial del código, pasada 3).
+        from nikodym.core.audit import InMemoryAuditSink
+
+        retenidas = InMemoryAuditSink()
+        auditoria = scaler._audit
+        scaler._audit = retenidas
         try:
             puntaje = _assemble_score_frame(
                 transformed=scaler.transform(woe_frame.copy(deep=True)),
@@ -267,6 +275,20 @@ class ScorecardStep(AuditableMixin):
             return vacio
         finally:
             scaler.unseen_bins_ = no_vistos
+            scaler._audit = auditoria
+        for evento in retenidas.events:
+            if evento.kind != "decision":
+                continue
+            datos = dict(evento.payload)
+            valor = datos.get("valor")
+            self.log_decision(
+                regla=str(datos.get("regla")),
+                umbral=datos.get("umbral"),
+                valor={**valor, "poblacion": "fuera_del_ajuste"}
+                if isinstance(valor, Mapping)
+                else {"valor": valor, "poblacion": "fuera_del_ajuste"},
+                accion=str(datos.get("accion")),
+            )
         self.log_decision(
             regla="puntuar_ttd_fuera_de_modelo",
             umbral="ttd",
