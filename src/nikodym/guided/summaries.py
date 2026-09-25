@@ -520,11 +520,7 @@ def _resumen_data(study: Study, context: SummaryContext) -> StageSummary:
         indeterminados = _int(class_counts.get("indeterminado")) or 0
         excluidos = _int(class_counts.get("excluido")) or 0
         if fuera or indeterminados or excluidos:
-            lines.append(
-                f"Fuera del ajuste: {_miles(indeterminados)} indeterminadas y "
-                f"{_miles(excluidos)} excluidas ({_miles(fuera)} fuera de modelo); no entran al "
-                "ajuste ni reciben puntaje, y siguen contando en la población total (TTD)"
-            )
+            lines.append(_linea_fuera_del_ajuste(study, fuera, indeterminados, excluidos))
         table = _tabla_muestras(study)
     lines.extend(context.inference_lines)
     if context.run_dir is not None:
@@ -537,6 +533,154 @@ def _resumen_data(study: Study, context: SummaryContext) -> StageSummary:
         table=table,
         formats={"Filas": "int", "Malos": "int", "Tasa de malos": "pct"},
     )
+
+
+def _linea_fuera_del_ajuste(study: Study, fuera: int, indeterminadas: int, excluidas: int) -> str:
+    """Qué quedó fuera del ajuste y qué le pasa (D-TTD-3 y D-CPY-1).
+
+    La composición en sus tres grupos —el tercero son las filas con desenlace que una división por
+    columna no asignó a ninguna muestra— y si la tarjeta las puntuará: sólo las que la TTD
+    declarada incluye. Lo dice en futuro porque esta etapa no sabe si la corrida llegará a la
+    tarjeta (``run(until=…)``).
+    """
+    con_desenlace = max(fuera - indeterminadas - excluidas, 0)
+    total = max(fuera, indeterminadas + excluidas)
+    linea = (
+        f"Fuera del ajuste: {_miles(total)} {_plural(total, 'operación', 'operaciones')} "
+        f"({_composicion(indeterminadas, excluidas, con_desenlace)})"
+    )
+    if _filas_fuera_en_ttd(study) > 0:
+        linea += "; no entran al ajuste, y la tarjeta las puntúa aparte como parte de la " + (
+            "población total (TTD)"
+        )
+    else:
+        linea += "; no entran al ajuste ni a la población total (TTD), así que no se puntúan"
+    if con_desenlace:
+        linea += f"; su tasa de malos se mide sobre las {_miles(con_desenlace)} con desenlace"
+    return linea
+
+
+def _composicion(indeterminadas: int, excluidas: int, con_desenlace: int) -> str:
+    """«6.225 indeterminadas», «3 indeterminadas y 2 excluidas», … (sólo los grupos con filas)."""
+    partes = [
+        f"{_miles(n)} {_plural(n, singular, plural)}"
+        for n, singular, plural in (
+            (indeterminadas, "indeterminada", "indeterminadas"),
+            (excluidas, "excluida", "excluidas"),
+            (
+                con_desenlace,
+                "con desenlace fuera de las muestras declaradas",
+                ("con desenlace fuera de las muestras declaradas"),
+            ),
+        )
+        if n
+    ]
+    return _enumerar(tuple(partes)) if partes else "ninguna"
+
+
+def _filas_fuera_en_ttd(study: Study) -> int:
+    """Cuántas filas fuera del ajuste incluye la TTD declarada (las que se puntúan, D-TTD-1)."""
+    frame = _artifact(study, "data", "frame")
+    splits = _artifact(study, "data", "splits")
+    if not isinstance(frame, pd.DataFrame) or splits is None:
+        return 0
+    particion = getattr(splits, "partition_col", "partition")
+    ttd = getattr(splits, "ttd_col", "ttd")
+    if particion not in frame.columns or ttd not in frame.columns:
+        return 0
+    mascara = frame[particion].astype("string").eq("fuera_de_modelo").fillna(False) & frame[
+        ttd
+    ].astype("boolean").fillna(False)
+    return int(mascara.astype(bool).sum())
+
+
+def _filas(study: Study, domain: str, key: str) -> int | None:
+    """Filas de un frame publicado, o ``None`` si la clave no está (un paso que no corrió)."""
+    valor = _artifact(study, domain, key)
+    return len(valor.index) if isinstance(valor, pd.DataFrame) else None
+
+
+def _alerta_fuera_del_ajuste(previas: int | None, actuales: int | None) -> tuple[str, ...]:
+    """La alerta de la etapa que no pudo puntuar lo que la anterior le entregó (D-TTD-1 §1.6).
+
+    Sólo en la etapa donde la cadena pasa de tener filas a quedar vacía: las siguientes publican
+    vacío sin volver a alertar (D-TTD-2). La causa exacta queda en el registro de auditoría.
+    """
+    if previas and actuales == 0:
+        return (
+            f"No se pudo puntuar a las {_miles(previas)} operaciones fuera del ajuste en esta "
+            "etapa; la causa quedó en el registro de auditoría",
+        )
+    return ()
+
+
+def _composicion_de(study: Study, indice: pd.Index) -> str:
+    """La composición de unas filas fuera del ajuste, leída del estado que publicó ``data``."""
+    frame = _artifact(study, "data", "frame")
+    labels = _artifact(study, "data", "labels")
+    estado = getattr(labels, "status_col", "label_status")
+    if not isinstance(frame, pd.DataFrame) or estado not in frame.columns:
+        return f"{_miles(len(indice))} {_plural(len(indice), 'operación', 'operaciones')}"
+    valores = frame.loc[frame.index.intersection(indice), estado].astype("string")
+    indeterminadas = int(valores.eq("indeterminado").fillna(False).sum())
+    excluidas = int(valores.eq("excluido").fillna(False).sum())
+    return _composicion(indeterminadas, excluidas, len(indice) - indeterminadas - excluidas)
+
+
+#: Cómo se lee la banda del PSI de representatividad (D-TTD-4): no es deriva, así que no dice
+#: «Redesarrollar»; los cortes son los de estabilidad de la corrida.
+_REPRESENTATIVIDAD_LABELS: Final[dict[str, str]] = {
+    "stable": "se parecen",
+    "review": "difieren moderadamente",
+    "redevelop": "difieren",
+}
+
+#: Dónde se contó una categoría no vista (D-TTD-5), dicho dentro de una frase.
+_MUESTRA_NO_VISTA_LABELS: Final[dict[str, str]] = {
+    "holdout": "en Holdout",
+    "oot": "en Fuera de tiempo (OOT)",
+    "fuera_de_modelo": "fuera del ajuste",
+}
+
+
+def _alertas_categorias_no_vistas(study: Study) -> tuple[str, ...]:
+    """Una alerta por variable con categorías que no existían en Desarrollo (D-TTD-5).
+
+    Dice el tratamiento **efectivo**: con ``binning.cat_unknown`` en su default, WoE 0 —el riesgo
+    promedio—; con un valor declarado, ese valor.
+    """
+    tabla = _artifact(study, "binning", "unseen_categories")
+    if not isinstance(tabla, pd.DataFrame) or tabla.empty:
+        return ()
+    binning = getattr(study.config, "binning", None)
+    declarado = (
+        binning.get("cat_unknown")
+        if isinstance(binning, Mapping)
+        else getattr(binning, "cat_unknown", None)
+    )
+    tratamiento = (
+        "WoE 0, el riesgo promedio"
+        if declarado is None
+        else f"el WoE declarado para categorías no vistas ({_num(declarado, decimals=2)})"
+        if isinstance(declarado, int | float)
+        else f"el valor declarado para categorías no vistas ({declarado})"
+    )
+    alertas: list[str] = []
+    for variable, filas in tabla.groupby("variable", sort=False):
+        total = int(filas["filas"].sum())
+        detalle = _enumerar(
+            tuple(
+                f"{_miles(int(fila['filas']))} "
+                f"{_MUESTRA_NO_VISTA_LABELS.get(str(fila['muestra']), str(fila['muestra']))}"
+                for _, fila in filas.iterrows()
+            )
+        )
+        alertas.append(
+            f"«{variable}»: {_miles(total)} {_plural(total, 'operación', 'operaciones')} con una "
+            f"categoría que no existía en Desarrollo ({detalle}); en esa variable "
+            f"{_plural(total, 'recibe', 'reciben')} {tratamiento}"
+        )
+    return tuple(alertas)
 
 
 def _tabla_muestras(study: Study) -> pd.DataFrame | None:
@@ -558,8 +702,10 @@ def _tabla_muestras(study: Study) -> pd.DataFrame | None:
             continue
         objetivo = frame.loc[mascara, target_col]
         con_target = objetivo.notna()
-        malos = int(objetivo[con_target].astype(float).sum()) if con_target.any() else 0
-        tasa = malos / int(con_target.sum()) if con_target.any() else float("nan")
+        # D-CPY-1: sin ningún desenlace conocido los malos son desconocidos, no cero; con alguno se
+        # conservan, y la tasa se mide sobre esos.
+        malos = int(objetivo[con_target].astype(float).sum()) if con_target.any() else None
+        tasa = (malos or 0) / int(con_target.sum()) if con_target.any() else float("nan")
         filas.append(
             {
                 "Muestra": _partition_label(particion),
@@ -820,6 +966,12 @@ def _resumen_binning(study: Study, context: SummaryContext) -> StageSummary:
                 lambda v: {"numerical": "numérica", "categorical": "categórica"}.get(str(v), v)
             )
         alerts.extend(_alertas_de_inversion(study))
+        alerts.extend(_alertas_categorias_no_vistas(study))
+        alerts.extend(
+            _alerta_fuera_del_ajuste(
+                _filas_fuera_en_ttd(study), _filas(study, "binning", "out_of_model_woe_frame")
+            )
+        )
     if not lines:
         lines.append("El binning no publicó su resumen.")
     return StageSummary(
@@ -1020,6 +1172,12 @@ def _resumen_model(study: Study, context: SummaryContext) -> StageSummary:
                     else ("sí" if bool(v) else "no")
                 )
             )
+    alerts.extend(
+        _alerta_fuera_del_ajuste(
+            _filas(study, "binning", "out_of_model_woe_frame"),
+            _filas(study, "model", "out_of_model_pd_frame"),
+        )
+    )
     if not lines:
         lines.append("El modelo no publicó su resumen.")
     return StageSummary(
@@ -1078,6 +1236,7 @@ def _resumen_scorecard(study: Study, context: SummaryContext) -> StageSummary:
     del context
     card = _card(study, "scorecard", "card")
     lines: list[str] = []
+    alerts: list[str] = []
     table: pd.DataFrame | None = None
     if card is not None:
         lines.append(
@@ -1108,6 +1267,33 @@ def _resumen_scorecard(study: Study, context: SummaryContext) -> StageSummary:
         overrides = _int(card.get("overrides_count")) or 0
         if overrides:
             lines.append(f"Puntos fijados a mano en {_miles(overrides)} tramos")
+        fuera = _artifact(study, "scorecard", "out_of_model_score")
+        if (
+            isinstance(fuera, pd.DataFrame)
+            and not fuera.empty
+            and columna in fuera.columns
+            and isinstance(score, pd.DataFrame)
+        ):
+            dev = pd.to_numeric(
+                score.loc[score["partition"].astype("string").eq("desarrollo").fillna(False)][
+                    columna
+                ],
+                errors="coerce",
+            )
+            n = len(fuera.index)
+            lines.append(
+                f"Fuera del ajuste (TTD): {_miles(n)} "
+                f"{_plural(n, 'operación puntuada', 'operaciones puntuadas')} "
+                f"({_composicion_de(study, fuera.index)}), puntaje medio "
+                f"{_num(pd.to_numeric(fuera[columna], errors='coerce').mean(), decimals=0)}"
+                + (f" (Desarrollo {_num(dev.mean(), decimals=0)})" if not dev.empty else "")
+            )
+        alerts.extend(
+            _alerta_fuera_del_ajuste(
+                _filas(study, "model", "out_of_model_pd_frame"),
+                _filas(study, "scorecard", "out_of_model_score"),
+            )
+        )
         tarjeta = _artifact(study, "scorecard", "scorecard")
         if isinstance(tarjeta, pd.DataFrame) and not tarjeta.empty:
             columnas = {
@@ -1123,6 +1309,7 @@ def _resumen_scorecard(study: Study, context: SummaryContext) -> StageSummary:
         stage="scorecard",
         label=STAGE_LABELS["scorecard"],
         lines=tuple(lines),
+        alerts=tuple(alerts),
         table=table,
         formats={"WoE": "num3", "Puntos": "int"},
     )
@@ -1159,6 +1346,15 @@ def _resumen_calibration(study: Study, context: SummaryContext) -> StageSummary:
         if empates:
             alerts.append(f"La calibración creó {_miles(empates)} empates de PD")
         table = _tabla_pd_por_muestra(study, card)
+        linea_ttd = _linea_pd_ttd(study, card)
+        if linea_ttd is not None:
+            lines.append(linea_ttd)
+        alerts.extend(
+            _alerta_fuera_del_ajuste(
+                _filas(study, "scorecard", "out_of_model_score"),
+                _filas(study, "calibration", "out_of_model_calibrated_pd_frame"),
+            )
+        )
     if not lines:
         lines.append("La calibración no publicó su resumen.")
     return StageSummary(
@@ -1173,6 +1369,36 @@ def _resumen_calibration(study: Study, context: SummaryContext) -> StageSummary:
             "PD media calibrada": "pct",
             "Tasa de malos observada": "pct",
         },
+    )
+
+
+def _linea_pd_ttd(study: Study, card: Mapping[str, Any]) -> str | None:
+    """La PD calibrada media de toda la población que pidió crédito (D-TTD-3).
+
+    Sólo con operaciones fuera del ajuste puntuadas: sin ellas, la TTD son las muestras que la
+    tabla ya muestra.
+    """
+    modelables = _artifact(study, "calibration", "calibrated_pd_frame")
+    fuera = _artifact(study, "calibration", "out_of_model_calibrated_pd_frame")
+    columna = str(card.get("pd_calibrated_column", "pd_calibrated"))
+    if (
+        not isinstance(modelables, pd.DataFrame)
+        or not isinstance(fuera, pd.DataFrame)
+        or fuera.empty
+        or columna not in modelables.columns
+        or columna not in fuera.columns
+    ):
+        return None
+    todas = pd.concat(
+        [
+            pd.to_numeric(modelables[columna], errors="coerce"),
+            pd.to_numeric(fuera[columna], errors="coerce"),
+        ]
+    )
+    n = len(todas.index)
+    return (
+        "PD calibrada media de toda la población que pidió crédito "
+        f"(TTD, {_miles(n)} {_plural(n, 'operación', 'operaciones')}): {_pct(todas.mean())}"
     )
 
 
@@ -1203,6 +1429,33 @@ def _tabla_pd_por_muestra(study: Study, card: Mapping[str, Any]) -> pd.DataFrame
                 float(objetivo.mean()) if not objetivo.empty else float("nan")
             )
         filas.append(fila)
+    fuera = _artifact(study, "calibration", "out_of_model_calibrated_pd_frame")
+    if (
+        isinstance(fuera, pd.DataFrame)
+        and not fuera.empty
+        and cruda in fuera.columns
+        and calibrada in fuera.columns
+    ):
+        # D-TTD-3: la fila de lo que quedó fuera del ajuste; la tasa observada sólo sobre las
+        # filas con desenlace, si las hay.
+        objetivo = (
+            pd.to_numeric(fuera["target"], errors="coerce").dropna()
+            if "target" in fuera.columns
+            else pd.Series(dtype="float64")
+        )
+        filas.append(
+            {
+                "Muestra": f"{_partition_label('fuera_de_modelo')} (TTD)",
+                "Filas": len(fuera.index),
+                "PD media cruda": float(pd.to_numeric(fuera[cruda], errors="coerce").mean()),
+                "PD media calibrada": float(
+                    pd.to_numeric(fuera[calibrada], errors="coerce").mean()
+                ),
+                "Tasa de malos observada": (
+                    float(objetivo.mean()) if not objetivo.empty else float("nan")
+                ),
+            }
+        )
     return pd.DataFrame(filas)
 
 
@@ -1339,6 +1592,18 @@ def _resumen_stability(study: Study, context: SummaryContext) -> StageSummary:
                 f"CSI más alto: {str(peor).removesuffix('__points').removesuffix('__bin')} "
                 f"({_num(card.get('worst_csi_value'))})"
             )
+        representatividad = _linea_representatividad(study)
+        if representatividad is not None:
+            linea, alerta = representatividad
+            lines.append(linea)
+            if alerta is not None:
+                alerts.append(alerta)
+        alerts.extend(
+            _alerta_fuera_del_ajuste(
+                _filas(study, "calibration", "out_of_model_calibrated_pd_frame"),
+                _filas(study, "stability", "out_of_model_psi"),
+            )
+        )
         secciones = _mapping(_mapping(card.get("metric_sections")).get("stability"))
         eje = str(secciones.get("temporal_axis", "none"))
         if eje != "none":
@@ -1377,6 +1642,47 @@ def _resumen_stability(study: Study, context: SummaryContext) -> StageSummary:
         table=table,
         formats={"Valor": "num"},
     )
+
+
+def _linea_representatividad(study: Study) -> tuple[str, str | None] | None:
+    """Lo que quedó fuera del ajuste frente a Desarrollo (D-TTD-4): la línea y su alerta."""
+    psi = _artifact(study, "stability", "out_of_model_psi")
+    if not isinstance(psi, pd.DataFrame) or psi.empty:
+        return None
+    total = _float(psi["total_value"].iloc[0])
+    banda = str(psi["band"].iloc[0])
+    lectura = _REPRESENTATIVIDAD_LABELS.get(banda, banda)
+    linea = f"Fuera del ajuste frente a Desarrollo: PSI {_num(total)} — {lectura}"
+    modelables = _artifact(study, "calibration", "calibrated_pd_frame")
+    fuera = _artifact(study, "calibration", "out_of_model_calibrated_pd_frame")
+    if (
+        isinstance(modelables, pd.DataFrame)
+        and isinstance(fuera, pd.DataFrame)
+        and not fuera.empty
+        and "pd_calibrated" in modelables.columns
+        and "pd_calibrated" in fuera.columns
+    ):
+        dev = pd.to_numeric(
+            modelables.loc[
+                modelables["partition"].astype("string").eq("desarrollo").fillna(False),
+                "pd_calibrated",
+            ],
+            errors="coerce",
+        ).mean()
+        media = pd.to_numeric(fuera["pd_calibrated"], errors="coerce").mean()
+        if pd.notna(dev) and pd.notna(media):
+            sentido = "menor" if media < dev else "mayor" if media > dev else "el mismo"
+            linea += (
+                f": el modelo las ve con {sentido} riesgo (PD calibrada media {_pct(media)} "
+                f"frente a {_pct(dev)})"
+            )
+    alerta = (
+        f"Las operaciones fuera del ajuste difieren de Desarrollo (PSI {_num(total)}): la muestra "
+        "de ajuste no las representa"
+        if banda == "redevelop"
+        else None
+    )
+    return linea, alerta
 
 
 def _resumen_validation(study: Study, context: SummaryContext) -> StageSummary:

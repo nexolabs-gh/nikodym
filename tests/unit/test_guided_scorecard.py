@@ -167,10 +167,15 @@ def test_los_resultados_vacios_del_target_quedan_indeterminados_y_fuera_del_ajus
     texto = sc.summary("data").text()
     assert "40 indeterminadas" in texto
     assert "Resultado vacío en 40 filas (bad_flag)" in texto
-    # 🔴 Con el SBA real (2026-09-24): el contrato del scorecard no puntúa lo que queda fuera de
-    # modelo (SDD-09), y el texto decía «se puntúan». Ahora dice lo que pasa.
-    assert "se puntúan" not in texto
-    assert "no entran al ajuste ni reciben puntaje" in texto
+    # 🔴 Con el SBA real (2026-09-24): el texto decía «se puntúan» cuando la corrida no las
+    # puntuaba, y después «ni reciben puntaje». Desde D-TTD-1 la tarjeta las puntúa aparte y el
+    # texto lo dice, en futuro: esta corrida paró en «data».
+    assert "ni reciben puntaje" not in texto
+    assert (
+        "40 operaciones (40 indeterminadas); no entran al ajuste, y la tarjeta las puntúa aparte"
+        in texto
+    )
+    assert "quedan indeterminadas: no entran al ajuste y la tarjeta las puntúa aparte" in texto
 
     # Con una regla, la columna de la regla vacía también es desconocida, no «bueno».
     con_huecos = frame.assign(score=frame["score"].mask(frame.index.isin(frame.index[:10])))

@@ -24,7 +24,13 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias, cast
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.core.steps import (
+    REGLA_TTD_NO_PUNTUADA,
+    ArtifactKey,
+    campo_de_card,
+    card_publicada,
+    entradas_fuera_del_ajuste,
+)
 from nikodym.scorecard.config import ScorecardConfig
 from nikodym.scorecard.exceptions import ScorecardFitError
 from nikodym.scorecard.scaler import PointsScaler
@@ -48,7 +54,18 @@ else:
 
 __all__ = ["SCORECARD_ARTIFACTS", "ScorecardStep"]
 
-SCORECARD_ARTIFACTS: Final[tuple[str, ...]] = ("scorecard", "score", "result", "card")
+SCORECARD_ARTIFACTS: Final[tuple[str, ...]] = (
+    "scorecard",
+    "score",
+    "result",
+    "card",
+    # Aditivo (enmienda PUNTUAR-POBLACION-TTD, D-TTD-2): el puntaje de las operaciones fuera del
+    # ajuste que la TTD incluye, con el esquema de `score`. Clave propia: `score` no cambia.
+    "out_of_model_score",
+)
+#: La columna con que ``data`` marca el estado de cada fila (SDD-02): la composición de lo que
+#: quedó fuera del ajuste se cuenta con ella (D-TTD-3).
+_STATUS_COLUMN: Final = "label_status"
 _SCORING_EXTRA_MESSAGE: Final = (
     "ScorecardStep requiere pandas/numpy; instale las dependencias base de nikodym."
 )
@@ -92,6 +109,12 @@ class ScorecardStep(AuditableMixin):
         ("model", "final_woe_columns"),
         ("model", "coefficients"),
         ("model", "raw_pd_frame"),
+    )
+    #: La cadena fuera del ajuste (D-TTD-2) va en ``optional_requires``: un trabajo con artefactos
+    #: inyectados que no corre ``binning`` o ``model`` tiene que seguir funcionando.
+    optional_requires: tuple[ArtifactKey, ...] = (
+        ("binning", "out_of_model_woe_frame"),
+        ("model", "out_of_model_pd_frame"),
     )
     provides: tuple[ArtifactKey, ...] = tuple(("scorecard", key) for key in SCORECARD_ARTIFACTS)
 
@@ -196,8 +219,53 @@ class ScorecardStep(AuditableMixin):
             config=cfg,
             points_columns=tuple(scaler.points_columns_),
         )
-        self._publish_artifacts(study, result)
+        out_of_model_score = self._puntaje_fuera_del_ajuste(
+            study, scaler, vacio=score_frame.iloc[0:0].copy(deep=True)
+        )
+        self._publish_artifacts(study, result, out_of_model_score)
         return result
+
+    def _puntaje_fuera_del_ajuste(
+        self, study: Study, scaler: PointsScaler, *, vacio: DataFrame
+    ) -> DataFrame:
+        """El puntaje de las operaciones fuera del ajuste, con el escalador ya ajustado (D-TTD-1).
+
+        Publica filas sólo si ``binning`` y ``model`` las tienen, y con el mismo índice —el mismo
+        ensamblado que ``score``, que lo exige—; si no, vacío sin alerta. Si falla, vacío y la
+        falla al trail (§1.6). El conteo de bins no vistos del escalador es el de las modelables:
+        la segunda transformación no lo reemplaza.
+        """
+        entradas = entradas_fuera_del_ajuste(
+            study, (("binning", "out_of_model_woe_frame"), ("model", "out_of_model_pd_frame"))
+        )
+        if entradas is None:
+            return vacio
+        woe_frame, pd_frame = entradas
+        no_vistos = dict(scaler.unseen_bins_)
+        try:
+            puntaje = _assemble_score_frame(
+                transformed=scaler.transform(woe_frame.copy(deep=True)),
+                raw_pd_frame=pd_frame,
+                points_columns=tuple(scaler.points_columns_),
+                score_column=str(scaler.score_column),
+            )
+        except Exception as exc:  # D-TTD-1 §1.6: fuera del ajuste nunca detiene la corrida
+            self.log_decision(
+                regla=REGLA_TTD_NO_PUNTUADA,
+                umbral=self.name,
+                valor={"filas": len(woe_frame.index), "causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return vacio
+        finally:
+            scaler.unseen_bins_ = no_vistos
+        self.log_decision(
+            regla="puntuar_ttd_fuera_de_modelo",
+            umbral="ttd",
+            valor=_composicion_fuera_del_ajuste(woe_frame),
+            accion="puntuar_sin_ajustar",
+        )
+        return puntaje
 
     def _filter_modelable_rows(self, frame: DataFrame) -> DataFrame:
         """Filtra filas ``fuera_de_modelo`` y registra la decisión agregada si aparecen."""
@@ -239,12 +307,36 @@ class ScorecardStep(AuditableMixin):
         secciones = campo_de_card(card_publicada(study, "scorecard", "card"), "metric_sections")
         return dict(secciones) if isinstance(secciones, Mapping) else {}
 
-    def _publish_artifacts(self, study: Study, result: ScorecardResult) -> None:
-        """Publica los cuatro artefactos estables del dominio ``scorecard``."""
+    def _publish_artifacts(
+        self, study: Study, result: ScorecardResult, out_of_model_score: DataFrame
+    ) -> None:
+        """Publica los cuatro artefactos estables de ``scorecard`` y el puntaje fuera del ajuste."""
         study.artifacts.set("scorecard", "scorecard", result.scorecard.copy(deep=True))
         study.artifacts.set("scorecard", "score", result.score.copy(deep=True))
         study.artifacts.set("scorecard", "result", result)
         study.artifacts.set("scorecard", "card", result.card)
+        study.artifacts.set("scorecard", "out_of_model_score", out_of_model_score)
+
+
+def _composicion_fuera_del_ajuste(woe_frame: DataFrame) -> dict[str, int]:
+    """Cuántas de las operaciones puntuadas fuera del ajuste son de cada grupo (D-TTD-3).
+
+    Indeterminadas, excluidas y con desenlace —las que una división por columna no asignó a
+    ninguna muestra—. Sin la columna de estado (``keep_structural_columns=False``) sólo se cuentan
+    las filas.
+    """
+    filas = len(woe_frame.index)
+    if _STATUS_COLUMN not in woe_frame.columns:
+        return {"filas": filas}
+    estado = woe_frame[_STATUS_COLUMN].astype("string")
+    indeterminadas = int(estado.eq("indeterminado").fillna(False).sum())
+    excluidas = int(estado.eq("excluido").fillna(False).sum())
+    return {
+        "filas": filas,
+        "indeterminadas": indeterminadas,
+        "excluidas": excluidas,
+        "con_desenlace": filas - indeterminadas - excluidas,
+    }
 
 
 def _import_pandas() -> Any:

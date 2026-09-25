@@ -271,8 +271,10 @@ PER_OBSERVATION_TABLES: Final[frozenset[str]] = frozenset(
     {
         "binning.woe_frame",
         "calibration.calibrated_pd_frame",
+        "calibration.out_of_model_calibrated_pd_frame",
         "model.raw_pd_frame",
         "scorecard.score",
+        "scorecard.out_of_model_score",
         "selection.selected_woe_frame",
     }
 )
@@ -298,8 +300,12 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "model.raw_pd_frame": "PD sin calibrar por observación",
     "scorecard.scorecard": "Scorecard — puntajes por atributo",
     "scorecard.score": "Puntaje por observación",
+    "scorecard.out_of_model_score": "Puntaje de las operaciones fuera del ajuste (TTD)",
     "calibration.parameters": "Parámetros de la calibración",
     "calibration.calibrated_pd_frame": "PD calibrada por observación",
+    "calibration.out_of_model_calibrated_pd_frame": (
+        "PD calibrada de las operaciones fuera del ajuste (TTD)"
+    ),
     "performance.performance_table": "Desempeño por tramo de riesgo",
     "performance.discriminant_metrics": "Métricas de discriminación por partición",
     "stability.psi_table": "PSI por tramo de score",

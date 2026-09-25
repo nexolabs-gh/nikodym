@@ -24,7 +24,13 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.core.steps import (
+    REGLA_TTD_NO_PUNTUADA,
+    ArtifactKey,
+    campo_de_card,
+    card_publicada,
+    entradas_fuera_del_ajuste,
+)
 from nikodym.model.config import ModelConfig
 from nikodym.model.exceptions import ModelFitError
 
@@ -68,6 +74,9 @@ MODEL_ARTIFACTS: Final[tuple[str, ...]] = (
     "raw_pd_frame",
     "result",
     "model_card",
+    # Aditivo (enmienda PUNTUAR-POBLACION-TTD, D-TTD-2): la PD cruda de las operaciones fuera del
+    # ajuste que la TTD incluye. Clave propia: `raw_pd_frame` sigue siendo sólo de las modelables.
+    "out_of_model_pd_frame",
 )
 _MODEL_PARTITIONS: Final[frozenset[str]] = frozenset({"desarrollo", "holdout", "oot"})
 _SCORING_EXTRA_MESSAGE: Final = (
@@ -95,6 +104,9 @@ class ModelStep(AuditableMixin):
         ("selection", "selected_woe_columns"),
         ("selection", "selected_woe_frame"),
     )
+    #: La cadena fuera del ajuste (D-TTD-2) va en ``optional_requires``, nunca en ``requires``: un
+    #: trabajo con artefactos inyectados que no corre ``binning`` tiene que seguir funcionando.
+    optional_requires: tuple[ArtifactKey, ...] = (("binning", "out_of_model_woe_frame"),)
     provides: tuple[ArtifactKey, ...] = tuple(("model", key) for key in MODEL_ARTIFACTS)
 
     def __init__(self, config: ModelConfig) -> None:
@@ -182,8 +194,66 @@ class ModelStep(AuditableMixin):
         self._log_stepwise_decisions(result.stepwise_trace, iv_by_feature=iv_by_feature)
         self._log_convergence(result.fit_statistics, config=cfg)
         self._log_filtered_partitions(selected_woe_frame, partition_col=partition_col)
-        self._publish_artifacts(study, result)
+        out_of_model_pd_frame = self._pd_fuera_del_ajuste(
+            study,
+            estimator=estimator,
+            target_col=target_col,
+            partition_col=partition_col,
+            vacio=raw_pd_frame.iloc[0:0].copy(deep=True),
+            pd=pd,
+        )
+        self._publish_artifacts(study, result, out_of_model_pd_frame)
         return result
+
+    def _pd_fuera_del_ajuste(
+        self,
+        study: Study,
+        *,
+        estimator: LogisticPDModel,
+        target_col: str,
+        partition_col: str,
+        vacio: DataFrame,
+        pd: Any,
+    ) -> DataFrame:
+        """La PD cruda de las operaciones fuera del ajuste, con el estimador ya ajustado (D-TTD-1).
+
+        Las columnas WoE finales del frame de ``binning``, con el mismo chequeo de WoE finita que
+        ``FeatureSelector.transform`` le hace a las modelables, y ``decision_function`` /
+        ``predict_pd`` del estimador. Sin entrada, clave vacía y sin alerta; si falla, clave vacía
+        y la falla al trail: nunca detiene la corrida (§1.6).
+        """
+        entradas = entradas_fuera_del_ajuste(study, (("binning", "out_of_model_woe_frame"),))
+        if entradas is None:
+            return vacio
+        (woe_frame,) = entradas
+        try:
+            frame = _as_dataframe(woe_frame, pd, "binning.out_of_model_woe_frame")
+            final_columns = list(estimator.final_woe_columns_)
+            _validate_required_columns(
+                frame,
+                (target_col, partition_col, *final_columns),
+                "binning.out_of_model_woe_frame",
+            )
+            for column in final_columns:
+                valores = pd.to_numeric(frame[column], errors="raise").to_numpy(dtype="float64")
+                if not bool(pd.Series(valores).map(math.isfinite).all()):
+                    raise ModelFitError(
+                        f"El WoE fuera del ajuste no es finito en la columna '{column}'."
+                    )
+            return _pd_frame_de(
+                frame,
+                target_col=target_col,
+                partition_col=partition_col,
+                estimator=estimator,
+            )
+        except Exception as exc:  # D-TTD-1 §1.6: fuera del ajuste nunca detiene la corrida
+            self.log_decision(
+                regla=REGLA_TTD_NO_PUNTUADA,
+                umbral=self.name,
+                valor={"filas": len(woe_frame.index), "causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return vacio
 
     def _log_force_overrides(self, config: ModelConfig) -> None:
         """Registra overrides de negocio usados por ``model`` antes del ajuste."""
@@ -275,8 +345,10 @@ class ModelStep(AuditableMixin):
         secciones = campo_de_card(card_publicada(study, "model", "model_card"), "metric_sections")
         return dict(secciones) if isinstance(secciones, Mapping) else {}
 
-    def _publish_artifacts(self, study: Study, result: ModelResult) -> None:
-        """Publica los nueve artefactos estables del dominio ``model``."""
+    def _publish_artifacts(
+        self, study: Study, result: ModelResult, out_of_model_pd_frame: DataFrame
+    ) -> None:
+        """Publica los nueve artefactos estables del dominio ``model`` y la PD fuera del ajuste."""
         study.artifacts.set("model", "estimator", result.estimator)
         study.artifacts.set("model", "final_features", result.final_features)
         study.artifacts.set("model", "final_woe_columns", result.final_woe_columns)
@@ -286,6 +358,7 @@ class ModelStep(AuditableMixin):
         study.artifacts.set("model", "raw_pd_frame", result.raw_pd_frame.copy(deep=True))
         study.artifacts.set("model", "result", result)
         study.artifacts.set("model", "model_card", result.model_card)
+        study.artifacts.set("model", "out_of_model_pd_frame", out_of_model_pd_frame)
 
 
 def _import_pandas() -> Any:
@@ -474,13 +547,30 @@ def _build_raw_pd_frame(
     pd: Any,
 ) -> DataFrame:
     """Construye PD cruda para Desarrollo, Holdout y OOT sin usar target fuera de Desarrollo."""
+    del pd
     modelable = _modelable_mask(frame, partition_col)
+    return _pd_frame_de(
+        frame.loc[modelable],
+        target_col=target_col,
+        partition_col=partition_col,
+        estimator=estimator,
+    )
+
+
+def _pd_frame_de(
+    frame: DataFrame,
+    *,
+    target_col: str,
+    partition_col: str,
+    estimator: LogisticPDModel,
+) -> DataFrame:
+    """PD cruda de todas las filas de ``frame``: la de las modelables y la de fuera del ajuste."""
     final_columns = list(estimator.final_woe_columns_)
-    scoring_frame = frame.loc[modelable, final_columns].copy(deep=True)
+    scoring_frame = frame.loc[:, final_columns].copy(deep=True)
     linear = estimator.decision_function(scoring_frame)
     pd_raw = estimator.predict_pd(scoring_frame)
 
-    raw = frame.loc[modelable, [partition_col, target_col]].copy(deep=True)
+    raw = frame.loc[:, [partition_col, target_col]].copy(deep=True)
     raw["linear_predictor"] = linear
     raw["pd_raw"] = pd_raw
     for column in ("linear_predictor", "pd_raw"):

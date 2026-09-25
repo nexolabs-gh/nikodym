@@ -941,6 +941,56 @@ def _mean_sigmoid(linear: NDArrayFloat, *, delta: float, expit: Any, np: Any) ->
     return _normalize_float(float(expit(shifted).mean()))
 
 
+def _transformar_fuera_del_ajuste(estimator: PDCalibrator, raw_pd_frame: DataFrame) -> DataFrame:
+    """Aplica el estado ajustado a las operaciones fuera del ajuste (D-TTD-1).
+
+    :meth:`PDCalibrator.transform` filtra a Desarrollo, Holdout y OOT, así que con estas filas
+    devolvería un frame vacío. Aquí se valida lo mismo que ``transform`` —columnas, índice único,
+    ``pd_raw`` en ``(0, 1)`` y consistente con ``sigmoid(linear_predictor)``— sin ese filtro, y
+    se aplica el mismo estado con la misma función (D-TTD-1). La API pública no cambia.
+    """
+    estimator._check_fitted()
+    pd = _import_pandas()
+    np = _import_numpy()
+    expit = _import_scipy_expit()
+    frame = _as_dataframe(raw_pd_frame, pd, context="transform")
+    _validate_unique_columns(frame, error_cls=CalibrationTransformError)
+    if not frame.index.is_unique:
+        raise CalibrationTransformError("PDCalibrator requiere índice único en raw_pd_frame.")
+    _validate_required_columns(estimator, frame, error_cls=CalibrationTransformError)
+    _validate_output_collisions(estimator, frame, error_cls=CalibrationTransformError)
+    eta = _numeric_array(
+        frame[estimator.linear_predictor_column],
+        column=estimator.linear_predictor_column,
+        np=np,
+        error_cls=CalibrationTransformError,
+    )
+    pd_raw = _numeric_array(
+        frame[estimator.pd_raw_column],
+        column=estimator.pd_raw_column,
+        np=np,
+        error_cls=CalibrationTransformError,
+    )
+    if bool(((pd_raw <= 0.0) | (pd_raw >= 1.0)).any()):
+        raise CalibrationTransformError(
+            "pd_raw fuera del ajuste debe estar estrictamente en (0, 1)."
+        )
+    if not bool(
+        np.isclose(pd_raw, expit(eta), atol=_CONSISTENCY_ATOL, rtol=_CONSISTENCY_RTOL).all()
+    ):
+        raise CalibrationTransformError(
+            "pd_raw fuera del ajuste no es consistente con sigmoid(linear_predictor)."
+        )
+    return _transform_with_state(
+        estimator,
+        frame,
+        state=_state_from_estimator(estimator),
+        pd=pd,
+        np=np,
+        expit=expit,
+    )
+
+
 def _transform_with_state(
     estimator: PDCalibrator,
     modelable_frame: DataFrame,

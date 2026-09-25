@@ -136,8 +136,10 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("model", "raw_pd_frame"),
     ("scorecard", "scorecard"),
     ("scorecard", "score"),
+    ("scorecard", "out_of_model_score"),
     ("calibration", "parameters"),
     ("calibration", "calibrated_pd_frame"),
+    ("calibration", "out_of_model_calibrated_pd_frame"),
     ("performance", "performance_table"),
     ("performance", "discriminant_metrics"),
     ("stability", "psi_table"),
@@ -150,6 +152,13 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     # IFRS 9: solo el ``summary`` agregado por stage (3 filas). NUNCA ``detail``/``staging``
     # (una fila por operación): mismo criterio que provisiones.
     ("provisioning_ifrs9", "summary"),
+)
+#: Las claves de la puntuación fuera del ajuste (enmienda PUNTUAR-POBLACION-TTD, D-TTD-2) se
+#: publican siempre, vacías cuando la corrida no tiene esas filas. Una tabla sin filas no es
+#: evidencia ni dato: no llega al informe, ni a sus exports, ni al anexo. Así el informe de una
+#: corrida sin filas fuera del ajuste queda idéntico al de antes.
+_OMITIDAS_SI_VACIAS: Final[frozenset[tuple[str, str]]] = frozenset(
+    {("scorecard", "out_of_model_score"), ("calibration", "out_of_model_calibrated_pd_frame")}
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
@@ -546,6 +555,8 @@ class ReportBuilder:
             if not study.artifacts.has(domain, key):
                 continue
             artefacto = study.artifacts.get(domain, key)
+            if (domain, key) in _OMITIDAS_SI_VACIAS and bool(getattr(artefacto, "empty", False)):
+                continue
             # D-SC-17: la tasa que no se pudo agrupar llega con la tabla vacía y su causa
             # declarada. Una tabla de sólo encabezados no es evidencia —ni en el cuerpo ni en el
             # anexo—, y la prosa del capítulo ya dice por qué no está. La condición nombra la

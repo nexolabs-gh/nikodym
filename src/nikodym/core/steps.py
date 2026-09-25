@@ -31,12 +31,14 @@ if TYPE_CHECKING:
 __all__ = [
     "METODO_CONTRATO_VARIABLES",
     "METODO_REQUISITOS_RECALCULO",
+    "REGLA_TTD_NO_PUNTUADA",
     "ArtifactKey",
     "ContextoDeResolucion",
     "Step",
     "StepAdapter",
     "campo_de_card",
     "card_publicada",
+    "entradas_fuera_del_ajuste",
 ]
 
 ArtifactKey = tuple[str, str]  # (domain, key) — la misma clave namespaced del ArtifactStore (§6)
@@ -61,6 +63,11 @@ METODO_CONTRATO_VARIABLES: Final = "contrato_de_variables_declarado"
 #: sección que sabe lo declara, el núcleo lo transporta sin interpretarlo y el paso que lo necesita
 #: lo lee del DTO.
 METODO_REQUISITOS_RECALCULO: Final = "requisitos_de_recalculo_declarados"
+
+#: La regla del trail cuando un paso no pudo puntuar las operaciones fuera del ajuste
+#: (enmienda PUNTUAR-POBLACION-TTD, D-TTD-1 §1.6): la clave del paso queda vacía, la corrida
+#: sigue y el resumen de esa etapa lo dice como alerta. Puntuar la TTD nunca detiene la corrida.
+REGLA_TTD_NO_PUNTUADA: Final = "ttd_no_puntuada"
 
 
 def card_publicada(study: Study, domain: str, key: str) -> Any:
@@ -89,6 +96,29 @@ def campo_de_card(card: Any, nombre: str) -> Any:
     if isinstance(card, Mapping):
         return card.get(nombre)
     return getattr(card, nombre, None)
+
+
+def entradas_fuera_del_ajuste(
+    study: Study, claves: tuple[ArtifactKey, ...]
+) -> tuple[Any, ...] | None:
+    """Las entradas de la cadena fuera del ajuste, o ``None`` si alguna falta o está vacía.
+
+    Cada paso de la cadena —``binning`` → ``model`` → ``scorecard`` → ``calibration`` →
+    ``stability``— publica filas fuera del ajuste sólo si **todas** sus entradas nuevas las tienen.
+    Una clave ausente es un trabajo con artefactos inyectados que no corrió la etapa anterior; una
+    vacía, una corrida sin filas fuera del ajuste o una etapa anterior que no pudo puntuarlas y ya
+    lo dijo. En los dos casos el paso publica vacío **sin volver a alertar**. Que las entradas
+    presentes compartan índice lo comprueba cada paso: si no, es una falla suya (§1.6).
+    """
+    entradas: list[Any] = []
+    for domain, key in claves:
+        if not study.artifacts.has(domain, key):
+            return None
+        valor = study.artifacts.get(domain, key)
+        if bool(getattr(valor, "empty", True)):
+            return None
+        entradas.append(valor)
+    return tuple(entradas)
 
 
 @dataclass(frozen=True, slots=True)

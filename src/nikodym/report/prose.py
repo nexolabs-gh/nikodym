@@ -66,6 +66,10 @@ _PARTITION_LABELS: Final[dict[str, str]] = {
     "desarrollo": "Desarrollo",
     "holdout": "Holdout",
     "oot": "Fuera de tiempo (OOT)",
+    # «Fuera del ajuste», no «Sin desenlace»: la partición también reúne a los excluidos por una
+    # regla y a las filas con desenlace que una división por columna no asignó a ninguna muestra
+    # (enmienda COPY-PRUEBA-REAL-SBA, D-CPY-1).
+    "fuera_de_modelo": "Fuera del ajuste",
 }
 _COMPARISON_LABELS: Final[dict[str, str]] = {
     "dev_vs_holdout": "Desarrollo vs. Holdout",

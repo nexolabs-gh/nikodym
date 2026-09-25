@@ -25,7 +25,12 @@ from nikodym.binning.diagnostics import event_rate_by_partition
 from nikodym.binning.exceptions import BinningFitError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.core.steps import (
+    REGLA_TTD_NO_PUNTUADA,
+    ArtifactKey,
+    campo_de_card,
+    card_publicada,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -57,7 +62,18 @@ BINNING_ARTIFACTS: Final[tuple[str, ...]] = (
     # Aditivo (enmienda FLUJO-GUIADO-SCORECARD §3.6-2, D-FLU-6): la tasa de malos por tramo y
     # muestra con la marca de inversión; clave propia, las tablas estables no cambian.
     "event_rate_by_partition",
+    # Aditivos (enmienda PUNTUAR-POBLACION-TTD, D-TTD-2 y D-TTD-5): el WoE de las operaciones
+    # fuera del ajuste que la TTD declarada incluye, y las categorías no vistas en Desarrollo
+    # contadas por muestra. Claves propias: `woe_frame` y la card no cambian.
+    "out_of_model_woe_frame",
+    "unseen_categories",
 )
+#: La partición de las filas que no entran al ajuste (SDD-02: indeterminadas, excluidas y las que
+#: una división por columna no asignó a ninguna muestra).
+_OUT_OF_MODEL_PARTITION: Final = "fuera_de_modelo"
+#: Las muestras en que se cuentan las categorías no vistas (D-TTD-5), en el orden en que se leen.
+#: Desarrollo no está: por construcción, todo lo que trae lo vio el ajuste.
+_UNSEEN_SAMPLES: Final[tuple[str, ...]] = ("holdout", "oot", _OUT_OF_MODEL_PARTITION)
 _MODEL_PARTITIONS: Final[frozenset[str]] = frozenset({"desarrollo", "holdout", "oot"})
 _AUTO_MONOTONIC_TRENDS: Final[frozenset[str]] = frozenset(
     {"auto", "auto_heuristic", "auto_asc_desc"}
@@ -187,6 +203,33 @@ class BinningStep(AuditableMixin):
             tables=tables,
             trends=_resolved_trends_by_variable(summary),
         )
+        # D-TTD-1 y D-TTD-5: las operaciones fuera del ajuste se transforman con el binner ya
+        # ajustado DESPUÉS de registrar las categorías no vistas de las modelables, porque cada
+        # `transform` reemplaza ese conteo; y el conteo vuelve a su valor para que el `process`
+        # publicado sea el de siempre.
+        conteo_modelables = dict(binner.unknown_categories_)
+        fuera_mask = _out_of_model_mask(frame, partition_col, ttd_col)
+        out_of_model_woe_frame = self._woe_fuera_del_ajuste(
+            binner=binner,
+            frame=frame,
+            fuera_mask=fuera_mask,
+            feature_columns=feature_columns,
+            structural_columns=(target_col, status_col, partition_col, ttd_col),
+            vacio=woe_frame.iloc[0:0].copy(deep=True),
+            pd=pd,
+        )
+        binner.unknown_categories_ = conteo_modelables
+        categorias_no_vistas = _categorias_no_vistas_por_muestra(
+            binner,
+            frame=frame,
+            feature_columns=feature_columns,
+            muestras={
+                "holdout": _partition_mask(frame, partition_col, "holdout"),
+                "oot": _partition_mask(frame, partition_col, "oot"),
+                _OUT_OF_MODEL_PARTITION: fuera_mask,
+            },
+            pd=pd,
+        )
         self._publish_artifacts(
             study,
             binner,
@@ -197,8 +240,51 @@ class BinningStep(AuditableMixin):
             result,
             binning_card,
             tasas_por_muestra,
+            out_of_model_woe_frame,
+            categorias_no_vistas,
         )
         return result
+
+    def _woe_fuera_del_ajuste(
+        self,
+        *,
+        binner: WoEBinner,
+        frame: DataFrame,
+        fuera_mask: Series,
+        feature_columns: tuple[str, ...],
+        structural_columns: tuple[str, ...],
+        vacio: DataFrame,
+        pd: Any,
+    ) -> DataFrame:
+        """El WoE de las operaciones fuera del ajuste que la TTD incluye (D-TTD-1).
+
+        La misma transformación que reciben Holdout y OOT —con los WoE asignados de D-FAL-1 y los
+        reagrupamientos de D-RAR-1—, sin reajustar nada. Sin filas, la clave queda vacía con el
+        esquema del ``woe_frame``; si la transformación falla, también, y la falla queda en el
+        trail: puntuar fuera del ajuste nunca detiene la corrida (§1.6).
+        """
+        if not bool(fuera_mask.any()):
+            return vacio
+        try:
+            woe_only = binner.transform(
+                frame.loc[fuera_mask, list(feature_columns)].copy(deep=True)
+            )
+            return _assemble_woe_frame(
+                source=frame,
+                eligible_mask=fuera_mask,
+                woe_only=woe_only,
+                structural_columns=structural_columns,
+                keep_structural_columns=self.config.keep_structural_columns,
+                pd=pd,
+            )
+        except Exception as exc:  # D-TTD-1 §1.6: fuera del ajuste nunca detiene la corrida
+            self.log_decision(
+                regla=REGLA_TTD_NO_PUNTUADA,
+                umbral=self.name,
+                valor={"filas": int(fuera_mask.sum()), "causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return vacio
 
     def _log_suspended_overrides(self, suspendidos: tuple[VariableBinningConfig, ...]) -> None:
         """Declara los tramos fijados de variables excluidas que quedan en suspenso (D-EXC-1)."""
@@ -268,7 +354,7 @@ class BinningStep(AuditableMixin):
         self._log_monotonicity_overrides(feature_columns)
         self._log_monotonicity_auto_resolved(feature_columns, summary)
         self._log_summary_diagnostics(summary, pd)
-        self._log_unknown_categories(binner.unknown_categories_)
+        self._log_unknown_categories(binner.unknown_categories_, binner.cat_unknown)
 
     def _log_skipped_variables(self, skipped: dict[str, str]) -> None:
         """Registra variables omitidas por casos borde o status del solver."""
@@ -379,16 +465,23 @@ class BinningStep(AuditableMixin):
                 )
         del pd
 
-    def _log_unknown_categories(self, unknown_categories: dict[str, int]) -> None:
-        """Registra categorías no vistas durante la transformación WoE."""
+    def _log_unknown_categories(
+        self, unknown_categories: dict[str, int], cat_unknown: float | str | None = None
+    ) -> None:
+        """Registra categorías no vistas durante la transformación WoE, con su tratamiento real.
+
+        Con el default (``cat_unknown=None``) OptBinning asigna WoE 0 y el evento es el de siempre.
+        Con un valor declarado, el evento decía «neutral» aunque se aplicara ese valor: ahora dice
+        el valor (enmienda PUNTUAR-POBLACION-TTD, D-TTD-5, revisión adversarial, pasada 3).
+        """
         for variable, count in unknown_categories.items():
             if count <= 0:
                 continue
             self.log_decision(
                 regla="categoria_no_vista",
-                umbral=0,
+                umbral=0 if cat_unknown is None else cat_unknown,
                 valor={"variable": variable, "conteo": count},
-                accion="asignar_woe_neutral",
+                accion="asignar_woe_neutral" if cat_unknown is None else "asignar_woe_declarado",
             )
 
     def metrics(self, study: Study) -> dict[str, float | None]:
@@ -415,8 +508,10 @@ class BinningStep(AuditableMixin):
         result: BinningResult,
         binning_card: BinningCardSection,
         event_rate_by_partition_table: DataFrame,
+        out_of_model_woe_frame: DataFrame,
+        unseen_categories: DataFrame,
     ) -> None:
-        """Publica los artefactos estables, los tramos congelados y el diagnóstico por muestra."""
+        """Publica los artefactos estables, los tramos congelados y los diagnósticos aditivos."""
         study.artifacts.set("binning", "process", process)
         study.artifacts.set("binning", "tables", tables)
         study.artifacts.set("binning", "summary", summary)
@@ -425,6 +520,8 @@ class BinningStep(AuditableMixin):
         study.artifacts.set("binning", "result", result)
         study.artifacts.set("binning", "binning_card", binning_card)
         study.artifacts.set("binning", "event_rate_by_partition", event_rate_by_partition_table)
+        study.artifacts.set("binning", "out_of_model_woe_frame", out_of_model_woe_frame)
+        study.artifacts.set("binning", "unseen_categories", unseen_categories)
 
 
 def _import_pandas() -> Any:
@@ -678,6 +775,60 @@ def _training_mask(frame: DataFrame, target_col: str, partition_col: str) -> Ser
     partition = frame[partition_col].astype("string")
     mask = partition.eq("desarrollo") & frame[target_col].notna()
     return cast(Series, mask.fillna(False).astype("bool"))
+
+
+def _out_of_model_mask(frame: DataFrame, partition_col: str, ttd_col: str) -> Series:
+    """Las filas fuera del ajuste que la TTD declarada incluye (D-TTD-1; D-DATA-5 intacta).
+
+    Con ``ttd_includes_excluded=False`` la columna ``ttd`` vale ``False`` en toda la partición
+    ``fuera_de_modelo``, así que la máscara queda vacía: no se puntúa ninguna fila nueva.
+    """
+    en_particion = frame[partition_col].astype("string").eq(_OUT_OF_MODEL_PARTITION)
+    en_ttd = frame[ttd_col].astype("boolean")
+    return cast(Series, (en_particion & en_ttd).fillna(False).astype("bool"))
+
+
+def _partition_mask(frame: DataFrame, partition_col: str, partition: str) -> Series:
+    """Las filas de una partición, como máscara booleana sin nulos."""
+    return cast(
+        Series, frame[partition_col].astype("string").eq(partition).fillna(False).astype("bool")
+    )
+
+
+def _categorias_no_vistas_por_muestra(
+    binner: WoEBinner,
+    *,
+    frame: DataFrame,
+    feature_columns: tuple[str, ...],
+    muestras: dict[str, Series],
+    pd: Any,
+) -> DataFrame:
+    """Cuenta por variable y muestra las filas con una categoría que no existía en Desarrollo.
+
+    Una fila por par (variable, muestra) con al menos una, en el orden de las variables y de
+    :data:`_UNSEEN_SAMPLES`; vacío si no hay ninguna (D-TTD-5). No toca el estado del binner.
+    """
+    from nikodym.binning.transformer import _contar_categorias_no_vistas
+
+    filas: list[dict[str, Any]] = []
+    conteos = {
+        muestra: _contar_categorias_no_vistas(
+            binner, frame.loc[mascara, list(feature_columns)].copy(deep=True)
+        )
+        for muestra, mascara in muestras.items()
+        if bool(mascara.any())
+    }
+    for variable in binner.process_columns_:
+        for muestra in _UNSEEN_SAMPLES:
+            n = int(conteos.get(muestra, {}).get(variable, 0))
+            if n > 0:
+                filas.append({"variable": str(variable), "muestra": muestra, "filas": n})
+    return cast(
+        DataFrame,
+        pd.DataFrame(filas, columns=["variable", "muestra", "filas"]).astype(
+            {"variable": "object", "muestra": "object", "filas": "int64"}
+        ),
+    )
 
 
 def _modelable_mask(frame: DataFrame, partition_col: str) -> Series:

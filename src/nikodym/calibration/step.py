@@ -25,13 +25,19 @@ from collections.abc import Mapping
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias, cast
 
-from nikodym.calibration.calibrator import PDCalibrator
+from nikodym.calibration.calibrator import PDCalibrator, _transformar_fuera_del_ajuste
 from nikodym.calibration.config import CalibrationConfig, CalibrationMethod
 from nikodym.calibration.exceptions import CalibrationFitError
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.core.steps import (
+    REGLA_TTD_NO_PUNTUADA,
+    ArtifactKey,
+    campo_de_card,
+    card_publicada,
+    entradas_fuera_del_ajuste,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -60,6 +66,9 @@ CALIBRATION_ARTIFACTS: Final[tuple[str, ...]] = (
     "parameters",
     "result",
     "card",
+    # Aditivo (enmienda PUNTUAR-POBLACION-TTD, D-TTD-2): la PD calibrada de las operaciones fuera
+    # del ajuste, con las ocho columnas de `calibrated_pd_frame`. Clave propia.
+    "out_of_model_calibrated_pd_frame",
 )
 _SCORING_EXTRA_MESSAGE: Final = (
     "CalibrationStep requiere pandas/numpy/scipy; instale nikodym[scoring]."
@@ -92,6 +101,12 @@ class CalibrationStep(AuditableMixin):
         ("model", "final_woe_columns"),
         ("model", "coefficients"),
         ("model", "raw_pd_frame"),
+    )
+    #: La cadena fuera del ajuste (D-TTD-2): la PD del modelo **y** el puntaje de la tarjeta. Si la
+    #: tarjeta no pudo puntuar, la calibración no publica PD para filas sin puntaje.
+    optional_requires: tuple[ArtifactKey, ...] = (
+        ("model", "out_of_model_pd_frame"),
+        ("scorecard", "out_of_model_score"),
     )
     provides: tuple[ArtifactKey, ...] = tuple(("calibration", key) for key in CALIBRATION_ARTIFACTS)
 
@@ -162,8 +177,40 @@ class CalibrationStep(AuditableMixin):
             card=card,
         )
         self._log_fit_decisions(calibrator, parameters=parameters, card=card)
-        self._publish_artifacts(study, result)
+        out_of_model = self._calibrar_fuera_del_ajuste(
+            study, calibrator, vacio=calibrated.iloc[0:0].copy(deep=True)
+        )
+        self._publish_artifacts(study, result, out_of_model)
         return result
+
+    def _calibrar_fuera_del_ajuste(
+        self, study: Study, calibrator: PDCalibrator, *, vacio: DataFrame
+    ) -> DataFrame:
+        """La PD calibrada de las operaciones fuera del ajuste, con el estado ajustado (D-TTD-1).
+
+        Publica filas sólo si el modelo y la tarjeta las tienen con el mismo índice (D-TTD-2); si
+        no, vacío sin alerta. Si la aplicación falla, vacío y la falla al trail (§1.6).
+        """
+        entradas = entradas_fuera_del_ajuste(
+            study, (("model", "out_of_model_pd_frame"), ("scorecard", "out_of_model_score"))
+        )
+        if entradas is None:
+            return vacio
+        pd_frame, score = entradas
+        try:
+            if not pd_frame.index.sort_values().equals(score.index.sort_values()):
+                raise CalibrationFitError(
+                    "La PD y el puntaje fuera del ajuste no tienen el mismo índice."
+                )
+            return _transformar_fuera_del_ajuste(calibrator, pd_frame.copy(deep=True))
+        except Exception as exc:  # D-TTD-1 §1.6: fuera del ajuste nunca detiene la corrida
+            self.log_decision(
+                regla=REGLA_TTD_NO_PUNTUADA,
+                umbral=self.name,
+                valor={"filas": len(pd_frame.index), "causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return vacio
 
     def _filter_modelable_rows(self, frame: DataFrame, config: CalibrationConfig) -> DataFrame:
         """Filtra filas fuera de Dev/HO/OOT y registra la decisión agregada si aparecen."""
@@ -279,8 +326,10 @@ class CalibrationStep(AuditableMixin):
         secciones = campo_de_card(card_publicada(study, "calibration", "card"), "metric_sections")
         return dict(secciones) if isinstance(secciones, Mapping) else {}
 
-    def _publish_artifacts(self, study: Study, result: CalibrationResult) -> None:
-        """Publica los cuatro artefactos estables del dominio ``calibration``."""
+    def _publish_artifacts(
+        self, study: Study, result: CalibrationResult, out_of_model: DataFrame
+    ) -> None:
+        """Publica los cuatro artefactos estables de ``calibration`` y la PD fuera del ajuste."""
         study.artifacts.set(
             "calibration",
             "calibrated_pd_frame",
@@ -292,6 +341,7 @@ class CalibrationStep(AuditableMixin):
             result.parameters.model_copy(deep=True),
         )
         study.artifacts.set("calibration", "result", result.model_copy(deep=True))
+        study.artifacts.set("calibration", "out_of_model_calibrated_pd_frame", out_of_model)
         study.artifacts.set("calibration", "card", result.card.model_copy(deep=True))
 
 

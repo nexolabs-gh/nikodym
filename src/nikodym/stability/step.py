@@ -32,9 +32,15 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
+from nikodym.core.steps import (
+    REGLA_TTD_NO_PUNTUADA,
+    ArtifactKey,
+    campo_de_card,
+    card_publicada,
+    entradas_fuera_del_ajuste,
+)
 from nikodym.stability.config import TEMPORAL_CANDIDATE_NAMES, StabilityConfig
-from nikodym.stability.evaluator import StabilityEvaluator
+from nikodym.stability.evaluator import StabilityEvaluator, psi_fuera_del_ajuste
 from nikodym.stability.exceptions import StabilityDataError
 
 if TYPE_CHECKING:
@@ -64,6 +70,9 @@ STABILITY_ARTIFACTS: Final[tuple[str, ...]] = (
     "stability_metrics",
     "result",
     "card",
+    # Aditivo (enmienda PUNTUAR-POBLACION-TTD, D-TTD-4): el PSI del puntaje entre Desarrollo y
+    # las operaciones fuera del ajuste, con el esquema de `psi_table`. Clave propia.
+    "out_of_model_psi",
 )
 _SCORING_EXTRA_MESSAGE: Final = (
     "StabilityStep requiere pandas/numpy/pandera; instale nikodym[scoring]."
@@ -86,6 +95,10 @@ class StabilityStep(AuditableMixin):
     optional_requires: tuple[ArtifactKey, ...] = (
         ("scorecard", "card"),
         ("binning", "bin_frame"),
+        # La cadena fuera del ajuste (D-TTD-2 y D-TTD-4): el puntaje y la PD calibrada. Si la
+        # calibración no pudo con esas filas, no se mide su representatividad.
+        ("scorecard", "out_of_model_score"),
+        ("calibration", "out_of_model_calibrated_pd_frame"),
     )
     provides: tuple[ArtifactKey, ...] = tuple(("stability", key) for key in STABILITY_ARTIFACTS)
 
@@ -112,8 +125,46 @@ class StabilityStep(AuditableMixin):
         del rng
         cfg = _stability_config_from_study(study, fallback=self.config)
         result = compute_stability(study, cfg, audit=self._audit)
-        self._publish_artifacts(study, result)
+        out_of_model_psi = self._psi_fuera_del_ajuste(study, cfg)
+        self._publish_artifacts(study, result, out_of_model_psi)
         return result
+
+    def _psi_fuera_del_ajuste(self, study: Study, cfg: StabilityConfig) -> DataFrame:
+        """Representatividad: el puntaje de Desarrollo frente al de fuera del ajuste (D-TTD-4).
+
+        No es una comparación de ``comparisons``, no entra al veredicto y no detiene la corrida:
+        sin la cadena completa la clave queda vacía, y si el cálculo falla, también, con la falla
+        al trail.
+        """
+        entradas = entradas_fuera_del_ajuste(
+            study,
+            (
+                ("scorecard", "out_of_model_score"),
+                ("calibration", "out_of_model_calibrated_pd_frame"),
+            ),
+        )
+        if entradas is None:
+            return psi_fuera_del_ajuste(cfg, dev_scores=None, fuera_scores=None)
+        fuera, _ = entradas
+        try:
+            score = study.artifacts.get("scorecard", "score")
+            dev = score.loc[
+                score["partition"].astype("string").eq("desarrollo").fillna(False).astype(bool),
+                cfg.score_column,
+            ]
+            return psi_fuera_del_ajuste(
+                cfg,
+                dev_scores=dev.to_numpy(dtype="float64"),
+                fuera_scores=fuera[cfg.score_column].to_numpy(dtype="float64"),
+            )
+        except Exception as exc:  # D-TTD-1 §1.6: fuera del ajuste nunca detiene la corrida
+            self.log_decision(
+                regla=REGLA_TTD_NO_PUNTUADA,
+                umbral=self.name,
+                valor={"filas": len(fuera.index), "causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return psi_fuera_del_ajuste(cfg, dev_scores=None, fuera_scores=None)
 
     def metrics(self, study: Study) -> dict[str, float | None]:
         """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
@@ -145,8 +196,10 @@ class StabilityStep(AuditableMixin):
         secciones = campo_de_card(card_publicada(study, "stability", "card"), "metric_sections")
         return dict(secciones) if isinstance(secciones, Mapping) else {}
 
-    def _publish_artifacts(self, study: Study, result: StabilityResult) -> None:
-        """Publica los cuatro artefactos estables del dominio ``stability``."""
+    def _publish_artifacts(
+        self, study: Study, result: StabilityResult, out_of_model_psi: DataFrame
+    ) -> None:
+        """Publica los cuatro artefactos estables de ``stability`` y la representatividad."""
         study.artifacts.set("stability", "psi_table", result.psi_table.copy(deep=True))
         study.artifacts.set(
             "stability",
@@ -155,6 +208,7 @@ class StabilityStep(AuditableMixin):
         )
         study.artifacts.set("stability", "result", result.model_copy(deep=True))
         study.artifacts.set("stability", "card", result.card.model_copy(deep=True))
+        study.artifacts.set("stability", "out_of_model_psi", out_of_model_psi)
 
 
 def assemble_stability_frame(

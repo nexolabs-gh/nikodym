@@ -1687,6 +1687,27 @@ def _category_levels(
     return levels
 
 
+def _contar_categorias_no_vistas(binner: WoEBinner, X: DataFrame) -> dict[str, int]:  # noqa: N803
+    """Cuenta los niveles categóricos no vistos en el ajuste **sin tocar el estado del binner**.
+
+    Es la misma preparación que :meth:`WoEBinner.transform` —columnas del ajuste y special values
+    reconstruidos— y la misma cuenta, pero no reemplaza ``unknown_categories_``: ese atributo es
+    el que registra el evento ``categoria_no_vista`` de las filas modelables, y contar por muestra
+    no puede cambiarlo (enmienda PUNTUAR-POBLACION-TTD, D-TTD-5).
+    """
+    binner._check_fitted()
+    pd = _import_pandas()
+    frame = _as_dataframe(X, pd, context="transform")
+    working = frame.loc[:, list(binner.process_columns_)].copy(deep=True)
+    state = SpecialState(
+        codes=binner.special_codes_,
+        mask=binner._special_mask_,
+        fill_values=binner._special_fill_values_,
+    )
+    working = _apply_special_state(working, state, binner.special_handling, pd)
+    return _count_unknown_categories(working, binner.category_levels_, state.codes)
+
+
 def _count_unknown_categories(
     frame: DataFrame,
     category_levels: dict[str, set[object]],

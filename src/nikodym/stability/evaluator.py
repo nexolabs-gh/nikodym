@@ -19,7 +19,7 @@ import importlib
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Self, TypeAlias, cast
 
 from pydantic import ValidationError
 
@@ -808,6 +808,51 @@ def _partition_array(
     mask = frame[cfg.partition_column].eq(partition)
     dtype = "float64" if numeric else object
     return frame.loc[mask, column].to_numpy(dtype=dtype, copy=True)
+
+
+#: La comparación de representatividad (enmienda PUNTUAR-POBLACION-TTD, D-TTD-4): el puntaje de
+#: Desarrollo frente al de las operaciones fuera del ajuste. No es una comparación configurable
+#: de ``comparisons`` —ningún ``config_hash`` se mueve— ni entra al veredicto de ``validation``.
+OUT_OF_MODEL_COMPARISON: Final = "dev_vs_out_of_model"
+
+
+def psi_fuera_del_ajuste(
+    cfg: StabilityConfig, *, dev_scores: Any | None, fuera_scores: Any | None
+) -> DataFrame:
+    """PSI del puntaje entre Desarrollo y las operaciones fuera del ajuste (D-TTD-4).
+
+    El mismo cálculo que el PSI del score de ``dev_vs_oot`` —cortes por cuantiles de Desarrollo,
+    ``psi_bins`` tramos, el suavizado y los dos cortes configurados— sobre otra población. Con
+    cualquiera de las dos vacía devuelve el esquema de ``psi_table`` sin filas.
+    """
+    pd = _import_pandas()
+    np = _import_numpy()
+    records: list[PsiRecord] = []
+    if dev_scores is not None and fuera_scores is not None:
+        dev = np.asarray(dev_scores, dtype="float64")
+        fuera = np.asarray(fuera_scores, dtype="float64")
+        if dev.size > 0 and fuera.size > 0:
+            edges = _quantile_interior_edges(dev, cfg.psi_bins, np)
+            counts = _bin_counts_continuous(dev, fuera, edges, np)
+            psi = _psi_from_counts(counts, int(dev.size), int(fuera.size), cfg.smoothing)
+            band = _band(psi.total, cfg.psi_stable_threshold, cfg.psi_review_threshold)
+            records = _psi_records_from(
+                psi,
+                metric="score_psi",
+                comparison=OUT_OF_MODEL_COMPARISON,
+                feature=_SCORE_FEATURE,
+                band=band,
+            )
+    return _records_to_frame(
+        records,
+        columns=_PSI_TABLE_COLUMNS,
+        pd=pd,
+        index_name="bin_id",
+        index_values=[
+            f"{record.metric}|{record.comparison}|{record.feature}|{record.bin_label}"
+            for record in records
+        ],
+    )
 
 
 def _quantile_interior_edges(values: Any, n_bins: int, np: Any) -> Any:

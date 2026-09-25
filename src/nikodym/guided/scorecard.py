@@ -881,7 +881,7 @@ class Scorecard:
             lineas.append(
                 f"Resultado vacío en {_miles(n_vacios_target)} "
                 f"{_plural(n_vacios_target, 'fila', 'filas')} ({', '.join(columnas_target)}): "
-                "quedan indeterminadas: no entran al ajuste ni reciben puntaje"
+                "quedan indeterminadas: no entran al ajuste y la tarjeta las puntúa aparte"
             )
         return tuple(lineas)
 
