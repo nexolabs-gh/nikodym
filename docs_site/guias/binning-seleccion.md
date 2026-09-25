@@ -14,7 +14,7 @@ predictores estables e interpretables y descartan lo que no aporta o rompe la re
 
 !!! note "Superficie estable (SemVer 1.x)"
     Las secciones `binning` y `selection` del config son parte del pipeline de scorecard F1 y desde
-    la 1.0 son **API estable** (no rompen hasta un 2.0).
+    la versión 1,0 son **API estable** (no rompen hasta una versión 2,0).
 
 ## Weight of Evidence (WoE)
 
@@ -47,16 +47,16 @@ De la corrida de ejemplo (`web/src/fixtures/demo/results.json`, tabla del domini
 
 | Bin | Count | Tasa de evento | WoE |
 |---|---:|---:|---:|
-| (-inf, 242795.88) | 210 | 0.4286 | -0.9022 |
-| [242795.88, 354256.50) | 587 | 0.3526 | -0.5825 |
-| [354256.50, 464805.09) | 806 | 0.2816 | -0.2536 |
-| [464805.09, 631639.47) | 917 | 0.2268 | +0.0364 |
-| [631639.47, 913196.97) | 876 | 0.1655 | +0.4278 |
-| [913196.97, inf) | 565 | 0.0832 | +1.2099 |
-| **Total** | **3961** | **0.2333** | — |
+| `(-inf, 242795.88)` | 210 | 0,4286 | -0,9022 |
+| `[242795.88, 354256.50)` | 587 | 0,3526 | -0,5825 |
+| `[354256.50, 464805.09)` | 806 | 0,2816 | -0,2536 |
+| `[464805.09, 631639.47)` | 917 | 0,2268 | +0,0364 |
+| `[631639.47, 913196.97)` | 876 | 0,1655 | +0,4278 |
+| `[913196.97, inf)` | 565 | 0,0832 | +1,2099 |
+| **Total** | **3961** | **0,2333** | — |
 
-A mayor ingreso, la tasa de evento (default) baja de forma monótona (0.4286 → 0.0832) y el WoE sube
-de forma monótona (-0.9022 → +1.2099): el tramo de ingreso más bajo es el de mayor riesgo y el más
+A mayor ingreso, la tasa de evento (default) baja de forma monótona (0,4286 → 0,0832) y el WoE sube
+de forma monótona (-0,9022 → +1,2099): el tramo de ingreso más bajo es el de mayor riesgo y el más
 alto el de menor riesgo. Este es exactamente el comportamiento que fuerza la restricción de
 monotonía (ver más abajo). Los bins *Special* y *Missing* existen aunque en este dataset sintético
 estén vacíos; en datos reales capturan centinelas y faltantes con su propio WoE.
@@ -73,8 +73,8 @@ IV   = Σ_i IV_i     (suma sobre todos los bins de la variable)
 
 Cada término combina la *diferencia* de masa entre buenos y malos del bin con su WoE, así que
 premia bins que además de estar sesgados hacia un lado concentran volumen. En el ejemplo de
-`ingreso_mensual`, el bin de ingreso más alto aporta el grueso del IV (≈0.145 de un IV total de
-0.3048): pocos malos y muchos buenos, bien separados.
+`ingreso_mensual`, el bin de ingreso más alto aporta el grueso del IV (≈0,145 de un IV total de
+0,3048): pocos malos y muchos buenos, bien separados.
 
 ### Bandas diagnósticas de IV
 
@@ -84,11 +84,11 @@ inferior inclusivo**). Estas bandas son diagnósticas, **no** son el filtro de c
 
 | Banda | Rango de IV | Lectura |
 |---|---|---|
-| **sin poder** | IV < 0.02 | Sin poder predictivo útil |
-| **débil** | 0.02 ≤ IV < 0.10 | Aporta poco por sí sola |
-| **medio** | 0.10 ≤ IV < 0.30 | Predictor sólido |
-| **fuerte** | 0.30 ≤ IV < 0.50 | Muy informativa |
-| **sospechoso** | IV ≥ 0.50 | Sospechosamente alto (posible *fuga de información*) |
+| **sin poder** | IV < 0,02 | Sin poder predictivo útil |
+| **débil** | 0,02 ≤ IV < 0,10 | Aporta poco por sí sola |
+| **medio** | 0,10 ≤ IV < 0,30 | Predictor sólido |
+| **fuerte** | 0,30 ≤ IV < 0,50 | Muy informativa |
+| **sospechoso** | IV ≥ 0,50 | Sospechosamente alto (posible *fuga de información*) |
 
 Esas son las palabras que ves en el panel **Selección de variables** de Resultados. En el JSON la
 banda viaja como su identificador; la correspondencia está en la
@@ -104,12 +104,12 @@ Del mismo fixture (`binning.iv_by_variable` y `monotonicity_by_variable`):
 
 | Variable | IV | Banda | Monotonía (tasa de evento) |
 |---|---:|---|---|
-| `ingreso_mensual` | 0.3048 | fuerte | descending |
-| `deuda_ingreso` | 0.1635 | medio | ascending |
-| `utilizacion_linea` | 0.0610 | débil | ascending |
-| `antiguedad_meses` | 0.0414 | débil | descending |
-| `mora_max_12m` | 0.0219 | débil | ascending |
-| `segmento` | 0.0029 | sin poder | — (categórica, sin monotonía) |
+| `ingreso_mensual` | 0,3048 | fuerte | descending |
+| `deuda_ingreso` | 0,1635 | medio | ascending |
+| `utilizacion_linea` | 0,0610 | débil | ascending |
+| `antiguedad_meses` | 0,0414 | débil | descending |
+| `mora_max_12m` | 0,0219 | débil | ascending |
+| `segmento` | 0,0029 | sin poder | — (categórica, sin monotonía) |
 
 `optbinning_version` registrado en la corrida: `0.20.0`.
 
@@ -212,6 +212,13 @@ Los nombres y defaults salen directo de `nikodym.binning.config.BinningConfig`:
     tramos fijados con `set_bins`/`merge_bins` quedan en suspenso —declarado en el trail— y
     `sc.keep(...)` la devuelve con esos mismos cortes.
 
+!!! note "Una categoría que no existía en Desarrollo"
+    Si Holdout, fuera de tiempo o las operaciones fuera del ajuste traen una categoría que el ajuste
+    no vio —un año fiscal posterior a la frontera, un programa nuevo—, esa variable le asigna WoE 0,
+    el riesgo promedio. El resumen de «Tramos y WoE» lo avisa por variable y por muestra. Si la
+    variable es la fecha con otro nombre (un año o un trimestre), considera excluirla: fuera de
+    tiempo siempre traerá categorías nuevas.
+
 ## Selección de variables
 
 Tras el binning, la sección `selection` (`nikodym.selection.config.SelectionConfig`) aplica una
@@ -232,8 +239,8 @@ aplican en cascada y cada decisión queda registrada (variable, motivo, métrica
 Con `compute_univariate_metrics=True` (default) se calculan **AUC, KS y Gini** de cada variable por
 separado en Desarrollo. Son diagnóstico por defecto; se vuelven filtro si se define `min_auc`,
 `min_ks` o `min_gini` (todos `None` por defecto). En la corrida de ejemplo, `ingreso_mensual`
-alcanzó AUC 0.6473 / KS 0.2118 / Gini 0.2946 univariados, y `segmento` apenas AUC 0.5146 /
-KS 0.0234 — coherente con su IV nulo.
+alcanzó AUC 0,6473 / KS 0,2118 / Gini 0,2946 univariados, y `segmento` apenas AUC 0,5146 /
+KS 0,0234 — coherente con su IV nulo.
 
 ### 3. Filtro por correlación
 
@@ -290,8 +297,8 @@ estándar (`min_iv=0.02`, `max_iv=0.5` acción `flag`, `correlation.threshold=0.
   El panel de Resultados muestra esa misma fila con su motivo y con el detalle que dejó
   escrito el motor, que es lo que se audita.
 - Sin banderas de IV alto ni de estabilidad.
-- Tras la selección, la máxima correlación absoluta entre variables retenidas fue **0.0303** y el
-  máximo VIF **1.0016**: el conjunto final es prácticamente ortogonal, así que ni el filtro de
+- Tras la selección, la máxima correlación absoluta entre variables retenidas fue **0,0303** y el
+  máximo VIF **1,0016**: el conjunto final es prácticamente ortogonal, así que ni el filtro de
   correlación ni el de VIF necesitaron podar nada (el trabajo lo hizo el filtro de IV).
 
 ## Configurar y leer los resultados

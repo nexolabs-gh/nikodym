@@ -51,7 +51,8 @@ _CARD_GOLDEN_KEYS = {
 }
 # Claves ricas graficables que el merge aditivo agrega dentro de cada objeto de dominio (§6).
 _RICH_KEYS_BY_DOMAIN = {
-    "binning": ("tables_by_variable",),
+    # D-CPY-3: los rótulos legibles de los tramos viajan junto a las tablas.
+    "binning": ("tables_by_variable", "bin_labels_by_variable"),
     "selection": ("decisions",),
     "model": ("coefficients",),
     "scorecard": ("points", "score_values"),

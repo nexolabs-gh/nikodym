@@ -9,7 +9,7 @@ Esta guía lo demuestra corriendo, de punta a punta, sin una sola línea de norm
 !!! note "Estabilidad (SemVer 1.x)"
     La sección `provisioning_internal` es **experimental**, igual que el resto de provisiones del
     paquete: está implementada, testeada y con preset e informe propios, pero queda **fuera de la
-    garantía SemVer 1.x** —el contrato puede crecer o cambiar antes de un 2.0—. La parte estable
+    garantía SemVer 1.x** —el contrato puede crecer o cambiar antes de una versión 2.0—. La parte estable
     del camino es el pipeline de scorecard F1 que produce la PD.
 
 ## Qué hace y qué no

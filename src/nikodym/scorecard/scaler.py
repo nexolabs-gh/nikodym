@@ -110,12 +110,18 @@ class PointsScaler(NikodymTransformer):
         woe_column_map: Mapping[str, str],
         audit: AuditSink | None = None,
         assigned_bins: Mapping[str, Collection[str]] | None = None,
+        bin_edges: DataFrame | None = None,
     ) -> Self:
         """Deriva puntos por bin desde coeficientes y tablas WoE sin mutar entradas.
 
         ``assigned_bins`` nombra, por variable, los bins auxiliares cuyo WoE asignó el binning
         (D-FAL-1). Comparten los puntos de su tramo de referencia —la primera fila con su mismo
         WoE, la que usa la búsqueda de puntos—: heredan su ajuste manual y no admiten uno propio.
+
+        ``bin_edges`` son los bordes efectivos que publica ``binning`` (D-CPY-3): con ellos, un
+        ajuste manual de puntos casa con la etiqueta del motor **o** con el rótulo legible que
+        muestran las tablas. Un ajuste que no casa con ninguno se declara en el trail
+        (``point_override_sin_casar``); antes se ignoraba en silencio.
         """
         pd = _import_pandas()
         np = _import_numpy()
@@ -149,6 +155,8 @@ class PointsScaler(NikodymTransformer):
         intercept_share = _normalize_float(alpha / n_variables)
         offset_share = _normalize_float(offset / n_variables)
         overrides = _override_map(self.point_overrides)
+        legibles = _rotulos_legibles(binning_tables, bin_edges, features=features)
+        casados: set[tuple[str, str]] = set()
         rows = _scorecard_rows(
             estimator=self,
             features=features,
@@ -160,7 +168,18 @@ class PointsScaler(NikodymTransformer):
             offset_share=offset_share,
             intercept_share=intercept_share,
             assigned_bins=assigned_bins or {},
+            legibles=legibles,
+            casados=casados,
         )
+        for clave, override in overrides.items():
+            if clave in casados:
+                continue
+            self.log_decision(
+                regla="point_override_sin_casar",
+                umbral=override.reason,
+                valor={"feature": override.feature, "bin_label": override.bin_label},
+                accion="no_aplicar",
+            )
         scorecard = _normalize_float_frame(pd.DataFrame(rows), pd=pd)
         point_lookup, duplicate_woe = _point_lookup(scorecard)
         if duplicate_woe:
@@ -479,8 +498,25 @@ def _scorecard_rows(
     offset_share: float,
     intercept_share: float,
     assigned_bins: Mapping[str, Collection[str]],
+    legibles: Mapping[str, Mapping[str, str]] | None = None,
+    casados: set[tuple[str, str]] | None = None,
 ) -> list[dict[str, object]]:
-    """Construye filas de puntos en orden estable feature/bin."""
+    """Construye filas de puntos en orden estable feature/bin.
+
+    Un ajuste manual casa con la etiqueta del motor o con el rótulo legible del tramo (D-CPY-3);
+    las claves que casaron se anotan en ``casados``.
+    """
+    legibles = legibles or {}
+    casados = casados if casados is not None else set()
+
+    def _override_de(feature: str, bin_label: str) -> PointOverrideConfig | None:
+        legible = legibles.get(feature, {}).get(bin_label)
+        for clave in ((feature, bin_label), (feature, legible) if legible is not None else None):
+            if clave is not None and clave in overrides:
+                casados.add(clave)
+                return overrides[clave]
+        return None
+
     rows: list[dict[str, object]] = []
     for feature, woe_column in zip(features, woe_columns, strict=True):
         beta = coefficients[feature].beta
@@ -494,7 +530,7 @@ def _scorecard_rows(
                 _reference_row(filas_de_la_variable, woe) if bin_label in asignados else None
             )
             if referencia is not None:
-                if (feature, bin_label) in overrides:
+                if _override_de(feature, bin_label) is not None:
                     raise ScorecardFitError(
                         f"El bin «{bin_label}» de «{feature}» comparte los puntos de su tramo de "
                         f"referencia «{referencia['bin_label']}», del que tomó el WoE: el ajuste "
@@ -529,7 +565,7 @@ def _scorecard_rows(
             )
             points = _published_points(raw_points, estimator.rounding_method)
             source = "binning_table"
-            override = overrides.get((feature, bin_label))
+            override = _override_de(feature, bin_label)
             if override is not None:
                 previous = points
                 points = _normalize_point(override.points)
@@ -567,6 +603,22 @@ def _scorecard_rows(
 def _reference_row(rows: list[dict[str, object]], woe: float) -> dict[str, object] | None:
     """La primera fila ya construida con ese WoE: el tramo del que un bin asignado lo tomó."""
     return next((row for row in rows if row["woe"] == woe), None)
+
+
+def _rotulos_legibles(
+    binning_tables: Mapping[str, DataFrame],
+    bin_edges: DataFrame | None,
+    *,
+    features: tuple[str, ...],
+) -> dict[str, dict[str, str]]:
+    """El rótulo legible de cada tramo de las variables finales, por su etiqueta del motor."""
+    from nikodym.core.tramos import rotulos_de_tramos
+
+    return {
+        feature: rotulos_de_tramos(binning_tables[feature], bin_edges, feature)
+        for feature in features
+        if feature in binning_tables
+    }
 
 
 def _override_map(

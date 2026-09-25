@@ -1171,12 +1171,22 @@ class Scorecard:
         tramos ``Special``/``Missing``, que no tienen corte).
         """
         tabla = self._tabla_de_tramos(column)
+        from nikodym.core.tramos import rotulos_de_tramos
+
+        bordes = (
+            self._study.artifacts.get("binning", "bin_edges")
+            if self._study.artifacts.has("binning", "bin_edges")
+            else None
+        )
+        # D-CPY-3: el rango con los bordes efectivos, en es-CL; la etiqueta del motor sigue siendo
+        # la clave de todo lo que casa por tramo.
+        legibles = rotulos_de_tramos(tabla, bordes, column)
         filas: list[dict[str, Any]] = []
         for numero, (_indice, fila) in enumerate(tabla.iterrows(), start=1):
             filas.append(
                 {
                     "Tramo": numero,
-                    "Rango": str(fila.get("Bin")),
+                    "Rango": legibles.get(str(fila.get("Bin")), str(fila.get("Bin"))),
                     "Filas": int(fila.get("Count", 0)),
                     "Malos": int(fila.get("Event", 0)),
                     "Tasa de malos": float(fila.get("Event rate", float("nan"))),

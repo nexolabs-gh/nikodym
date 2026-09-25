@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from nikodym.binning.results import IV_BAND_LABELS
+from nikodym.core.tramos import rotulos_de_tramos
 from nikodym.eda.card import FAILED_ANALYSIS_LABELS, failed_analysis_sentence
 from nikodym.eda.default_rate import (
     AXIS_LABELS,
@@ -128,7 +129,7 @@ RESUMEN_FINAL_ROTULOS: Final[dict[str, str]] = {
 #: La regla con que la puerta guiada firma una decisión humana en el trail (D-FLU-3).
 _REGLA_DECISION_HUMANA: Final = "decision_del_usuario"
 
-_Kind = Literal["text", "int", "num", "num2", "num3", "pct", "bool"]
+_Kind = Literal["text", "int", "num", "num2", "num3", "pct", "bool", "pvalor"]
 
 #: Acciones del stepwise en palabras (``model.results.StepwiseDecision.action``).
 _STEPWISE_ACTION_LABELS: Final[dict[str, str]] = {
@@ -1189,7 +1190,7 @@ def _resumen_model(study: Study, context: SummaryContext) -> StageSummary:
         formats={
             "Coeficiente": "num",
             "Error estándar": "num",
-            "p-valor": "num",
+            "p-valor": "pvalor",
             "IV": "num3",
             "Contribución al IV": "pct",
         },
@@ -1303,6 +1304,14 @@ def _resumen_scorecard(study: Study, context: SummaryContext) -> StageSummary:
                 "points": "Puntos",
             }
             table = tarjeta[[c for c in columnas if c in tarjeta.columns]].rename(columns=columnas)
+            if "Tramo" in table.columns and "Variable" in table.columns:
+                # D-CPY-3: el rótulo legible; `bin_label` del artefacto no cambia.
+                legibles = _legibles(study)
+                table["Tramo"] = [
+                    legibles.get(str(variable), {}).get(str(tramo), str(tramo))
+                    for variable, tramo in zip(table["Variable"], table["Tramo"], strict=True)
+                ]
+        alerts.extend(_overrides_sin_casar(study))
     if not lines:
         lines.append("La tarjeta no publicó su resumen.")
     return StageSummary(
@@ -1370,6 +1379,56 @@ def _resumen_calibration(study: Study, context: SummaryContext) -> StageSummary:
             "Tasa de malos observada": "pct",
         },
     )
+
+
+def _legibles(study: Study) -> dict[str, dict[str, str]]:
+    """El rótulo legible de cada tramo, por variable y etiqueta del motor (D-CPY-3)."""
+    tablas = _artifact(study, "binning", "tables")
+    bordes = _artifact(study, "binning", "bin_edges")
+    if not isinstance(tablas, Mapping):
+        return {}
+    return {
+        str(variable): rotulos_de_tramos(
+            tabla, bordes if isinstance(bordes, pd.DataFrame) else None, str(variable)
+        )
+        for variable, tabla in tablas.items()
+        if isinstance(tabla, pd.DataFrame)
+    }
+
+
+def _overrides_sin_casar(study: Study) -> tuple[str, ...]:
+    """Una alerta por ajuste manual de puntos que no calzó con ningún tramo (D-CPY-3).
+
+    Casa con la etiqueta del motor o con el rótulo legible, la misma regla del escalador. Antes un
+    ajuste así se ignoraba en silencio.
+    """
+    seccion = getattr(study.config, "scorecard", None)
+    ajustes = (
+        seccion.get("point_overrides", ())
+        if isinstance(seccion, Mapping)
+        else getattr(seccion, "point_overrides", ())
+    )
+    tarjeta = _artifact(study, "scorecard", "scorecard")
+    if not ajustes or not isinstance(tarjeta, pd.DataFrame):
+        return ()
+    legibles = _legibles(study)
+    alertas: list[str] = []
+    for ajuste in ajustes:
+        feature = str(
+            _mapping(ajuste).get("feature") if isinstance(ajuste, Mapping) else ajuste.feature
+        )
+        etiqueta = str(
+            _mapping(ajuste).get("bin_label") if isinstance(ajuste, Mapping) else ajuste.bin_label
+        )
+        crudas = {str(v) for v in tarjeta.loc[tarjeta["feature"].eq(feature), "bin_label"]}
+        propias = legibles.get(feature, {})
+        if etiqueta in crudas or etiqueta in {propias.get(c) for c in crudas}:
+            continue
+        alertas.append(
+            f"El ajuste manual de puntos de «{feature}» para el tramo «{etiqueta}» no calzó con "
+            "ningún tramo y no se aplicó"
+        )
+    return tuple(alertas)
 
 
 def _linea_pd_ttd(study: Study, card: Mapping[str, Any]) -> str | None:
@@ -1730,7 +1789,7 @@ def _resumen_validation(study: Study, context: SummaryContext) -> StageSummary:
         lines=tuple(lines),
         alerts=tuple(alerts),
         table=table,
-        formats={"Valor": "num", "p-valor": "num"},
+        formats={"Valor": "num", "p-valor": "pvalor"},
     )
 
 
@@ -1742,19 +1801,28 @@ def _pruebas_decisivas(study: Study) -> tuple[str, ...]:
         for _, fila in calibracion.iterrows():
             if str(fila.get("decision")) == "fail":
                 prueba = CALIBRATION_TEST_LABELS.get(str(fila.get("test")), str(fila.get("test")))
+                esperada, observada = (
+                    _float(fila.get("expected_pd")),
+                    _float(fila.get("observed_dr")),
+                )
+                # D-CPY-6: la brecha MEDIA agregada, sin atribuirle una causa; Hosmer-Lemeshow mide
+                # por grupo y esta media no lo reemplaza. El veredicto no cambia.
+                brecha = (
+                    f"; PD media agregada {_pct(esperada)} frente a {_pct(observada)} observada"
+                    if str(fila.get("test")) == "hosmer_lemeshow"
+                    and esperada is not None
+                    and observada is not None
+                    else ""
+                )
                 decisivas.append(
                     f"{prueba} en {_partition_label(str(fila.get('partition')))} "
-                    f"(p-valor {_pvalor(fila.get('p_value'))})"
+                    f"(p-valor {_pvalor(fila.get('p_value'))}{brecha})"
                 )
     estabilidad = _artifact(study, "validation", "stability")
     if isinstance(estabilidad, pd.DataFrame) and not estabilidad.empty:
         for _, fila in estabilidad.iterrows():
             if str(fila.get("decision")) in {"fail", "warn"}:
-                metrica = _rotulo(STABILITY_METRIC_LABELS, fila.get("metric"))
-                comparacion = _rotulo(_COMPARISON_LABELS, fila.get("comparison"))
-                decisivas.append(
-                    f"{metrica} {comparacion} ({_rotulo(BAND_LABELS, fila.get('band'))})"
-                )
+                decisivas.append(_prueba_de_estabilidad(fila))
     discriminacion = _artifact(study, "validation", "discrimination")
     if isinstance(discriminacion, pd.DataFrame) and not discriminacion.empty:
         for _, fila in discriminacion.iterrows():
@@ -1763,6 +1831,23 @@ def _pruebas_decisivas(study: Study) -> tuple[str, ...]:
                     f"discriminación no evaluable en {_partition_label(str(fila.get('partition')))}"
                 )
     return tuple(decisivas)
+
+
+def _prueba_de_estabilidad(fila: Any) -> str:
+    """«CSI de anio_fiscal Desarrollo vs. OOT (Redesarrollar)», «PSI temporal por período (…)».
+
+    Los mismos mapas que la tabla de la etapa (D-CPY-2): el eje temporal en palabras y la variable
+    de cada CSI, para que tres CSI no se lean iguales.
+    """
+    metrica = _rotulo(STABILITY_METRIC_LABELS, fila.get("metric"))
+    banda = _rotulo(BAND_LABELS, fila.get("band"))
+    comparacion = str(fila.get("comparison"))
+    if comparacion in TEMPORAL_AXIS_LABELS:
+        return f"{metrica} por {TEMPORAL_AXIS_LABELS[comparacion].lower()} ({banda})"
+    texto = _rotulo(_COMPARISON_LABELS, comparacion)
+    if str(fila.get("metric")) == "csi" and fila.get("feature") is not None:
+        return f"{metrica} de {_sin_sufijo(fila.get('feature'))} {texto} ({banda})"
+    return f"{metrica} {texto} ({banda})"
 
 
 def _tabla_de_pruebas(study: Study) -> pd.DataFrame | None:
@@ -2083,6 +2168,9 @@ def _celda(valor: Any, tipo: _Kind) -> str:
         return _num(valor)
     if tipo == "bool":
         return "sí" if bool(valor) else "no"
+    if tipo == "pvalor":
+        # D-CPY-4: la regla de las frases —«< 0,001» y tres decimales— también en las tablas.
+        return _pvalor(valor)
     return _celda_texto(valor)
 
 

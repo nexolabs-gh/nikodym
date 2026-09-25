@@ -222,6 +222,8 @@ class ReportBuilder:
             # Capa C de FLUJO-GUIADO-SCORECARD: el resumen final de la corrida, desde los mismos
             # constructores que `Scorecard.summary()` y la pantalla, para la página ejecutiva.
             summary=_run_summary(study, self.config),
+            # D-CPY-3: los tramos con su rótulo legible, desde los bordes efectivos.
+            bin_labels=_rotulos_de_tramos(study),
         )
         return bundle.model_copy(update={"sections": self.build_sections(bundle)})
 
@@ -1034,6 +1036,27 @@ def _validate_metric_sections(metric_sections: Mapping[str, Any], *, artifact: s
 
 def _raise_not_json_serializable(value: object) -> NoReturn:
     raise TypeError(f"{type(value).__name__} no es JSON-serializable")
+
+
+def _rotulos_de_tramos(study: Study) -> dict[str, dict[str, str]]:
+    """El rótulo legible de cada tramo de cada variable tramificada (D-CPY-3)."""
+    if not study.artifacts.has("binning", "tables"):
+        return {}
+    from nikodym.core.tramos import rotulos_de_tramos
+
+    tablas = study.artifacts.get("binning", "tables")
+    bordes = (
+        study.artifacts.get("binning", "bin_edges")
+        if study.artifacts.has("binning", "bin_edges")
+        else None
+    )
+    if not isinstance(tablas, Mapping):
+        return {}
+    return {
+        str(variable): rotulos_de_tramos(tabla, bordes, str(variable))
+        for variable, tabla in tablas.items()
+        if _is_dataframe_like(tabla)
+    }
 
 
 def _extract_dataframes(value: Any, prefix: str) -> dict[str, DataFrameLike]:

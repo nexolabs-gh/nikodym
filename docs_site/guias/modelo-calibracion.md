@@ -8,8 +8,8 @@ estabilidad`), cada uno gobernado por su sección del `NikodymConfig`. Ver
 [Conceptos](../concepts.md) para el modelo mental del pipeline completo.
 
 !!! note "Estabilidad (SemVer 1.x)"
-    Las secciones `scorecard` y `calibration` son parte del pipeline de scorecard F1 y desde la 1.0
-    son **API estable** (no rompen hasta un 2.0). La sección `model` (estimador PD) sigue
+    Las secciones `scorecard` y `calibration` son parte del pipeline de scorecard F1 y desde la versión 1,0
+    son **API estable** (no rompen hasta una versión 2,0). La sección `model` (estimador PD) sigue
     **experimental** —las familias de estimador crecen aditivamente—, fuera de la garantía SemVer
     1.x. Las tres son computacionales y entran al `config_hash` de la corrida.
 
@@ -113,16 +113,16 @@ quedan con beta negativo (`sign_ok=True`), coherente con la política de signos:
 
 | Variable | β | p-value (Wald) | Aporte al IV del modelo |
 |---|---|---|---|
-| `intercept` (β₀) | −1.1921 | ~3e-190 | — |
-| `utilizacion_linea` | −1.1154 | ~8e-12 | 0.103 |
-| `antiguedad_meses` | −1.0810 | ~3e-07 | 0.070 |
-| `deuda_ingreso` | −1.0783 | ~1e-28 | 0.276 |
-| `ingreso_mensual` | −1.0517 | ~3e-42 | 0.514 |
-| `mora_max_12m` | −0.9678 | ~3.6e-04 | 0.037 |
+| `intercept` (β₀) | −1,1921 | ~3e-190 | — |
+| `utilizacion_linea` | −1,1154 | ~8e-12 | 0,103 |
+| `antiguedad_meses` | −1,0810 | ~3e-07 | 0,070 |
+| `deuda_ingreso` | −1,0783 | ~1e-28 | 0,276 |
+| `ingreso_mensual` | −1,0517 | ~3e-42 | 0,514 |
+| `mora_max_12m` | −0,9678 | ~3.6e-04 | 0,037 |
 
 Todos los p-values quedan bajo `0.05` (el mayor, `mora_max_12m`, ≈ 3.6e-4). El ajuste convergió
-en 6 iteraciones con pseudo-R² de McFadden ≈ **0.097** sobre `n=3961` observaciones de Desarrollo
-(924 eventos, tasa observada ≈ 0.233). `ingreso_mensual` concentra ~51% del IV del modelo: es el
+en 6 iteraciones con pseudo-R² de McFadden ≈ **0,097** sobre `n=3961` observaciones de Desarrollo
+(924 eventos, tasa observada ≈ 0,233). `ingreso_mensual` concentra ~51% del IV del modelo: es el
 factor dominante, y precisamente el tipo de concentración que vigila la política `iv_contribution`.
 
 ```python
@@ -174,7 +174,19 @@ auditoría).
 !!! note "Determinismo y overrides"
     Sin overrides, los puntos salen íntegramente de la fórmula. Un override manual queda trazado
     (variable, bin, puntos, justificación) y es la única forma de romper la derivación por
-    fórmula.
+    fórmula. El `bin_label` de un override casa con la etiqueta del motor o con el rótulo que
+    muestran las tablas («≥ 50.450 y < 102.230,5», «2001, 2000», «Faltantes»); uno que no calza con
+    ningún tramo no se aplica, y el resumen de la tarjeta lo avisa.
+
+!!! note "Las operaciones fuera del ajuste también reciben puntaje"
+    Las filas que no entran al ajuste —indeterminadas, excluidas o con desenlace fuera de las
+    muestras declaradas— reciben puntaje y PD con la tarjeta y la calibración ya ajustadas, sin
+    reajustar nada, siempre que la población total (TTD) las incluya. El resumen de la tarjeta dice
+    cuántas son y su puntaje medio; el de calibración, su PD media y la de toda la población que
+    pidió crédito; el de estabilidad, si se parecen a Desarrollo (un PSI de representatividad, que
+    no entra al veredicto). En Python están en `study.artifacts.get("scorecard",
+    "out_of_model_score")` y `study.artifacts.get("calibration", "out_of_model_calibrated_pd_frame")`,
+    y el informe las entrega completas como adjuntos.
 
 ### Interpretación con la corrida de ejemplo
 
@@ -235,7 +247,7 @@ cuando el método lo permite.
 !!! warning "Fuentes explícitas exigen `target_pd`"
     Con `anchor_source` en `business_input` / `historical_default_rate` / `external_regulatory`,
     omitir `target_pd` es un error de configuración, no un default silencioso. No existe la vieja
-    tasa "0.05 por defecto": o se ancla a un número declarado, o falla.
+    tasa "0,05 por defecto": o se ancla a un número declarado, o falla.
 
 Otros guards: `target_tolerance` (default `1e-12`, error máximo entre media calibrada y objetivo),
 `max_abs_offset` (tope opcional al tamaño de `δ`; con `None` solo se audita el offset extremo),
@@ -246,10 +258,10 @@ Otros guards: `target_tolerance` (default `1e-12`, error máximo entre media cal
 El preset **no fija el ancla: la lee de la propia muestra de Desarrollo**.
 
 - `method = intercept_offset`, `anchor_source = development_observed`, `anchor_kind = through_the_cycle`
-- `target_pd` **sin fijar** en el config; resuelto a **0.2333**, la tasa observada en Desarrollo
-- media de PD cruda en Desarrollo ≈ **0.2333** — ya coincide con el ancla
+- `target_pd` **sin fijar** en el config; resuelto a **0,2333**, la tasa observada en Desarrollo
+- media de PD cruda en Desarrollo ≈ **0,2333** — ya coincide con el ancla
 - offset resuelto `δ ≈ **0**` (del orden de 1e-16): no hay nivel que corregir
-- media de PD calibrada = **0.2333** (iguala el objetivo dentro de tolerancia)
+- media de PD calibrada = **0,2333** (iguala el objetivo dentro de tolerancia)
 - `ranking_preserved = True`, `ties_created = 0`, `n_fit = 3961`
 
 ⚠️ **Que el offset salga cero no es que la calibración sobre**: es el resultado honesto de anclar a

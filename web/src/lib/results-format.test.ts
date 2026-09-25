@@ -1020,6 +1020,25 @@ describe("monotonicityLabel", () => {
 })
 
 describe("variableBinning", () => {
+  it("D-CPY-3: usa el rótulo legible del motor cuando viene, y la etiqueta de siempre si no", () => {
+    const conRotulos: BinningResult = {
+      ...binningWithTables,
+      bin_labels_by_variable: {
+        ingreso_mensual: {
+          "(-inf, 242795.88)": "< 242.795,88",
+          "[913196.97, inf)": "≥ 913.196,97",
+        },
+      },
+    }
+    const d = variableBinning(conRotulos, "ingreso_mensual")
+    expect(d?.rows.map((r) => r.binLabel)).toEqual(["< 242.795,88", "≥ 913.196,97"])
+    const sinRotulos = variableBinning(binningWithTables, "ingreso_mensual")
+    expect(sinRotulos?.rows.map((r) => r.binLabel)).toEqual([
+      "(-inf, 242795.88)",
+      "[913196.97, inf)",
+    ])
+  })
+
   it("variable numérica: excluye Totals y bins vacíos, normaliza campos", () => {
     const d = variableBinning(binningWithTables, "ingreso_mensual")
     expect(d).not.toBeNull()

@@ -758,11 +758,13 @@ export function variableBinning(
 ): VariableBinning | null {
   const table = binning?.tables_by_variable?.[variable]
   if (!table || table.length === 0) return null
+  // D-CPY-3: el rótulo legible que manda el motor; sin él, la etiqueta normalizada de siempre.
+  const rotulos = binning?.bin_labels_by_variable?.[variable] ?? {}
 
   const rows: BinDetailRow[] = table
     .filter((r) => !isTotalsRow(r) && r.Count > 0)
     .map((r) => ({
-      binLabel: normalizeBinLabel(r.Bin),
+      binLabel: rotulos[normalizeBinLabel(r.Bin)] ?? normalizeBinLabel(r.Bin),
       count: r.Count,
       countPct: r["Count (%)"],
       nonEvent: r["Non-event"],

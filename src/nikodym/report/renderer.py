@@ -731,6 +731,7 @@ def _tables_for_section(
             # de D-SC): un máximo configurado alto no la devuelve a la tabla entera.
             max_rows=max_visible_rows(key, max_rows),
             internal_grouping=internal_grouping,
+            bin_labels=bundle.bin_labels,
         )
         for key in keys
     ]
@@ -852,6 +853,9 @@ def _public_labels_by_table() -> Mapping[str, Mapping[str, Mapping[str, str]]]:
     # un par de particiones.
     stability_comparison = {**_COMPARISON_LABELS, **TEMPORAL_AXIS_LABELS}
     return {
+        # D-CPY-1: la tabla de particiones del informe pintaba las cuatro claves crudas. La clave
+        # es el nombre exacto de la columna, que es como la busca `_table_view`.
+        "data.partitions": {"Partición": _PARTITION_LABELS},
         "validation.discrimination": {
             "partition": _PARTITION_LABELS,
             "source": DISCRIMINATION_SOURCE_LABELS,
@@ -912,12 +916,37 @@ def _public_record(key: str, record: Mapping[Any, Any]) -> Mapping[Any, Any]:
     return ajustado
 
 
+#: El prefijo de las tablas de binning por variable (``binning.tables.<variable>``).
+_BINNING_TABLE_PREFIX: Final = "binning.tables."
+
+
+def _rotulo_de_tramo_en(
+    key: str, record: Mapping[Any, Any], bin_labels: Mapping[str, Mapping[str, str]]
+) -> Mapping[Any, Any]:
+    """El tramo legible de una fila de ``binning.tables.*`` o ``scorecard.scorecard`` (D-CPY-3)."""
+    from nikodym.core.tramos import rotulo_de_tramo
+
+    if key.startswith(_BINNING_TABLE_PREFIX) and "Bin" in record:
+        variable = key[len(_BINNING_TABLE_PREFIX) :]
+        valor = record.get("Bin")
+        return {
+            **record,
+            "Bin": bin_labels.get(variable, {}).get(str(valor), rotulo_de_tramo(valor)),
+        }
+    if key == "scorecard.scorecard" and "bin_label" in record:
+        valor = str(record.get("bin_label"))
+        legible = bin_labels.get(str(record.get("feature")), {}).get(valor, valor)
+        return {**record, "bin_label": legible}
+    return record
+
+
 def _table_view(
     key: str,
     table: Any,
     *,
     max_rows: int,
     internal_grouping: str = "",
+    bin_labels: Mapping[str, Mapping[str, str]] | None = None,
 ) -> dict[str, Any]:
     if not _is_dataframe_like(table):
         raise ReportRenderError(
@@ -939,7 +968,10 @@ def _table_view(
             )
             for column in columns
         )
-        for record in map(lambda fila: _public_record(key, fila), records)
+        for record in map(
+            lambda fila: _rotulo_de_tramo_en(key, _public_record(key, fila), bin_labels or {}),
+            records,
+        )
     ]
     return {
         "key": key,

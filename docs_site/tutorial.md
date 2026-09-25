@@ -172,17 +172,17 @@ corrida de ejemplo las seis variables se binnearon sin descartes, con estos IV:
 
 | Variable | IV | Monotonía |
 |---|---|---|
-| `ingreso_mensual` | 0.305 | descendente |
-| `deuda_ingreso` | 0.164 | ascendente |
-| `utilizacion_linea` | 0.061 | ascendente |
-| `antiguedad_meses` | 0.041 | descendente |
-| `mora_max_12m` | 0.022 | ascendente |
-| `segmento` | 0.003 | — (categórica) |
+| `ingreso_mensual` | 0,305 | descendente |
+| `deuda_ingreso` | 0,164 | ascendente |
+| `utilizacion_linea` | 0,061 | ascendente |
+| `antiguedad_meses` | 0,041 | descendente |
+| `mora_max_12m` | 0,022 | ascendente |
+| `segmento` | 0,003 | — (categórica) |
 
 !!! note "Cómo leer el IV"
-    Regla de dedo estándar (Siddiqi): **< 0.02** no predictivo · **0.02–0.1** débil · **0.1–0.3**
-    medio · **0.3–0.5** fuerte · **> 0.5** sospechosamente alto (posible *leakage* o target contaminado,
-    revisar). Aquí `ingreso_mensual` (0.305) es la variable más fuerte y `segmento` (0.003) es ruido.
+    Regla de dedo estándar (Siddiqi): **< 0,02** no predictivo · **0,02–0,1** débil · **0,1–0,3**
+    medio · **0,3–0,5** fuerte · **> 0,5** sospechosamente alto (posible *leakage* o target contaminado,
+    revisar). Aquí `ingreso_mensual` (0,305) es la variable más fuerte y `segmento` (0,003) es ruido.
 
 La monotonía es clave para que la scorecard sea defendible ante un revisor: el riesgo debe moverse en
 una sola dirección a lo largo de los bins. En `ingreso_mensual` la tasa de default cae de forma
@@ -190,12 +190,12 @@ monótona al subir el ingreso, y el WoE sube en consecuencia:
 
 | Bin de `ingreso_mensual` | Tasa de default | WoE |
 |---|---|---|
-| `(-inf, 242796)` | 42.9 % | -0.902 |
-| `[242796, 354257)` | 35.3 % | -0.582 |
-| `[354257, 464805)` | 28.2 % | -0.254 |
-| `[464805, 631639)` | 22.7 % | +0.036 |
-| `[631639, 913197)` | 16.6 % | +0.428 |
-| `[913197, inf)` | 8.3 % | +1.210 |
+| `(-inf, 242796)` | 42,9 % | -0,902 |
+| `[242796, 354257)` | 35,3 % | -0,582 |
+| `[354257, 464805)` | 28,2 % | -0,254 |
+| `[464805, 631639)` | 22,7 % | +0,036 |
+| `[631639, 913197)` | 16,6 % | +0,428 |
+| `[913197, inf)` | 8,3 % | +1,210 |
 
 WoE negativo = bin **peor** que la media (más riesgo); positivo = **mejor** que la media. La monotonía
 limpia (sin zig-zag) es señal de un binning sano.
@@ -210,12 +210,12 @@ sel_table = study.artifacts.get("selection", "selection_table")
 ```
 
 La selección aplica los umbrales del config. De **6 candidatas** quedaron **5**: se descartó
-`segmento` por **IV bajo** (0.003 < 0.02). Tras seleccionar, la **correlación máxima** entre features
-fue 0.030 y el **VIF máximo** 1.002 — es decir, ninguna multicolinealidad (VIF cercano a 1 es el ideal;
+`segmento` por **IV bajo** (0,003 < 0,02). Tras seleccionar, la **correlación máxima** entre features
+fue 0,030 y el **VIF máximo** 1,002 — es decir, ninguna multicolinealidad (VIF cercano a 1 es el ideal;
 el umbral del preset era 5).
 
 !!! tip "Qué mirar"
-    Un VIF alto (> 5) o una correlación alta (> 0.75) indican features redundantes que inflan los
+    Un VIF alto (> 5) o una correlación alta (> 0,75) indican features redundantes que inflan los
     errores estándar y vuelven inestables los coeficientes. Aquí el conjunto quedó limpio.
 
 Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`selection`).
@@ -228,27 +228,27 @@ fit = study.artifacts.get("model", "fit_statistics")
 ```
 
 El modelo es una logística sobre las columnas WoE, con *stepwise* y significancia. En la corrida de
-ejemplo convergió (Newton, 6 iteraciones) con las 5 features, todas con **p-value ≪ 0.05** y **signo
+ejemplo convergió (Newton, 6 iteraciones) con las 5 features, todas con **p-value ≪ 0,05** y **signo
 correcto** (β negativo sobre WoE: más WoE → menos riesgo):
 
 | Feature | β | p-value | Contribución al IV |
 |---|---|---|---|
-| `intercept` | -1.192 | ~3e-190 | — |
-| `ingreso_mensual` | -1.052 | ~3e-42 | 51.4 % |
-| `deuda_ingreso` | -1.078 | ~1e-28 | 27.6 % |
-| `utilizacion_linea` | -1.115 | ~8e-12 | 10.3 % |
-| `antiguedad_meses` | -1.081 | ~3e-07 | 7.0 % |
-| `mora_max_12m` | -0.968 | ~4e-04 | 3.7 % |
+| `intercept` | -1,192 | ~3e-190 | — |
+| `ingreso_mensual` | -1,052 | ~3e-42 | 51,4 % |
+| `deuda_ingreso` | -1,078 | ~1e-28 | 27,6 % |
+| `utilizacion_linea` | -1,115 | ~8e-12 | 10,3 % |
+| `antiguedad_meses` | -1,081 | ~3e-07 | 7,0 % |
+| `mora_max_12m` | -0,968 | ~4e-04 | 3,7 % |
 
 Estadísticos de ajuste (partición de desarrollo, n = 3.961, 924 *bads*): **pseudo-R² de McFadden
-0.097**, **AIC 3898.7**, y el test de razón de verosimilitud (LLR) con p ≈ 8e-88 (el modelo es
+0,097**, **AIC 3,898,7**, y el test de razón de verosimilitud (LLR) con p ≈ 8e-88 (el modelo es
 globalmente significativo).
 
 !!! note "Cómo leer estos números"
     El **signo** es la primera revisión de sanidad: un signo invertido significa que la variable predice
     al revés de lo esperado (el preset lo marca con `sign_policy`). El **p-value** confirma que cada
     coeficiente aporta. El **pseudo-R² de McFadden** no se lee como el R² de una regresión lineal:
-    valores de 0.2–0.4 ya indican muy buen ajuste; 0.097 es modesto pero típico de un *behavior
+    valores de 0,2–0,4 ya indican muy buen ajuste; 0,097 es modesto pero típico de un *behavior
     scorecard*, donde la métrica operativa es la **discriminación** (AUC/KS), no el pseudo-R².
 
 Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`model`).
@@ -263,7 +263,7 @@ score = study.artifacts.get("scorecard", "score")           # score por fila
 La scorecard traduce los coeficientes a **puntos enteros** con la transformación clásica PDO. El preset
 fija **PDO = 20** (cada 20 puntos las *odds* se duplican), *target score* **600** a *odds* **50:1**, con
 `score_direction = higher_is_lower_risk` (más puntaje = menos riesgo). De ahí salen los parámetros de
-escala **factor ≈ 28.85** y **offset ≈ 487.12**. En la corrida de ejemplo los scores de la población
+escala **factor ≈ 28,85** y **offset ≈ 487,12**. En la corrida de ejemplo los scores de la población
 caen en el rango **446–622**.
 
 !!! tip "Interpretación de negocio"
@@ -282,7 +282,7 @@ cal = study.artifacts.get("calibration", "result")
 La scorecard ordena bien el riesgo, pero su PD promedio no tiene por qué coincidir con el nivel de
 política del banco. La calibración por `intercept_offset` corre el intercepto para anclar la PD media a
 un *target*. **El preset no fija ese target: lo lee de los datos** (`anchor_source =
-development_observed`), así que el ancla es la tasa de default observada en desarrollo, **0.2333**. La
+development_observed`), así que el ancla es la tasa de default observada en desarrollo, **0,2333**. La
 PD media cruda ya coincidía con ella, de modo que el offset resuelto es ~0 y la corrida de ejemplo
 **no desplaza** el nivel. Puntos clave:
 
@@ -292,14 +292,14 @@ PD media cruda ya coincidía con ella, de modo que el offset resuelto es ~0 y la
 
 | Partición | Brier | ECE |
 |---|---|---|
-| desarrollo | 0.160 | 0.011 |
-| holdout | 0.164 | 0.028 |
-| oot | 0.171 | 0.043 |
+| desarrollo | 0,160 | 0,011 |
+| holdout | 0,164 | 0,028 |
+| oot | 0,171 | 0,043 |
 
 !!! note "Cómo leer Brier y ECE"
     Ambos son *menor es mejor*. El **ECE** (*Expected Calibration Error*) mide la brecha media entre PD
-    predicha y default observado por decil: 0.011 en desarrollo indica una calibración muy ajustada. Que
-    suba a 0.043 en OOT es esperable (los datos futuros se apartan del entrenamiento) y es justo la señal
+    predicha y default observado por decil: 0,011 en desarrollo indica una calibración muy ajustada. Que
+    suba a 0,043 en OOT es esperable (los datos futuros se apartan del entrenamiento) y es justo la señal
     que la partición OOT existe para vigilar.
 
 !!! warning "Anclar a un nivel de política es otra decisión, y es tuya"
@@ -321,20 +321,20 @@ La discriminación mide cuán bien el modelo separa *goods* de *bads*, evaluada 
 
 | Partición | n (bads) | AUC | Gini | KS |
 |---|---|---|---|---|
-| desarrollo | 3.961 (924) | 0.712 | 0.425 | 0.320 |
-| holdout | 1.031 (244) | 0.695 | 0.389 | 0.312 |
-| oot | 1.008 (239) | 0.656 | 0.312 | 0.252 |
+| desarrollo | 3.961 (924) | 0,712 | 0,425 | 0,320 |
+| holdout | 1.031 (244) | 0,695 | 0,389 | 0,312 |
+| oot | 1.008 (239) | 0,656 | 0,312 | 0,252 |
 
 !!! note "Cómo leer AUC / Gini / KS"
-    - **AUC**: probabilidad de rankear un *bad* peor que un *good*. 0.5 = azar; **≥ 0.70** se considera
-      aceptable para un *behavior scorecard*. Aquí 0.712 en desarrollo es razonable.
+    - **AUC**: probabilidad de rankear un *bad* peor que un *good*. 0,5 = azar; **≥ 0,70** se considera
+      aceptable para un *behavior scorecard*. Aquí 0,712 en desarrollo es razonable.
     - **Gini** = 2·AUC − 1. Es la misma información reescalada a [0, 1]; muchos equipos de riesgo lo
       reportan en vez de AUC.
-    - **KS**: máxima separación entre las acumuladas de *goods* y *bads*. Valores en torno a **0.30** son
+    - **KS**: máxima separación entre las acumuladas de *goods* y *bads*. Valores en torno a **0,30** son
       típicos y sanos para consumo.
 
 !!! warning "La caída Dev → OOT es la métrica que de verdad importa"
-    El AUC baja de 0.712 (desarrollo) a 0.656 (OOT): ~0.056 de degradación temporal. Algo de caída es
+    El AUC baja de 0,712 (desarrollo) a 0,656 (OOT): ~0,056 de degradación temporal. Algo de caída es
     normal; una caída grande delataría *overfitting* o cambio de población. **Nunca reportes el modelo
     por su número de desarrollo**: el OOT es el que estima el desempeño en producción.
 
@@ -352,13 +352,13 @@ particiones; el CSI hace lo mismo por variable. En la corrida de ejemplo todo sa
 
 | Comparación | PSI del score | Banda |
 |---|---|---|
-| dev_vs_holdout | 0.013 | estable |
-| dev_vs_oot | 0.007 | estable |
+| dev_vs_holdout | 0,013 | estable |
+| dev_vs_oot | 0,007 | estable |
 
-El peor CSI por variable fue `mora_max_12m` con 0.010, también en zona estable.
+El peor CSI por variable fue `mora_max_12m` con 0,010, también en zona estable.
 
 !!! note "Umbrales de PSI/CSI"
-    Convención (la misma del preset): **< 0.1** estable · **0.1 ≤ PSI/CSI < 0.25** revisar · **≥ 0.25** inestable
+    Convención (la misma del preset): **< 0,1** estable · **0,1 ≤ PSI/CSI < 0,25** revisar · **≥ 0,25** inestable
     (reentrenar / investigar). PSI bajo entre Dev y OOT dice que la población no se movió; combinado con
     la caída de AUC, aquí la degradación viene de la relación variable–target, no de un cambio de mezcla.
 

@@ -169,9 +169,19 @@ def test_el_excel_reproduce_celda_a_celda_las_tablas_de_los_exports_del_informe(
     assert del_informe.is_file(), sorted(p.name for p in (sc.project_dir / "reports").iterdir())
     hojas_informe = _hojas(del_informe)
     comparadas = 0
+    omitidas = 0
     for clave in sorted(PER_OBSERVATION_TABLES):
         dominio = clave.split(".", 1)[0]
         libro = rutas[STAGE_BOOKS[dominio]]
+        # D-TTD-2: la puntuación fuera del ajuste se publica vacía cuando no hay esas filas, y una
+        # tabla sin filas no llega al informe ni, por tanto, al libro de su etapa.
+        if sc.study.artifacts.get(*clave.split(".", 1)).empty:
+            assert clave.startswith(("scorecard.out_of_model", "calibration.out_of_model")), clave
+            titulos = [fila[1] for fila in _filas(libro, "Índice")[1:]]
+            assert table_title(clave) not in titulos, clave
+            assert clave.replace(".", "_")[:31] not in hojas_informe, clave
+            omitidas += 1
+            continue
         indice = _filas(libro, "Índice")
         columnas = list(indice[0])
         hoja = next(
@@ -186,7 +196,8 @@ def test_el_excel_reproduce_celda_a_celda_las_tablas_de_los_exports_del_informe(
         hoja_informe = next(h for h in hojas_informe if h == clave.replace(".", "_")[:31])
         assert _filas(libro, hoja) == _filas(del_informe, hoja_informe), clave
         comparadas += 1
-    assert comparadas == len(PER_OBSERVATION_TABLES)
+    assert comparadas + omitidas == len(PER_OBSERVATION_TABLES)
+    assert comparadas >= 4
     # Y las tablas del anexo salen ENTERAS: la tabla de deciles trae todas sus filas, no el tope
     # de filas visibles del documento.
     deciles = _filas(rutas[STAGE_BOOKS["performance"]], "Desempeño por tramo de riesgo")

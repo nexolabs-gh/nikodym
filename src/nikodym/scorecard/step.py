@@ -115,6 +115,9 @@ class ScorecardStep(AuditableMixin):
     optional_requires: tuple[ArtifactKey, ...] = (
         ("binning", "out_of_model_woe_frame"),
         ("model", "out_of_model_pd_frame"),
+        # Los bordes efectivos (D-CPY-3): con ellos un ajuste manual casa también con el rótulo
+        # legible del tramo. Sin ellos, sólo con la etiqueta del motor, como siempre.
+        ("binning", "bin_edges"),
     )
     provides: tuple[ArtifactKey, ...] = tuple(("scorecard", key) for key in SCORECARD_ARTIFACTS)
 
@@ -192,6 +195,11 @@ class ScorecardStep(AuditableMixin):
             audit=self,
             assigned_bins=_assigned_bins_from_card(
                 card_publicada(study, "binning", "binning_card")
+            ),
+            bin_edges=(
+                study.artifacts.get("binning", "bin_edges")
+                if study.artifacts.has("binning", "bin_edges")
+                else None
             ),
         )
 

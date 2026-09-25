@@ -7,7 +7,7 @@ publicado (`1.19.0`).
 !!! note "Estabilidad (SemVer 1.x)"
     El pipeline de validación de scorecard (F1) —el trío `run` → `Study` → `NikodymConfig` y los
     dominios `data`, `eda`, `binning`, `selection`, `model`, `scorecard`, `calibration`,
-    `performance` y `stability`— es **API estable**: no rompe hasta un 2.0. También lo son el
+    `performance` y `stability`— es **API estable**: no rompe hasta una versión 2.0. También lo son el
     informe (`report`), el trail de auditoría (`audit`), porque ya son superficie de integración,
     y la puerta guiada (`guided`, `nikodym.Scorecard`), desde que cerraron sus tres puertas.
     Las superficies que aún crecen (modelado ML, provisiones, survival, forward-looking, stress,

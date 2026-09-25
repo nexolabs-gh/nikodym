@@ -175,6 +175,15 @@ class ReportInputBundle(_ReportBaseModel):
     que ``INFRA_SECTIONS`` mantiene (el informe no entra al ``config_hash`` porque no es cálculo).
     Un campo propio dice lo que es y no toca el anexo.
     """
+    bin_labels: dict[str, dict[str, str]] = Field(default_factory=dict)
+    """El rótulo legible de cada tramo, por variable y etiqueta del motor (D-CPY-3).
+
+    Aditivo (default vacío): lo llena ``ReportBuilder.collect`` con los bordes efectivos que
+    publica ``binning`` (``("binning", "bin_edges")``). El renderer lo aplica a la columna ``Bin``
+    de ``binning.tables.*`` y a ``bin_label`` de ``scorecard.scorecard``; el valor de la tabla —el
+    del JSON y del CSV— sigue siendo la etiqueta del motor. Sin él, el documento pinta las
+    categorías unidas con «, » y los rangos como los escribió el motor.
+    """
     summary: dict[str, Any] | None = Field(default=None)
     """El resumen final de la corrida para la página ejecutiva (capa C de FLUJO-GUIADO-SCORECARD).
 

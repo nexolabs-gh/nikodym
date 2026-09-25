@@ -67,6 +67,9 @@ BINNING_ARTIFACTS: Final[tuple[str, ...]] = (
     # contadas por muestra. Claves propias: `woe_frame` y la card no cambian.
     "out_of_model_woe_frame",
     "unseen_categories",
+    # Aditivo (enmienda COPY-PRUEBA-REAL-SBA, D-CPY-3): los bordes efectivos de cada tramo regular
+    # numérico, a precisión completa, para escribir sus rangos sin el redondeo de la etiqueta.
+    "bin_edges",
 )
 #: La partición de las filas que no entran al ajuste (SDD-02: indeterminadas, excluidas y las que
 #: una división por columna no asignó a ninguna muestra).
@@ -242,6 +245,7 @@ class BinningStep(AuditableMixin):
             tasas_por_muestra,
             out_of_model_woe_frame,
             categorias_no_vistas,
+            _bordes_efectivos(binner, tables, pd),
         )
         return result
 
@@ -510,6 +514,7 @@ class BinningStep(AuditableMixin):
         event_rate_by_partition_table: DataFrame,
         out_of_model_woe_frame: DataFrame,
         unseen_categories: DataFrame,
+        bin_edges: DataFrame,
     ) -> None:
         """Publica los artefactos estables, los tramos congelados y los diagnósticos aditivos."""
         study.artifacts.set("binning", "process", process)
@@ -522,6 +527,7 @@ class BinningStep(AuditableMixin):
         study.artifacts.set("binning", "event_rate_by_partition", event_rate_by_partition_table)
         study.artifacts.set("binning", "out_of_model_woe_frame", out_of_model_woe_frame)
         study.artifacts.set("binning", "unseen_categories", unseen_categories)
+        study.artifacts.set("binning", "bin_edges", bin_edges)
 
 
 def _import_pandas() -> Any:
@@ -786,6 +792,50 @@ def _out_of_model_mask(frame: DataFrame, partition_col: str, ttd_col: str) -> Se
     en_particion = frame[partition_col].astype("string").eq(_OUT_OF_MODEL_PARTITION)
     en_ttd = frame[ttd_col].astype("boolean")
     return cast(Series, (en_particion & en_ttd).fillna(False).astype("bool"))
+
+
+def _bordes_efectivos(binner: WoEBinner, tables: dict[str, DataFrame], pd: Any) -> DataFrame:
+    """Los bordes de cada tramo regular numérico, desde los cortes ajustados (D-CPY-3).
+
+    Los mismos cortes que lee ``Scorecard.merge_bins`` (``get_binned_variable(...).splits``), a
+    precisión completa: la etiqueta ``Bin`` de OptBinning los redondea a dos decimales. Una variable
+    cuyos tramos no calzan con sus cortes, o categórica, no aporta filas y se lee con su etiqueta.
+    """
+    import math
+
+    from nikodym.core.tramos import BIN_EDGES_COLUMNS
+
+    filas: list[dict[str, Any]] = []
+    proceso = getattr(binner, "process_", None)
+    for variable, tabla in tables.items():
+        try:
+            ajustada = proceso.get_binned_variable(variable) if proceso is not None else None
+        except Exception:  # una variable no tramificada no tiene cortes que publicar
+            continue
+        if ajustada is None or str(getattr(ajustada, "dtype", "numerical")) != "numerical":
+            continue
+        cortes = [float(corte) for corte in getattr(ajustada, "splits", ())]
+        etiquetas = tabla["Bin"] if "Bin" in tabla.columns else pd.Series(dtype=object)
+        regulares = [
+            etiqueta
+            for indice, etiqueta in etiquetas.items()
+            if str(indice) != "Totals"
+            and isinstance(etiqueta, str)
+            and etiqueta not in {"", "Special", "Missing"}
+        ]
+        if len(regulares) != len(cortes) + 1:
+            continue
+        bordes = [-math.inf, *cortes, math.inf]
+        filas.extend(
+            {"variable": str(variable), "bin_index": i, "lower": bordes[i], "upper": bordes[i + 1]}
+            for i in range(len(cortes) + 1)
+        )
+    return cast(
+        DataFrame,
+        pd.DataFrame(filas, columns=list(BIN_EDGES_COLUMNS)).astype(
+            {"variable": "object", "bin_index": "int64", "lower": "float64", "upper": "float64"}
+        ),
+    )
 
 
 def _partition_mask(frame: DataFrame, partition_col: str, partition: str) -> Series:

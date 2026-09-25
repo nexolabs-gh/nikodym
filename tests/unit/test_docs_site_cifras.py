@@ -64,29 +64,29 @@ def _discriminante(particion: str, metrica: str) -> float:
 #: derivar la lista del propio documento mediría que el documento es consistente consigo mismo.
 _ANCLAS: list[tuple[str, str, float, int]] = [
     # Calibración — el bloque que estuvo doce días desfasado.
-    ("tutorial.md", "0.2333", _en(_fixture("results-f1.json"), "calibration.target_pd"), 4),
+    ("tutorial.md", "0,2333", _en(_fixture("results-f1.json"), "calibration.target_pd"), 4),
     (
         "tutorial.md",
-        "0.160",
+        "0,160",
         _reliability("desarrollo", "brier"),
         3,
     ),
-    ("tutorial.md", "0.164", _reliability("holdout", "brier"), 3),
-    ("tutorial.md", "0.171", _reliability("oot", "brier"), 3),
-    ("tutorial.md", "0.011", _reliability("desarrollo", "ece"), 3),
-    ("tutorial.md", "0.028", _reliability("holdout", "ece"), 3),
-    ("tutorial.md", "0.043", _reliability("oot", "ece"), 3),
+    ("tutorial.md", "0,164", _reliability("holdout", "brier"), 3),
+    ("tutorial.md", "0,171", _reliability("oot", "brier"), 3),
+    ("tutorial.md", "0,011", _reliability("desarrollo", "ece"), 3),
+    ("tutorial.md", "0,028", _reliability("holdout", "ece"), 3),
+    ("tutorial.md", "0,043", _reliability("oot", "ece"), 3),
     ("glosario.md", "0,233", _en(_fixture("results-f1.json"), "calibration.target_pd"), 3),
     (
         "guias/modelo-calibracion.md",
-        "0.2333",
+        "0,2333",
         _en(_fixture("results-f1.json"), "calibration.raw_mean_pd_dev"),
         4,
     ),
     # Discriminación — cuadraban ya, y se anclan para que sigan cuadrando.
-    ("tutorial.md", "0.712", _discriminante("desarrollo", "auc"), 3),
-    ("tutorial.md", "0.695", _discriminante("holdout", "auc"), 3),
-    ("tutorial.md", "0.656", _discriminante("oot", "auc"), 3),
+    ("tutorial.md", "0,712", _discriminante("desarrollo", "auc"), 3),
+    ("tutorial.md", "0,695", _discriminante("holdout", "auc"), 3),
+    ("tutorial.md", "0,656", _discriminante("oot", "auc"), 3),
 ]
 
 #: Afirmaciones cualitativas atadas a un campo del fixture: la frase sólo es cierta si el campo vale
@@ -115,11 +115,14 @@ _ANCLAS_DE_TEXTO: list[tuple[str, str, str, str]] = [
 #: viejo desde `privado/archivo/`.
 _PROSCRITAS: list[tuple[str, str]] = [
     ("tutorial.md", "-0.218"),
+    # D-CPY-5: desde que el sitio escribe los decimales con coma, la reaparición llegaría así.
+    ("tutorial.md", "-0,218"),
     ("tutorial.md", "target_pd = 0.20"),
     ("glosario.md", "target_pd = 0,20"),
     # El documento escribe el menos con el signo MATEMÁTICO (U+2212), no un guion: la búsqueda
     # tiene que usar el mismo carácter o el control por ausencia no encontraría nada y daría verde.
     ("guias/modelo-calibracion.md", "\u22120.2184"),
+    ("guias/modelo-calibracion.md", "\u22120,2184"),
     ("guias/modelo-calibracion.md", "`target_pd = 0.20`"),
 ]
 

@@ -226,7 +226,9 @@ def test_sin_tendencia_monotona_no_hay_veredicto_pero_si_tasas() -> None:
 
 def test_los_dos_artefactos_estan_declarados_en_provides_y_bin_frame_es_opcional() -> None:
     assert ("binning", "event_rate_by_partition") in BinningStep.provides
-    assert BINNING_ARTIFACTS[-1] == "event_rate_by_partition"
+    # Tras el diagnóstico sólo vienen claves aditivas posteriores (D-TTD-2, D-TTD-5, D-CPY-3).
+    posteriores = BINNING_ARTIFACTS[BINNING_ARTIFACTS.index("event_rate_by_partition") + 1 :]
+    assert posteriores == ("out_of_model_woe_frame", "unseen_categories", "bin_edges")
     assert ("selection", "iv_by_partition") in SelectionStep.provides
     assert SELECTION_ARTIFACTS[-1] == "iv_by_partition"
     assert SelectionStep.optional_requires == (("binning", "bin_frame"),)

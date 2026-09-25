@@ -128,6 +128,9 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
         # invariante de auditoría que exige que todo config recolectado tenga sección en el Anexo C,
         # y habría metido presentación en el anexo de parámetros del pipeline.
         "currency",
+        # D-CPY-3: los rótulos legibles de los tramos, aditivos con default vacío; el valor de las
+        # tablas —el del JSON y del CSV— sigue siendo la etiqueta del motor.
+        "bin_labels",
         # Capa C de FLUJO-GUIADO-SCORECARD: el resumen final de la corrida para la página
         # ejecutiva, aditivo con default `None`; un bundle armado a mano no lo trae y el
         # capítulo no se emite, así que sin corrida el documento es byte a byte el de siempre.
