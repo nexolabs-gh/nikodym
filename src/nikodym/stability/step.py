@@ -145,8 +145,14 @@ class StabilityStep(AuditableMixin):
         )
         if entradas is None:
             return psi_fuera_del_ajuste(cfg, dev_scores=None, fuera_scores=None)
-        fuera, _ = entradas
+        fuera, calibrada = entradas
         try:
+            # La cadena exige una sola población: el puntaje y la PD calibrada de las mismas filas
+            # (revisión adversarial del código, pasada 1).
+            if not fuera.index.sort_values().equals(calibrada.index.sort_values()):
+                raise StabilityDataError(
+                    "El puntaje y la PD calibrada fuera del ajuste no tienen el mismo índice."
+                )
             score = study.artifacts.get("scorecard", "score")
             dev = score.loc[
                 score["partition"].astype("string").eq("desarrollo").fillna(False).astype(bool),

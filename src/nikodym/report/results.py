@@ -175,8 +175,8 @@ class ReportInputBundle(_ReportBaseModel):
     que ``INFRA_SECTIONS`` mantiene (el informe no entra al ``config_hash`` porque no es cálculo).
     Un campo propio dice lo que es y no toca el anexo.
     """
-    bin_labels: dict[str, dict[str, str]] = Field(default_factory=dict)
-    """El rótulo legible de cada tramo, por variable y etiqueta del motor (D-CPY-3).
+    bin_labels: dict[str, list[str]] = Field(default_factory=dict)
+    """El rótulo legible de cada tramo, por variable y en el orden de sus filas (D-CPY-3).
 
     Aditivo (default vacío): lo llena ``ReportBuilder.collect`` con los bordes efectivos que
     publica ``binning`` (``("binning", "bin_edges")``). El renderer lo aplica a la columna ``Bin``

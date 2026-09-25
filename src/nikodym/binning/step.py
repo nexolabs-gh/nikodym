@@ -16,6 +16,7 @@ contaminar el núcleo liviano; las dependencias tabulares y de scoring se cargan
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
@@ -222,16 +223,30 @@ class BinningStep(AuditableMixin):
             pd=pd,
         )
         binner.unknown_categories_ = conteo_modelables
-        categorias_no_vistas = _categorias_no_vistas_por_muestra(
-            binner,
-            frame=frame,
-            feature_columns=feature_columns,
-            muestras={
-                "holdout": _partition_mask(frame, partition_col, "holdout"),
-                "oot": _partition_mask(frame, partition_col, "oot"),
-                _OUT_OF_MODEL_PARTITION: fuera_mask,
-            },
-            pd=pd,
+        # Los dos diagnósticos aditivos (D-TTD-5, D-CPY-3) son accesorios: si fallan, se publican
+        # vacíos con la causa en el trail y la corrida sigue (revisión adversarial del código,
+        # pasada 1).
+        categorias_no_vistas = self._diagnostico_aislado(
+            "categorias_no_vistas_no_contadas",
+            lambda: _categorias_no_vistas_por_muestra(
+                binner,
+                frame=frame,
+                feature_columns=feature_columns,
+                muestras={
+                    "holdout": _partition_mask(frame, partition_col, "holdout"),
+                    "oot": _partition_mask(frame, partition_col, "oot"),
+                    _OUT_OF_MODEL_PARTITION: fuera_mask,
+                },
+                pd=pd,
+            ),
+            vacio=pd.DataFrame(columns=["variable", "muestra", "filas"]).astype(
+                {"variable": "object", "muestra": "object", "filas": "int64"}
+            ),
+        )
+        bordes = self._diagnostico_aislado(
+            "bordes_de_tramo_no_publicados",
+            lambda: _bordes_efectivos(binner, tables, pd),
+            vacio=_bordes_vacios(pd),
         )
         self._publish_artifacts(
             study,
@@ -245,9 +260,24 @@ class BinningStep(AuditableMixin):
             tasas_por_muestra,
             out_of_model_woe_frame,
             categorias_no_vistas,
-            _bordes_efectivos(binner, tables, pd),
+            bordes,
         )
         return result
+
+    def _diagnostico_aislado(
+        self, regla: str, calcular: Callable[[], DataFrame], *, vacio: DataFrame
+    ) -> DataFrame:
+        """Un diagnóstico aditivo que no puede detener la corrida: si falla, vacío y al trail."""
+        try:
+            return calcular()
+        except Exception as exc:  # accesorio: nunca detiene la corrida
+            self.log_decision(
+                regla=regla,
+                umbral=self.name,
+                valor={"causa": f"{type(exc).__name__}: {exc}"},
+                accion="publicar_vacio",
+            )
+            return vacio
 
     def _woe_fuera_del_ajuste(
         self,
@@ -830,9 +860,23 @@ def _bordes_efectivos(binner: WoEBinner, tables: dict[str, DataFrame], pd: Any) 
             {"variable": str(variable), "bin_index": i, "lower": bordes[i], "upper": bordes[i + 1]}
             for i in range(len(cortes) + 1)
         )
+    if not filas:
+        return _bordes_vacios(pd)
     return cast(
         DataFrame,
         pd.DataFrame(filas, columns=list(BIN_EDGES_COLUMNS)).astype(
+            {"variable": "object", "bin_index": "int64", "lower": "float64", "upper": "float64"}
+        ),
+    )
+
+
+def _bordes_vacios(pd: Any) -> DataFrame:
+    """El esquema de ``("binning", "bin_edges")`` sin filas."""
+    from nikodym.core.tramos import BIN_EDGES_COLUMNS
+
+    return cast(
+        DataFrame,
+        pd.DataFrame(columns=list(BIN_EDGES_COLUMNS)).astype(
             {"variable": "object", "bin_index": "int64", "lower": "float64", "upper": "float64"}
         ),
     )

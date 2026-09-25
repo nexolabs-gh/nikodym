@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from nikodym.binning.results import IV_BAND_LABELS
-from nikodym.core.tramos import rotulos_de_tramos
+from nikodym.core.tramos import es_fila_de_totales, filas_que_casan, rotulos_por_fila
 from nikodym.eda.card import FAILED_ANALYSIS_LABELS, failed_analysis_sentence
 from nikodym.eda.default_rate import (
     AXIS_LABELS,
@@ -1307,9 +1307,16 @@ def _resumen_scorecard(study: Study, context: SummaryContext) -> StageSummary:
             if "Tramo" in table.columns and "Variable" in table.columns:
                 # D-CPY-3: el rótulo legible; `bin_label` del artefacto no cambia.
                 legibles = _legibles(study)
+                posiciones = (
+                    tarjeta["bin_index"]
+                    if "bin_index" in tarjeta.columns
+                    else pd.Series([None] * len(tarjeta.index), index=tarjeta.index)
+                )
                 table["Tramo"] = [
-                    legibles.get(str(variable), {}).get(str(tramo), str(tramo))
-                    for variable, tramo in zip(table["Variable"], table["Tramo"], strict=True)
+                    _legible_en(legibles.get(str(variable), []), posicion, str(tramo))
+                    for variable, tramo, posicion in zip(
+                        table["Variable"], table["Tramo"], posiciones, strict=True
+                    )
                 ]
         alerts.extend(_overrides_sin_casar(study))
     if not lines:
@@ -1381,19 +1388,25 @@ def _resumen_calibration(study: Study, context: SummaryContext) -> StageSummary:
     )
 
 
-def _legibles(study: Study) -> dict[str, dict[str, str]]:
-    """El rótulo legible de cada tramo, por variable y etiqueta del motor (D-CPY-3)."""
+def _legibles(study: Study) -> dict[str, list[str]]:
+    """El rótulo legible de cada tramo, por variable y en el orden de sus filas (D-CPY-3)."""
     tablas = _artifact(study, "binning", "tables")
     bordes = _artifact(study, "binning", "bin_edges")
     if not isinstance(tablas, Mapping):
         return {}
     return {
-        str(variable): rotulos_de_tramos(
+        str(variable): rotulos_por_fila(
             tabla, bordes if isinstance(bordes, pd.DataFrame) else None, str(variable)
         )
         for variable, tabla in tablas.items()
         if isinstance(tabla, pd.DataFrame)
     }
+
+
+def _legible_en(legibles: list[str], posicion: Any, respaldo: str) -> str:
+    """El rótulo de la fila ``posicion``, o la etiqueta del motor si no hay rótulo para ella."""
+    n = _int(posicion)
+    return legibles[n] if n is not None and 0 <= n < len(legibles) else respaldo
 
 
 def _overrides_sin_casar(study: Study) -> tuple[str, ...]:
@@ -1412,6 +1425,7 @@ def _overrides_sin_casar(study: Study) -> tuple[str, ...]:
     if not ajustes or not isinstance(tarjeta, pd.DataFrame):
         return ()
     legibles = _legibles(study)
+    tablas = _artifact(study, "binning", "tables")
     alertas: list[str] = []
     for ajuste in ajustes:
         feature = str(
@@ -1420,9 +1434,17 @@ def _overrides_sin_casar(study: Study) -> tuple[str, ...]:
         etiqueta = str(
             _mapping(ajuste).get("bin_label") if isinstance(ajuste, Mapping) else ajuste.bin_label
         )
-        crudas = {str(v) for v in tarjeta.loc[tarjeta["feature"].eq(feature), "bin_label"]}
-        propias = legibles.get(feature, {})
-        if etiqueta in crudas or etiqueta in {propias.get(c) for c in crudas}:
+        tabla = tablas.get(feature) if isinstance(tablas, Mapping) else None
+        crudas = (
+            [
+                str(fila.get("Bin"))
+                for indice, fila in tabla.iterrows()
+                if not es_fila_de_totales(indice, fila.get("Bin"))
+            ]
+            if isinstance(tabla, pd.DataFrame)
+            else [str(v) for v in tarjeta.loc[tarjeta["feature"].eq(feature), "bin_label"]]
+        )
+        if filas_que_casan(etiqueta, crudas, legibles.get(feature, [])):
             continue
         alertas.append(
             f"El ajuste manual de puntos de «{feature}» para el tramo «{etiqueta}» no calzó con "

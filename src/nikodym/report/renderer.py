@@ -920,24 +920,40 @@ def _public_record(key: str, record: Mapping[Any, Any]) -> Mapping[Any, Any]:
 _BINNING_TABLE_PREFIX: Final = "binning.tables."
 
 
-def _rotulo_de_tramo_en(
-    key: str, record: Mapping[Any, Any], bin_labels: Mapping[str, Mapping[str, str]]
-) -> Mapping[Any, Any]:
-    """El tramo legible de una fila de ``binning.tables.*`` o ``scorecard.scorecard`` (D-CPY-3)."""
-    from nikodym.core.tramos import rotulo_de_tramo
+def _rotulos_de_tramo(
+    key: str, records: list[Mapping[Any, Any]], bin_labels: Mapping[str, list[str]]
+) -> list[Mapping[Any, Any]]:
+    """El tramo legible de las filas de ``binning.tables.*`` o ``scorecard.scorecard`` (D-CPY-3).
 
-    if key.startswith(_BINNING_TABLE_PREFIX) and "Bin" in record:
-        variable = key[len(_BINNING_TABLE_PREFIX) :]
-        valor = record.get("Bin")
-        return {
-            **record,
-            "Bin": bin_labels.get(variable, {}).get(str(valor), rotulo_de_tramo(valor)),
-        }
-    if key == "scorecard.scorecard" and "bin_label" in record:
-        valor = str(record.get("bin_label"))
-        legible = bin_labels.get(str(record.get("feature")), {}).get(valor, valor)
-        return {**record, "bin_label": legible}
-    return record
+    Por posición, no por la etiqueta del motor: dos cortes que se redondean igual darían la misma
+    etiqueta a dos tramos (revisión adversarial del código, pasada 1).
+    """
+    from nikodym.core.tramos import es_fila_de_totales, rotulo_de_tramo
+
+    if key.startswith(_BINNING_TABLE_PREFIX):
+        propios = bin_labels.get(key[len(_BINNING_TABLE_PREFIX) :], [])
+        salida: list[Mapping[Any, Any]] = []
+        posicion = 0
+        for record in records:
+            valor = record.get("Bin")
+            if "Bin" not in record or es_fila_de_totales("", valor):
+                salida.append(record)
+                continue
+            legible = propios[posicion] if posicion < len(propios) else rotulo_de_tramo(valor)
+            salida.append({**record, "Bin": legible})
+            posicion += 1
+        return salida
+    if key == "scorecard.scorecard":
+        salida = []
+        for record in records:
+            propios = bin_labels.get(str(record.get("feature")), [])
+            indice = record.get("bin_index")
+            if isinstance(indice, int) and 0 <= indice < len(propios):
+                salida.append({**record, "bin_label": propios[indice]})
+            else:
+                salida.append(record)
+        return salida
+    return records
 
 
 def _table_view(
@@ -946,7 +962,7 @@ def _table_view(
     *,
     max_rows: int,
     internal_grouping: str = "",
-    bin_labels: Mapping[str, Mapping[str, str]] | None = None,
+    bin_labels: Mapping[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     if not _is_dataframe_like(table):
         raise ReportRenderError(
@@ -968,9 +984,8 @@ def _table_view(
             )
             for column in columns
         )
-        for record in map(
-            lambda fila: _rotulo_de_tramo_en(key, _public_record(key, fila), bin_labels or {}),
-            records,
+        for record in _rotulos_de_tramo(
+            key, [_public_record(key, fila) for fila in records], bin_labels or {}
         )
     ]
     return {

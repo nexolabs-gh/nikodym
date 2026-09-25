@@ -20,10 +20,12 @@ from typing import Any, Final
 __all__ = [
     "AUX_BIN_LABELS",
     "BIN_EDGES_COLUMNS",
+    "es_fila_de_totales",
+    "filas_que_casan",
     "formatear_borde",
     "rotulo_de_rango",
     "rotulo_de_tramo",
-    "rotulos_de_tramos",
+    "rotulos_por_fila",
 ]
 
 #: Los tramos auxiliares de OptBinning, dichos para quien lee (enmienda COPY-PRUEBA-REAL-SBA).
@@ -96,43 +98,60 @@ def rotulo_de_tramo(valor: Any) -> str:
     return AUX_BIN_LABELS.get(texto, texto)
 
 
-def rotulos_de_tramos(tabla: Any, bordes: Any | None, variable: str) -> dict[str, str]:
-    """El rótulo legible de cada tramo de una variable, por su etiqueta del motor (``str(Bin)``).
+def es_fila_de_totales(indice: Any, valor: Any) -> bool:
+    """La fila de totales de una tabla de binning (índice ``Totals`` o etiqueta vacía o «Total»)."""
+    return str(indice) == "Totals" or str(valor) in {"", "Totals", "Total"}
 
-    La etiqueta del motor sigue siendo la clave de todo lo que casa por tramo —la tabla de puntos,
-    el bundle, los cortes fijados—; esto sólo dice cómo se lee. Los rangos numéricos se escriben
-    desde ``bordes`` (``("binning", "bin_edges")``); si faltan o no calzan con la tabla, se deja la
-    etiqueta del motor.
+
+def rotulos_por_fila(tabla: Any, bordes: Any | None, variable: str) -> list[str]:
+    """El rótulo legible de cada tramo, **en el orden de la tabla** y sin la fila de totales.
+
+    Por posición y no por la etiqueta del motor: dos cortes que se redondean igual a dos decimales
+    dan la misma etiqueta a dos tramos distintos (revisión adversarial del código, pasada 1). Los
+    rangos numéricos se escriben desde ``bordes`` (``("binning", "bin_edges")``); si faltan o no
+    calzan con los tramos regulares, se deja la etiqueta del motor.
     """
     filas = [
-        fila
+        fila.get("Bin")
         for indice, fila in tabla.iterrows()
-        if str(indice) != "Totals" and str(fila.get("Bin")) != ""
+        if not es_fila_de_totales(indice, fila.get("Bin"))
     ]
-    regulares = [
-        fila
-        for fila in filas
-        if not (isinstance(fila.get("Bin"), str) and fila.get("Bin") in AUX_BIN_LABELS)
-    ]
+    n_regulares = sum(
+        1 for valor in filas if not (isinstance(valor, str) and valor in AUX_BIN_LABELS)
+    )
     rangos: list[tuple[float, float]] | None = None
     if bordes is not None and not bordes.empty and set(BIN_EDGES_COLUMNS) <= set(bordes.columns):
         propios = bordes.loc[bordes["variable"].astype(str).eq(variable)].sort_values("bin_index")
-        if len(propios.index) == len(regulares) and len(regulares) > 0:
+        if len(propios.index) == n_regulares and n_regulares > 0:
             rangos = [
                 (float(inferior), float(superior))
                 for inferior, superior in zip(propios["lower"], propios["upper"], strict=True)
             ]
-    salida: dict[str, str] = {}
+    salida: list[str] = []
     posicion = 0
-    for fila in filas:
-        valor = fila.get("Bin")
-        crudo = str(valor)
+    for valor in filas:
         if isinstance(valor, str) and valor in AUX_BIN_LABELS:
-            salida[crudo] = AUX_BIN_LABELS[valor]
+            salida.append(AUX_BIN_LABELS[valor])
             continue
         if rangos is not None and isinstance(valor, str):
-            salida[crudo] = rotulo_de_rango(*rangos[posicion])
+            salida.append(rotulo_de_rango(*rangos[posicion]))
         else:
-            salida[crudo] = rotulo_de_tramo(valor)
+            salida.append(rotulo_de_tramo(valor))
         posicion += 1
     return salida
+
+
+def filas_que_casan(etiqueta: str, crudas: list[str], legibles: list[str]) -> list[int]:
+    """Las filas con que casa la etiqueta de un ajuste manual de puntos (D-CPY-3).
+
+    La etiqueta del motor tiene prioridad **global**: si coincide con la de alguna fila, casa con
+    esas filas y con nada más, exactamente como antes. Sólo si no coincide con ninguna, puede casar
+    con un rótulo legible, y sólo si ese rótulo es de **una** fila: un rótulo que nombra dos tramos
+    —o que es a la vez la etiqueta del motor de otro, como una categoría llamada «Missing»— no
+    casa (revisión adversarial del código, pasada 1).
+    """
+    exactas = [posicion for posicion, cruda in enumerate(crudas) if cruda == etiqueta]
+    if exactas:
+        return exactas
+    por_rotulo = [posicion for posicion, legible in enumerate(legibles) if legible == etiqueta]
+    return por_rotulo if len(por_rotulo) == 1 else []

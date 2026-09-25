@@ -400,6 +400,66 @@ def test_una_falla_en_la_tarjeta_no_detiene_la_corrida_y_vacia_la_cadena(
     assert not any("No se pudo puntuar" in a for a in sc.summary("model").alerts)
 
 
+def test_un_diagnostico_aditivo_que_falla_no_detiene_la_corrida(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Revisión adversarial del código, pasada 1: el conteo de categorías no vistas corría fuera
+    de toda captura; ahora una falla suya publica la clave vacía y queda en el trail."""
+    import nikodym.binning.transformer as transformer
+
+    def falla(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("conteo roto")
+
+    monkeypatch.setattr(transformer, "_contar_categorias_no_vistas", falla)
+    datos = _cartera()
+    sc = _puerta(_guardar(datos, tmp_path, "conteo"), tmp_path, "conteo")
+    sc.run()
+    st = sc.study
+    assert st.run_context.status == "done", st.run_context.error
+    assert st.artifacts.get("binning", "unseen_categories").empty
+    assert not st.artifacts.get("scorecard", "out_of_model_score").empty
+    (decision,) = _decisiones(Path(sc.project_dir), "categorias_no_vistas_no_contadas")
+    assert "RuntimeError: conteo roto" in decision["valor"]["causa"]
+
+
+def test_la_representatividad_exige_una_sola_poblacion() -> None:
+    """Revisión adversarial del código, pasada 1: con puntaje y PD calibrada de filas distintas
+    (artefactos inyectados de corridas distintas) no se publica un PSI."""
+    from types import SimpleNamespace
+
+    from nikodym.core.audit import InMemoryAuditSink
+    from nikodym.stability.config import StabilityConfig
+    from nikodym.stability.step import StabilityStep
+
+    score = pd.DataFrame(
+        {"partition": ["desarrollo"] * 20, "score": np.arange(20.0)}, index=range(20)
+    )
+    fuera = pd.DataFrame({"partition": ["fuera_de_modelo"] * 5, "score": np.arange(5.0)})
+    calibrada = pd.DataFrame(
+        {"partition": ["fuera_de_modelo"] * 5, "pd_calibrated": [0.1] * 5}, index=range(100, 105)
+    )
+    valores = {
+        ("scorecard", "score"): score,
+        ("scorecard", "out_of_model_score"): fuera,
+        ("calibration", "out_of_model_calibrated_pd_frame"): calibrada,
+    }
+    study = SimpleNamespace(
+        artifacts=SimpleNamespace(
+            has=lambda d, k: (d, k) in valores, get=lambda d, k: valores[(d, k)]
+        )
+    )
+    step = StabilityStep(StabilityConfig())
+    sink = InMemoryAuditSink()
+    step._audit = sink
+    psi = step._psi_fuera_del_ajuste(study, StabilityConfig())  # type: ignore[arg-type]
+    assert psi.empty
+    (evento,) = [e.payload for e in sink.events if e.kind == "decision"]
+    assert evento["regla"] == "ttd_no_puntuada"
+    assert "mismo índice" in evento["valor"]["causa"]
+    calibrada.index = fuera.index
+    assert not step._psi_fuera_del_ajuste(study, StabilityConfig()).empty  # type: ignore[arg-type]
+
+
 def test_run_until_binning_publica_solo_la_clave_de_binning(tmp_path: Path) -> None:
     """🔴 Test 6b: cada paso que corre publica su clave; las de los pasos que no corrieron no
     existen."""

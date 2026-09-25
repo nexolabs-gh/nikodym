@@ -1023,11 +1023,9 @@ describe("variableBinning", () => {
   it("D-CPY-3: usa el rótulo legible del motor cuando viene, y la etiqueta de siempre si no", () => {
     const conRotulos: BinningResult = {
       ...binningWithTables,
+      // Por posición (sin la fila de totales): tramo 1, tramo 2, Special y Missing.
       bin_labels_by_variable: {
-        ingreso_mensual: {
-          "(-inf, 242795.88)": "< 242.795,88",
-          "[913196.97, inf)": "≥ 913.196,97",
-        },
+        ingreso_mensual: ["< 242.795,88", "≥ 913.196,97", "Valores especiales", "Faltantes"],
       },
     }
     const d = variableBinning(conRotulos, "ingreso_mensual")

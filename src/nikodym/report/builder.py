@@ -1038,11 +1038,11 @@ def _raise_not_json_serializable(value: object) -> NoReturn:
     raise TypeError(f"{type(value).__name__} no es JSON-serializable")
 
 
-def _rotulos_de_tramos(study: Study) -> dict[str, dict[str, str]]:
+def _rotulos_de_tramos(study: Study) -> dict[str, list[str]]:
     """El rótulo legible de cada tramo de cada variable tramificada (D-CPY-3)."""
     if not study.artifacts.has("binning", "tables"):
         return {}
-    from nikodym.core.tramos import rotulos_de_tramos
+    from nikodym.core.tramos import rotulos_por_fila
 
     tablas = study.artifacts.get("binning", "tables")
     bordes = (
@@ -1053,7 +1053,7 @@ def _rotulos_de_tramos(study: Study) -> dict[str, dict[str, str]]:
     if not isinstance(tablas, Mapping):
         return {}
     return {
-        str(variable): rotulos_de_tramos(tabla, bordes, str(variable))
+        str(variable): rotulos_por_fila(tabla, bordes, str(variable))
         for variable, tabla in tablas.items()
         if _is_dataframe_like(tabla)
     }

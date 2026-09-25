@@ -564,17 +564,17 @@ def _binning_tables(study: Study) -> dict[str, list[dict[str, Any]]] | None:
     return {str(feature): _frame_records(frame) for feature, frame in tables.items()}
 
 
-def _bin_labels(study: Study) -> dict[str, dict[str, str]] | None:
-    """El rótulo legible de cada tramo, por variable y por la etiqueta que ve el panel (D-CPY-3).
+def _bin_labels(study: Study) -> dict[str, list[str]] | None:
+    """El rótulo legible de cada tramo, por variable y en el orden de sus filas (D-CPY-3).
 
-    La clave es la que el panel calcula con ``normalizeBinLabel`` —el texto de un rango, las
-    categorías unidas con «, »—; el valor, el rótulo con los bordes efectivos que publica
-    ``binning`` (``("binning", "bin_edges")``). ``None`` si las tablas faltan: un payload sin
-    rótulos se sigue leyendo con las etiquetas del motor.
+    Por posición —la de la fila en ``tables_by_variable``, sin la de totales— y no por la etiqueta
+    del motor, que dos cortes redondeados igual pueden repetir. El valor es el rótulo con los bordes
+    efectivos que publica ``binning`` (``("binning", "bin_edges")``). ``None`` si las tablas faltan:
+    un payload sin rótulos se sigue leyendo con las etiquetas del motor.
     """
     if not study.artifacts.has("binning", "tables"):
         return None
-    from nikodym.core.tramos import rotulo_de_tramo, rotulos_de_tramos
+    from nikodym.core.tramos import rotulos_por_fila
 
     tables: dict[str, pd.DataFrame] = study.artifacts.get("binning", "tables")
     bordes = (
@@ -582,15 +582,10 @@ def _bin_labels(study: Study) -> dict[str, dict[str, str]] | None:
         if study.artifacts.has("binning", "bin_edges")
         else None
     )
-    salida: dict[str, dict[str, str]] = {}
-    for feature, frame in tables.items():
-        legibles = rotulos_de_tramos(frame, bordes, str(feature))
-        salida[str(feature)] = {
-            rotulo_de_tramo(valor) if not isinstance(valor, str) else valor: legibles[str(valor)]
-            for valor in frame["Bin"]
-            if str(valor) in legibles
-        }
-    return salida
+    return {
+        str(feature): rotulos_por_fila(frame, bordes, str(feature))
+        for feature, frame in tables.items()
+    }
 
 
 def _selection_decisions(study: Study) -> list[dict[str, Any]] | None:

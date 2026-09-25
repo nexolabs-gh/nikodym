@@ -27,10 +27,11 @@ import pytest
 
 import nikodym
 from nikodym.core.tramos import (
+    filas_que_casan,
     formatear_borde,
     rotulo_de_rango,
     rotulo_de_tramo,
-    rotulos_de_tramos,
+    rotulos_por_fila,
 )
 from nikodym.guided.summaries import (
     _celda,
@@ -223,15 +224,64 @@ def test_los_rotulos_de_una_tabla_usan_los_bordes_y_si_no_calzan_la_etiqueta() -
             "upper": [7.123456, math.inf],
         }
     )
-    assert rotulos_de_tramos(tabla, bordes, "tasa") == {
-        "(-inf, 7.12)": "< 7,123456",
-        "[7.12, inf)": "≥ 7,123456",
-        "Special": "Valores especiales",
-        "Missing": "Faltantes",
-    }
+    assert rotulos_por_fila(tabla, bordes, "tasa") == [
+        "< 7,123456",
+        "≥ 7,123456",
+        "Valores especiales",
+        "Faltantes",
+    ]
     un_borde = bordes.iloc[:1]
-    assert rotulos_de_tramos(tabla, un_borde, "tasa")["(-inf, 7.12)"] == "(-inf, 7.12)"
-    assert rotulos_de_tramos(tabla, None, "tasa")["[7.12, inf)"] == "[7.12, inf)"
+    assert rotulos_por_fila(tabla, un_borde, "tasa")[0] == "(-inf, 7.12)"
+    assert rotulos_por_fila(tabla, None, "tasa")[1] == "[7.12, inf)"
+
+
+def test_dos_cortes_que_se_redondean_igual_no_comparten_rotulo() -> None:
+    """Revisión adversarial del código, pasada 1: la etiqueta del motor de dos tramos interiores
+    es la misma (``[7.12, 7.12)``); por posición cada uno lleva sus bordes."""
+    tabla = pd.DataFrame(
+        {"Bin": ["(-inf, 7.12)", "[7.12, 7.12)", "[7.12, 7.12)", "[7.12, inf)", ""]},
+        index=[0, 1, 2, 3, "Totals"],
+    )
+    cortes = [7.121, 7.123, 7.125]
+    limites = [-math.inf, *cortes, math.inf]
+    bordes = pd.DataFrame(
+        {
+            "variable": ["tasa"] * 4,
+            "bin_index": [0, 1, 2, 3],
+            "lower": limites[:-1],
+            "upper": limites[1:],
+        }
+    )
+    assert rotulos_por_fila(tabla, bordes, "tasa") == [
+        "< 7,121",
+        "≥ 7,121 y < 7,123",
+        "≥ 7,123 y < 7,125",
+        "≥ 7,125",
+    ]
+    vista = _table_view(
+        "binning.tables.tasa",
+        tabla.reset_index(drop=True),
+        max_rows=10,
+        bin_labels={"tasa": rotulos_por_fila(tabla, bordes, "tasa")},
+    )
+    columna = vista["columns"].index("Bin")
+    assert [fila[columna] for fila in vista["rows"]][1:3] == [
+        "≥ 7,121 y < 7,123",
+        "≥ 7,123 y < 7,125",
+    ]
+
+
+def test_el_casamiento_da_prioridad_a_la_etiqueta_del_motor_y_no_acepta_ambiguedad() -> None:
+    """Revisión adversarial del código, pasada 1: una categoría llamada «Missing» tiene el rótulo
+    «Missing», igual que la etiqueta del motor del tramo auxiliar; un ajuste escrito «Missing» casa
+    sólo con el auxiliar, como antes. Y un rótulo que nombra dos tramos no casa."""
+    crudas = ["['Missing']", "['otro']", "Missing"]
+    legibles = ["Missing", "otro", "Faltantes"]
+    assert filas_que_casan("Missing", crudas, legibles) == [2]
+    assert filas_que_casan("otro", crudas, legibles) == [1]
+    assert filas_que_casan("Faltantes", crudas, legibles) == [2]
+    assert filas_que_casan("repetido", ["a", "b"], ["repetido", "repetido"]) == []
+    assert filas_que_casan("[7.12, 7.12)", ["[7.12, 7.12)", "[7.12, 7.12)"], ["x", "y"]) == [0, 1]
 
 
 # ───────────────────────── D-CPY-3 de punta a punta ─────────────────────────
@@ -379,7 +429,7 @@ def test_el_informe_y_la_pantalla_leen_el_mismo_rotulo(_corrida: nikodym.Scoreca
     primero = vista["rows"][0][columna]
     assert primero.startswith("< ")
     cruda = str(st.artifacts.get("binning", "tables")["tasa"]["Bin"].iloc[0])
-    assert _bin_labels(st)["tasa"][cruda] == primero
+    assert _bin_labels(st)["tasa"][0] == primero
     tarjeta = _table_view(
         "scorecard.scorecard",
         bundle.tables["scorecard.scorecard"],
@@ -390,3 +440,43 @@ def test_el_informe_y_la_pantalla_leen_el_mismo_rotulo(_corrida: nikodym.Scoreca
     assert not any("['" in str(fila[columna]) for fila in tarjeta["rows"])
     # El valor del artefacto —el del JSON y del CSV— sigue siendo la etiqueta del motor.
     assert str(bundle.tables["binning.tables.tasa"]["Bin"].iloc[0]) == cruda
+
+
+def test_el_escalador_aplica_un_ajuste_viejo_solo_donde_casaba_antes() -> None:
+    """Revisión adversarial del código, pasada 1, de punta a punta en el escalador: el ajuste
+    «Missing» de un config viejo no alcanza a la categoría literal «Missing»."""
+    from nikodym.core.audit import InMemoryAuditSink
+    from nikodym.scorecard.config import ScorecardConfig
+    from nikodym.scorecard.scaler import PointsScaler
+
+    tabla = pd.DataFrame(
+        {
+            "Bin": [
+                np.array(["Missing"], dtype=object),
+                np.array(["otro"], dtype=object),
+                "Missing",
+            ],
+            "WoE": [0.4, -0.3, 0.0],
+        }
+    )
+    coeficientes = pd.DataFrame(
+        [
+            {"feature": "intercept", "woe_column": "const", "beta": -0.5},
+            {"feature": "seg", "woe_column": "seg__woe", "beta": -0.9},
+        ]
+    )
+    ajuste = PointOverrideConfig(feature="seg", bin_label="Missing", points=99, reason="comité")
+    escalador = PointsScaler.from_config(ScorecardConfig(point_overrides=(ajuste,)))
+    sink = InMemoryAuditSink()
+    escalador.fit(
+        coefficients=coeficientes,
+        final_features=("seg",),
+        final_woe_columns=("seg__woe",),
+        binning_tables={"seg": tabla},
+        woe_column_map={"seg": "seg__woe"},
+        audit=sink,
+    )
+    tarjeta = escalador.scorecard_.set_index("bin_index")
+    assert tarjeta.loc[2, "points"] == 99
+    assert tarjeta.loc[0, "points"] != 99
+    assert not [e for e in sink.events if e.payload.get("regla") == "point_override_sin_casar"]

@@ -155,12 +155,13 @@ export interface BinningResult {
   }[]
   tables_by_variable?: Record<string, BinRow[]>
   /**
-   * Rótulo legible de cada tramo, por variable y por la etiqueta que da `normalizeBinLabel`
-   * (enmienda COPY-PRUEBA-REAL-SBA, D-CPY-3): rangos con comparadores y bordes efectivos en es-CL,
-   * y «Faltantes»/«Valores especiales». Opcional: un payload anterior —la demo capturada— no lo
-   * trae, y el panel muestra entonces la etiqueta del motor.
+   * Rótulo legible de cada tramo, por variable y en el orden de las filas de
+   * `tables_by_variable` (sin la de totales), por posición y no por etiqueta: dos cortes que se
+   * redondean igual comparten etiqueta (enmienda COPY-PRUEBA-REAL-SBA, D-CPY-3). Rangos con
+   * comparadores y bordes efectivos en es-CL, y «Faltantes»/«Valores especiales». Opcional: un
+   * payload anterior —la demo capturada— no lo trae, y el panel muestra la etiqueta del motor.
    */
-  bin_labels_by_variable?: Record<string, Record<string, string>>
+  bin_labels_by_variable?: Record<string, string[]>
 }
 
 // --- selection --------------------------------------------------------------

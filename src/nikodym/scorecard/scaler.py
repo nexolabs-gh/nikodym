@@ -498,7 +498,7 @@ def _scorecard_rows(
     offset_share: float,
     intercept_share: float,
     assigned_bins: Mapping[str, Collection[str]],
-    legibles: Mapping[str, Mapping[str, str]] | None = None,
+    legibles: Mapping[str, list[str]] | None = None,
     casados: set[tuple[str, str]] | None = None,
 ) -> list[dict[str, object]]:
     """Construye filas de puntos en orden estable feature/bin.
@@ -506,16 +506,29 @@ def _scorecard_rows(
     Un ajuste manual casa con la etiqueta del motor o con el rótulo legible del tramo (D-CPY-3);
     las claves que casaron se anotan en ``casados``.
     """
+    from nikodym.core.tramos import filas_que_casan
+
     legibles = legibles or {}
     casados = casados if casados is not None else set()
+    crudas = {
+        feature: [str(valor) for valor in tables[feature]["Bin"]]
+        for feature in features
+        if feature in tables
+    }
+    destino: dict[tuple[str, int], tuple[str, str]] = {}
+    for clave in overrides:
+        feature, etiqueta = clave
+        for posicion in filas_que_casan(
+            etiqueta, crudas.get(feature, []), list(legibles.get(feature, []))
+        ):
+            destino.setdefault((feature, posicion), clave)
 
-    def _override_de(feature: str, bin_label: str) -> PointOverrideConfig | None:
-        legible = legibles.get(feature, {}).get(bin_label)
-        for clave in ((feature, bin_label), (feature, legible) if legible is not None else None):
-            if clave is not None and clave in overrides:
-                casados.add(clave)
-                return overrides[clave]
-        return None
+    def _override_de(feature: str, posicion: int) -> PointOverrideConfig | None:
+        clave = destino.get((feature, posicion))
+        if clave is None:
+            return None
+        casados.add(clave)
+        return overrides[clave]
 
     rows: list[dict[str, object]] = []
     for feature, woe_column in zip(features, woe_columns, strict=True):
@@ -530,7 +543,7 @@ def _scorecard_rows(
                 _reference_row(filas_de_la_variable, woe) if bin_label in asignados else None
             )
             if referencia is not None:
-                if _override_de(feature, bin_label) is not None:
+                if _override_de(feature, bin_index) is not None:
                     raise ScorecardFitError(
                         f"El bin «{bin_label}» de «{feature}» comparte los puntos de su tramo de "
                         f"referencia «{referencia['bin_label']}», del que tomó el WoE: el ajuste "
@@ -565,7 +578,7 @@ def _scorecard_rows(
             )
             points = _published_points(raw_points, estimator.rounding_method)
             source = "binning_table"
-            override = _override_de(feature, bin_label)
+            override = _override_de(feature, bin_index)
             if override is not None:
                 previous = points
                 points = _normalize_point(override.points)
@@ -610,15 +623,22 @@ def _rotulos_legibles(
     bin_edges: DataFrame | None,
     *,
     features: tuple[str, ...],
-) -> dict[str, dict[str, str]]:
-    """El rótulo legible de cada tramo de las variables finales, por su etiqueta del motor."""
-    from nikodym.core.tramos import rotulos_de_tramos
+) -> dict[str, list[str]]:
+    """El rótulo legible de cada tramo de las variables finales, en el orden de sus filas.
 
-    return {
-        feature: rotulos_de_tramos(binning_tables[feature], bin_edges, feature)
-        for feature in features
-        if feature in binning_tables
-    }
+    Desde las tablas **originales**, sin la fila de totales —la misma máscara que las filas de
+    puntos—: la copia de trabajo convierte ``Bin`` a texto y una categoría se leería ``['norte']``.
+    """
+    from nikodym.core.tramos import rotulos_por_fila
+
+    salida: dict[str, list[str]] = {}
+    for feature in features:
+        tabla = binning_tables.get(feature)
+        if tabla is None or "Bin" not in tabla.columns:
+            continue
+        filas = tabla.loc[~_total_row_mask(tabla)]
+        salida[feature] = rotulos_por_fila(filas, bin_edges, feature)
+    return salida
 
 
 def _override_map(
