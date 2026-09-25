@@ -460,22 +460,49 @@ def test_la_representatividad_exige_una_sola_poblacion() -> None:
     assert not step._psi_fuera_del_ajuste(study, StabilityConfig()).empty  # type: ignore[arg-type]
 
 
+def _con_puntaje_minimo_inalcanzable(sc: nikodym.Scorecard) -> Any:
+    """Un config donde TODO puntaje queda fuera de rango: el escalador registra
+    `score_fuera_de_rango` en cada transformación, así que el caso nunca es vacuo."""
+    return sc.config.model_copy(
+        update={"scorecard": sc.config.scorecard.model_copy(update={"min_score": 100000.0})}
+    )
+
+
+def _decisiones_de(run_dir: Path, regla: str) -> list[dict[str, Any]]:
+    eventos = [
+        json.loads(linea)
+        for linea in (run_dir / "audit_trail.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    return [
+        e["payload"]
+        for e in eventos
+        if e["kind"] == "decision" and e["payload"].get("regla") == regla
+    ]
+
+
 def test_las_decisiones_del_escalador_fuera_del_ajuste_dicen_su_poblacion(
-    _corrida: tuple[nikodym.Scorecard, pd.DataFrame],
+    _corrida: tuple[nikodym.Scorecard, pd.DataFrame], tmp_path: Path
 ) -> None:
-    """Revisión adversarial del código, pasada 3: `bin_no_visto` de la segunda transformación
-    se mezclaba con el de las muestras. Ahora lleva `poblacion`, y el de las muestras no."""
+    """Revisión adversarial del código, pasada 3: las decisiones de la segunda transformación
+    se mezclaban con las de las muestras. Ahora llevan `poblacion`, y las de las muestras no."""
     sc, datos = _corrida
-    eventos = _decisiones(Path(sc.project_dir), "bin_no_visto")
+    st = nikodym.run(_con_puntaje_minimo_inalcanzable(sc), run_dir=tmp_path / "rango")
+    assert st.run_context.status == "done", st.run_context.error
+    eventos = _decisiones_de(tmp_path / "rango", "score_fuera_de_rango")
     fuera = [e for e in eventos if e["valor"].get("poblacion") == "fuera_del_ajuste"]
     muestras = [e for e in eventos if "poblacion" not in e["valor"]]
-    assert len(eventos) == len(fuera) + len(muestras)
-    # Un conteo marcado como de fuera del ajuste no puede exceder esas filas.
-    assert all(e["valor"]["conteo"] <= len(_fuera(datos)) for e in fuera)
+    assert len(muestras) == 1
+    assert len(fuera) == 1
+    assert fuera[0]["valor"]["filas_afectadas"] == len(_fuera(datos))
+    assert muestras[0]["valor"]["filas_afectadas"] == len(
+        st.artifacts.get("scorecard", "score").index
+    )
 
 
 def test_si_el_puntaje_fuera_del_ajuste_falla_no_quedan_sus_decisiones(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    _corrida: tuple[nikodym.Scorecard, pd.DataFrame],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Revisión adversarial del código, pasada 3: si el ensamblado falla tras transformar, las
     decisiones de esa transformación no quedan en el trail; queda sólo la falla."""
@@ -487,23 +514,13 @@ def test_si_el_puntaje_fuera_del_ajuste_falla_no_quedan_sus_decisiones(
         return original(**kwargs)
 
     monkeypatch.setattr(scorecard_step, "_assemble_score_frame", falla_fuera)
-    datos = _cartera()
-    sc = _puerta(_guardar(datos, tmp_path, "sin_eventos"), tmp_path, "sin_eventos")
-    sc.run()
-    assert sc.study.run_context.status == "done", sc.study.run_context.error
-    todas = [
-        json.loads(linea)["payload"]
-        for linea in (Path(sc.project_dir) / "run" / "audit_trail.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-        if json.loads(linea)["kind"] == "decision"
-    ]
-    assert not [
-        d
-        for d in todas
-        if isinstance(d.get("valor"), dict) and d["valor"].get("poblacion") == "fuera_del_ajuste"
-    ]
-    assert len([d for d in todas if d.get("regla") == "ttd_no_puntuada"]) == 1
+    sc, _ = _corrida
+    st = nikodym.run(_con_puntaje_minimo_inalcanzable(sc), run_dir=tmp_path / "falla")
+    assert st.run_context.status == "done", st.run_context.error
+    eventos = _decisiones_de(tmp_path / "falla", "score_fuera_de_rango")
+    assert len(eventos) == 1
+    assert "poblacion" not in eventos[0]["valor"]
+    assert len(_decisiones_de(tmp_path / "falla", "ttd_no_puntuada")) == 1
 
 
 def test_run_until_binning_publica_solo_la_clave_de_binning(tmp_path: Path) -> None:
