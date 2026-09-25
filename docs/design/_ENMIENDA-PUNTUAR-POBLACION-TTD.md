@@ -6,7 +6,7 @@
 | **Decisiones** | **D-TTD-1** (qué filas se puntúan y cómo), **D-TTD-2** (los artefactos y sus dependencias), **D-TTD-3** (qué dicen las superficies), **D-TTD-4** (representatividad, sujeta a §5.1) y **D-TTD-5** (las categorías que no existían en Desarrollo se cuentan y se dicen, sujeta a §5.2) |
 | **Módulos** | `nikodym.binning`, `nikodym.model`, `nikodym.scorecard`, `nikodym.calibration` (`step`), `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (exports); con §5.1 (a), `nikodym.stability` |
 | **Fase** | F1 |
-| **Estado** | **Propuesta** el 2026-09-24 (S22). Sin código |
+| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): con la representatividad (§5.1 a) y con las categorías no vistas puntuadas como hoy y declaradas en todas las muestras (§5.2 a). La release espera a esta enmienda y a la de copy |
 | **Depende de** | D-DATA-5 (TTD es un rol booleano superpuesto a la partición), D-FAL-1 y D-RAR-1 (la transformación que reciben estas filas), D-SC-19 (el patrón: lo accesorio no detiene la corrida) |
 | **Release** | Aditiva: artefactos nuevos con clave propia, ningún campo de config, ningún número existente cambia ⇒ **minor** |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-24 |

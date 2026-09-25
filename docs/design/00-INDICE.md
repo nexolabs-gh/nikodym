@@ -1078,6 +1078,26 @@ por módulo bajo SDD-31, la primera
 > fila, y comparte sus puntos; **D-FAL-2**: trail, card (`assigned_bins`) y una línea por bin en
 > el resumen; **D-EXC-1**: `exclude()` escribe `binning.exclude_columns`. Cero perillas.
 
+> **La corrida puntúa a la población through-the-door que no entra al ajuste (2026-09-24;
+> **APROBADA por Cami el 2026-09-24/25** con la representatividad y con las categorías no vistas
+> declaradas; nace de la prueba de Cami con la muestra SBA).**
+> [`_ENMIENDA-PUNTUAR-POBLACION-TTD.md`](_ENMIENDA-PUNTUAR-POBLACION-TTD.md), D-TTD-1…5, enmienda a
+> [`09-scorecard.md`](09-scorecard.md) §6, [`06-binning.md`](06-binning.md) §6,
+> [`08-model.md`](08-model.md), [`10-calibration.md`](10-calibration.md) y
+> [`11-performance-stability.md`](11-performance-stability.md); cumple lo que SDD-31 §8 ya
+> prometía. 🔴 **Medido**: 6.225 préstamos sin desenlace no recibían puntaje ni PD. Cuatro claves
+> aditivas `out_of_model_*` en cadena, con la transformación de Holdout/OOT y sin reajustar nada;
+> PSI de representatividad frente a Desarrollo; las categorías no vistas en Desarrollo se cuentan
+> por muestra y se dicen. Cero perillas; ningún número existente cambia.
+
+> **Enmienda corta de copy de la prueba real con el SBA (2026-09-24; **APROBADA por Cami el
+> 2026-09-24/25** con los rangos escritos con comparadores).**
+> [`_ENMIENDA-COPY-PRUEBA-REAL-SBA.md`](_ENMIENDA-COPY-PRUEBA-REAL-SBA.md), D-CPY-1…6: «Fuera del
+> ajuste» en la tabla de muestras y en el informe, la variable del CSI y el eje temporal en la
+> línea de validación, tramos legibles con los bordes efectivos (`("binning", "bin_edges")`) y
+> `point_overrides` que casan también con el rótulo legible, p-valores «< 0,001», coma decimal en
+> el sitio y la brecha media agregada de Hosmer-Lemeshow. Eleva tres hallazgos que no son copy.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |

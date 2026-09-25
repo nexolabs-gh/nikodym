@@ -6,7 +6,7 @@
 | **Decisiones** | **D-CPY-1…6** (qué se corrige y cómo) y tres **elevaciones** que no son copy (§8) |
 | **Módulos** | `nikodym.guided` (`summaries`, `scorecard`), `nikodym.report` (`prose`, `renderer`), `web/src/lib/results-format.ts`, `docs_site/` |
 | **Fase** | F1 |
-| **Estado** | **Propuesta** el 2026-09-24 (S22). Sin código |
+| **Estado** | **APROBADA por Cami el 2026-09-24/25** (S22, interactivo): rangos **con comparadores** (§7.1 a). La reestructuración de §3 tras la pasada 2 abre la implementación con una pasada de Codex sobre su código |
 | **Depende de** | D-FLU (resúmenes por etapa, `TablaDeEtapa`), D-VAL-13…18 (líneas de validación) |
 | **Release** | Ningún número, `config_hash` ni artefacto existente cambia; §3 añade una clave y una alerta ⇒ **minor** (entra con la que corresponda) |
 | **Autor / Fecha** | Claude Code (writer) / 2026-09-24 |
